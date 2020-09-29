@@ -1,0 +1,8 @@
+
+#Ignore thumbnails created by Windows
+Thumbs.db
+#Ignore files built by Visual Studio
+[Bb]in
+obj/
+#Nuget packages folder
+packages/
