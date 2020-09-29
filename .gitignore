@@ -1,8 +1,7 @@
 
 #Ignore thumbnails created by Windows
 Thumbs.db
-#Ignore files built by Visual Studio
+#Ignore files built by Visual Studio/Code
 [Bb]in
 obj/
-#Nuget packages folder
-packages/
+.vscode/
