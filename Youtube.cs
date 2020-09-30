@@ -45,23 +45,40 @@ namespace SubTubular
 
             foreach (var video in playlist.Videos.Take(command.Latest))
             {
-                var tracks = dataStore.Get<CaptionTrack[]>(video.Id);
-
-                if (tracks == null)
-                {
-                    tracks = DownloadCaptionTracks(video.Id);
-                    dataStore.Set(video.Id, tracks);
-                }
-
-                var filtered = tracks
-                    .SelectMany(t => t.Captions)
-                    .Where(c => command.Terms.Any(t => c.Text.Contains(t, StringComparison.InvariantCultureIgnoreCase)))
-                    .ToArray();
-
+                var filtered = SearchVideo(video.Id, command.Terms);
                 if (filtered.Any()) captionsByVideo.Add(video, filtered);
             }
 
             return captionsByVideo;
+        }
+
+        internal IDictionary<string, Caption[]> SearchVideos(SearchVideos command)
+        {
+            var captionsByVideoId = new Dictionary<string, Caption[]>();
+
+            foreach (var videoId in command.VideoIds)
+            {
+                var filtered = SearchVideo(videoId, command.Terms);
+                if (filtered.Any()) captionsByVideoId.Add(videoId, filtered);
+            }
+
+            return captionsByVideoId;
+        }
+
+        private Caption[] SearchVideo(string videoId, IEnumerable<string> terms)
+        {
+            var tracks = dataStore.Get<CaptionTrack[]>(videoId);
+
+            if (tracks == null)
+            {
+                tracks = DownloadCaptionTracks(videoId);
+                dataStore.Set(videoId, tracks);
+            }
+
+            return tracks
+                .SelectMany(t => t.Captions)
+                .Where(c => terms.Any(t => c.Text.Contains(t, StringComparison.InvariantCultureIgnoreCase)))
+                .ToArray();
         }
 
         private CaptionTrack[] DownloadCaptionTracks(string videoId)

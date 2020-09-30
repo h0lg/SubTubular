@@ -1,6 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Reflection;
 using CommandLine;
 
@@ -11,37 +11,51 @@ namespace SubTubular
         private static void Main(string[] args)
         {
             //see https://github.com/commandlineparser/commandline
-            Parser.Default.ParseArguments<SearchPlaylist>(args).WithParsed(command =>
+            Parser.Default.ParseArguments<SearchPlaylist, SearchVideos>(args)
+                .WithParsed<SearchPlaylist>(command => Search(
+                    youtube => youtube.SearchPlaylist(command),
+                    result => DisplayVideoResult(result.Key.Id, result.Value, result.Key.Uploaded.ToString("g") + " ")))
+                .WithParsed<SearchVideos>(command => Search(
+                    youtube => youtube.SearchVideos(command),
+                    result => DisplayVideoResult(result.Key, result.Value)));
+        }
+
+        private static void Search<T>(Func<Youtube, IEnumerable<T>> getResults, Action<T> displayResult)
+        {
+            var fileStoragePath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                Assembly.GetEntryAssembly().GetName().Name);
+
+            var youtube = new Youtube(new JsonFileDataStore(fileStoragePath));
+            Console.WriteLine();
+            var hasResult = false;
+
+            foreach (var result in getResults(youtube))
             {
-                var fileStoragePath = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                    Assembly.GetEntryAssembly().GetName().Name);
+                hasResult = true;
+                displayResult(result);
+            }
 
-                var youtube = new Youtube(new JsonFileDataStore(fileStoragePath));
-                var captionsByVideos = youtube.SearchPlaylist(command);
-                Console.WriteLine();
+            if (hasResult) Console.WriteLine("All captions were downloaded to " + fileStoragePath);
+        }
 
-                foreach (var captionsByVideo in captionsByVideos)
-                {
-                    var videoUrl = "https://youtu.be/" + captionsByVideo.Key.Id;
-                    Console.WriteLine("{0:g} {1}", captionsByVideo.Key.Uploaded, videoUrl);
+        private static void DisplayVideoResult(string videoId, Caption[] captions, string videoPrefix = "")
+        {
+            var videoUrl = "https://youtu.be/" + videoId;
+            Console.WriteLine(videoPrefix + videoUrl);
 
-                    foreach (var caption in captionsByVideo.Value)
-                    {
-                        Console.WriteLine(
-                            "    {0}:{1} {2}    {3}?t={4}",
-                            caption.At / 60,
-                            caption.At % 60,
-                            caption.Text,
-                            videoUrl,
-                            caption.At);
-                    }
+            foreach (var caption in captions)
+            {
+                Console.WriteLine(
+                    "    {0}:{1} {2}    {3}?t={4}",
+                    caption.At / 60,
+                    caption.At % 60,
+                    caption.Text,
+                    videoUrl,
+                    caption.At);
+            }
 
-                    Console.WriteLine();
-                }
-
-                if (captionsByVideos.Any()) Console.WriteLine("All captions were downloaded to " + fileStoragePath);
-            });
+            Console.WriteLine();
         }
     }
 }
