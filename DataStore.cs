@@ -1,12 +1,13 @@
 using System.IO;
 using System.Text.Json;
+using System.Threading.Tasks;
 
 namespace SubTubular
 {
     internal interface DataStore
     {
-        T Get<T>(string key);
-        void Set<T>(string key, T value);
+        Task<T> GetAsync<T>(string key);
+        Task SetAsync<T>(string key, T value);
     }
 
     internal sealed class JsonFileDataStore : DataStore
@@ -25,18 +26,18 @@ namespace SubTubular
 
         private string GetPath(string key) => Path.Combine(directory, key + ".json");
 
-        public T Get<T>(string key)
+        public async Task<T> GetAsync<T>(string key)
         {
             var path = GetPath(key);
             if (!File.Exists(path)) return default;
-            var json = File.ReadAllText(path);
+            var json = await File.ReadAllTextAsync(path);
             return JsonSerializer.Deserialize<T>(json);
         }
 
-        public void Set<T>(string key, T value)
+        public async Task SetAsync<T>(string key, T value)
         {
             var json = JsonSerializer.Serialize(value);
-            File.WriteAllText(GetPath(key), json);
+            await File.WriteAllTextAsync(GetPath(key), json);
         }
     }
 }

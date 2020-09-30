@@ -2,25 +2,31 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Threading.Tasks;
 using CommandLine;
 
 namespace SubTubular
 {
     internal sealed class Program
     {
-        private static void Main(string[] args)
+        private static async Task Main(string[] args)
         {
             //see https://github.com/commandlineparser/commandline
-            Parser.Default.ParseArguments<SearchPlaylist, SearchVideos>(args)
-                .WithParsed<SearchPlaylist>(command => Search(
-                    youtube => youtube.SearchPlaylist(command),
-                    result => DisplayVideoResult(result.Key.Id, result.Value, result.Key.Uploaded.ToString("g") + " ")))
-                .WithParsed<SearchVideos>(command => Search(
-                    youtube => youtube.SearchVideos(command),
-                    result => DisplayVideoResult(result.Key, result.Value)));
+            var parserResult = Parser.Default.ParseArguments<SearchPlaylist, SearchVideos>(args);
+
+            //https://github.com/commandlineparser/commandline/wiki/Getting-Started#using-withparsedasync-in-asyncawait
+            await parserResult.WithParsedAsync<SearchPlaylist>(async command => await Search(
+                youtube => youtube.SearchPlaylistAsync(command),
+                result => DisplayVideoResult(result.Item1.Id, result.Item2, result.Item1.Uploaded.ToString("g") + " ")));
+
+            await parserResult.WithParsedAsync<SearchVideos>(async command => await Search(
+                youtube => youtube.SearchVideosAsync(command),
+                result => DisplayVideoResult(result.Item1, result.Item2)));
         }
 
-        private static void Search<T>(Func<Youtube, IEnumerable<T>> getResults, Action<T> displayResult)
+        private static async Task Search<T>(
+            Func<Youtube, IAsyncEnumerable<T>> getResultsAsync,
+            Action<T> displayResult)
         {
             var fileStoragePath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -30,7 +36,7 @@ namespace SubTubular
             Console.WriteLine();
             var hasResult = false;
 
-            foreach (var result in getResults(youtube))
+            await foreach (var result in getResultsAsync(youtube))
             {
                 hasResult = true;
                 displayResult(result);

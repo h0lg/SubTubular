@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace SubTubular
 {
@@ -6,7 +8,7 @@ namespace SubTubular
     public sealed class Playlist
     {
         public DateTime Loaded { get; set; }
-        public Video[] Videos { get; set; }
+        public IList<Video> Videos { get; set; } = new List<Video>();
     }
 
     [Serializable]
@@ -22,6 +24,10 @@ namespace SubTubular
     public sealed class CaptionTrack
     {
         public Caption[] Captions { get; set; }
+
+        internal Caption[] FindCaptions(IEnumerable<string> terms) => Captions
+            .Where(c => terms.Any(t => c.Text.Contains(t, StringComparison.InvariantCultureIgnoreCase)))
+            .ToArray();
     }
 
     [Serializable]

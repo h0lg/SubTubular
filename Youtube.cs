@@ -16,90 +16,103 @@ namespace SubTubular
             youtube = new YoutubeClient();
         }
 
-        internal IDictionary<Video, Caption[]> SearchPlaylist(SearchPlaylist command)
+        internal async IAsyncEnumerable<Tuple<Video, Caption[]>> SearchPlaylistAsync(SearchPlaylist command)
         {
-            var playlist = dataStore.Get<Playlist>(command.PlaylistId); //get cached
+            var playlist = await dataStore.GetAsync<Playlist>(command.PlaylistId); //get cached
 
-            if (playlist == null || playlist.Videos.Length < command.Latest
+            if (playlist == null || playlist.Videos.Count < command.Latest
                 || playlist.Loaded < DateTime.UtcNow.AddMinutes(-command.CachePlaylistForMinutes))
             {
-                var loaded = DateTime.UtcNow;
-                var videos = youtube.Playlists.GetVideosAsync(command.PlaylistId).BufferAsync(command.Latest).Result;
+                playlist = new Playlist { Loaded = DateTime.UtcNow };
+                var current = 0;
 
-                playlist = new Playlist
+                await foreach (var vid in youtube.Playlists.GetVideosAsync(command.PlaylistId))
                 {
-                    Loaded = loaded,
-                    Videos = videos
-                        .Select(v => new Video
-                        {
-                            Id = v.Id.Value,
-                            Uploaded = v.UploadDate.UtcDateTime
-                        })
-                        .ToArray()
-                };
+                    var video = new Video
+                    {
+                        Id = vid.Id.Value,
+                        Uploaded = vid.UploadDate.UtcDateTime
+                    };
 
-                dataStore.Set(command.PlaylistId, playlist);
+                    playlist.Videos.Add(video);
+
+                    await foreach (var captions in SearchVideoAsync(video.Id, command.Terms))
+                    {
+                        if (captions.Any()) yield return Tuple.Create(video, captions);
+                    }
+
+                    if (current < command.Latest) current++;
+                    else break;
+                }
+
+                await dataStore.SetAsync(command.PlaylistId, playlist)
+                    .ConfigureAwait(false); //nothing else to do here
             }
-
-            var captionsByVideo = new Dictionary<Video, Caption[]>();
-
-            foreach (var video in playlist.Videos.Take(command.Latest))
+            else
             {
-                var filtered = SearchVideo(video.Id, command.Terms);
-                if (filtered.Any()) captionsByVideo.Add(video, filtered);
+                foreach (var video in playlist.Videos.Take(command.Latest))
+                {
+                    await foreach (var captions in SearchVideoAsync(video.Id, command.Terms))
+                    {
+                        if (captions.Any()) yield return Tuple.Create(video, captions);
+                    }
+                }
             }
-
-            return captionsByVideo;
         }
 
-        internal IDictionary<string, Caption[]> SearchVideos(SearchVideos command)
+        internal async IAsyncEnumerable<Tuple<string, Caption[]>> SearchVideosAsync(SearchVideos command)
         {
-            var captionsByVideoId = new Dictionary<string, Caption[]>();
-
             foreach (var videoId in command.VideoIds)
             {
-                var filtered = SearchVideo(videoId, command.Terms);
-                if (filtered.Any()) captionsByVideoId.Add(videoId, filtered);
+                await foreach (var captions in SearchVideoAsync(videoId, command.Terms))
+                {
+                    if (captions.Any()) yield return Tuple.Create(videoId, captions);
+                }
             }
-
-            return captionsByVideoId;
         }
 
-        private Caption[] SearchVideo(string videoId, IEnumerable<string> terms)
+        private async IAsyncEnumerable<Caption[]> SearchVideoAsync(string videoId, IEnumerable<string> terms)
         {
-            var tracks = dataStore.Get<CaptionTrack[]>(videoId);
+            var tracks = await dataStore.GetAsync<List<CaptionTrack>>(videoId);
 
             if (tracks == null)
             {
-                tracks = DownloadCaptionTracks(videoId);
-                dataStore.Set(videoId, tracks);
-            }
+                tracks = new List<CaptionTrack>();
 
-            return tracks
-                .SelectMany(t => t.Captions)
-                .Where(c => terms.Any(t => c.Text.Contains(t, StringComparison.InvariantCultureIgnoreCase)))
-                .ToArray();
+                await foreach (var track in DownloadCaptionTracksAsync(videoId))
+                {
+                    tracks.Add(track);
+                    yield return track.FindCaptions(terms);
+                }
+
+                await dataStore.SetAsync(videoId, tracks)
+                    .ConfigureAwait(false); //nothing else to do here
+            }
+            else
+            {
+                foreach (var track in tracks)
+                {
+                    yield return track.FindCaptions(terms);
+                }
+            }
         }
 
-        private CaptionTrack[] DownloadCaptionTracks(string videoId)
+        private async IAsyncEnumerable<CaptionTrack> DownloadCaptionTracksAsync(string videoId)
         {
-            var captions = new List<CaptionTrack>();
-            var trackManifest = youtube.Videos.ClosedCaptions.GetManifestAsync(videoId).Result;
+            var trackManifest = await youtube.Videos.ClosedCaptions.GetManifestAsync(videoId);
 
             foreach (var trackInfo in trackManifest.Tracks)
             {
                 // Get the actual closed caption track
-                var track = youtube.Videos.ClosedCaptions.GetAsync(trackInfo).Result;
+                var track = await youtube.Videos.ClosedCaptions.GetAsync(trackInfo);
 
-                captions.Add(new CaptionTrack
+                yield return new CaptionTrack
                 {
                     Captions = track.Captions
                         .Select(c => new Caption { At = Convert.ToInt32(c.Offset.TotalSeconds), Text = c.Text })
                         .ToArray()
-                });
+                };
             }
-
-            return captions.ToArray();
         }
     }
 }
