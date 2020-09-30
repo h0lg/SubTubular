@@ -95,6 +95,13 @@ namespace SubTubular
 
             foreach (var item in response.Items)
             {
+                /* download returns 403 Forbidden:
+                    The permissions associated with the request are not sufficient to download the caption track.
+
+                    "Got some feedback from the YouTube team, apparently the captions.download endpoint only works for videos your google account owns.
+                    It is not usable for other videos." from https://stackoverflow.com/questions/30653865/downloading-captions-always-returns-a-403
+
+                    Also no soultion in https://stackoverflow.com/questions/14061195/how-to-get-transcript-in-youtube-api-v3 */
                 var download = youtubeService.Captions.Download(item.Id);
                 // download.AccessToken = this.token;
                 // download.Key = youtubeService.ApiKey;
