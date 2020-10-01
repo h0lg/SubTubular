@@ -9,12 +9,12 @@ using YoutubeExplode.Videos;
 
 namespace SubTubular
 {
-    internal sealed class Youtube
+    public sealed class Youtube
     {
         private readonly DataStore dataStore;
         private readonly YoutubeClient youtube;
 
-        internal Youtube(DataStore dataStore)
+        public Youtube(DataStore dataStore)
         {
             this.dataStore = dataStore;
             youtube = new YoutubeClient();
@@ -23,7 +23,7 @@ namespace SubTubular
         /// <summary>Searches videos defined by a playlist.</summary>
         /// <param name="cancellation">Passed in either explicitly or by the IAsyncEnumerable.WithCancellation() extension,
         /// see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables</param>
-        internal async IAsyncEnumerable<VideoSearchResult> SearchPlaylistAsync(
+        public async IAsyncEnumerable<VideoSearchResult> SearchPlaylistAsync(
             SearchPlaylistCommand command,
             [EnumeratorCancellation] CancellationToken cancellation = default)
         {
@@ -68,7 +68,7 @@ namespace SubTubular
         /// <summary>Searches videos according to the specified command.</summary>
         /// <param name="cancellation">Passed in either explicitly or by the IAsyncEnumerable.WithCancellation() extension,
         /// see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables</param>
-        internal async IAsyncEnumerable<VideoSearchResult> SearchVideosAsync(
+        public async IAsyncEnumerable<VideoSearchResult> SearchVideosAsync(
             SearchVideos command,
             [EnumeratorCancellation] CancellationToken cancellation = default)
         {
@@ -205,7 +205,7 @@ namespace SubTubular
         }
     }
 
-    internal sealed class VideoSearchResult
+    public sealed class VideoSearchResult
     {
         public Video Video { get; set; }
         public bool TitleMatches { get; set; }

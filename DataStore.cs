@@ -4,17 +4,17 @@ using System.Threading.Tasks;
 
 namespace SubTubular
 {
-    internal interface DataStore
+    public interface DataStore
     {
         Task<T> GetAsync<T>(string key);
         Task SetAsync<T>(string key, T value);
     }
 
-    internal sealed class JsonFileDataStore : DataStore
+    public sealed class JsonFileDataStore : DataStore
     {
         private readonly string directory;
 
-        internal JsonFileDataStore(string directory)
+        public JsonFileDataStore(string directory)
         {
             this.directory = directory;
 

@@ -7,7 +7,7 @@ using YoutubeExplode.Playlists;
 
 namespace SubTubular
 {
-    internal abstract class SearchCommand
+    public abstract class SearchCommand
     {
         private string[] terms;
 
@@ -24,7 +24,7 @@ namespace SubTubular
         }
     }
 
-    internal abstract class SearchPlaylistCommand : SearchCommand
+    public abstract class SearchPlaylistCommand : SearchCommand
     {
         [Option('l', "latest", Default = 50, HelpText = "The number of latest videos to search.")]
         public int Latest { get; set; }
@@ -73,7 +73,7 @@ namespace SubTubular
     }
 
     [Verb("search-playlist", HelpText = "Searches the {latest} n videos from the {playlist} for the specified {terms}.")]
-    internal sealed class SearchPlaylist : SearchPlaylistCommand
+    public sealed class SearchPlaylist : SearchPlaylistCommand
     {
         [Value(0, Required = true, HelpText = "The playlist ID or URL.")]
         public string Playlist { get; set; }
@@ -85,7 +85,7 @@ namespace SubTubular
     }
 
     [Verb("search-videos", HelpText = "Searches the {videos} for the specified {terms}.")]
-    internal sealed class SearchVideos : SearchCommand
+    public sealed class SearchVideos : SearchCommand
     {
         [Value(0, Required = true, HelpText = "The space-separated YouTube video IDs and/or URLs.")]
         public IEnumerable<string> Videos { get; set; }
