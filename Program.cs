@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using CommandLine;
 
@@ -18,11 +19,11 @@ namespace SubTubular
             //https://github.com/commandlineparser/commandline/wiki/Getting-Started#using-withparsedasync-in-asyncawait
             await parserResult.WithParsedAsync<SearchPlaylist>(async command => await Search(
                 youtube => youtube.SearchPlaylistAsync(command),
-                result => DisplayVideoResult(result.Item1.Id, result.Item2, result.Item1.Uploaded.ToString("g") + " ")));
+                result => DisplayVideoResult(result.Item1.Id, result.Item2, command.Terms, result.Item1.Uploaded.ToString("g") + " ")));
 
             await parserResult.WithParsedAsync<SearchVideos>(async command => await Search(
                 youtube => youtube.SearchVideosAsync(command),
-                result => DisplayVideoResult(result.Item1, result.Item2)));
+                result => DisplayVideoResult(result.Item1, result.Item2, command.Terms)));
         }
 
         private static async Task Search<T>(
@@ -46,7 +47,8 @@ namespace SubTubular
             if (hasResult) Console.WriteLine("All captions were downloaded to " + fileStoragePath);
         }
 
-        private static void DisplayVideoResult(string videoId, Caption[] captions, string videoPrefix = "")
+        #region DISPLAY
+        private static void DisplayVideoResult(string videoId, Caption[] captions, IEnumerable<string> terms, string videoPrefix = "")
         {
             var videoUrl = "https://youtu.be/" + videoId;
             Console.WriteLine(videoPrefix + videoUrl);
@@ -54,15 +56,44 @@ namespace SubTubular
 
             foreach (var caption in captions)
             {
-                Console.WriteLine(
-                    "    {0} {1}    {2}?t={3}",
-                    TimeSpan.FromSeconds(caption.At).FormatWithOptionalHours().PadLeft(displaysHour ? 7 : 5),
-                    caption.Text,
-                    videoUrl,
-                    caption.At);
+                var offset = TimeSpan.FromSeconds(caption.At).FormatWithOptionalHours().PadLeft(displaysHour ? 7 : 5);
+                Console.Write($"    {offset} ");
+                WriteHighlighting(caption.Text, terms, ConsoleColor.Yellow);
+                Console.WriteLine($"    {videoUrl}?t={caption.At}");
             }
 
             Console.WriteLine();
         }
+
+        private static void WriteHighlighting(string text, IEnumerable<string> terms, ConsoleColor highlightedForeGround)
+        {
+            var written = 0;
+            var regularForeGround = Console.ForegroundColor; //using current
+
+            Action<int> write = length =>
+            {
+                Console.Write(text.Substring(written, length));
+                written += length;
+            };
+
+            var matches = terms
+                .SelectMany(term => text
+                    .IndexesOf(term, RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)
+                    .Select(index => new { term.Length, index }))
+                .OrderBy(match => match.index)
+                .ToArray();
+
+            foreach (var match in matches)
+            {
+                if (written < match.index) write(match.index - written); //write text preceding match
+                if (match.index < written && match.index <= written - match.Length) continue; //letters already matched
+                Console.ForegroundColor = highlightedForeGround;
+                write(match.Length - (written - match.index)); //write remaining matched letters
+                Console.ForegroundColor = regularForeGround;
+            }
+
+            if (written < text.Length) write(text.Length - written); //write text trailing last match
+        }
+        #endregion
     }
 }
