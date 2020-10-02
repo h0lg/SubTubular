@@ -19,5 +19,9 @@ namespace SubTubular
         //from https://stackoverflow.com/a/2642406
         internal static IEnumerable<int> IndexesOf(this string hayStack, string needle, RegexOptions options = RegexOptions.None)
             => Regex.Matches(hayStack, Regex.Escape(needle), options).Cast<Match>().Select(m => m.Index);
+
+        internal static bool ContainsAny(this string text, IEnumerable<string> terms,
+            StringComparison stringComparison = StringComparison.InvariantCultureIgnoreCase)
+            => terms.Any(t => text.Contains(t, stringComparison));
     }
 }

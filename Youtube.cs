@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Collections.Generic;
 using YoutubeExplode;
+using System.Threading.Tasks;
 
 namespace SubTubular
 {
@@ -16,11 +17,11 @@ namespace SubTubular
             youtube = new YoutubeClient();
         }
 
-        internal async IAsyncEnumerable<Tuple<Video, Caption[]>> SearchPlaylistAsync(SearchPlaylist command)
+        internal async IAsyncEnumerable<VideoSearchResult> SearchPlaylistAsync(SearchPlaylist command)
         {
             var playlist = await dataStore.GetAsync<Playlist>(command.PlaylistId); //get cached
 
-            if (playlist == null || playlist.Videos.Count < command.Latest
+            if (playlist == null || playlist.VideoIds.Count < command.Latest
                 || playlist.Loaded < DateTime.UtcNow.AddHours(-command.CachePlaylistForHours))
             {
                 playlist = new Playlist { Loaded = DateTime.UtcNow };
@@ -33,18 +34,11 @@ namespace SubTubular
                 //so order videos explicitly by latest uploaded before taking the latest n videos
                 foreach (var vid in videos.OrderByDescending(v => v.UploadDate).Take(command.Latest))
                 {
-                    var video = new Video
-                    {
-                        Id = vid.Id.Value,
-                        Uploaded = vid.UploadDate.UtcDateTime
-                    };
+                    playlist.VideoIds.Add(vid.Id);
 
-                    playlist.Videos.Add(video);
-
-                    await foreach (var captions in SearchVideoAsync(video.Id, command.Terms))
-                    {
-                        if (captions.Any()) yield return Tuple.Create(video, captions);
-                    }
+                    var video = await GetVideoAsync(vid.Id, vid);
+                    var searchResult = SearchVideo(video, command.Terms);
+                    if (searchResult != null) yield return searchResult;
                 }
 
                 await dataStore.SetAsync(command.PlaylistId, playlist)
@@ -52,53 +46,86 @@ namespace SubTubular
             }
             else
             {
-                //playlist.Videos is already ordered latest uploaded first; see above
-                foreach (var video in playlist.Videos.Take(command.Latest))
+                //playlist.VideoIds is already ordered latest uploaded first; see above
+                foreach (var videoId in playlist.VideoIds.Take(command.Latest))
                 {
-                    await foreach (var captions in SearchVideoAsync(video.Id, command.Terms))
-                    {
-                        if (captions.Any()) yield return Tuple.Create(video, captions);
-                    }
+                    var video = await GetVideoAsync(videoId);
+                    var searchResult = SearchVideo(video, command.Terms);
+                    if (searchResult != null) yield return searchResult;
                 }
             }
         }
 
-        internal async IAsyncEnumerable<Tuple<string, Caption[]>> SearchVideosAsync(SearchVideos command)
+        internal async IAsyncEnumerable<VideoSearchResult> SearchVideosAsync(SearchVideos command)
         {
             foreach (var videoId in command.VideoIds)
             {
-                await foreach (var captions in SearchVideoAsync(videoId, command.Terms))
-                {
-                    if (captions.Any()) yield return Tuple.Create(videoId, captions);
-                }
+                var video = await GetVideoAsync(videoId);
+                var searchResult = SearchVideo(video, command.Terms);
+                if (searchResult != null) yield return searchResult;
             }
         }
 
-        private async IAsyncEnumerable<Caption[]> SearchVideoAsync(string videoId, IEnumerable<string> terms)
+        private VideoSearchResult SearchVideo(Video video, IEnumerable<string> terms)
         {
-            var tracks = await dataStore.GetAsync<List<CaptionTrack>>(videoId);
+            var titleMatches = video.Title.ContainsAny(terms);
+            var matchingKeywords = video.Keywords.Where(kw => kw.ContainsAny(terms)).ToArray();
 
-            if (tracks == null)
+            var matchingCaptionTracks = video.CaptionTracks
+                .Select(track =>
+                {
+                    var matchingCaptions = track.Captions.Where(c => c.Text.ContainsAny(terms)).ToArray();
+                    return matchingCaptions.Any() ? new CaptionTrack(track, matchingCaptions) : null;
+                })
+                .Where(match => match != null)
+                .ToArray();
+
+            var matchingDescriptionLines = video.Description
+                //split on newlines, see https://stackoverflow.com/a/1547483
+                .Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries)
+                .Where(l => !string.IsNullOrWhiteSpace(l) && l.ContainsAny(terms))
+                .ToArray();
+
+            return titleMatches || matchingDescriptionLines.Any() || matchingKeywords.Any() || matchingCaptionTracks.Any()
+                ? new VideoSearchResult
+                {
+                    Video = video,
+                    TitleMatches = titleMatches,
+                    MatchingDescriptionLines = matchingDescriptionLines,
+                    MatchingKeywords = matchingKeywords,
+                    MatchingCaptionTracks = matchingCaptionTracks
+                }
+                : null;
+        }
+
+        private async Task<Video> GetVideoAsync(string videoId, YoutubeExplode.Videos.Video alreadyLoaded = null)
+        {
+            var video = await dataStore.GetAsync<Video>(videoId);
+
+            if (video == null)
             {
-                tracks = new List<CaptionTrack>();
+                var vid = alreadyLoaded ?? await youtube.Videos.GetAsync(videoId);
+                video = MapVideo(vid);
 
                 await foreach (var track in DownloadCaptionTracksAsync(videoId))
                 {
-                    tracks.Add(track);
-                    yield return track.FindCaptions(terms);
+                    video.CaptionTracks.Add(track);
                 }
 
-                await dataStore.SetAsync(videoId, tracks)
-                    .ConfigureAwait(false); //nothing else to do here
+                await dataStore.SetAsync(videoId, video);
             }
-            else
-            {
-                foreach (var track in tracks)
-                {
-                    yield return track.FindCaptions(terms);
-                }
-            }
+
+            return video;
         }
+
+        private static Video MapVideo(YoutubeExplode.Videos.Video video) => new Video
+        {
+            Id = video.Id.Value,
+            Title = video.Title,
+            Description = video.Description,
+            Keywords = video.Keywords.ToArray(),
+            Uploaded = video.UploadDate.UtcDateTime
+        };
 
         private async IAsyncEnumerable<CaptionTrack> DownloadCaptionTracksAsync(string videoId)
         {
@@ -111,11 +138,21 @@ namespace SubTubular
 
                 yield return new CaptionTrack
                 {
+                    LanguageName = trackInfo.Language.Name,
                     Captions = track.Captions
                         .Select(c => new Caption { At = Convert.ToInt32(c.Offset.TotalSeconds), Text = c.Text })
                         .ToArray()
                 };
             }
         }
+    }
+
+    internal sealed class VideoSearchResult
+    {
+        public Video Video { get; set; }
+        public bool TitleMatches { get; set; }
+        public string[] MatchingDescriptionLines { get; set; }
+        public string[] MatchingKeywords { get; set; }
+        public CaptionTrack[] MatchingCaptionTracks { get; set; }
     }
 }

@@ -19,11 +19,11 @@ namespace SubTubular
             //https://github.com/commandlineparser/commandline/wiki/Getting-Started#using-withparsedasync-in-asyncawait
             await parserResult.WithParsedAsync<SearchPlaylist>(async command => await Search(
                 youtube => youtube.SearchPlaylistAsync(command),
-                result => DisplayVideoResult(result.Item1.Id, result.Item2, command.Terms, result.Item1.Uploaded.ToString("g") + " ")));
+                result => DisplayVideoResult(result, command.Terms)));
 
             await parserResult.WithParsedAsync<SearchVideos>(async command => await Search(
                 youtube => youtube.SearchVideosAsync(command),
-                result => DisplayVideoResult(result.Item1, result.Item2, command.Terms)));
+                result => DisplayVideoResult(result, command.Terms)));
         }
 
         private static async Task Search<T>(
@@ -48,18 +48,59 @@ namespace SubTubular
         }
 
         #region DISPLAY
-        private static void DisplayVideoResult(string videoId, Caption[] captions, IEnumerable<string> terms, string videoPrefix = "")
-        {
-            var videoUrl = "https://youtu.be/" + videoId;
-            Console.WriteLine(videoPrefix + videoUrl);
-            var displaysHour = captions.Any(c => c.At > 3600);
+        const ConsoleColor highlightColor = ConsoleColor.Yellow;
 
-            foreach (var caption in captions)
+        private static void DisplayVideoResult(VideoSearchResult result, IEnumerable<string> terms)
+        {
+            var videoUrl = "https://youtu.be/" + result.Video.Id;
+            Console.WriteLine($"{result.Video.Uploaded:g} {videoUrl}");
+
+            if (result.TitleMatches)
             {
-                var offset = TimeSpan.FromSeconds(caption.At).FormatWithOptionalHours().PadLeft(displaysHour ? 7 : 5);
-                Console.Write($"    {offset} ");
-                WriteHighlighting(caption.Text, terms, ConsoleColor.Yellow);
-                Console.WriteLine($"    {videoUrl}?t={caption.At}");
+                WriteHighlighting("  in title: " + result.Video.Title, terms, highlightColor);
+                Console.WriteLine();
+            }
+
+            if (result.MatchingDescriptionLines.Any())
+            {
+                Console.Write("  in description: ");
+
+                for (int i = 0; i < result.MatchingDescriptionLines.Length; i++)
+                {
+                    var line = result.MatchingDescriptionLines[i];
+                    var prefix = i == 0 ? string.Empty : "    ";
+                    WriteHighlighting(prefix + line, terms, highlightColor);
+                    Console.WriteLine();
+                }
+            }
+
+            if (result.MatchingKeywords.Any())
+            {
+                Console.Write("  in keywords: ");
+                var lastKeyword = result.MatchingKeywords.Last();
+
+                foreach (var keyword in result.MatchingKeywords)
+                {
+                    WriteHighlighting(keyword, terms, highlightColor);
+
+                    if (keyword != lastKeyword) Console.Write(", ");
+                    else Console.WriteLine();
+                }
+            }
+
+            foreach (var track in result.MatchingCaptionTracks)
+            {
+                Console.WriteLine("  " + track.LanguageName);
+
+                var displaysHour = track.Captions.Any(c => c.At > 3600);
+
+                foreach (var caption in track.Captions)
+                {
+                    var offset = TimeSpan.FromSeconds(caption.At).FormatWithOptionalHours().PadLeft(displaysHour ? 7 : 5);
+                    Console.Write($"    {offset} ");
+                    WriteHighlighting(caption.Text, terms, highlightColor);
+                    Console.WriteLine($"    {videoUrl}?t={caption.At}");
+                }
             }
 
             Console.WriteLine();

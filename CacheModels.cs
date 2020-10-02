@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace SubTubular
 {
@@ -8,26 +7,40 @@ namespace SubTubular
     public sealed class Playlist
     {
         public DateTime Loaded { get; set; }
-        public IList<Video> Videos { get; set; } = new List<Video>();
+        public IList<string> VideoIds { get; set; } = new List<string>();
     }
 
     [Serializable]
     public sealed class Video
     {
         public string Id { get; set; }
+        public string Title { get; set; }
+        public string Description { get; set; }
+        public string[] Keywords { get; set; }
 
         /// <summary>Upload time in UTC.</summary>
         public DateTime Uploaded { get; set; }
+
+        public IList<CaptionTrack> CaptionTracks { get; set; } = new List<CaptionTrack>();
     }
 
     [Serializable]
     public sealed class CaptionTrack
     {
+        public string LanguageName { get; set; }
         public Caption[] Captions { get; set; }
 
-        internal Caption[] FindCaptions(IEnumerable<string> terms) => Captions
-            .Where(c => terms.Any(t => c.Text.Contains(t, StringComparison.InvariantCultureIgnoreCase)))
-            .ToArray();
+        public CaptionTrack() { } //required by serializer
+
+        /// <summary>Use this to clone a Captiontrack to include in a VideoSerachResult.
+        /// Captions will be set to matchingCaptions instead of cloning track.Captions.</summary>
+        /// <param name="track">The track to clone.</param>
+        /// <param name="matchingCaptions">The matching captions.</param>
+        internal CaptionTrack(CaptionTrack track, Caption[] matchingCaptions)
+        {
+            this.LanguageName = track.LanguageName;
+            this.Captions = matchingCaptions;
+        }
     }
 
     [Serializable]
