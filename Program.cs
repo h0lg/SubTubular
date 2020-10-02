@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using CommandLine;
@@ -49,13 +50,13 @@ namespace SubTubular
         {
             var videoUrl = "https://youtu.be/" + videoId;
             Console.WriteLine(videoPrefix + videoUrl);
+            var displaysHour = captions.Any(c => c.At > 3600);
 
             foreach (var caption in captions)
             {
                 Console.WriteLine(
-                    "    {0}:{1} {2}    {3}?t={4}",
-                    caption.At / 60,
-                    caption.At % 60,
+                    "    {0} {1}    {2}?t={3}",
+                    TimeSpan.FromSeconds(caption.At).FormatWithOptionalHours().PadLeft(displaysHour ? 7 : 5),
                     caption.Text,
                     videoUrl,
                     caption.At);
