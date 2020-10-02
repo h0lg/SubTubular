@@ -19,7 +19,8 @@ namespace SubTubular
 
         internal async IAsyncEnumerable<VideoSearchResult> SearchPlaylistAsync(SearchPlaylist command)
         {
-            var playlist = await dataStore.GetAsync<Playlist>(command.PlaylistId); //get cached
+            var storageKey = "playlist " + command.PlaylistId;
+            var playlist = await dataStore.GetAsync<Playlist>(storageKey); //get cached
 
             if (playlist == null || playlist.VideoIds.Count < command.Latest
                 || playlist.Loaded < DateTime.UtcNow.AddHours(-command.CachePlaylistForHours))
@@ -41,7 +42,7 @@ namespace SubTubular
                     if (searchResult != null) yield return searchResult;
                 }
 
-                await dataStore.SetAsync(command.PlaylistId, playlist)
+                await dataStore.SetAsync(storageKey, playlist)
                     .ConfigureAwait(false); //nothing else to do here
             }
             else
