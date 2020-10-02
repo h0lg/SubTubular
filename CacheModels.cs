@@ -4,14 +4,14 @@ using System.Collections.Generic;
 namespace SubTubular
 {
     [Serializable]
-    public sealed class Playlist
+    public class Playlist
     {
         public DateTime Loaded { get; set; }
         public IList<string> VideoIds { get; set; } = new List<string>();
     }
 
     [Serializable]
-    public sealed class Video
+    public class Video
     {
         public string Id { get; set; }
         public string Title { get; set; }
@@ -25,7 +25,7 @@ namespace SubTubular
     }
 
     [Serializable]
-    public sealed class CaptionTrack
+    public class CaptionTrack
     {
         public string LanguageName { get; set; }
         public Caption[] Captions { get; set; }
@@ -44,7 +44,7 @@ namespace SubTubular
     }
 
     [Serializable]
-    public sealed class Caption
+    public class Caption
     {
         /// <summary>The offset from the start of the video in seconds.</summary>
         public int At { get; set; }

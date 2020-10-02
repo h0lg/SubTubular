@@ -9,10 +9,10 @@ using YoutubeExplode.Videos;
 
 namespace SubTubular
 {
-    public sealed class Youtube
+    public class Youtube
     {
-        private readonly DataStore dataStore;
-        private readonly YoutubeClient youtube;
+        protected readonly DataStore dataStore;
+        protected readonly YoutubeClient youtube;
 
         public Youtube(DataStore dataStore)
         {
@@ -23,7 +23,7 @@ namespace SubTubular
         /// <summary>Searches videos defined by a playlist.</summary>
         /// <param name="cancellation">Passed in either explicitly or by the IAsyncEnumerable.WithCancellation() extension,
         /// see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables</param>
-        public async IAsyncEnumerable<VideoSearchResult> SearchPlaylistAsync(
+        public virtual async IAsyncEnumerable<VideoSearchResult> SearchPlaylistAsync(
             SearchPlaylistCommand command,
             [EnumeratorCancellation] CancellationToken cancellation = default)
         {
@@ -68,7 +68,7 @@ namespace SubTubular
         /// <summary>Searches videos according to the specified command.</summary>
         /// <param name="cancellation">Passed in either explicitly or by the IAsyncEnumerable.WithCancellation() extension,
         /// see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables</param>
-        public async IAsyncEnumerable<VideoSearchResult> SearchVideosAsync(
+        public virtual async IAsyncEnumerable<VideoSearchResult> SearchVideosAsync(
             SearchVideos command,
             [EnumeratorCancellation] CancellationToken cancellation = default)
         {
@@ -81,7 +81,7 @@ namespace SubTubular
             }
         }
 
-        private VideoSearchResult SearchVideo(Video video, IEnumerable<string> terms)
+        protected virtual VideoSearchResult SearchVideo(Video video, IEnumerable<string> terms)
         {
             var titleMatches = video.Title.ContainsAny(terms);
             var matchingKeywords = video.Keywords.Where(kw => kw.ContainsAny(terms)).ToArray();
@@ -185,7 +185,7 @@ namespace SubTubular
             Uploaded = video.UploadDate.UtcDateTime
         };
 
-        private async IAsyncEnumerable<CaptionTrack> DownloadCaptionTracksAsync(string videoId)
+        protected virtual async IAsyncEnumerable<CaptionTrack> DownloadCaptionTracksAsync(string videoId)
         {
             var trackManifest = await youtube.Videos.ClosedCaptions.GetManifestAsync(videoId);
 

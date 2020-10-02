@@ -10,7 +10,7 @@ namespace SubTubular
         Task SetAsync<T>(string key, T value);
     }
 
-    public sealed class JsonFileDataStore : DataStore
+    public class JsonFileDataStore : DataStore
     {
         private readonly string directory;
 
@@ -24,9 +24,9 @@ namespace SubTubular
             }
         }
 
-        private string GetPath(string key) => Path.Combine(directory, key + ".json");
+        protected virtual string GetPath(string key) => Path.Combine(directory, key + ".json");
 
-        public async Task<T> GetAsync<T>(string key)
+        public virtual async Task<T> GetAsync<T>(string key)
         {
             var path = GetPath(key);
             if (!File.Exists(path)) return default;
@@ -34,7 +34,7 @@ namespace SubTubular
             return JsonSerializer.Deserialize<T>(json);
         }
 
-        public async Task SetAsync<T>(string key, T value)
+        public virtual async Task SetAsync<T>(string key, T value)
         {
             var json = JsonSerializer.Serialize(value);
             await File.WriteAllTextAsync(GetPath(key), json);
