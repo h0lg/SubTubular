@@ -24,8 +24,8 @@ namespace SubTubular
         [Option('l', "Latest", Default = 50, HelpText = "The number of latest videos to download and search.")]
         public int Latest { get; set; }
 
-        [Option('m', "CachePlaylistForMinutes", Default = 60 * 24, HelpText = "How many minutes to cache the playlist for.")]
-        public int CachePlaylistForMinutes { get; set; }
+        [Option('h', "CachePlaylistForHours", Default = 24, HelpText = "How many hours to cache the playlist for.")]
+        public float CachePlaylistForHours { get; set; }
     }
 
     [Verb("search-videos", HelpText = "Downloads the transcripts/captions"

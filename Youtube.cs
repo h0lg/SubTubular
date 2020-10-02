@@ -21,7 +21,7 @@ namespace SubTubular
             var playlist = await dataStore.GetAsync<Playlist>(command.PlaylistId); //get cached
 
             if (playlist == null || playlist.Videos.Count < command.Latest
-                || playlist.Loaded < DateTime.UtcNow.AddMinutes(-command.CachePlaylistForMinutes))
+                || playlist.Loaded < DateTime.UtcNow.AddHours(-command.CachePlaylistForHours))
             {
                 playlist = new Playlist { Loaded = DateTime.UtcNow };
 
