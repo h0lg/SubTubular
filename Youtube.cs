@@ -17,9 +17,9 @@ namespace SubTubular
             youtube = new YoutubeClient();
         }
 
-        internal async IAsyncEnumerable<VideoSearchResult> SearchPlaylistAsync(SearchPlaylist command)
+        internal async IAsyncEnumerable<VideoSearchResult> SearchPlaylistAsync(SearchPlaylistCommand command)
         {
-            var storageKey = "playlist " + command.PlaylistId;
+            var storageKey = command.GetStorageKey();
             var playlist = await dataStore.GetAsync<Playlist>(storageKey); //get cached
 
             if (playlist == null || playlist.VideoIds.Count < command.Latest
@@ -30,7 +30,7 @@ namespace SubTubular
                 /* get the entire list. underlying implementation only makes one HTTP request either way
                     and we don't know how the videos are ordererd:
                     special "Uploads" playlist is latest uploaded first, but custom playlists may not be */
-                var videos = await youtube.Playlists.GetVideosAsync(command.PlaylistId);
+                var videos = await command.GetVideosAsync(youtube);
 
                 //so order videos explicitly by latest uploaded before taking the latest n videos
                 foreach (var vid in videos.OrderByDescending(v => v.UploadDate).Take(command.Latest))
