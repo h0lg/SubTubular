@@ -24,9 +24,14 @@ namespace SubTubular
                 || playlist.Loaded < DateTime.UtcNow.AddMinutes(-command.CachePlaylistForMinutes))
             {
                 playlist = new Playlist { Loaded = DateTime.UtcNow };
-                var current = 0;
 
-                await foreach (var vid in youtube.Playlists.GetVideosAsync(command.PlaylistId))
+                /* get the entire list. underlying implementation only makes one HTTP request either way
+                    and we don't know how the videos are ordererd:
+                    special "Uploads" playlist is latest uploaded first, but custom playlists may not be */
+                var videos = await youtube.Playlists.GetVideosAsync(command.PlaylistId);
+
+                //so order videos explicitly by latest uploaded before taking the latest n videos
+                foreach (var vid in videos.OrderByDescending(v => v.UploadDate).Take(command.Latest))
                 {
                     var video = new Video
                     {
@@ -40,9 +45,6 @@ namespace SubTubular
                     {
                         if (captions.Any()) yield return Tuple.Create(video, captions);
                     }
-
-                    if (current < command.Latest) current++;
-                    else break;
                 }
 
                 await dataStore.SetAsync(command.PlaylistId, playlist)
@@ -50,6 +52,7 @@ namespace SubTubular
             }
             else
             {
+                //playlist.Videos is already ordered latest uploaded first; see above
                 foreach (var video in playlist.Videos.Take(command.Latest))
                 {
                     await foreach (var captions in SearchVideoAsync(video.Id, command.Terms))
