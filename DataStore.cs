@@ -39,5 +39,7 @@ namespace SubTubular
             var json = JsonSerializer.Serialize(value);
             await File.WriteAllTextAsync(GetPath(key), json);
         }
+
+        internal void Clear() => Directory.Delete(directory, true);
     }
 }

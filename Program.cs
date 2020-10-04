@@ -14,7 +14,7 @@ namespace SubTubular
         private static async Task Main(string[] args)
         {
             //see https://github.com/commandlineparser/commandline
-            var parserResult = Parser.Default.ParseArguments<SearchPlaylist, SearchVideos>(args);
+            var parserResult = Parser.Default.ParseArguments<SearchPlaylist, SearchVideos, ClearCache>(args);
 
             //https://github.com/commandlineparser/commandline/wiki/Getting-Started#using-withparsedasync-in-asyncawait
             await parserResult.WithParsedAsync<SearchPlaylist>(async command => await Search(
@@ -24,16 +24,15 @@ namespace SubTubular
             await parserResult.WithParsedAsync<SearchVideos>(async command => await Search(
                 youtube => youtube.SearchVideosAsync(command),
                 result => DisplayVideoResult(result, command.Terms)));
+
+            parserResult.WithParsed<ClearCache>(c => new JsonFileDataStore(GetFileStoragePath()).Clear());
         }
 
         private static async Task Search<T>(
             Func<Youtube, IAsyncEnumerable<T>> getResultsAsync,
             Action<T> displayResult)
         {
-            var fileStoragePath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                Assembly.GetEntryAssembly().GetName().Name);
-
+            var fileStoragePath = GetFileStoragePath();
             var youtube = new Youtube(new JsonFileDataStore(fileStoragePath));
             Console.WriteLine();
             var hasResult = false;
@@ -46,6 +45,10 @@ namespace SubTubular
 
             if (hasResult) Console.WriteLine("All captions were downloaded to " + fileStoragePath);
         }
+
+        private static string GetFileStoragePath() => Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            Assembly.GetEntryAssembly().GetName().Name);
 
         #region DISPLAY
         const ConsoleColor highlightColor = ConsoleColor.Yellow;

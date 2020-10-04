@@ -35,4 +35,7 @@ namespace SubTubular
         [Option('v', "VideoIds", Required = true, Separator = '/', HelpText = "The slash-separated YouTube video IDs.")]
         public IEnumerable<string> VideoIds { get; set; }
     }
+
+    [Verb("clear-cache", HelpText = "Clears cached playlist and video info.")]
+    internal sealed class ClearCache { }
 }
