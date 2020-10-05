@@ -7,10 +7,7 @@ namespace SubTubular
     internal abstract class SearchCommand
     {
         [Option('t', "Terms", Required = true, Separator = '/',
-            HelpText = "What to search for. Seperate multiple/terms/or phrases/with slashes."
-                + " When searching for phrases containig multiple words,"
-                + " keep in mind that phrases containig multiple words may be broken up into different captions"
-                + " and only single captions are matched. So keep your phrases short.")]
+            HelpText = "What to search for. Seperate multiple/terms/or phrases/with slashes.")]
         public IEnumerable<string> Terms { get; set; }
     }
 

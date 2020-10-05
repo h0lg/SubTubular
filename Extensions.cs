@@ -16,12 +16,16 @@ namespace SubTubular
 
     internal static class StringExtensions
     {
-        //from https://stackoverflow.com/a/2642406
-        internal static IEnumerable<int> IndexesOf(this string hayStack, string needle, RegexOptions options = RegexOptions.None)
-            => Regex.Matches(hayStack, Regex.Escape(needle), options).Cast<Match>().Select(m => m.Index);
+        //inspired by https://stackoverflow.com/a/2642406
+        internal static IOrderedEnumerable<Match> GetMatches(this string text, IEnumerable<string> terms,
+            RegexOptions options = RegexOptions.CultureInvariant | RegexOptions.IgnoreCase) => terms
+            .SelectMany(term => Regex.Matches(text, Regex.Escape(term), options))
+            .OrderBy(match => match.Index);
 
         internal static bool ContainsAny(this string text, IEnumerable<string> terms,
             StringComparison stringComparison = StringComparison.InvariantCultureIgnoreCase)
             => terms.Any(t => text.Contains(t, stringComparison));
+
+        internal static string Join(this IEnumerable<string> pieces, string glue) => string.Join(glue, pieces);
     }
 }

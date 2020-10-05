@@ -71,15 +71,7 @@ namespace SubTubular
         {
             var titleMatches = video.Title.ContainsAny(terms);
             var matchingKeywords = video.Keywords.Where(kw => kw.ContainsAny(terms)).ToArray();
-
-            var matchingCaptionTracks = video.CaptionTracks
-                .Select(track =>
-                {
-                    var matchingCaptions = track.Captions.Where(c => c.Text.ContainsAny(terms)).ToArray();
-                    return matchingCaptions.Any() ? new CaptionTrack(track, matchingCaptions) : null;
-                })
-                .Where(match => match != null)
-                .ToArray();
+            var matchingCaptionTracks = SearchCaptionTracks(video.CaptionTracks, terms);
 
             var matchingDescriptionLines = video.Description
                 //split on newlines, see https://stackoverflow.com/a/1547483
@@ -97,6 +89,57 @@ namespace SubTubular
                     MatchingCaptionTracks = matchingCaptionTracks
                 }
                 : null;
+        }
+
+        private static CaptionTrack[] SearchCaptionTracks(IList<CaptionTrack> tracks, IEnumerable<string> terms) => tracks
+            .Select(track =>
+            {
+                var words = terms.Where(t => !t.Contains(' ')).ToArray();
+                var matching = track.Captions.Where(c => c.Text.ContainsAny(words)).ToList();
+                var phrases = terms.Except(words).ToArray();
+
+                if (phrases.Any()) matching.AddRange(SearchTrackForPhrases(track, phrases));
+                if (matching.Count == 0) return null;
+
+                return new CaptionTrack(track, matching
+                    //only take longest caption at location
+                    .GroupBy(c => c.At).Select(g => g.OrderBy(c => c.Text.Length).Last())
+                    .OrderBy(c => c.At) //return captions in order
+                    .ToArray());
+            })
+            .Where(match => match != null)
+            .ToArray();
+
+        private static IEnumerable<Caption> SearchTrackForPhrases(CaptionTrack track, string[] phrases)
+        {
+            const string fullTextSeperator = " ";
+            var startByCaption = new Dictionary<Caption, int>();
+
+            //aggregate captions into fullText to enable matching phrases across caption boundaries
+            var fullText = track.Captions.OrderBy(c => c.At).Aggregate(string.Empty, (fullText, caption) =>
+            {
+                //remember at what index in the fullText the caption starts
+                startByCaption.Add(caption, fullText.Length == 0 ? 0 : fullText.Length + fullTextSeperator.Length);
+
+                return fullText.Length == 0 ? caption.Text : fullText + fullTextSeperator + caption.Text;
+            });
+
+            return fullText.GetMatches(phrases).Select(match =>
+            {
+                //find first and last captions containing parts of the phrase
+                var first = startByCaption.Last(x => x.Value <= match.Index);
+                var last = startByCaption.Last(x => first.Value <= x.Value && x.Value < match.Index + match.Length);
+
+                //return a single caption for all captions containing the phrase
+                return new Caption
+                {
+                    At = first.Key.At,
+                    Text = startByCaption
+                        .Where(x => first.Value <= x.Value && x.Value <= last.Value)
+                        .Select(x => x.Key.Text)
+                        .Join(fullTextSeperator)
+                };
+            });
         }
 
         private async Task<Video> GetVideoAsync(string videoId, YoutubeExplode.Videos.Video alreadyLoaded = null)

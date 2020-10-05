@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using CommandLine;
 
@@ -124,19 +123,14 @@ namespace SubTubular
                 written += length;
             };
 
-            var matches = terms
-                .SelectMany(term => text
-                    .IndexesOf(term, RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)
-                    .Select(index => new { term.Length, index }))
-                .OrderBy(match => match.index)
-                .ToArray();
+            var matches = text.GetMatches(terms).ToArray();
 
             foreach (var match in matches)
             {
-                if (written < match.index) write(match.index - written); //write text preceding match
-                if (match.index < written && match.index <= written - match.Length) continue; //letters already matched
+                if (written < match.Index) write(match.Index - written); //write text preceding match
+                if (match.Index < written && match.Index <= written - match.Length) continue; //letters already matched
                 Console.ForegroundColor = highlightedForeGround;
-                write(match.Length - (written - match.index)); //write remaining matched letters
+                write(match.Length - (written - match.Index)); //write remaining matched letters
                 Console.ForegroundColor = regularForeGround;
             }
 
