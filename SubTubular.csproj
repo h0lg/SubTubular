@@ -3,6 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp3.1</TargetFramework>
+    <ApplicationIcon>SubTubular.ico</ApplicationIcon>
     <AssemblyTitle>SubTubular - full-text search in YouTube video subtitles and metadata</AssemblyTitle>
     <Product>SubTubular</Product>
     <VersionPrefix>1.0.0</VersionPrefix>
