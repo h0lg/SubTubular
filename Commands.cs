@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using CommandLine;
 using YoutubeExplode;
 using YoutubeExplode.Channels;
@@ -8,9 +9,15 @@ namespace SubTubular
 {
     internal abstract class SearchCommand
     {
-        [Option('t', "Terms", Required = true, Separator = '/',
-            HelpText = "What to search for. Seperate multiple/terms/or phrases/with slashes.")]
-        public IEnumerable<string> Terms { get; set; }
+        private string[] terms;
+
+        [Option('t', "Terms", Required = true, Separator = ',',
+            HelpText = "What to search for. Use single words or multi-word phrases and separate,multiple terms,by comma.")]
+        public IEnumerable<string> Terms
+        {
+            get => terms;
+            set => terms = value.Where(t => !string.IsNullOrWhiteSpace(t)).Select(t => t.Trim()).Distinct().ToArray();
+        }
     }
 
     internal abstract class SearchPlaylistCommand : SearchCommand
