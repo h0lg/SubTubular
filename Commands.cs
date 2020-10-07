@@ -32,6 +32,27 @@ namespace SubTubular
         internal abstract IAsyncEnumerable<YoutubeExplode.Videos.Video> GetVideosAsync(YoutubeClient youtube);
     }
 
+    [Verb("search-user",
+        HelpText = "Searches the {Latest} n videos from the Uploads playlist of the {User}'s channel for the specified {Terms}."
+            + " This is a glorified search-playlist.")]
+    internal sealed class SearchUser : SearchPlaylistCommand
+    {
+        [Option('u', "User", Required = true, HelpText = "The user name or URL.")]
+        public string User { get; set; }
+
+        internal override string GetStorageKey() => "user " + new UserName(User).Value;
+
+        internal override async IAsyncEnumerable<YoutubeExplode.Videos.Video> GetVideosAsync(YoutubeClient youtube)
+        {
+            var channel = await youtube.Channels.GetByUserAsync(User);
+
+            await foreach (var video in youtube.Channels.GetUploadsAsync(channel.Id))
+            {
+                yield return video;
+            }
+        }
+    }
+
     [Verb("search-channel",
         HelpText = "Searches the {Latest} n videos from the Uploads playlist of the {Channel} for the specified {Terms}."
         + " This is a glorified search-playlist.")]
@@ -65,6 +86,6 @@ namespace SubTubular
         public IEnumerable<string> Videos { get; set; }
     }
 
-    [Verb("clear-cache", HelpText = "Clears cached channel, playlist and video info.")]
+    [Verb("clear-cache", HelpText = "Clears cached user, channel, playlist and video info.")]
     internal sealed class ClearCache { }
 }
