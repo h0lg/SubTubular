@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using CommandLine;
 using YoutubeExplode;
+using YoutubeExplode.Channels;
+using YoutubeExplode.Playlists;
 
 namespace SubTubular
 {
@@ -23,40 +25,37 @@ namespace SubTubular
         internal abstract IAsyncEnumerable<YoutubeExplode.Videos.Video> GetVideosAsync(YoutubeClient youtube);
     }
 
-    [Verb("search-channel", HelpText = "Downloads the transcripts/captions"
-        + " of the {Latest} n videos of the Uploads playlist of the channel specified by {ChannelId}"
-        + " and searches them for the provided {Terms}.")]
+    [Verb("search-channel",
+        HelpText = "Searches the {Latest} n videos from the Uploads playlist of the {Channel} for the specified {Terms}."
+        + " This is a glorified search-playlist.")]
     internal sealed class SearchChannel : SearchPlaylistCommand
     {
-        [Option('c', "ChannelId", Required = true, HelpText = "The channel ID.")]
-        public string ChannelId { get; set; }
+        [Option('c', "Channel", Required = true, HelpText = "The channel ID or URL.")]
+        public string Channel { get; set; }
 
-        internal override string GetStorageKey() => "channel " + ChannelId;
+        internal override string GetStorageKey() => "channel " + new ChannelId(Channel).Value;
 
         internal override IAsyncEnumerable<YoutubeExplode.Videos.Video> GetVideosAsync(YoutubeClient youtube)
-            => youtube.Channels.GetUploadsAsync(ChannelId);
+            => youtube.Channels.GetUploadsAsync(Channel);
     }
 
-    [Verb("search-playlist", HelpText = "Downloads the transcripts/captions"
-        + " of the {Latest} n videos of the playlist specified by {PlaylistId}"
-        + " and searches them for the provided {Terms}.")]
+    [Verb("search-playlist", HelpText = "Searches the {Latest} n videos from the {Playlist} for the specified {Terms}.")]
     internal sealed class SearchPlaylist : SearchPlaylistCommand
     {
-        [Option('p', "PlaylistId", Required = true, HelpText = "The playlist ID.")]
-        public string PlaylistId { get; set; }
+        [Option('p', "Playlist", Required = true, HelpText = "The playlist ID or URL.")]
+        public string Playlist { get; set; }
 
-        internal override string GetStorageKey() => "playlist " + PlaylistId;
+        internal override string GetStorageKey() => "playlist " + new PlaylistId(Playlist);
 
         internal override IAsyncEnumerable<YoutubeExplode.Videos.Video> GetVideosAsync(YoutubeClient youtube)
-            => youtube.Playlists.GetVideosAsync(PlaylistId);
+            => youtube.Playlists.GetVideosAsync(Playlist);
     }
 
-    [Verb("search-videos", HelpText = "Downloads the transcripts/captions"
-        + " of the videos in {VideoIds} and searches them for the provided {Terms}.")]
+    [Verb("search-videos", HelpText = "Searches the {Videos} for the specified {Terms}.")]
     internal sealed class SearchVideos : SearchCommand
     {
-        [Option('v', "VideoIds", Required = true, Separator = '/', HelpText = "The slash-separated YouTube video IDs.")]
-        public IEnumerable<string> VideoIds { get; set; }
+        [Option('v', "Videos", Required = true, Separator = ',', HelpText = "The comma-separated YouTube video IDs and/or URLs.")]
+        public IEnumerable<string> Videos { get; set; }
     }
 
     [Verb("clear-cache", HelpText = "Clears cached channel, playlist and video info.")]
