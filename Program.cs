@@ -16,19 +16,19 @@ namespace SubTubular
             var parserResult = Parser.Default.ParseArguments<SearchUser, SearchChannel, SearchPlaylist, SearchVideos, ClearCache>(args);
 
             //https://github.com/commandlineparser/commandline/wiki/Getting-Started#using-withparsedasync-in-asyncawait
-            await parserResult.WithParsedAsync<SearchUser>(async command => await Search(
+            await parserResult.WithParsedAsync<SearchUser>(async command => await Search(command,
                 youtube => youtube.SearchPlaylistAsync(command),
                 result => DisplayVideoResult(result, command.Terms)));
 
-            await parserResult.WithParsedAsync<SearchChannel>(async command => await Search(
+            await parserResult.WithParsedAsync<SearchChannel>(async command => await Search(command,
                 youtube => youtube.SearchPlaylistAsync(command),
                 result => DisplayVideoResult(result, command.Terms)));
 
-            await parserResult.WithParsedAsync<SearchPlaylist>(async command => await Search(
+            await parserResult.WithParsedAsync<SearchPlaylist>(async command => await Search(command,
                 youtube => youtube.SearchPlaylistAsync(command),
                 result => DisplayVideoResult(result, command.Terms)));
 
-            await parserResult.WithParsedAsync<SearchVideos>(async command => await Search(
+            await parserResult.WithParsedAsync<SearchVideos>(async command => await Search(command,
                 youtube => youtube.SearchVideosAsync(command),
                 result => DisplayVideoResult(result, command.Terms)));
 
@@ -36,9 +36,16 @@ namespace SubTubular
         }
 
         private static async Task Search<T>(
+            SearchCommand command,
             Func<Youtube, IAsyncEnumerable<T>> getResultsAsync,
             Action<T> displayResult)
         {
+            if (!command.Terms.Any())
+            {
+                Console.WriteLine("None of the terms contain anything but whitespace. I refuse to work like this!");
+                return;
+            }
+
             var fileStoragePath = GetFileStoragePath();
             var youtube = new Youtube(new JsonFileDataStore(fileStoragePath));
             Console.WriteLine();

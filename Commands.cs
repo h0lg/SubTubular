@@ -16,7 +16,11 @@ namespace SubTubular
         public IEnumerable<string> Terms
         {
             get => terms;
-            set => terms = value.Where(t => !string.IsNullOrWhiteSpace(t)).Select(t => t.Trim()).Distinct().ToArray();
+            set => terms = value
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .Select(t => t.Trim().Replace(@"\s+", " ")) //trim and replace multiple whitespaces with just one space
+                .Distinct()
+                .ToArray();
         }
     }
 
