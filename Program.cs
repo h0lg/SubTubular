@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using CommandLine;
 
@@ -47,14 +48,45 @@ namespace SubTubular
             }
 
             var fileStoragePath = GetFileStoragePath();
-            var youtube = new Youtube(new JsonFileDataStore(fileStoragePath));
-            Console.WriteLine();
             var hasResult = false;
 
-            await foreach (var result in getResultsAsync(youtube))
+            //inspired by https://johnthiriet.com/cancel-asynchronous-operation-in-csharp/
+            using (var search = new CancellationTokenSource())
             {
-                hasResult = true;
-                displayResult(result);
+                var searching = true;
+
+                var cancel = Task.Run(async () => //start in background, don't wait for completion
+                {
+                    Console.WriteLine("Press any key to cancel");
+                    Console.WriteLine();
+
+                    /* wait for key or search to finish, non-blockingly; but only as long as to not cause perceivable lag
+                        inspired by https://stackoverflow.com/a/5620647 and https://stackoverflow.com/a/23628232 */
+                    while (searching && !Console.KeyAvailable) await Task.Delay(200, search.Token);
+
+                    if (Console.KeyAvailable) Console.ReadKey(true); //consume cancel key without displaying it
+                    if (searching) search.Cancel();
+                });
+
+                var youtube = new Youtube(new JsonFileDataStore(fileStoragePath));
+
+                try
+                {
+                    /* passing token into search implementations for them to react to cancellation,
+                        see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables*/
+                    await foreach (var result in getResultsAsync(youtube).WithCancellation(search.Token))
+                    {
+                        hasResult = true;
+                        displayResult(result);
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    Console.WriteLine("The search was cancelled.");
+                }
+
+                searching = false; //to complete the cancel task
+                await cancel; //just to rethrow possible exceptions
             }
 
             if (hasResult) Console.WriteLine("All captions were downloaded to " + fileStoragePath);

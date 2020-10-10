@@ -1,8 +1,10 @@
 using System;
-using System.Linq;
 using System.Collections.Generic;
-using YoutubeExplode;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
+using YoutubeExplode;
 using YoutubeExplode.Videos;
 
 namespace SubTubular
@@ -18,7 +20,12 @@ namespace SubTubular
             youtube = new YoutubeClient();
         }
 
-        internal async IAsyncEnumerable<VideoSearchResult> SearchPlaylistAsync(SearchPlaylistCommand command)
+        /// <summary>Searches videos defined by a playlist.</summary>
+        /// <param name="cancellation">Passed in either explicitly or by the IAsyncEnumerable.WithCancellation() extension,
+        /// see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables</param>
+        internal async IAsyncEnumerable<VideoSearchResult> SearchPlaylistAsync(
+            SearchPlaylistCommand command,
+            [EnumeratorCancellation] CancellationToken cancellation = default)
         {
             var storageKey = command.GetStorageKey();
             var playlist = await dataStore.GetAsync<Playlist>(storageKey); //get cached
@@ -39,6 +46,7 @@ namespace SubTubular
                 //so order videos explicitly by latest uploaded before taking the latest n videos
                 foreach (var vid in ordered.Take(command.Latest))
                 {
+                    cancellation.ThrowIfCancellationRequested();
                     var video = await GetVideoAsync(vid.Id, vid);
                     var searchResult = SearchVideo(video, command.Terms);
                     if (searchResult != null) yield return searchResult;
@@ -49,6 +57,7 @@ namespace SubTubular
                 //playlist.VideoIds is already ordered latest uploaded first; see above
                 foreach (var videoId in playlist.VideoIds.Take(command.Latest))
                 {
+                    cancellation.ThrowIfCancellationRequested();
                     var video = await GetVideoAsync(videoId);
                     var searchResult = SearchVideo(video, command.Terms);
                     if (searchResult != null) yield return searchResult;
@@ -56,10 +65,16 @@ namespace SubTubular
             }
         }
 
-        internal async IAsyncEnumerable<VideoSearchResult> SearchVideosAsync(SearchVideos command)
+        /// <summary>Searches videos according to the specified command.</summary>
+        /// <param name="cancellation">Passed in either explicitly or by the IAsyncEnumerable.WithCancellation() extension,
+        /// see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables</param>
+        internal async IAsyncEnumerable<VideoSearchResult> SearchVideosAsync(
+            SearchVideos command,
+            [EnumeratorCancellation] CancellationToken cancellation = default)
         {
             foreach (var videoIdOrUrl in command.Videos)
             {
+                cancellation.ThrowIfCancellationRequested();
                 var video = await GetVideoAsync(new VideoId(videoIdOrUrl));
                 var searchResult = SearchVideo(video, command.Terms);
                 if (searchResult != null) yield return searchResult;
