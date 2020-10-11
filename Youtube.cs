@@ -23,8 +23,7 @@ namespace SubTubular
             var storageKey = command.GetStorageKey();
             var playlist = await dataStore.GetAsync<Playlist>(storageKey); //get cached
 
-            if (playlist == null || playlist.VideoIds.Count < command.Latest
-                || playlist.Loaded < DateTime.UtcNow.AddHours(-command.CachePlaylistForHours))
+            if (playlist == null || playlist.Loaded < DateTime.UtcNow.AddHours(-command.CachePlaylistForHours))
             {
                 playlist = new Playlist { Loaded = DateTime.UtcNow };
 
@@ -33,18 +32,17 @@ namespace SubTubular
                     special "Uploads" playlist is latest uploaded first, but custom playlists may not be */
                 var videos = await command.GetVideosAsync(youtube);
 
-                //so order videos explicitly by latest uploaded before taking the latest n videos
-                foreach (var vid in videos.OrderByDescending(v => v.UploadDate).Take(command.Latest))
-                {
-                    playlist.VideoIds.Add(vid.Id);
+                var ordered = videos.OrderByDescending(v => v.UploadDate).ToArray();
+                playlist.VideoIds = ordered.Select(v => v.Id.Value).ToList();
+                await dataStore.SetAsync(storageKey, playlist);
 
+                //so order videos explicitly by latest uploaded before taking the latest n videos
+                foreach (var vid in ordered.Take(command.Latest))
+                {
                     var video = await GetVideoAsync(vid.Id, vid);
                     var searchResult = SearchVideo(video, command.Terms);
                     if (searchResult != null) yield return searchResult;
                 }
-
-                await dataStore.SetAsync(storageKey, playlist)
-                    .ConfigureAwait(false); //nothing else to do here
             }
             else
             {
