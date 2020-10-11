@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using CommandLine;
+using CommandLine.Text;
 
 namespace SubTubular
 {
@@ -14,7 +15,8 @@ namespace SubTubular
         private static async Task Main(string[] args)
         {
             //see https://github.com/commandlineparser/commandline
-            var parserResult = Parser.Default.ParseArguments<SearchUser, SearchChannel, SearchPlaylist, SearchVideos, ClearCache>(args);
+            var parserResult = new Parser(with => with.HelpWriter = null)
+                .ParseArguments<SearchUser, SearchChannel, SearchPlaylist, SearchVideos, ClearCache>(args);
 
             //https://github.com/commandlineparser/commandline/wiki/Getting-Started#using-withparsedasync-in-asyncawait
             await parserResult.WithParsedAsync<SearchUser>(async command => await Search(command,
@@ -34,6 +36,14 @@ namespace SubTubular
                 result => DisplayVideoResult(result, command.Terms)));
 
             parserResult.WithParsed<ClearCache>(c => new JsonFileDataStore(GetFileStoragePath()).Clear());
+
+            //see https://github.com/commandlineparser/commandline/wiki/HelpText-Configuration
+            parserResult.WithNotParsed(errors => Console.WriteLine(HelpText.AutoBuild(parserResult, h =>
+            {
+                h.AddPostOptionsLine("Subtitles and metadata are cached in " + GetFileStoragePath());
+                h.AddPostOptionsLine(string.Empty);
+                return h;
+            })));
         }
 
         private static async Task Search<T>(
@@ -46,9 +56,6 @@ namespace SubTubular
                 Console.WriteLine("None of the terms contain anything but whitespace. I refuse to work like this!");
                 return;
             }
-
-            var fileStoragePath = GetFileStoragePath();
-            var hasResult = false;
 
             //inspired by https://johnthiriet.com/cancel-asynchronous-operation-in-csharp/
             using (var search = new CancellationTokenSource())
@@ -68,7 +75,7 @@ namespace SubTubular
                     if (searching) search.Cancel();
                 });
 
-                var youtube = new Youtube(new JsonFileDataStore(fileStoragePath));
+                var youtube = new Youtube(new JsonFileDataStore(GetFileStoragePath()));
 
                 try
                 {
@@ -76,7 +83,6 @@ namespace SubTubular
                         see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables*/
                     await foreach (var result in getResultsAsync(youtube).WithCancellation(search.Token))
                     {
-                        hasResult = true;
                         displayResult(result);
                     }
                 }
@@ -88,8 +94,6 @@ namespace SubTubular
                 searching = false; //to complete the cancel task
                 await cancel; //just to rethrow possible exceptions
             }
-
-            if (hasResult) Console.WriteLine("All captions were downloaded to " + fileStoragePath);
         }
 
         private static string GetFileStoragePath() => Path.Combine(
