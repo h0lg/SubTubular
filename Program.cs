@@ -12,6 +12,15 @@ namespace SubTubular
 {
     internal sealed class Program
     {
+        private const string asciiHeading = @"
+   _____       __  ______      __          __          
+  / ___/__  __/ /_/_  __/_  __/ /_  __  __/ /___ ______
+  \__ \/ / / / __ \/ / / / / / __ \/ / / / / __ `/ ___/
+ ___/ / /_/ / /_/ / / / /_/ / /_/ / /_/ / / /_/ / /    
+/____/\__,_/_.___/_/  \__,_/_.___/\__,_/_/\__,_/_/     
+                                                       
+"; //from http://www.patorjk.com/software/taag/#p=display&f=Slant&t=SubTubular
+
         private static async Task Main(string[] args)
         {
             //see https://github.com/commandlineparser/commandline
@@ -40,6 +49,7 @@ namespace SubTubular
             //see https://github.com/commandlineparser/commandline/wiki/HelpText-Configuration
             parserResult.WithNotParsed(errors => Console.WriteLine(HelpText.AutoBuild(parserResult, h =>
             {
+                h.Heading = asciiHeading + h.Heading;
                 h.AddPreOptionsLine("See https://github.com/h0lg/SubTubular for more info.");
                 h.OptionComparison = CompareOptions;
                 h.AddPostOptionsLine("Subtitles and metadata are cached in " + GetFileStoragePath());
