@@ -26,6 +26,10 @@ namespace SubTubular
                 .ToArray();
         }
 
+        [Option('p', "pad", HelpText = "How much context to display a match in;"
+            + " i.e. the minimum number of characters of the original text to display before and after it.")]
+        public byte Padding { get; set; } = 23;
+
         [Option('m', "html",
             HelpText = "If set, outputs the highlighted search result in an HTML file including hyperlinks for easy navigation."
                 + " The output path depends on the 'out' parameter.")]

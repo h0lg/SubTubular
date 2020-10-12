@@ -18,6 +18,11 @@ namespace SubTubular
     /// <summary>Extension methods for <see cref="string"/>s.</summary>
     internal static class StringExtensions
     {
+        /// <summary>Replaces all consecutive white space characters in
+        /// <paramref name="input"/> with <paramref name="normalizeTo"/>.</summary>
+        internal static string NormalizeWhiteSpace(this string input, string normalizeTo = " ")
+            => System.Text.RegularExpressions.Regex.Replace(input, @"\s+", normalizeTo);
+
         /// <summary>Returns matches for all occurances of <paramref name="terms"/> in <paramref name="text"/>
         /// ordered by first occurance while applying <paramref name="options"/> to the search.
         /// Inspired by https://stackoverflow.com/a/2642406 .</summary>
@@ -35,13 +40,6 @@ namespace SubTubular
         /// <summary>Concatenates the <paramref name="pieces"/> into a single string
         /// putting <paramref name="glue"/> in between them.</summary>
         internal static string Join(this IEnumerable<string> pieces, string glue) => string.Join(glue, pieces);
-
-        /// <summary>
-        /// Splits a string into an array by new line characters.
-        /// Inspired by https://stackoverflow.com/a/1547483 
-        /// </summary>
-        internal static string[] SplitOnNewLines(this string text)
-            => text.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
 
         /// <summary>Indicates whether <paramref name="path"/> points to a directory rather than a file.
         /// From https://stackoverflow.com/a/19596821 .</summary>
@@ -65,7 +63,36 @@ namespace SubTubular
 
         /// <summary>Replaces all characters unsafe for file or directory names in <paramref name="value"/>
         /// with <paramref name="replacement"/>.</summary>
-        internal static string ToFileSafe(this string value, string replacement = "_") 
+        internal static string ToFileSafe(this string value, string replacement = "_")
             => Regex.Replace(value, "[" + Regex.Escape(new string(Path.GetInvalidFileNameChars())) + "]", replacement);
+    }
+
+    /// <summary>Extension methods for <see cref="IEnumerable{T}"/> types.</summary>
+    internal static class EnumerableExtenions
+    {
+        /// <summary>Indicates whether <paramref name="collection"/>
+        /// contains any of the supplied <paramref name="values"/>.</summary>
+        internal static bool ContainsAny<T>(this IEnumerable<T> collection, IEnumerable<T> values)
+            => values.Any(value => collection.Contains(value));
+    }
+
+    /// <summary>Extension methods for <see cref="IComparable"/> types.</summary>
+    internal static class ComparableExtensions
+    {
+        /// <summary>Determines whether <paramref name="other"/> is greater than
+        /// <paramref name="orEqualTo"/> the <paramref name="other"/>.</summary>
+        internal static bool IsGreaterThan(this IComparable comparable, IComparable other, bool orEqualTo = false)
+        {
+            var position = comparable.CompareTo(other);
+            return orEqualTo ? position >= 0 : position > 0;
+        }
+
+        /// <summary>Determines whether <paramref name="other"/> is less than
+        /// <paramref name="orEqualTo"/> the <paramref name="other"/>.</summary>
+        internal static bool IsLessThan(this IComparable comparable, IComparable other, bool orEqualTo = false)
+        {
+            var position = comparable.CompareTo(other);
+            return orEqualTo ? position <= 0 : position < 0;
+        }
     }
 }

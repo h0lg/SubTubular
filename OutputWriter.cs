@@ -153,13 +153,13 @@ namespace SubTubular
             WriteUrl(videoUrl);
             WriteLine();
 
-            if (result.MatchingDescriptionLines.Any())
+            if (result.DescriptionMatches.Any())
             {
                 Write("  in description: ");
 
-                for (int i = 0; i < result.MatchingDescriptionLines.Length; i++)
+                for (int i = 0; i < result.DescriptionMatches.Length; i++)
                 {
-                    var line = result.MatchingDescriptionLines[i];
+                    var line = result.DescriptionMatches[i];
                     var prefix = i == 0 ? string.Empty : "    ";
                     WriteHighlightingMatches(prefix + line);
                     WriteLine();
