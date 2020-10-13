@@ -6,6 +6,7 @@ using CommandLine;
 using YoutubeExplode;
 using YoutubeExplode.Channels;
 using YoutubeExplode.Playlists;
+using YoutubeExplode.Videos;
 
 namespace SubTubular
 {
@@ -24,6 +25,23 @@ namespace SubTubular
                 .Distinct()
                 .ToArray();
         }
+
+        [Option('m', "html",
+            HelpText = "If set, outputs the highlighted search result in an HTML file including hyperlinks for easy navigation."
+                + " The output path depends on the 'out' parameter.")]
+        public bool OutputHtml { get; set; }
+
+        [Option('o', "out",
+            HelpText = "Writes the search results to a file, the format of which - depending on the 'html' flag -"
+                + " is either text or HTML including hyperlinks for easy navigation."
+                + " Supply EITHER the FULL FILE PATH (any existing file will be overwritten),"
+                + " a FOLDER PATH to output files into - auto-named according to your search parameters -"
+                + " OR OMIT while setting the 'html' flag to have auto-named files written"
+                + " to the 'out' folder of SubTubular's AppData directory.")]
+        public string FileOutputPath { get; set; }
+
+        protected abstract string FormatInternal();
+        internal string Format() => FormatInternal() + " " + Terms.Join(" ");
     }
 
     internal abstract class SearchPlaylistCommand : SearchCommand
@@ -39,6 +57,7 @@ namespace SubTubular
         public float CacheHours { get; set; }
 
         internal abstract string GetStorageKey();
+        protected override string FormatInternal() => GetStorageKey();
         internal abstract IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation);
     }
 
@@ -102,6 +121,9 @@ namespace SubTubular
     {
         [Value(0, Required = true, HelpText = "The space-separated YouTube video IDs and/or URLs.")]
         public IEnumerable<string> Videos { get; set; }
+
+        internal IEnumerable<string> GetVideoIds() => Videos.Select(v => VideoId.Parse(v).Value);
+        protected override string FormatInternal() => "videos " + GetVideoIds().Join(" ");
     }
 
     [Verb("clear-cache", HelpText = "Clears cached user, channel, playlist and video info.")]

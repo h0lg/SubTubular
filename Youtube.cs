@@ -6,7 +6,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using YoutubeExplode;
 using YoutubeExplode.Common;
-using YoutubeExplode.Videos;
 
 namespace SubTubular
 {
@@ -67,10 +66,10 @@ namespace SubTubular
         internal async IAsyncEnumerable<VideoSearchResult> SearchVideosAsync(
             SearchVideos command, [EnumeratorCancellation] CancellationToken cancellation = default)
         {
-            foreach (var videoIdOrUrl in command.Videos)
+            foreach (var videoId in command.GetVideoIds())
             {
                 cancellation.ThrowIfCancellationRequested();
-                var video = await GetVideoAsync(VideoId.Parse(videoIdOrUrl).Value, cancellation);
+                var video = await GetVideoAsync(videoId, cancellation);
                 var searchResult = SearchVideo(video, command.Terms);
                 if (searchResult != null) yield return searchResult;
             }

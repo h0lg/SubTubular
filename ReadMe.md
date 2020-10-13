@@ -6,6 +6,8 @@ A **full-text search** for **[YouTube](https://www.youtube.com/) subtitles** and
 
 - [Overview](#overview)
 - [Commands](#commands)
+  - [common search parameters](#common-search-parameters)
+    - [common playlist search parameters](#common-playlist-search-parameters)
   - [search-videos](#search-videos)
   - [search-playlist](#search-playlist)
   - [search-channel](#search-channel)
@@ -30,6 +32,7 @@ A **full-text search** for **[YouTube](https://www.youtube.com/) subtitles** and
 ## returning <!-- omit in toc -->
 - a list of search results with **highlighted** matches
 - including **time-stamped video links** to the matched part of the video
+- as a text or HTML file if you need it
 
 ## caching <!-- omit in toc -->
 - searchable **video metadata** and **subtitles** in **all available languages**
@@ -56,51 +59,57 @@ A **full-text search** for **[YouTube](https://www.youtube.com/) subtitles** and
 
 # Commands
 
+## common search parameters
+
+All search commands share the following parameters:
+
+|            |                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| :--------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| -f, --for  | Required. What to search for. Quote "multi-word phrases" and "separate,multiple terms,by comma".                                                                                                                                                                                                                                                                                                                                                         |
+| -m, --html | If set, outputs the highlighted search result in an HTML file including hyperlinks for easy navigation.                                                                                                                                                                                                                                                                                                                                                  |
+| -o, --out  | Writes the search results to a file, the format of which - depending on the 'html' flag - is either text or HTML including hyperlinks for easy navigation. Supply EITHER the FULL FILE PATH (any existing file will be overwritten), a FOLDER PATH to output files into - auto-named according to your search parameters - OR OMIT while setting the 'html' flag to have auto-named files written to the 'out' folder of SubTubular's AppData directory. |
+
+### common playlist search parameters
+
+All search commands searching a playlist containing multiple videos (including `search-user` and `search-channel`) support the following parameters in addition to the [common search parameters](#common-search-parameters):
+
+|                  |                                                                                                                                                                                                                |
+| :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| -t, --top        | (Default: 50) The number of videos to return from the top of the playlist. The special Uploads playlist of a channel or user are sorted latest uploaded first, but custom playlists may be sorted differently. |
+| -h, --cachehours | (Default: 24) The maximum age of a playlist cache in hours before it is considered stale and the videos in it are refreshed.                                                                                   |
+
 
 ## search-videos
 
-Searches the {videos} {for} the specified terms.
-
-|              |                                                                                                  |
-| :----------- | :----------------------------------------------------------------------------------------------- |
-| value pos. 0 | Required. The space-separated YouTube video IDs and/or URLs.                                     |
-| -f, --for    | Required. What to search for. Quote "multi-word phrases" and "separate,multiple terms,by comma". |
+Searches the {videos} {for} the specified terms. Supports the [common search parameters](#common-search-parameters).
+|                    |                                                              |
+| :----------------- | :----------------------------------------------------------- |
+| value(s) at pos. 0 | Required. The space-separated YouTube video IDs and/or URLs. |
 
 
 ## search-playlist
 
-Searches the {top} n videos from the {playlist} {for} the specified terms.
+Searches the {top} n videos from the {playlist} {for} the specified terms. Supports the [common playlist search parameters](#common-playlist-search-parameters).
 
-|                  |                                                                                                                                                                                                                |
-| :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| value pos. 0     | Required. The playlist ID or URL.                                                                                                                                                                              |
-| -f, --for        | Required. What to search for. Quote "multi-word phrases" and "separate,multiple terms,by comma".                                                                                                               |
-| -t, --top        | (Default: 50) The number of videos to return from the top of the playlist. The special Uploads playlist of a channel or user are sorted latest uploaded first, but custom playlists may be sorted differently. |
-| -h, --cachehours | (Default: 24) The maximum age of a playlist cache in hours before it is considered stale and the videos in it are refreshed.                                                                                   |
-
+|                 |                                   |
+| :-------------- | :-------------------------------- |
+| value at pos. 0 | Required. The playlist ID or URL. |
 
 ## search-channel
 
-Searches the {top} n videos from the Uploads playlist of the {channel} {for} the specified terms. This is a glorified search-playlist.
+Searches the {top} n videos from the Uploads playlist of the {channel} {for} the specified terms. Supports the [common playlist search parameters](#common-playlist-search-parameters).
 
-|                  |                                                                                                                                                                                                                |
-| :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| value pos. 0     | Required. The channel ID or URL.                                                                                                                                                                               |
-| -f, --for        | Required. What to search for. Quote "multi-word phrases" and "separate,multiple terms,by comma".                                                                                                               |
-| -t, --top        | (Default: 50) The number of videos to return from the top of the playlist. The special Uploads playlist of a channel or user are sorted latest uploaded first, but custom playlists may be sorted differently. |
-| -h, --cachehours | (Default: 24) The maximum age of a playlist cache in hours before it is considered stale and the videos in it are refreshed.                                                                                   |
-
+|                 |                                  |
+| :-------------- | :------------------------------- |
+| value at pos. 0 | Required. The channel ID or URL. |
 
 ## search-user
 
-Searches the {top} n videos from the Uploads playlist of the {user}'s channel {for} the specified terms. This is a glorified search-playlist.
+Searches the {top} n videos from the Uploads playlist of the {user}'s channel {for} the specified terms.  Supports the [common playlist search parameters](#common-playlist-search-parameters).
 
-|                  |                                                                                                                                                                                                                |
-| :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| value pos. 0     | Required. The user name or URL.                                                                                                                                                                                |
-| -f, --for        | Required. What to search for. Quote "multi-word phrases" and "separate,multiple terms,by comma".                                                                                                               |
-| -t, --top        | (Default: 50) The number of videos to return from the top of the playlist. The special Uploads playlist of a channel or user are sorted latest uploaded first, but custom playlists may be sorted differently. |
-| -h, --cachehours | (Default: 24) The maximum age of a playlist cache in hours before it is considered stale and the videos in it are refreshed.                                                                                   |
+|                 |                                 |
+| :-------------- | :------------------------------ |
+| value at pos. 0 | Required. The user name or URL. |
 
 
 ## clear-cache

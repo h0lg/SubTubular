@@ -14,6 +14,7 @@
   <ItemGroup>
     <PackageReference Include="CommandLineParser" Version="2.8.0" />
     <PackageReference Include="YoutubeExplode" Version="6.0.5" />
+    <PackageReference Include="AngleSharp" Version="0.16.0" />
   </ItemGroup><!--
     appends git commit hash to assembly informational version; from https://stackoverflow.com/a/45248069
     see also https://andrewlock.net/version-vs-versionsuffix-vs-packageversion-what-do-they-all-mean/ -->
