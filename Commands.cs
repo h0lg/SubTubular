@@ -41,7 +41,7 @@ namespace SubTubular
             + " This is a glorified search-playlist.")]
     internal sealed class SearchUser : SearchPlaylistCommand
     {
-        [Option('u', "User", Required = true, HelpText = "The user name or URL.")]
+        [Value(0, Required = true, HelpText = "The user name or URL.")]
         public string User { get; set; }
 
         internal override string GetStorageKey() => "user " + new UserName(User).Value;
@@ -62,7 +62,7 @@ namespace SubTubular
         + " This is a glorified search-playlist.")]
     internal sealed class SearchChannel : SearchPlaylistCommand
     {
-        [Option('c', "Channel", Required = true, HelpText = "The channel ID or URL.")]
+        [Value(0, Required = true, HelpText = "The channel ID or URL.")]
         public string Channel { get; set; }
 
         internal override string GetStorageKey() => "channel " + new ChannelId(Channel).Value;
@@ -74,7 +74,7 @@ namespace SubTubular
     [Verb("search-playlist", HelpText = "Searches the {Latest} n videos from the {Playlist} for the specified {Terms}.")]
     internal sealed class SearchPlaylist : SearchPlaylistCommand
     {
-        [Option('p', "Playlist", Required = true, HelpText = "The playlist ID or URL.")]
+        [Value(0, Required = true, HelpText = "The playlist ID or URL.")]
         public string Playlist { get; set; }
 
         internal override string GetStorageKey() => "playlist " + new PlaylistId(Playlist);
@@ -86,7 +86,7 @@ namespace SubTubular
     [Verb("search-videos", HelpText = "Searches the {Videos} for the specified {Terms}.")]
     internal sealed class SearchVideos : SearchCommand
     {
-        [Option('v', "Videos", Required = true, Separator = ',', HelpText = "The comma-separated YouTube video IDs and/or URLs.")]
+        [Value(0, Required = true, HelpText = "The space-separated YouTube video IDs and/or URLs.")]
         public IEnumerable<string> Videos { get; set; }
     }
 
