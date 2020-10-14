@@ -40,6 +40,7 @@ namespace SubTubular
             //see https://github.com/commandlineparser/commandline/wiki/HelpText-Configuration
             parserResult.WithNotParsed(errors => Console.WriteLine(HelpText.AutoBuild(parserResult, h =>
             {
+                h.AddPreOptionsLine("See https://github.com/h0lg/SubTubular for more info.");
                 h.OptionComparison = CompareOptions;
                 h.AddPostOptionsLine("Subtitles and metadata are cached in " + GetFileStoragePath());
                 h.AddPostOptionsLine(string.Empty);
