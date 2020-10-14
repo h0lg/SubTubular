@@ -40,6 +40,7 @@ namespace SubTubular
             //see https://github.com/commandlineparser/commandline/wiki/HelpText-Configuration
             parserResult.WithNotParsed(errors => Console.WriteLine(HelpText.AutoBuild(parserResult, h =>
             {
+                h.OptionComparison = CompareOptions;
                 h.AddPostOptionsLine("Subtitles and metadata are cached in " + GetFileStoragePath());
                 h.AddPostOptionsLine(string.Empty);
                 return h;
@@ -183,6 +184,11 @@ namespace SubTubular
 
             if (written < text.Length) write(text.Length - written); //write text trailing last match
         }
+        #endregion
+
+        #region HelpText Option order
+        static int CompareOptions(ComparableOption a, ComparableOption b) => ScoreOption(a) < ScoreOption(b) ? -1 : 1;
+        static int ScoreOption(ComparableOption option) => (option.IsValue ? -100 : 100) + (option.Required ? -10 : 10) + option.Index;
         #endregion
     }
 }
