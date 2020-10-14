@@ -30,7 +30,7 @@ namespace SubTubular
             var storageKey = command.GetStorageKey();
             var playlist = await dataStore.GetAsync<Playlist>(storageKey); //get cached
 
-            if (playlist == null || playlist.Loaded < DateTime.UtcNow.AddHours(-command.CachePlaylistForHours))
+            if (playlist == null || playlist.Loaded < DateTime.UtcNow.AddHours(-command.CacheHours))
             {
                 playlist = new Playlist { Loaded = DateTime.UtcNow };
 

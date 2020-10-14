@@ -11,8 +11,8 @@ namespace SubTubular
     {
         private string[] terms;
 
-        [Option('t', "Terms", Required = true, Separator = ',',
-            HelpText = "What to search for. Use single words or multi-word phrases and separate,multiple terms,by comma.")]
+        [Option('f', "for", Required = true, Separator = ',', HelpText = "What to search for."
+            + " Quote \"multi-word phrases\" and \"separate,multiple terms,by comma\".")]
         public IEnumerable<string> Terms
         {
             get => terms;
@@ -26,18 +26,19 @@ namespace SubTubular
 
     internal abstract class SearchPlaylistCommand : SearchCommand
     {
-        [Option('l', "Latest", Default = 50, HelpText = "The number of latest videos to download and search.")]
+        [Option('l', "latest", Default = 50, HelpText = "The number of latest videos to search.")]
         public int Latest { get; set; }
 
-        [Option('h', "CachePlaylistForHours", Default = 24, HelpText = "How many hours to cache the playlist for.")]
-        public float CachePlaylistForHours { get; set; }
+        [Option('h', "cachehours", Default = 24, HelpText = "The maximum age of a playlist cache in hours"
+            + " before it is considered stale and the videos in it are refreshed.")]
+        public float CacheHours { get; set; }
 
         internal abstract string GetStorageKey();
         internal abstract IAsyncEnumerable<YoutubeExplode.Videos.Video> GetVideosAsync(YoutubeClient youtube);
     }
 
     [Verb("search-user",
-        HelpText = "Searches the {Latest} n videos from the Uploads playlist of the {User}'s channel for the specified {Terms}."
+        HelpText = "Searches the {latest} n videos from the Uploads playlist of the {user}'s channel for the specified {terms}."
             + " This is a glorified search-playlist.")]
     internal sealed class SearchUser : SearchPlaylistCommand
     {
@@ -58,7 +59,7 @@ namespace SubTubular
     }
 
     [Verb("search-channel",
-        HelpText = "Searches the {Latest} n videos from the Uploads playlist of the {Channel} for the specified {Terms}."
+        HelpText = "Searches the {latest} n videos from the Uploads playlist of the {channel} for the specified {terms}."
         + " This is a glorified search-playlist.")]
     internal sealed class SearchChannel : SearchPlaylistCommand
     {
@@ -71,7 +72,7 @@ namespace SubTubular
             => youtube.Channels.GetUploadsAsync(Channel);
     }
 
-    [Verb("search-playlist", HelpText = "Searches the {Latest} n videos from the {Playlist} for the specified {Terms}.")]
+    [Verb("search-playlist", HelpText = "Searches the {latest} n videos from the {playlist} for the specified {terms}.")]
     internal sealed class SearchPlaylist : SearchPlaylistCommand
     {
         [Value(0, Required = true, HelpText = "The playlist ID or URL.")]
@@ -83,7 +84,7 @@ namespace SubTubular
             => youtube.Playlists.GetVideosAsync(Playlist);
     }
 
-    [Verb("search-videos", HelpText = "Searches the {Videos} for the specified {Terms}.")]
+    [Verb("search-videos", HelpText = "Searches the {videos} for the specified {terms}.")]
     internal sealed class SearchVideos : SearchCommand
     {
         [Value(0, Required = true, HelpText = "The space-separated YouTube video IDs and/or URLs.")]
