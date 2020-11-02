@@ -1,9 +1,10 @@
 # SubTubular <!-- omit in toc -->
 
+A **full-text search** for **[YouTube](https://www.youtube.com/) subtitles** and **video metadata** with a **command line** interface.
 
-<div style="float: right; width: 250px;">
-    <img src="./SubTubular.ico" />
+<img src="./SubTubular.ico" />
 
+- [Overview](#overview)
 - [Commands](#commands)
   - [search-videos](#search-videos)
   - [search-playlist](#search-playlist)
@@ -17,10 +18,7 @@
   - [Find material for a supercut of a certain word or phrase](#find-material-for-a-supercut-of-a-certain-word-or-phrase)
 - [Tips & best practices for auto-generated subtitles](#tips--best-practices-for-auto-generated-subtitles)
 
-</div>
-
-
-A **full-text search** for **[YouTube](https://www.youtube.com/) subtitles** and **video metadata** with a **command line** interface.
+# Overview
 
 ## Searches <!-- omit in toc -->
 - video **title**, **description**, **keywords** and **subtitles** (also called **closed captions**/**CC** or **transcript**)
@@ -55,7 +53,6 @@ A **full-text search** for **[YouTube](https://www.youtube.com/) subtitles** and
 ## **not** providing <!-- omit in toc -->
 - subtitle download in any common, reusable format (although that could probably be added quite easily)
 - fuzzy search. Only exact matches are returned.
-
 
 # Commands
 
@@ -126,60 +123,59 @@ Those to whom this limitation applies, should feel encouraged to explore the ori
 
 Scott Adams mentioned this psychological phenomenon named after a physicist one of these days. Or did he say physician? What was its name again?
 
-<pre style="background: black; color: white">
+<pre>
 > SubTubular search-videos https://www.youtube.com/watch?v=egeCYaIe21Y https://www.youtube.com/watch?v=gDrFdxWNk8c --for physician,physicist
 </pre>
 
 or short
 
-<pre style="background: black; color: white">
+<pre>
 > SubTubular search-videos egeCYaIe21Y gDrFdxWNk8c -f physician,physicist
 </pre>
 
 gives you
 
-<pre style="background: black; color: white">
+<pre>
 15/08/2020 15:34 https://youtu.be/egeCYaIe21Y
   English (auto-generated)
-    17:31 gail mann was the name of a <span style="color: yellow">physicist</span>    https://youtu.be/egeCYaIe21Y?t=1051
+    17:31 gail mann was the name of a <b>physicist</b>    https://youtu.be/egeCYaIe21Y?t=1051
 </pre>
-<small style="float: right">(turns out, it was the [Gell-Mann Amnesia effect](https://www.epsilontheory.com/gell-mann-amnesia/))</small>
-<div style="clear: right"></div>
+<small>(turns out, it was the [Gell-Mann Amnesia effect](https://www.epsilontheory.com/gell-mann-amnesia/))</small>
 
 
 ## Search a diversified channel for content on a certain topic
 
 I might have gazed into the abyss for a little too long and now I need a deep breath, some unclenching and a refresher on the importance of free speech. I know StyxHexenhammer has a lot to say on the matter - if I can dig it out of the gardening content and occult literature.
 
-<pre style="background: black; color: white">
+<pre>
 > SubTubular search-channel https://www.youtube.com/channel/UC0rZoXAD5lxgBHMsjrGwWWQ --for "free speech,censorship,cancel culture,cancelculture,freespeech" --latest 500
 </pre>
 
 or short
 
-<pre style="background: black; color: white">
+<pre>
 > SubTubular search-channel UC0rZoXAD5lxgBHMsjrGwWWQ -f "free speech,censorship,cancel culture,cancelculture,freespeech" -l 500
 </pre>
 
 Note that title, description and keywords are matched as well as subtitles.
 
-<pre style="background: black; color: white">
+<pre>
 08/10/2020 07:58 https://youtu.be/xoZOMpoeots
-  in description: #Qanon #<span style='color: yellow'>Censorship</span>
-  in keywords: <span style='color: yellow'>censorship</span>, tech <span style='color: yellow'>censorship</span>, #<span style='color: yellow'>censorship</span>
+  in description: #Qanon #<b>Censorship</b>
+  in keywords: <b>censorship</b>, tech <b>censorship</b>, #<b>censorship</b>
   English (auto-generated)
-    03:58 in extreme <span style='color: yellow'>free speech</span> which means    https://youtu.be/xoZOMpoeots?t=238
-    04:00 <span style='color: yellow'>free speech</span> i'm an extremist when it    https://youtu.be/xoZOMpoeots?t=240
+    03:58 in extreme <b>free speech</b> which means    https://youtu.be/xoZOMpoeots?t=238
+    04:00 <b>free speech</b> i'm an extremist when it    https://youtu.be/xoZOMpoeots?t=240
 
 06/10/2020 08:42 https://youtu.be/8TysuANlPic
-  in title: <span style='color: yellow'>Cancel Culture</span> Comes for the CEO of the Babylon Bee
-  in keywords: <span style='color: yellow'>cancel culture</span>, #<span style='color: yellow'>cancelculture</span>
+  in title: <b>Cancel Culture</b> Comes for the CEO of the Babylon Bee
+  in keywords: <b>cancel culture</b>, #<b>cancelculture</b>
   English (auto-generated)
-    01:07 why is it that <span style='color: yellow'>cancel culture</span> would come    https://youtu.be/8TysuANlPic?t=67
-    06:31 and <span style='color: yellow'>cancel culture</span> is something that's    https://youtu.be/8TysuANlPic?t=391
-    06:50 <span style='color: yellow'>cancel culture</span> because it reminds them    https://youtu.be/8TysuANlPic?t=410
-    08:35 with <span style='color: yellow'>censorship</span> whether government    https://youtu.be/8TysuANlPic?t=515
-    08:57 <span style='color: yellow'>cancel culture</span> it's something that gets    https://youtu.be/8TysuANlPic?t=537
+    01:07 why is it that <b>cancel culture</b> would come    https://youtu.be/8TysuANlPic?t=67
+    06:31 and <b>cancel culture</b> is something that's    https://youtu.be/8TysuANlPic?t=391
+    06:50 <b>cancel culture</b> because it reminds them    https://youtu.be/8TysuANlPic?t=410
+    08:35 with <b>censorship</b> whether government    https://youtu.be/8TysuANlPic?t=515
+    08:57 <b>cancel culture</b> it's something that gets    https://youtu.be/8TysuANlPic?t=537
 </pre>
 
 
@@ -187,38 +183,38 @@ Note that title, description and keywords are matched as well as subtitles.
 
 I have here a pile of rocks that needs grinding. Also, the Middle East could do with some peace. Let's make a supercut of Jörg Sprave's laugh. And while we're at it, let me show you its features:
 
-<pre style="background: black; color: white">
+<pre>
 > SubTubular search-user https://www.youtube.com/user/JoergSprave --for "haha,let me show you its features" -latest 100 -cachehours 0 #disable cache to make sure I get the freshest laughs
 </pre>
 
 or short
 
-<pre style="background: black; color: white">
+<pre>
 > SubTubular search-user JoergSprave -f "haha,let me show you its features" -l 100 -h 0
 </pre>
 
 thankfully at any given time will yield something like
 
-<pre style="background: black; color: white">
+<pre>
 18/07/2020 16:52 https://youtu.be/WOFNUPH2hUY
   English (auto-generated)
-    01:50 cutter like a mini pizza cutter <span style='color: yellow'>haha</span>ha I    https://youtu.be/WOFNUPH2hUY?t=110
-    24:02 <span style='color: yellow'>haha</span><span style='color: yellow'>haha</span> so it may be a lot of things    https://youtu.be/WOFNUPH2hUY?t=1442
+    01:50 cutter like a mini pizza cutter <b>haha</b>ha I    https://youtu.be/WOFNUPH2hUY?t=110
+    24:02 <b>haha</b><b>haha</b> so it may be a lot of things    https://youtu.be/WOFNUPH2hUY?t=1442
 
 13/07/2020 16:40 https://youtu.be/52miCqsi7lo
   English (auto-generated)
-    37:38 upper band <span style='color: yellow'>haha</span>    https://youtu.be/52miCqsi7lo?t=2258
+    37:38 upper band <b>haha</b>    https://youtu.be/52miCqsi7lo?t=2258
 
 11/07/2020 12:18 https://youtu.be/nyze8uJovdo
   English (auto-generated)
-    00:21 <span style='color: yellow'>let me show you its features</span> I know I    https://youtu.be/nyze8uJovdo?t=21
+    00:21 <b>let me show you its features</b> I know I    https://youtu.be/nyze8uJovdo?t=21
 
 21/06/2020 21:03 https://youtu.be/BF_OuEba3a4
   English (auto-generated)
-    00:39 boat <span style='color: yellow'>let me show you its features</span>    https://youtu.be/BF_OuEba3a4?t=39
-    24:31 <span style='color: yellow'>haha</span>ha victory and now of course coconut    https://youtu.be/BF_OuEba3a4?t=1471
-    28:19 <span style='color: yellow'>haha</span>ha bye bye well the week is setting    https://youtu.be/BF_OuEba3a4?t=1699
-    39:18 <span style='color: yellow'>haha</span>ha and it is also clear that Odin    https://youtu.be/BF_OuEba3a4?t=2358
+    00:39 boat <b>let me show you its features</b>    https://youtu.be/BF_OuEba3a4?t=39
+    24:31 <b>haha</b>ha victory and now of course coconut    https://youtu.be/BF_OuEba3a4?t=1471
+    28:19 <b>haha</b>ha bye bye well the week is setting    https://youtu.be/BF_OuEba3a4?t=1699
+    39:18 <b>haha</b>ha and it is also clear that Odin    https://youtu.be/BF_OuEba3a4?t=2358
 </pre>
 
 
