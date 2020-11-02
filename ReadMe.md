@@ -124,13 +124,13 @@ Those to whom this limitation applies, should feel encouraged to explore the ori
 Scott Adams mentioned this psychological phenomenon named after a physicist one of these days. Or did he say physician? What was its name again?
 
 <pre>
-> SubTubular search-videos https://www.youtube.com/watch?v=egeCYaIe21Y https://www.youtube.com/watch?v=gDrFdxWNk8c --for physician,physicist
+> SubTubular <b>search-videos</b> https://www.youtube.com/watch?v=egeCYaIe21Y https://www.youtube.com/watch?v=gDrFdxWNk8c <b>--for</b> physician,physicist
 </pre>
 
 or short
 
 <pre>
-> SubTubular search-videos egeCYaIe21Y gDrFdxWNk8c -f physician,physicist
+> SubTubular <b>search-videos</b> egeCYaIe21Y gDrFdxWNk8c <b>-f</b> physician,physicist
 </pre>
 
 gives you
@@ -148,13 +148,13 @@ gives you
 I might have gazed into the abyss for a little too long and now I need a deep breath, some unclenching and a refresher on the importance of free speech. I know StyxHexenhammer has a lot to say on the matter - if I can dig it out of the gardening content and occult literature.
 
 <pre>
-> SubTubular search-channel https://www.youtube.com/channel/UC0rZoXAD5lxgBHMsjrGwWWQ --for "free speech,censorship,cancel culture,cancelculture,freespeech" --latest 500
+> SubTubular <b>search-channel</b> https://www.youtube.com/channel/UC0rZoXAD5lxgBHMsjrGwWWQ <b>--for</b> "free speech,censorship,cancel culture,cancelculture,freespeech" <b>--latest</b> 500
 </pre>
 
 or short
 
 <pre>
-> SubTubular search-channel UC0rZoXAD5lxgBHMsjrGwWWQ -f "free speech,censorship,cancel culture,cancelculture,freespeech" -l 500
+> SubTubular <b>search-channel</b> UC0rZoXAD5lxgBHMsjrGwWWQ <b>-f</b> "free speech,censorship,cancel culture,cancelculture,freespeech" <b>-l</b> 500
 </pre>
 
 Note that title, description and keywords are matched as well as subtitles.
@@ -184,13 +184,13 @@ Note that title, description and keywords are matched as well as subtitles.
 I have here a pile of rocks that needs grinding. Also, the Middle East could do with some peace. Let's make a supercut of Jörg Sprave's laugh. And while we're at it, let me show you its features:
 
 <pre>
-> SubTubular search-user https://www.youtube.com/user/JoergSprave --for "haha,let me show you its features" -latest 100 -cachehours 0 #disable cache to make sure I get the freshest laughs
+> SubTubular <b>search-user</b> https://www.youtube.com/user/JoergSprave <b>--for</b> "haha,let me show you its features" <b>--latest</b> 100 <b>--cachehours</b> 0 #disable cache to make sure I get the freshest laughs
 </pre>
 
 or short
 
 <pre>
-> SubTubular search-user JoergSprave -f "haha,let me show you its features" -l 100 -h 0
+> SubTubular <b>search-user</b> JoergSprave <b>-f</b> "haha,let me show you its features" <b>-l</b> 100 <b>-h</b> 0
 </pre>
 
 thankfully at any given time will yield something like
