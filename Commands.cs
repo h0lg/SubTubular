@@ -37,7 +37,7 @@ namespace SubTubular
         public float CacheHours { get; set; }
 
         internal abstract string GetStorageKey();
-        internal abstract IAsyncEnumerable<YoutubeExplode.Videos.Video> GetVideosAsync(YoutubeClient youtube);
+        internal abstract IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube);
     }
 
     [Verb("search-user",
@@ -48,9 +48,9 @@ namespace SubTubular
         [Value(0, Required = true, HelpText = "The user name or URL.")]
         public string User { get; set; }
 
-        internal override string GetStorageKey() => "user " + new UserName(User).Value;
+        internal override string GetStorageKey() => "user " + UserName.Parse(User).Value;
 
-        internal override async IAsyncEnumerable<YoutubeExplode.Videos.Video> GetVideosAsync(YoutubeClient youtube)
+        internal override async IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube)
         {
             var channel = await youtube.Channels.GetByUserAsync(User);
 
@@ -69,9 +69,9 @@ namespace SubTubular
         [Value(0, Required = true, HelpText = "The channel ID or URL.")]
         public string Channel { get; set; }
 
-        internal override string GetStorageKey() => "channel " + new ChannelId(Channel).Value;
+        internal override string GetStorageKey() => "channel " + ChannelId.Parse(Channel).Value;
 
-        internal override IAsyncEnumerable<YoutubeExplode.Videos.Video> GetVideosAsync(YoutubeClient youtube)
+        internal override IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube)
             => youtube.Channels.GetUploadsAsync(Channel);
     }
 
@@ -81,9 +81,9 @@ namespace SubTubular
         [Value(0, Required = true, HelpText = "The playlist ID or URL.")]
         public string Playlist { get; set; }
 
-        internal override string GetStorageKey() => "playlist " + new PlaylistId(Playlist);
+        internal override string GetStorageKey() => "playlist " + PlaylistId.Parse(Playlist).Value;
 
-        internal override IAsyncEnumerable<YoutubeExplode.Videos.Video> GetVideosAsync(YoutubeClient youtube)
+        internal override IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube)
             => youtube.Playlists.GetVideosAsync(Playlist);
     }
 

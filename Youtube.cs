@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using YoutubeExplode;
+using YoutubeExplode.Common;
 using YoutubeExplode.Videos;
 
 namespace SubTubular
@@ -34,21 +35,15 @@ namespace SubTubular
                 || playlist.VideoIds.Count < command.Top)
             {
                 playlist = new Playlist { Loaded = DateTime.UtcNow };
-                var videos = new List<YoutubeExplode.Videos.Video>();
-
-                await foreach (var video in command.GetVideosAsync(youtube))
-                {
-                    if (videos.Count < command.Top) videos.Add(video);
-                    else break;
-                }
-
-                playlist.VideoIds = videos.Select(v => v.Id.Value).ToList();
+                var playlistVideos = await command.GetVideosAsync(youtube).CollectAsync(command.Top);
+                playlist.VideoIds = playlistVideos.Select(v => v.Id.Value).ToList();
                 await dataStore.SetAsync(storageKey, playlist);
 
-                foreach (var vid in videos)
+                foreach (var playlistVideo in playlistVideos)
                 {
                     cancellation.ThrowIfCancellationRequested();
-                    var video = await GetVideoAsync(vid.Id, vid);
+                    var video = await GetVideoAsync(playlistVideo.Id);
+
                     var searchResult = SearchVideo(video, command.Terms);
                     if (searchResult != null) yield return searchResult;
                 }
@@ -74,7 +69,7 @@ namespace SubTubular
             foreach (var videoIdOrUrl in command.Videos)
             {
                 cancellation.ThrowIfCancellationRequested();
-                var video = await GetVideoAsync(new VideoId(videoIdOrUrl));
+                var video = await GetVideoAsync(VideoId.Parse(videoIdOrUrl).Value);
                 var searchResult = SearchVideo(video, command.Terms);
                 if (searchResult != null) yield return searchResult;
             }
@@ -153,13 +148,13 @@ namespace SubTubular
             });
         }
 
-        private async Task<Video> GetVideoAsync(string videoId, YoutubeExplode.Videos.Video alreadyLoaded = null)
+        private async Task<Video> GetVideoAsync(string videoId)
         {
             var video = await dataStore.GetAsync<Video>(videoId);
 
             if (video == null)
             {
-                var vid = alreadyLoaded ?? await youtube.Videos.GetAsync(videoId);
+                var vid = await youtube.Videos.GetAsync(videoId);
                 video = MapVideo(vid);
 
                 await foreach (var track in DownloadCaptionTracksAsync(videoId))
