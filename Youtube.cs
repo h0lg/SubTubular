@@ -85,9 +85,7 @@ namespace SubTubular
             var matchingKeywords = video.Keywords.Where(kw => kw.ContainsAny(terms)).ToArray();
             var matchingCaptionTracks = SearchCaptionTracks(video.CaptionTracks, terms);
 
-            var matchingDescriptionLines = video.Description
-                //split on newlines, see https://stackoverflow.com/a/1547483
-                .Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries)
+            var matchingDescriptionLines = video.Description.SplitOnNewLines()
                 .Where(l => !string.IsNullOrWhiteSpace(l) && l.ContainsAny(terms))
                 .ToArray();
 

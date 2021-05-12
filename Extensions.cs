@@ -27,5 +27,12 @@ namespace SubTubular
             => terms.Any(t => text.Contains(t, stringComparison));
 
         internal static string Join(this IEnumerable<string> pieces, string glue) => string.Join(glue, pieces);
+
+        /// <summary>
+        /// Splits a string into an array by new line characters.
+        /// Inspired by https://stackoverflow.com/a/1547483 
+        /// </summary>
+        internal static string[] SplitOnNewLines(this string text)
+            => text.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
     }
 }
