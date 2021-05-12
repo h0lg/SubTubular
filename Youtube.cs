@@ -27,6 +27,7 @@ namespace SubTubular
         internal async IAsyncEnumerable<VideoSearchResult> SearchPlaylistAsync(
             SearchPlaylistCommand command, [EnumeratorCancellation] CancellationToken cancellation = default)
         {
+            cancellation.ThrowIfCancellationRequested();
             var storageKey = command.GetStorageKey();
             var playlist = await dataStore.GetAsync<Playlist>(storageKey); //get cached
 
@@ -35,14 +36,14 @@ namespace SubTubular
                 || playlist.VideoIds.Count < command.Top)
             {
                 playlist = new Playlist { Loaded = DateTime.UtcNow };
-                var playlistVideos = await command.GetVideosAsync(youtube).CollectAsync(command.Top);
+                var playlistVideos = await command.GetVideosAsync(youtube, cancellation).CollectAsync(command.Top);
                 playlist.VideoIds = playlistVideos.Select(v => v.Id.Value).ToList();
                 await dataStore.SetAsync(storageKey, playlist);
 
                 foreach (var playlistVideo in playlistVideos)
                 {
                     cancellation.ThrowIfCancellationRequested();
-                    var video = await GetVideoAsync(playlistVideo.Id);
+                    var video = await GetVideoAsync(playlistVideo.Id, cancellation);
 
                     var searchResult = SearchVideo(video, command.Terms);
                     if (searchResult != null) yield return searchResult;
@@ -53,7 +54,7 @@ namespace SubTubular
                 foreach (var videoId in playlist.VideoIds.Take(command.Top))
                 {
                     cancellation.ThrowIfCancellationRequested();
-                    var video = await GetVideoAsync(videoId);
+                    var video = await GetVideoAsync(videoId, cancellation);
                     var searchResult = SearchVideo(video, command.Terms);
                     if (searchResult != null) yield return searchResult;
                 }
@@ -69,7 +70,7 @@ namespace SubTubular
             foreach (var videoIdOrUrl in command.Videos)
             {
                 cancellation.ThrowIfCancellationRequested();
-                var video = await GetVideoAsync(VideoId.Parse(videoIdOrUrl).Value);
+                var video = await GetVideoAsync(VideoId.Parse(videoIdOrUrl).Value, cancellation);
                 var searchResult = SearchVideo(video, command.Terms);
                 if (searchResult != null) yield return searchResult;
             }
@@ -148,16 +149,17 @@ namespace SubTubular
             });
         }
 
-        private async Task<Video> GetVideoAsync(string videoId)
+        private async Task<Video> GetVideoAsync(string videoId, CancellationToken cancellation)
         {
+            cancellation.ThrowIfCancellationRequested();
             var video = await dataStore.GetAsync<Video>(videoId);
 
             if (video == null)
             {
-                var vid = await youtube.Videos.GetAsync(videoId);
+                var vid = await youtube.Videos.GetAsync(videoId, cancellation);
                 video = MapVideo(vid);
 
-                await foreach (var track in DownloadCaptionTracksAsync(videoId))
+                await foreach (var track in DownloadCaptionTracksAsync(videoId, cancellation))
                     video.CaptionTracks.Add(track);
 
                 await dataStore.SetAsync(videoId, video);
@@ -175,14 +177,17 @@ namespace SubTubular
             Uploaded = video.UploadDate.UtcDateTime
         };
 
-        private async IAsyncEnumerable<CaptionTrack> DownloadCaptionTracksAsync(string videoId)
+        private async IAsyncEnumerable<CaptionTrack> DownloadCaptionTracksAsync(string videoId,
+            [EnumeratorCancellation] CancellationToken cancellation)
         {
+            cancellation.ThrowIfCancellationRequested();
             var trackManifest = await youtube.Videos.ClosedCaptions.GetManifestAsync(videoId);
 
             foreach (var trackInfo in trackManifest.Tracks)
             {
+                cancellation.ThrowIfCancellationRequested();
                 // Get the actual closed caption track
-                var track = await youtube.Videos.ClosedCaptions.GetAsync(trackInfo);
+                var track = await youtube.Videos.ClosedCaptions.GetAsync(trackInfo, cancellation);
 
                 yield return new CaptionTrack
                 {

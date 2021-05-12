@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Threading;
 using CommandLine;
 using YoutubeExplode;
 using YoutubeExplode.Channels;
@@ -37,7 +39,7 @@ namespace SubTubular
         public float CacheHours { get; set; }
 
         internal abstract string GetStorageKey();
-        internal abstract IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube);
+        internal abstract IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation);
     }
 
     [Verb("search-user",
@@ -50,12 +52,14 @@ namespace SubTubular
 
         internal override string GetStorageKey() => "user " + UserName.Parse(User).Value;
 
-        internal override async IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube)
+        internal override async IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube, [EnumeratorCancellation] CancellationToken cancellation)
         {
-            var channel = await youtube.Channels.GetByUserAsync(User);
+            cancellation.ThrowIfCancellationRequested();
+            var channel = await youtube.Channels.GetByUserAsync(User, cancellation);
 
-            await foreach (var video in youtube.Channels.GetUploadsAsync(channel.Id))
+            await foreach (var video in youtube.Channels.GetUploadsAsync(channel.Id, cancellation))
             {
+                cancellation.ThrowIfCancellationRequested();
                 yield return video;
             }
         }
@@ -71,8 +75,11 @@ namespace SubTubular
 
         internal override string GetStorageKey() => "channel " + ChannelId.Parse(Channel).Value;
 
-        internal override IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube)
-            => youtube.Channels.GetUploadsAsync(Channel);
+        internal override IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            return youtube.Channels.GetUploadsAsync(Channel, cancellation);
+        }
     }
 
     [Verb("search-playlist", HelpText = "Searches the {top} n videos from the {playlist} for the specified {terms}.")]
@@ -83,8 +90,11 @@ namespace SubTubular
 
         internal override string GetStorageKey() => "playlist " + PlaylistId.Parse(Playlist).Value;
 
-        internal override IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube)
-            => youtube.Playlists.GetVideosAsync(Playlist);
+        internal override IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            return youtube.Playlists.GetVideosAsync(Playlist, cancellation);
+        }
     }
 
     [Verb("search-videos", HelpText = "Searches the {videos} for the specified {terms}.")]
