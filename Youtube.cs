@@ -29,21 +29,23 @@ namespace SubTubular
             var storageKey = command.GetStorageKey();
             var playlist = await dataStore.GetAsync<Playlist>(storageKey); //get cached
 
-            if (playlist == null || playlist.Loaded < DateTime.UtcNow.AddHours(-command.CacheHours))
+            if (playlist == null
+                || playlist.Loaded < DateTime.UtcNow.AddHours(-command.CacheHours)
+                || playlist.VideoIds.Count < command.Top)
             {
                 playlist = new Playlist { Loaded = DateTime.UtcNow };
+                var videos = new List<YoutubeExplode.Videos.Video>();
 
-                /* get the entire list. underlying implementation only makes one HTTP request either way
-                    and we don't know how the videos are ordererd:
-                    special "Uploads" playlist is latest uploaded first, but custom playlists may not be */
-                var videos = await command.GetVideosAsync(youtube);
+                await foreach (var video in command.GetVideosAsync(youtube))
+                {
+                    if (videos.Count < command.Top) videos.Add(video);
+                    else break;
+                }
 
-                var ordered = videos.OrderByDescending(v => v.UploadDate).ToArray();
-                playlist.VideoIds = ordered.Select(v => v.Id.Value).ToList();
+                playlist.VideoIds = videos.Select(v => v.Id.Value).ToList();
                 await dataStore.SetAsync(storageKey, playlist);
 
-                //so order videos explicitly by latest uploaded before taking the latest n videos
-                foreach (var vid in ordered.Take(command.Latest))
+                foreach (var vid in videos)
                 {
                     cancellation.ThrowIfCancellationRequested();
                     var video = await GetVideoAsync(vid.Id, vid);
@@ -53,8 +55,7 @@ namespace SubTubular
             }
             else
             {
-                //playlist.VideoIds is already ordered latest uploaded first; see above
-                foreach (var videoId in playlist.VideoIds.Take(command.Latest))
+                foreach (var videoId in playlist.VideoIds.Take(command.Top))
                 {
                     cancellation.ThrowIfCancellationRequested();
                     var video = await GetVideoAsync(videoId);

@@ -69,38 +69,38 @@ Searches the {videos} {for} the specified terms.
 
 ## search-playlist
 
-Searches the {latest} n videos from the {playlist} {for} the specified terms.
+Searches the {top} n videos from the {playlist} {for} the specified terms.
 
-|                  |                                                                                                                              |
-| :--------------- | :--------------------------------------------------------------------------------------------------------------------------- |
-| value pos. 0     | Required. The playlist ID or URL.                                                                                            |
-| -f, --for        | Required. What to search for. Quote "multi-word phrases" and "separate,multiple terms,by comma".                             |
-| -l, --latest     | (Default: 50) The number of latest videos to search.                                                                         |
-| -h, --cachehours | (Default: 24) The maximum age of a playlist cache in hours before it is considered stale and the videos in it are refreshed. |
+|                  |                                                                                                                                                                                                                |
+| :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| value pos. 0     | Required. The playlist ID or URL.                                                                                                                                                                              |
+| -f, --for        | Required. What to search for. Quote "multi-word phrases" and "separate,multiple terms,by comma".                                                                                                               |
+| -t, --top        | (Default: 50) The number of videos to return from the top of the playlist. The special Uploads playlist of a channel or user are sorted latest uploaded first, but custom playlists may be sorted differently. |
+| -h, --cachehours | (Default: 24) The maximum age of a playlist cache in hours before it is considered stale and the videos in it are refreshed.                                                                                   |
 
 
 ## search-channel
 
-Searches the {latest} n videos from the Uploads playlist of the {channel} {for} the specified terms. This is a glorified search-playlist.
+Searches the {top} n videos from the Uploads playlist of the {channel} {for} the specified terms. This is a glorified search-playlist.
 
-|                  |                                                                                                                              |
-| :--------------- | :--------------------------------------------------------------------------------------------------------------------------- |
-| value pos. 0     | Required. The channel ID or URL.                                                                                             |
-| -f, --for        | Required. What to search for. Quote "multi-word phrases" and "separate,multiple terms,by comma".                             |
-| -l, --latest     | (Default: 50) The number of latest videos to search.                                                                         |
-| -h, --cachehours | (Default: 24) The maximum age of a playlist cache in hours before it is considered stale and the videos in it are refreshed. |
+|                  |                                                                                                                                                                                                                |
+| :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| value pos. 0     | Required. The channel ID or URL.                                                                                                                                                                               |
+| -f, --for        | Required. What to search for. Quote "multi-word phrases" and "separate,multiple terms,by comma".                                                                                                               |
+| -t, --top        | (Default: 50) The number of videos to return from the top of the playlist. The special Uploads playlist of a channel or user are sorted latest uploaded first, but custom playlists may be sorted differently. |
+| -h, --cachehours | (Default: 24) The maximum age of a playlist cache in hours before it is considered stale and the videos in it are refreshed.                                                                                   |
 
 
 ## search-user
 
-Searches the {latest} n videos from the Uploads playlist of the {user}'s channel {for} the specified terms. This is a glorified search-playlist.
+Searches the {top} n videos from the Uploads playlist of the {user}'s channel {for} the specified terms. This is a glorified search-playlist.
 
-|                  |                                                                                                                              |
-| :--------------- | :--------------------------------------------------------------------------------------------------------------------------- |
-| value pos. 0     | Required. The user name or URL.                                                                                              |
-| -f, --for        | Required. What to search for. Quote "multi-word phrases" and "separate,multiple terms,by comma".                             |
-| -l, --latest     | (Default: 50) The number of latest videos to search.                                                                         |
-| -h, --cachehours | (Default: 24) The maximum age of a playlist cache in hours before it is considered stale and the videos in it are refreshed. |
+|                  |                                                                                                                                                                                                                |
+| :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| value pos. 0     | Required. The user name or URL.                                                                                                                                                                                |
+| -f, --for        | Required. What to search for. Quote "multi-word phrases" and "separate,multiple terms,by comma".                                                                                                               |
+| -t, --top        | (Default: 50) The number of videos to return from the top of the playlist. The special Uploads playlist of a channel or user are sorted latest uploaded first, but custom playlists may be sorted differently. |
+| -h, --cachehours | (Default: 24) The maximum age of a playlist cache in hours before it is considered stale and the videos in it are refreshed.                                                                                   |
 
 
 ## clear-cache
@@ -148,13 +148,13 @@ gives you
 I might have gazed into the abyss for a little too long and now I need a deep breath, some unclenching and a refresher on the importance of free speech. I know StyxHexenhammer has a lot to say on the matter - if I can dig it out of the gardening content and occult literature.
 
 <pre>
-> SubTubular <b>search-channel</b> https://www.youtube.com/channel/UC0rZoXAD5lxgBHMsjrGwWWQ <b>--for</b> "free speech,censorship,cancel culture,cancelculture,freespeech" <b>--latest</b> 500
+> SubTubular <b>search-channel</b> https://www.youtube.com/channel/UC0rZoXAD5lxgBHMsjrGwWWQ <b>--for</b> "free speech,censorship,cancel culture,cancelculture,freespeech" <b>--top</b> 500
 </pre>
 
 or short
 
 <pre>
-> SubTubular <b>search-channel</b> UC0rZoXAD5lxgBHMsjrGwWWQ <b>-f</b> "free speech,censorship,cancel culture,cancelculture,freespeech" <b>-l</b> 500
+> SubTubular <b>search-channel</b> UC0rZoXAD5lxgBHMsjrGwWWQ <b>-f</b> "free speech,censorship,cancel culture,cancelculture,freespeech" <b>-t</b> 500
 </pre>
 
 Note that title, description and keywords are matched as well as subtitles.
@@ -184,13 +184,13 @@ Note that title, description and keywords are matched as well as subtitles.
 I have here a pile of rocks that needs grinding. Also, the Middle East could do with some peace. Let's make a supercut of Jörg Sprave's laugh. And while we're at it, let me show you its features:
 
 <pre>
-> SubTubular <b>search-user</b> https://www.youtube.com/user/JoergSprave <b>--for</b> "haha,let me show you its features" <b>--latest</b> 100 <b>--cachehours</b> 0 #disable cache to make sure I get the freshest laughs
+> SubTubular <b>search-user</b> https://www.youtube.com/user/JoergSprave <b>--for</b> "haha,let me show you its features" <b>--top</b> 100 <b>--cachehours</b> 0 #disable cache to make sure I get the freshest laughs
 </pre>
 
 or short
 
 <pre>
-> SubTubular <b>search-user</b> JoergSprave <b>-f</b> "haha,let me show you its features" <b>-l</b> 100 <b>-h</b> 0
+> SubTubular <b>search-user</b> JoergSprave <b>-f</b> "haha,let me show you its features" <b>-t</b> 100 <b>-h</b> 0
 </pre>
 
 thankfully at any given time will yield something like

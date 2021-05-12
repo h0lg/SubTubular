@@ -26,8 +26,11 @@ namespace SubTubular
 
     internal abstract class SearchPlaylistCommand : SearchCommand
     {
-        [Option('l', "latest", Default = 50, HelpText = "The number of latest videos to search.")]
-        public int Latest { get; set; }
+        [Option('t', "top", Default = 50,
+            HelpText = "The number of videos to return from the top of the playlist."
+                + " The special Uploads playlist of a channel or user are sorted latest uploaded first,"
+                + " but custom playlists may be sorted differently.")]
+        public int Top { get; set; }
 
         [Option('h', "cachehours", Default = 24, HelpText = "The maximum age of a playlist cache in hours"
             + " before it is considered stale and the videos in it are refreshed.")]
@@ -38,7 +41,7 @@ namespace SubTubular
     }
 
     [Verb("search-user",
-        HelpText = "Searches the {latest} n videos from the Uploads playlist of the {user}'s channel for the specified {terms}."
+        HelpText = "Searches the {top} n videos from the Uploads playlist of the {user}'s channel for the specified {terms}."
             + " This is a glorified search-playlist.")]
     internal sealed class SearchUser : SearchPlaylistCommand
     {
@@ -59,7 +62,7 @@ namespace SubTubular
     }
 
     [Verb("search-channel",
-        HelpText = "Searches the {latest} n videos from the Uploads playlist of the {channel} for the specified {terms}."
+        HelpText = "Searches the {top} n videos from the Uploads playlist of the {channel} for the specified {terms}."
         + " This is a glorified search-playlist.")]
     internal sealed class SearchChannel : SearchPlaylistCommand
     {
@@ -72,7 +75,7 @@ namespace SubTubular
             => youtube.Channels.GetUploadsAsync(Channel);
     }
 
-    [Verb("search-playlist", HelpText = "Searches the {latest} n videos from the {playlist} for the specified {terms}.")]
+    [Verb("search-playlist", HelpText = "Searches the {top} n videos from the {playlist} for the specified {terms}.")]
     internal sealed class SearchPlaylist : SearchPlaylistCommand
     {
         [Value(0, Required = true, HelpText = "The playlist ID or URL.")]
