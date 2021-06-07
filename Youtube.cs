@@ -24,8 +24,7 @@ namespace SubTubular
         /// <param name="cancellation">Passed in either explicitly or by the IAsyncEnumerable.WithCancellation() extension,
         /// see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables</param>
         internal async IAsyncEnumerable<VideoSearchResult> SearchPlaylistAsync(
-            SearchPlaylistCommand command,
-            [EnumeratorCancellation] CancellationToken cancellation = default)
+            SearchPlaylistCommand command, [EnumeratorCancellation] CancellationToken cancellation = default)
         {
             var storageKey = command.GetStorageKey();
             var playlist = await dataStore.GetAsync<Playlist>(storageKey); //get cached
@@ -69,8 +68,7 @@ namespace SubTubular
         /// <param name="cancellation">Passed in either explicitly or by the IAsyncEnumerable.WithCancellation() extension,
         /// see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables</param>
         internal async IAsyncEnumerable<VideoSearchResult> SearchVideosAsync(
-            SearchVideos command,
-            [EnumeratorCancellation] CancellationToken cancellation = default)
+            SearchVideos command, [EnumeratorCancellation] CancellationToken cancellation = default)
         {
             foreach (var videoIdOrUrl in command.Videos)
             {
@@ -166,9 +164,7 @@ namespace SubTubular
                 video = MapVideo(vid);
 
                 await foreach (var track in DownloadCaptionTracksAsync(videoId))
-                {
                     video.CaptionTracks.Add(track);
-                }
 
                 await dataStore.SetAsync(videoId, video);
             }

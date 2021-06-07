@@ -13,12 +13,12 @@ namespace SubTubular
     internal sealed class Program
     {
         private const string asciiHeading = @"
-   _____       __  ______      __          __          
+   _____       __  ______      __          __
   / ___/__  __/ /_/_  __/_  __/ /_  __  __/ /___ ______
   \__ \/ / / / __ \/ / / / / / __ \/ / / / / __ `/ ___/
- ___/ / /_/ / /_/ / / / /_/ / /_/ / /_/ / / /_/ / /    
-/____/\__,_/_.___/_/  \__,_/_.___/\__,_/_/\__,_/_/     
-                                                       
+ ___/ / /_/ / /_/ / / / /_/ / /_/ / /_/ / / /_/ / /
+/____/\__,_/_.___/_/  \__,_/_.___/\__,_/_/\__,_/_/
+
 "; //from http://www.patorjk.com/software/taag/#p=display&f=Slant&t=SubTubular
 
         private static async Task Main(string[] args)
@@ -98,10 +98,7 @@ namespace SubTubular
                         displayResult(result);
                     }
                 }
-                catch (OperationCanceledException)
-                {
-                    Console.WriteLine("The search was cancelled.");
-                }
+                catch (OperationCanceledException) { Console.WriteLine("The search was cancelled."); }
 
                 searching = false; //to complete the cancel task
                 await cancel; //just to rethrow possible exceptions
