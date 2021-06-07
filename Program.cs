@@ -5,8 +5,6 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using AngleSharp;
-using AngleSharp.Dom;
 using CommandLine;
 using CommandLine.Text;
 
@@ -88,130 +86,18 @@ namespace SubTubular
                 });
 
                 var youtube = new Youtube(new JsonFileDataStore(GetCachePath()));
-                IDocument document = null;
-                IElement output = null;
-                var hasOutputPath = !string.IsNullOrEmpty(command.FileOutputPath);
-                var writeOutputFile = command.OutputHtml || hasOutputPath;
-                StringWriter textOut = null;
+                var output = new OutputWriter(command, originalCommand);
 
                 try
                 {
-                    if (writeOutputFile)
-                    {
-                        //TODO refactor into output writer
-                        if (command.OutputHtml)
-                        {
-                            var context = BrowsingContext.New(Configuration.Default);
-                            document = await context.OpenNewAsync();
-
-                            var style = document.CreateElement("style");
-                            style.TextContent = "pre > em { background-color: yellow }";
-                            document.Head.Append(style);
-
-                            output = document.CreateElement("pre");
-                            document.Body.Append(output);
-                        }
-                        else
-                        {
-                            textOut = new StringWriter();
-                        }
-                    }
-
-                    void write(string text)
-                    {
-                        Console.Write(text);
-
-                        if (writeOutputFile)
-                        {
-                            if (command.OutputHtml) output.InnerHtml += text;
-                            else textOut.Write(text);
-                        }
-                    };
-
-                    void writeLine(string text)
-                    {
-                        Console.WriteLine(text);
-
-                        if (writeOutputFile)
-                        {
-                            if (command.OutputHtml)
-                                output.InnerHtml += (text ?? string.Empty) + Environment.NewLine;
-                            else textOut.WriteLine(text);
-                        }
-                    };
-
-                    var regularForeGround = Console.ForegroundColor; //using current
-
-                    void writeHighlighted(string text)
-                    {
-                        Console.ForegroundColor = highlightColor;
-                        Console.Write(text);
-                        Console.ForegroundColor = regularForeGround;
-
-                        if (writeOutputFile)
-                        {
-                            if (command.OutputHtml)
-                            {
-                                var em = document.CreateElement("em");
-                                em.TextContent = text;
-                                output.Append(em);
-                            }
-                            else textOut.Write($"*{text}*");
-                        }
-                    };
-
-                    void writeUrl(string url)
-                    {
-                        Console.Write(url);
-
-                        if (writeOutputFile)
-                        {
-                            if (command.OutputHtml)
-                            {
-                                var hlink = document.CreateElement("a");
-                                hlink.SetAttribute("href", url);
-                                hlink.SetAttribute("target", "_blank");
-                                hlink.TextContent = url;
-                                output.Append(hlink);
-                            }
-                            else textOut.Write(url);
-                        }
-                    };
-
-                    void writeHighlighting(string text) => WriteHighlighting(text, terms, write, writeHighlighted);
-
-                    if (writeOutputFile)
-                    {
-                        writeLine(originalCommand);
-                        writeLine(null);
-                    }
-
                     /* passing token into search implementations for them to react to cancellation,
                         see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables*/
                     await foreach (var result in getResultsAsync(youtube).WithCancellation(search.Token))
-                        DisplayVideoResult(result, write, writeLine, writeHighlighting, writeUrl);
+                        output.DisplayVideoResult(result);
                 }
                 catch (OperationCanceledException) { Console.WriteLine("The search was cancelled."); }
 
-                if (writeOutputFile)
-                {
-                    string path;
-
-                    if (!hasOutputPath || command.FileOutputPath.IsPathDirectory())
-                    {
-                        var extension = command.OutputHtml ? ".html" : ".txt";
-                        var fileName = command.Format() + extension;
-                        var folder = hasOutputPath ? command.FileOutputPath : GetFileStoragePath("out");
-                        path = Path.Combine(folder, fileName);
-                    }
-                    else path = command.FileOutputPath; // treat as full file path
-
-                    var text = command.OutputHtml ? document.DocumentElement.OuterHtml : textOut.ToString();
-                    Directory.CreateDirectory(Path.GetDirectoryName(path));
-                    await File.WriteAllTextAsync(path, text);
-                    Console.WriteLine("Search results were written to " + path);
-                }
-
+                output.WriteOutputFile(() => GetFileStoragePath("out"));
                 searching = false; //to complete the cancel task
                 await cancel; //just to rethrow possible exceptions
             }
@@ -222,98 +108,6 @@ namespace SubTubular
             Assembly.GetEntryAssembly().GetName().Name, subFolder);
 
         private static string GetCachePath() => GetFileStoragePath("cache");
-
-        #region DISPLAY
-        const ConsoleColor highlightColor = ConsoleColor.Yellow;
-
-        private static void DisplayVideoResult(VideoSearchResult result, Action<string> write, Action<string> writeLine,
-            Action<string> writeHighlighted, Action<string> writeUrl)
-        {
-            var videoUrl = "https://youtu.be/" + result.Video.Id;
-            write($"{result.Video.Uploaded:g} ");
-            writeUrl(videoUrl);
-            writeLine(null);
-
-            if (result.TitleMatches)
-            {
-                write("  in title: ");
-                writeHighlighted(result.Video.Title);
-                writeLine(null);
-            }
-
-            if (result.MatchingDescriptionLines.Any())
-            {
-                write("  in description: ");
-
-                for (int i = 0; i < result.MatchingDescriptionLines.Length; i++)
-                {
-                    var line = result.MatchingDescriptionLines[i];
-                    var prefix = i == 0 ? string.Empty : "    ";
-                    writeHighlighted(prefix + line);
-                    writeLine(null);
-                }
-            }
-
-            if (result.MatchingKeywords.Any())
-            {
-                write("  in keywords: ");
-                var lastKeyword = result.MatchingKeywords.Last();
-
-                foreach (var keyword in result.MatchingKeywords)
-                {
-                    writeHighlighted(keyword);
-
-                    if (keyword != lastKeyword) write(", ");
-                    else writeLine(null);
-                }
-            }
-
-            foreach (var track in result.MatchingCaptionTracks)
-            {
-                writeLine("  " + track.LanguageName);
-
-                var displaysHour = track.Captions.Any(c => c.At > 3600);
-
-                foreach (var caption in track.Captions)
-                {
-                    var offset = TimeSpan.FromSeconds(caption.At).FormatWithOptionalHours().PadLeft(displaysHour ? 7 : 5);
-                    write($"    {offset} ");
-                    writeHighlighted(caption.Text);
-                    write("    ");
-                    writeUrl($"{videoUrl}?t={caption.At}");
-                    writeLine(null);
-                }
-            }
-
-            writeLine(null);
-        }
-
-        private static void WriteHighlighting(string text, IEnumerable<string> terms, Action<string> write, Action<string> writeHighlighting)
-        {
-            var written = 0;
-
-            void writeCounting(int length, bool highlight = false)
-            {
-                var phrase = text.Substring(written, length);
-
-                if (highlight) writeHighlighting(phrase);
-                else write(phrase);
-
-                written += length;
-            };
-
-            var matches = text.GetMatches(terms).ToArray();
-
-            foreach (var match in matches)
-            {
-                if (written < match.Index) writeCounting(match.Index - written); //write text preceding match
-                if (match.Index < written && match.Index <= written - match.Length) continue; //letters already matched
-                writeCounting(match.Length - (written - match.Index), true); //write remaining matched letters
-            }
-
-            if (written < text.Length) writeCounting(text.Length - written); //write text trailing last match
-        }
-        #endregion
 
         #region HelpText Option order
         static int CompareOptions(ComparableOption a, ComparableOption b) => ScoreOption(a) < ScoreOption(b) ? -1 : 1;
