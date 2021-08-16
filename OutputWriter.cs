@@ -7,7 +7,7 @@ using AngleSharp.Dom;
 
 namespace SubTubular
 {
-    internal sealed class OutputWriter
+    internal sealed class OutputWriter : IDisposable
     {
         private const ConsoleColor highlightColor = ConsoleColor.Yellow;
         private readonly ConsoleColor regularForeGround;
@@ -73,7 +73,7 @@ namespace SubTubular
         {
             Console.ForegroundColor = highlightColor;
             Console.Write(text);
-            Console.ForegroundColor = regularForeGround;
+            ResetConsoleColor();
             if (!writeOutputFile) return;
 
             if (command.OutputHtml)
@@ -208,5 +208,34 @@ namespace SubTubular
             await File.WriteAllTextAsync(path, text);
             Console.WriteLine("Search results were written to " + path);
         }
+
+        private void ResetConsoleColor() => Console.ForegroundColor = regularForeGround;
+
+        #region IDisposable implementation
+        private bool disposedValue;
+
+        private void Dispose(bool disposing)
+        {
+            if (!disposedValue)
+            {
+                if (disposing)
+                {
+                    // dispose managed state (managed objects)
+                    ResetConsoleColor(); //just to make sure we revert changes to the global Console state if an error occurs while writing sth. highlighted
+                }
+
+                // free unmanaged resources (unmanaged objects) and override finalizer
+                // set large fields to null
+                disposedValue = true;
+            }
+        }
+
+        public void Dispose()
+        {
+            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
+        }
+        #endregion
     }
 }

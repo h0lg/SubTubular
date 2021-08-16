@@ -86,18 +86,21 @@ namespace SubTubular
                 });
 
                 var youtube = new Youtube(new JsonFileDataStore(GetCachePath()));
-                var output = new OutputWriter(command, originalCommand);
 
-                try
+                using (var output = new OutputWriter(command, originalCommand))
                 {
-                    /* passing token into search implementations for them to react to cancellation,
-                        see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables*/
-                    await foreach (var result in getResultsAsync(youtube).WithCancellation(search.Token))
-                        output.DisplayVideoResult(result);
-                }
-                catch (OperationCanceledException) { Console.WriteLine("The search was cancelled."); }
+                    try
+                    {
+                        /* passing token into search implementations for them to react to cancellation,
+                            see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables*/
+                        await foreach (var result in getResultsAsync(youtube).WithCancellation(search.Token))
+                            output.DisplayVideoResult(result);
+                    }
+                    catch (OperationCanceledException) { Console.WriteLine("The search was cancelled."); }
 
-                output.WriteOutputFile(() => GetFileStoragePath("out"));
+                    output.WriteOutputFile(() => GetFileStoragePath("out"));
+                }
+
                 searching = false; //to complete the cancel task
                 await cancel; //just to rethrow possible exceptions
             }
