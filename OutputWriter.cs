@@ -24,9 +24,6 @@ namespace SubTubular
             hasOutputPath = !string.IsNullOrEmpty(command.FileOutputPath);
             writeOutputFile = command.OutputHtml || hasOutputPath;
             this.command = command;
-
-            if (!writeOutputFile) return;
-
             terms = command.Terms;
 
             if (command.OutputHtml)
@@ -46,8 +43,11 @@ namespace SubTubular
                 textOut = new StringWriter();
             }
 
-            WriteLine(originalCommand);
-            WriteLine();
+            if (writeOutputFile) //write original search into file header
+            {
+                WriteLine(originalCommand);
+                WriteLine();
+            }
         }
 
         private void Write(string text)
