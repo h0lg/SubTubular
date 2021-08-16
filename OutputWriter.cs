@@ -194,7 +194,7 @@ namespace SubTubular
 
             string path;
 
-            if (!hasOutputPath || command.FileOutputPath.IsPathDirectory())
+            if (!hasOutputPath || command.FileOutputPath.IsDirectoryPath())
             {
                 var extension = command.OutputHtml ? ".html" : ".txt";
                 var fileName = command.Format() + extension;

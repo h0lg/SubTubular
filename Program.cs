@@ -27,20 +27,20 @@ namespace SubTubular
             var parserResult = new Parser(with => with.HelpWriter = null)
                 .ParseArguments<SearchUser, SearchChannel, SearchPlaylist, SearchVideos, ClearCache>(args);
 
-            var cmd = "> SubTubular " + args.Join(" ");
+            var originalCommand = "> SubTubular " + args.Join(" ");
 
             //https://github.com/commandlineparser/commandline/wiki/Getting-Started#using-withparsedasync-in-asyncawait
             await parserResult.WithParsedAsync<SearchUser>(async command
-                => await Search(command, cmd, youtube => youtube.SearchPlaylistAsync(command)));
+                => await Search(command, originalCommand, youtube => youtube.SearchPlaylistAsync(command)));
 
             await parserResult.WithParsedAsync<SearchChannel>(async command
-                => await Search(command, cmd, youtube => youtube.SearchPlaylistAsync(command)));
+                => await Search(command, originalCommand, youtube => youtube.SearchPlaylistAsync(command)));
 
             await parserResult.WithParsedAsync<SearchPlaylist>(async command
-                => await Search(command, cmd, youtube => youtube.SearchPlaylistAsync(command)));
+                => await Search(command, originalCommand, youtube => youtube.SearchPlaylistAsync(command)));
 
             await parserResult.WithParsedAsync<SearchVideos>(async command
-                => await Search(command, cmd, youtube => youtube.SearchVideosAsync(command)));
+                => await Search(command, originalCommand, youtube => youtube.SearchVideosAsync(command)));
 
             parserResult.WithParsed<ClearCache>(c => new JsonFileDataStore(GetCachePath()).Clear());
 

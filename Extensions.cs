@@ -37,7 +37,7 @@ namespace SubTubular
             => text.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
 
         //from https://stackoverflow.com/a/19596821
-        internal static bool IsPathDirectory(this string path)
+        internal static bool IsDirectoryPath(this string path)
         {
             if (path == null) throw new ArgumentNullException(nameof(path));
             path = path.Trim();
