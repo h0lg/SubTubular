@@ -21,39 +21,65 @@ namespace SubTubular
 
 "; //from http://www.patorjk.com/software/taag/#p=display&f=Slant&t=SubTubular
 
+        private const string repoUrl = "https://github.com/h0lg/SubTubular";
+
         private static async Task Main(string[] args)
         {
-            //see https://github.com/commandlineparser/commandline
-            var parserResult = new Parser(with => with.HelpWriter = null)
-                .ParseArguments<SearchUser, SearchChannel, SearchPlaylist, SearchVideos, ClearCache>(args);
-
             var originalCommand = "> SubTubular " + args.Join(" ");
 
-            //https://github.com/commandlineparser/commandline/wiki/Getting-Started#using-withparsedasync-in-asyncawait
-            await parserResult.WithParsedAsync<SearchUser>(async command
-                => await Search(command, originalCommand, youtube => youtube.SearchPlaylistAsync(command)));
-
-            await parserResult.WithParsedAsync<SearchChannel>(async command
-                => await Search(command, originalCommand, youtube => youtube.SearchPlaylistAsync(command)));
-
-            await parserResult.WithParsedAsync<SearchPlaylist>(async command
-                => await Search(command, originalCommand, youtube => youtube.SearchPlaylistAsync(command)));
-
-            await parserResult.WithParsedAsync<SearchVideos>(async command
-                => await Search(command, originalCommand, youtube => youtube.SearchVideosAsync(command)));
-
-            parserResult.WithParsed<ClearCache>(c => new JsonFileDataStore(GetCachePath()).Clear());
-
-            //see https://github.com/commandlineparser/commandline/wiki/HelpText-Configuration
-            parserResult.WithNotParsed(errors => Console.WriteLine(HelpText.AutoBuild(parserResult, h =>
+            //see https://github.com/commandlineparser/commandline
+            try
             {
-                h.Heading = asciiHeading + h.Heading;
-                h.AddPreOptionsLine("See https://github.com/h0lg/SubTubular for more info.");
-                h.OptionComparison = CompareOptions;
-                h.AddPostOptionsLine("Subtitles and metadata are cached in " + GetCachePath());
-                h.AddPostOptionsLine(string.Empty);
-                return h;
-            })));
+                var parserResult = new Parser(with => with.HelpWriter = null)
+                    .ParseArguments<SearchUser, SearchChannel, SearchPlaylist, SearchVideos, ClearCache>(args);
+
+                //https://github.com/commandlineparser/commandline/wiki/Getting-Started#using-withparsedasync-in-asyncawait
+                await parserResult.WithParsedAsync<SearchUser>(async command
+                    => await Search(command, originalCommand, youtube => youtube.SearchPlaylistAsync(command)));
+
+                await parserResult.WithParsedAsync<SearchChannel>(async command
+                    => await Search(command, originalCommand, youtube => youtube.SearchPlaylistAsync(command)));
+
+                await parserResult.WithParsedAsync<SearchPlaylist>(async command
+                    => await Search(command, originalCommand, youtube => youtube.SearchPlaylistAsync(command)));
+
+                await parserResult.WithParsedAsync<SearchVideos>(async command
+                    => await Search(command, originalCommand, youtube => youtube.SearchVideosAsync(command)));
+
+                parserResult.WithParsed<ClearCache>(c => new JsonFileDataStore(GetCachePath()).Clear());
+
+                //see https://github.com/commandlineparser/commandline/wiki/HelpText-Configuration
+                parserResult.WithNotParsed(errors => Console.WriteLine(HelpText.AutoBuild(parserResult, h =>
+                {
+                    h.Heading = asciiHeading + h.Heading;
+                    h.AddPreOptionsLine($"See {repoUrl} for more info.");
+                    h.OptionComparison = CompareOptions;
+                    h.AddPostOptionsLine("Subtitles and metadata are cached in " + GetCachePath());
+                    h.AddPostOptionsLine(string.Empty);
+                    return h;
+                })));
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    var errorFolder = GetFileStoragePath("errors");
+                    var output = new OutputWriter(originalCommand, false, errorFolder, $"error {DateTime.Now:o}");
+                    output.WriteLine(ex.ToString());
+                    var path = await output.WriteOutputFile(() => errorFolder);
+                    Console.WriteLine("Error was logged to " + path);
+                }
+                catch
+                {
+                    Console.Error.WriteLine("The following error occurred and we were unabled to write a log for it.");
+                    Console.Error.WriteLine(originalCommand);
+                    Console.Error.WriteLine(ex.ToString());
+                }
+
+                Console.WriteLine();
+                Console.WriteLine($"Check out {repoUrl}/issues for existing reports of this error and maybe a solution or work-around."
+                    + " If you want to report it, you can do that there to. Please make sure to supply the error details. Thanks!");
+            }
         }
 
         private static async Task Search(SearchCommand command, string originalCommand,
@@ -87,7 +113,7 @@ namespace SubTubular
 
                 var youtube = new Youtube(new JsonFileDataStore(GetCachePath()));
 
-                using (var output = new OutputWriter(command, originalCommand))
+                using (var output = new OutputWriter(originalCommand, command))
                 {
                     try
                     {
@@ -98,7 +124,8 @@ namespace SubTubular
                     }
                     catch (OperationCanceledException) { Console.WriteLine("The search was cancelled."); }
 
-                    output.WriteOutputFile(() => GetFileStoragePath("out"));
+                    var path = await output.WriteOutputFile(() => GetFileStoragePath("out"));
+                    Console.WriteLine("Search results were written to " + path);
                 }
 
                 searching = false; //to complete the cancel task

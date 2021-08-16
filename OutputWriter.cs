@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using AngleSharp;
 using AngleSharp.Dom;
 
@@ -11,22 +12,28 @@ namespace SubTubular
     {
         private const ConsoleColor highlightColor = ConsoleColor.Yellow;
         private readonly ConsoleColor regularForeGround;
-        private readonly bool hasOutputPath, writeOutputFile;
-        private readonly SearchCommand command;
+        private readonly bool outputHtml, hasOutputPath, writeOutputFile;
+        private readonly string fileOutputPath, fileNameWithoutExtension;
         private readonly IEnumerable<string> terms;
         private readonly IDocument document;
         private readonly IElement output;
         private readonly StringWriter textOut;
 
-        internal OutputWriter(SearchCommand command, string originalCommand)
+        internal OutputWriter(string originalCommand, SearchCommand command)
+            : this(originalCommand, command.OutputHtml, command.FileOutputPath, command.Format(), command.Terms) { }
+
+        internal OutputWriter(string originalCommand, bool outputHtml, string fileOutputPath,
+            string fileNameWithoutExtension, IEnumerable<string> terms = null)
         {
             regularForeGround = Console.ForegroundColor; //using current
-            hasOutputPath = !string.IsNullOrEmpty(command.FileOutputPath);
-            writeOutputFile = command.OutputHtml || hasOutputPath;
-            this.command = command;
-            terms = command.Terms;
+            this.outputHtml = outputHtml;
+            this.fileOutputPath = fileOutputPath; ;
+            this.fileNameWithoutExtension = fileNameWithoutExtension;
+            this.terms = terms ?? Enumerable.Empty<string>();
+            hasOutputPath = !string.IsNullOrEmpty(fileOutputPath);
+            writeOutputFile = outputHtml || hasOutputPath;
 
-            if (command.OutputHtml)
+            if (outputHtml)
             {
                 var context = BrowsingContext.New(Configuration.Default);
                 document = context.OpenNewAsync().Result;
@@ -55,16 +62,16 @@ namespace SubTubular
             Console.Write(text);
             if (!writeOutputFile) return;
 
-            if (command.OutputHtml) output.InnerHtml += text;
+            if (outputHtml) output.InnerHtml += text;
             else textOut.Write(text);
         }
 
-        private void WriteLine(string text = null)
+        internal void WriteLine(string text = null)
         {
             Console.WriteLine(text);
             if (!writeOutputFile) return;
 
-            if (command.OutputHtml)
+            if (outputHtml)
                 output.InnerHtml += (text ?? string.Empty) + Environment.NewLine;
             else textOut.WriteLine(text);
         }
@@ -76,7 +83,7 @@ namespace SubTubular
             ResetConsoleColor();
             if (!writeOutputFile) return;
 
-            if (command.OutputHtml)
+            if (outputHtml)
             {
                 var em = document.CreateElement("em");
                 em.TextContent = text;
@@ -90,7 +97,7 @@ namespace SubTubular
             Console.Write(url);
             if (!writeOutputFile) return;
 
-            if (command.OutputHtml)
+            if (outputHtml)
             {
                 var hlink = document.CreateElement("a");
                 hlink.SetAttribute("href", url);
@@ -188,25 +195,25 @@ namespace SubTubular
             WriteLine();
         }
 
-        internal async void WriteOutputFile(Func<string> getDefaultStorageFolder)
+        internal async ValueTask<string> WriteOutputFile(Func<string> getDefaultStorageFolder)
         {
-            if (!writeOutputFile) return;
+            if (!writeOutputFile) return null;
 
             string path;
 
-            if (!hasOutputPath || command.FileOutputPath.IsDirectoryPath())
+            if (!hasOutputPath || fileOutputPath.IsDirectoryPath())
             {
-                var extension = command.OutputHtml ? ".html" : ".txt";
-                var fileName = command.Format() + extension;
-                var folder = hasOutputPath ? command.FileOutputPath : getDefaultStorageFolder();
+                var extension = outputHtml ? ".html" : ".txt";
+                var fileName = fileNameWithoutExtension + extension;
+                var folder = hasOutputPath ? fileOutputPath : getDefaultStorageFolder();
                 path = Path.Combine(folder, fileName);
             }
-            else path = command.FileOutputPath; // treat as full file path
+            else path = fileOutputPath; // treat as full file path
 
-            var text = command.OutputHtml ? document.DocumentElement.OuterHtml : textOut.ToString();
+            var text = outputHtml ? document.DocumentElement.OuterHtml : textOut.ToString();
             Directory.CreateDirectory(Path.GetDirectoryName(path));
             await File.WriteAllTextAsync(path, text);
-            Console.WriteLine("Search results were written to " + path);
+            return path;
         }
 
         private void ResetConsoleColor() => Console.ForegroundColor = regularForeGround;
