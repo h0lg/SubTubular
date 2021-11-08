@@ -124,11 +124,12 @@ namespace SubTubular
                     }
                     catch (OperationCanceledException) { Console.WriteLine("The search was cancelled."); }
 
+                    //only writes an output file if command requires it
                     var path = await output.WriteOutputFile(() => GetFileStoragePath("out"));
                     Console.WriteLine("Search results were written to " + path);
                 }
 
-                searching = false; //to complete the cancel task
+                searching = false; //to let the cancel task complete
                 await cancel; //just to rethrow possible exceptions
             }
         }

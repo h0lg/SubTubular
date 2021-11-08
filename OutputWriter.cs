@@ -8,6 +8,10 @@ using AngleSharp.Dom;
 
 namespace SubTubular
 {
+    /// <summary>
+    /// Provides formatted and highlighted output for Console
+    /// as well as either plain text or HTML.
+    /// </summary>
     internal sealed class OutputWriter : IDisposable
     {
         private const ConsoleColor highlightColor = ConsoleColor.Yellow;
@@ -33,7 +37,7 @@ namespace SubTubular
             hasOutputPath = !string.IsNullOrEmpty(fileOutputPath);
             writeOutputFile = outputHtml || hasOutputPath;
 
-            if (outputHtml)
+            if (outputHtml) //prepare empty document
             {
                 var context = BrowsingContext.New(Configuration.Default);
                 document = context.OpenNewAsync().Result;
