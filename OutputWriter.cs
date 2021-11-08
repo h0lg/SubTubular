@@ -45,10 +45,7 @@ namespace SubTubular
                 output = document.CreateElement("pre");
                 document.Body.Append(output);
             }
-            else
-            {
-                textOut = new StringWriter();
-            }
+            else textOut = new StringWriter();
 
             if (writeOutputFile) //write original search into file header
             {
@@ -137,6 +134,7 @@ namespace SubTubular
         internal void DisplayVideoResult(VideoSearchResult result)
         {
             var videoUrl = "https://youtu.be/" + result.Video.Id;
+
             Write($"{result.Video.Uploaded:g} ");
             WriteUrl(videoUrl);
             WriteLine();
