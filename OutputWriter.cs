@@ -135,16 +135,13 @@ namespace SubTubular
         {
             var videoUrl = "https://youtu.be/" + result.Video.Id;
 
+            if (result.TitleMatches) WriteHighlightingMatches(result.Video.Title);
+            else Write(result.Video.Title);
+            WriteLine();
+
             Write($"{result.Video.Uploaded:g} ");
             WriteUrl(videoUrl);
             WriteLine();
-
-            if (result.TitleMatches)
-            {
-                Write("  in title: ");
-                WriteHighlightingMatches(result.Video.Title);
-                WriteLine();
-            }
 
             if (result.MatchingDescriptionLines.Any())
             {
