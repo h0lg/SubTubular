@@ -22,6 +22,7 @@ namespace SubTubular
 "; //from http://www.patorjk.com/software/taag/#p=display&f=Slant&t=SubTubular
 
         private const string repoUrl = "https://github.com/h0lg/SubTubular";
+        private static string errorOutputSpacing = Environment.NewLine + Environment.NewLine;
 
         private static async Task Main(string[] args)
         {
@@ -59,27 +60,7 @@ namespace SubTubular
                     return h;
                 })));
             }
-            catch (Exception ex)
-            {
-                try
-                {
-                    var errorFolder = GetFileStoragePath("errors");
-                    var output = new OutputWriter(originalCommand, false, errorFolder, $"error {DateTime.Now:yyyy-MM-dd HHmmss}");
-                    output.WriteLine(ex.ToString());
-                    var path = await output.WriteOutputFile(() => errorFolder);
-                    Console.WriteLine("Error was logged to " + path);
-                }
-                catch
-                {
-                    Console.Error.WriteLine("The following error occurred and we were unabled to write a log for it.");
-                    Console.Error.WriteLine(originalCommand);
-                    Console.Error.WriteLine(ex.ToString());
-                }
-
-                Console.WriteLine();
-                Console.WriteLine($"Check out {repoUrl}/issues for existing reports of this error and maybe a solution or work-around."
-                    + " If you want to report it, you can do that there to. Please make sure to supply the error details. Thanks!");
-            }
+            catch (Exception ex) { await WriteErrorLog(originalCommand, ex.ToString()); }
         }
 
         private static async Task Search(SearchCommand command, string originalCommand,
@@ -126,12 +107,32 @@ namespace SubTubular
 
                     //only writes an output file if command requires it
                     var path = await output.WriteOutputFile(() => GetFileStoragePath("out"));
-                    Console.WriteLine("Search results were written to " + path);
+                    if (path != null) Console.WriteLine("Search results were written to " + path);
                 }
 
                 searching = false; //to let the cancel task complete
                 await cancel; //just to rethrow possible exceptions
             }
+        }
+
+        private static async Task WriteErrorLog(string originalCommand, string errors)
+        {
+            try
+            {
+                var path = Path.Combine(GetFileStoragePath("errors"), $"error {DateTime.Now:yyyy-MM-dd HHmmss}.txt");
+                await OutputWriter.WriteTextToFileAsync(originalCommand + errorOutputSpacing + errors, path);
+                Console.WriteLine("Errors were logged to " + path);
+            }
+            catch
+            {
+                Console.Error.WriteLine("The following errors occurred and we were unabled to write a log for them.");
+                Console.Error.WriteLine(originalCommand);
+                Console.Error.WriteLine(errors);
+            }
+
+            Console.WriteLine();
+            Console.WriteLine($"Check out {repoUrl}/issues for existing reports of this error and maybe a solution or work-around."
+                + " If you want to report it, you can do that there to. Please make sure to supply the error details and example input. Thanks!");
         }
 
         private static string GetFileStoragePath(string subFolder) => Path.Combine(

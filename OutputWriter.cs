@@ -24,16 +24,12 @@ namespace SubTubular
         private readonly StringWriter textOut;
 
         internal OutputWriter(string originalCommand, SearchCommand command)
-            : this(originalCommand, command.OutputHtml, command.FileOutputPath, command.Format(), command.Terms) { }
-
-        internal OutputWriter(string originalCommand, bool outputHtml, string fileOutputPath,
-            string fileNameWithoutExtension, IEnumerable<string> terms = null)
         {
             regularForeGround = Console.ForegroundColor; //using current
-            this.outputHtml = outputHtml;
-            this.fileOutputPath = fileOutputPath;
-            this.fileNameWithoutExtension = fileNameWithoutExtension;
-            this.terms = terms ?? Enumerable.Empty<string>();
+            this.outputHtml = command.OutputHtml;
+            this.fileOutputPath = command.FileOutputPath;
+            this.fileNameWithoutExtension = command.Format();
+            this.terms = command.Terms ?? Enumerable.Empty<string>();
             hasOutputPath = !string.IsNullOrEmpty(fileOutputPath);
             writeOutputFile = outputHtml || hasOutputPath;
 
@@ -212,13 +208,17 @@ namespace SubTubular
             }
             else path = fileOutputPath; // treat as full file path
 
-            var text = outputHtml ? document.DocumentElement.OuterHtml : textOut.ToString();
-            Directory.CreateDirectory(Path.GetDirectoryName(path));
-            await File.WriteAllTextAsync(path, text);
+            await WriteTextToFileAsync(outputHtml ? document.DocumentElement.OuterHtml : textOut.ToString(), path);
             return path;
         }
 
         private void ResetConsoleColor() => Console.ForegroundColor = regularForeGround;
+
+        internal static async ValueTask WriteTextToFileAsync(string text, string path)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            await File.WriteAllTextAsync(path, text);
+        }
 
         #region IDisposable implementation
         private bool disposedValue;
