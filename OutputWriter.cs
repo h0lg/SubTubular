@@ -47,11 +47,20 @@ namespace SubTubular
             }
             else textOut = new StringWriter();
 
-            if (writeOutputFile) //write original search into file header
+            //write original search into file header for reference and repeating
+            if (writeOutputFile) WriteLine(originalCommand);
+
+            //provide link(s) to the searched playlist or videos for debugging IDs
+            Write("searching " + command.Label);
+
+            foreach (var url in command.GetUrls())
             {
-                WriteLine(originalCommand);
-                WriteLine();
+                WriteUrl(url);
+                Write(" ");
             }
+
+            WriteLine();
+            WriteLine();
         }
 
         private void Write(string text)
@@ -133,7 +142,7 @@ namespace SubTubular
 
         internal void DisplayVideoResult(VideoSearchResult result)
         {
-            var videoUrl = "https://youtu.be/" + result.Video.Id;
+            var videoUrl = SearchVideos.GetVideoUrl(result.Video.Id);
 
             if (result.TitleMatches) WriteHighlightingMatches(result.Video.Title);
             else Write(result.Video.Title);

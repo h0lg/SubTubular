@@ -27,7 +27,7 @@ namespace SubTubular
             SearchPlaylistCommand command, [EnumeratorCancellation] CancellationToken cancellation = default)
         {
             cancellation.ThrowIfCancellationRequested();
-            var storageKey = command.GetStorageKey();
+            var storageKey = command.StorageKey;
             var playlist = await dataStore.GetAsync<Playlist>(storageKey); //get cached
 
             if (playlist == null

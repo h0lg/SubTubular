@@ -40,6 +40,8 @@ namespace SubTubular
                 + " to the 'out' folder of SubTubular's AppData directory.")]
         public string FileOutputPath { get; set; }
 
+        internal abstract string Label { get; }
+        internal abstract IEnumerable<string> GetUrls();
         protected abstract string FormatInternal();
         internal string Format() => FormatInternal() + " " + Terms.Join(" ");
     }
@@ -56,8 +58,11 @@ namespace SubTubular
             + " before it is considered stale and the videos in it are refreshed.")]
         public float CacheHours { get; set; }
 
-        internal abstract string GetStorageKey();
-        protected override string FormatInternal() => GetStorageKey();
+        protected abstract string ID { get; }
+        protected abstract string UrlFormat { get; }
+        internal override IEnumerable<string> GetUrls() { yield return UrlFormat + ID; }
+        internal string StorageKey => Label + ID;
+        protected override string FormatInternal() => StorageKey;
         internal abstract IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation);
     }
 
@@ -69,7 +74,9 @@ namespace SubTubular
         [Value(0, Required = true, HelpText = "The user name or URL.")]
         public string User { get; set; }
 
-        internal override string GetStorageKey() => "user " + UserName.Parse(User).Value;
+        internal override string Label => "user ";
+        protected override string ID => UserName.Parse(User).Value;
+        protected override string UrlFormat => "https://www.youtube.com/user/";
 
         internal override async IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube, [EnumeratorCancellation] CancellationToken cancellation)
         {
@@ -92,7 +99,9 @@ namespace SubTubular
         [Value(0, Required = true, HelpText = "The channel ID or URL.")]
         public string Channel { get; set; }
 
-        internal override string GetStorageKey() => "channel " + ChannelId.Parse(Channel).Value;
+        internal override string Label => "channel ";
+        protected override string ID => ChannelId.Parse(Channel).Value;
+        protected override string UrlFormat => "https://www.youtube.com/channel/";
 
         internal override IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation)
         {
@@ -107,7 +116,9 @@ namespace SubTubular
         [Value(0, Required = true, HelpText = "The playlist ID or URL.")]
         public string Playlist { get; set; }
 
-        internal override string GetStorageKey() => "playlist " + PlaylistId.Parse(Playlist).Value;
+        internal override string Label => "playlist ";
+        protected override string ID => PlaylistId.Parse(Playlist).Value;
+        protected override string UrlFormat => "https://www.youtube.com/playlist?list=";
 
         internal override IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation)
         {
@@ -119,11 +130,15 @@ namespace SubTubular
     [Verb("search-videos", HelpText = "Searches the {videos} for the specified {terms}.")]
     internal sealed class SearchVideos : SearchCommand
     {
+        internal static string GetVideoUrl(string videoId) => "https://youtu.be/" + videoId;
+
         [Value(0, Required = true, HelpText = "The space-separated YouTube video IDs and/or URLs.")]
         public IEnumerable<string> Videos { get; set; }
 
+        internal override string Label => "videos ";
         internal IEnumerable<string> GetVideoIds() => Videos.Select(v => VideoId.Parse(v).Value);
-        protected override string FormatInternal() => "videos " + GetVideoIds().Join(" ");
+        protected override string FormatInternal() => Label + GetVideoIds().Join(" ");
+        internal override IEnumerable<string> GetUrls() => GetVideoIds().Select(id => GetVideoUrl(id));
     }
 
     [Verb("clear-cache", HelpText = "Clears cached user, channel, playlist and video info.")]
