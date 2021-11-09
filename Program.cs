@@ -141,8 +141,8 @@ namespace SubTubular
         private static string GetCachePath() => GetFileStoragePath("cache");
 
         #region HelpText Option order
-        static int CompareOptions(ComparableOption a, ComparableOption b) => ScoreOption(a) < ScoreOption(b) ? -1 : 1;
-        static int ScoreOption(ComparableOption option) => (option.IsValue ? -100 : 100) + (option.Required ? -10 : 10) + option.Index;
+        private static int CompareOptions(ComparableOption a, ComparableOption b) => ScoreOption(a) < ScoreOption(b) ? -1 : 1;
+        private static int ScoreOption(ComparableOption option) => (option.IsValue ? -100 : 100) + (option.Required ? -10 : 10) + option.Index;
         #endregion
     }
 }
