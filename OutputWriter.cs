@@ -228,6 +228,8 @@ namespace SubTubular
                 if (disposing)
                 {
                     // dispose managed state (managed objects)
+                    textOut?.Dispose();
+                    document?.Dispose();
                     ResetConsoleColor(); //just to make sure we revert changes to the global Console state if an error occurs while writing sth. highlighted
                 }
 
