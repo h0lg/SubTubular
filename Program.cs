@@ -93,6 +93,7 @@ namespace SubTubular
                 });
 
                 var youtube = new Youtube(new JsonFileDataStore(GetCachePath()));
+                var tracksWithErrors = new List<CaptionTrack>();
 
                 using (var output = new OutputWriter(originalCommand, command))
                 {
@@ -101,7 +102,10 @@ namespace SubTubular
                         /* passing token into search implementations for them to react to cancellation,
                             see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables*/
                         await foreach (var result in getResultsAsync(youtube).WithCancellation(search.Token))
+                        {
                             output.DisplayVideoResult(result);
+                            tracksWithErrors.AddRange(result.Video.CaptionTracks.Where(t => t.Error != null));
+                        }
                     }
                     catch (OperationCanceledException) { Console.WriteLine("The search was cancelled."); }
 
@@ -110,16 +114,26 @@ namespace SubTubular
                     if (path != null) Console.WriteLine("Search results were written to " + path);
                 }
 
+                if (tracksWithErrors.Count > 0)
+                {
+                    await WriteErrorLog(originalCommand, tracksWithErrors.Select(t =>
+@$"{t.LanguageName}: {t.ErrorMessage}
+
+  {t.Url}
+
+  {t.Error}").Join(errorOutputSpacing), command.Format());
+                }
+
                 searching = false; //to let the cancel task complete
                 await cancel; //just to rethrow possible exceptions
             }
         }
 
-        private static async Task WriteErrorLog(string originalCommand, string errors)
+        private static async Task WriteErrorLog(string originalCommand, string errors, string name = null)
         {
             try
             {
-                var path = Path.Combine(GetFileStoragePath("errors"), $"error {DateTime.Now:yyyy-MM-dd HHmmss}.txt");
+                var path = Path.Combine(GetFileStoragePath("errors"), $"error {DateTime.Now:yyyy-MM-dd HHmmss} {name.ToFileSafe()}.txt");
                 await OutputWriter.WriteTextToFileAsync(originalCommand + errorOutputSpacing + errors, path);
                 Console.WriteLine("Errors were logged to " + path);
             }

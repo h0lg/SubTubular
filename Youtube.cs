@@ -85,7 +85,8 @@ namespace SubTubular
                 .Where(l => !string.IsNullOrWhiteSpace(l) && l.ContainsAny(terms))
                 .ToArray();
 
-            return titleMatches || matchingDescriptionLines.Any() || matchingKeywords.Any() || matchingCaptionTracks.Any()
+            return titleMatches || matchingDescriptionLines.Any() || matchingKeywords.Any()
+                || matchingCaptionTracks.Any() || video.CaptionTracks.Any(t => t.Error != null)
                 ? new VideoSearchResult
                 {
                     Video = video,
@@ -98,6 +99,7 @@ namespace SubTubular
         }
 
         private static CaptionTrack[] SearchCaptionTracks(IList<CaptionTrack> tracks, IEnumerable<string> terms) => tracks
+            .Where(track => track.Error == null)
             .Select(track =>
             {
                 var words = terms.Where(t => !t.Contains(' ')).ToArray();
@@ -185,16 +187,26 @@ namespace SubTubular
             foreach (var trackInfo in trackManifest.Tracks)
             {
                 cancellation.ThrowIfCancellationRequested();
-                // Get the actual closed caption track
-                var track = await youtube.Videos.ClosedCaptions.GetAsync(trackInfo, cancellation);
+                var captionTrack = new CaptionTrack { LanguageName = trackInfo.Language.Name, Url = trackInfo.Url };
 
-                yield return new CaptionTrack
+                YoutubeExplode.Videos.ClosedCaptions.ClosedCaptionTrack track;
+
+                try
                 {
-                    LanguageName = trackInfo.Language.Name,
-                    Captions = track.Captions
+                    // Get the actual closed caption track
+                    track = await youtube.Videos.ClosedCaptions.GetAsync(trackInfo, cancellation);
+
+                    captionTrack.Captions = track.Captions
                         .Select(c => new Caption { At = Convert.ToInt32(c.Offset.TotalSeconds), Text = c.Text })
-                        .ToArray()
-                };
+                        .ToArray();
+                }
+                catch (Exception ex)
+                {
+                    captionTrack.ErrorMessage = ex.Message;
+                    captionTrack.Error = ex.ToString();
+                }
+
+                yield return captionTrack;
             }
         }
     }

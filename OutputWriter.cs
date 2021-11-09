@@ -190,6 +190,14 @@ namespace SubTubular
                 }
             }
 
+            var tracksWithErrors = result.Video.CaptionTracks.Where(t => t.Error != null).ToArray();
+
+            if (tracksWithErrors.Length > 0)
+            {
+                foreach (var track in tracksWithErrors)
+                    WriteLine($"  {track.LanguageName}: " + track.ErrorMessage);
+            }
+
             WriteLine();
         }
 

@@ -28,7 +28,10 @@ namespace SubTubular
     public sealed class CaptionTrack
     {
         public string LanguageName { get; set; }
+        public string Url { get; set; }
         public Caption[] Captions { get; set; }
+        public string Error { get; set; }
+        public string ErrorMessage { get; set; }
 
         public CaptionTrack() { } //required by serializer
 
