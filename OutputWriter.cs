@@ -204,7 +204,7 @@ namespace SubTubular
             if (!hasOutputPath || fileOutputPath.IsDirectoryPath())
             {
                 var extension = outputHtml ? ".html" : ".txt";
-                var fileName = fileNameWithoutExtension + extension;
+                var fileName = fileNameWithoutExtension.ToFileSafe() + extension;
                 var folder = hasOutputPath ? fileOutputPath : getDefaultStorageFolder();
                 path = Path.Combine(folder, fileName);
             }

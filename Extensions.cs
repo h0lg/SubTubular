@@ -54,5 +54,10 @@ namespace SubTubular
             // if has extension then its a file; directory otherwise
             return string.IsNullOrWhiteSpace(Path.GetExtension(path));
         }
+
+        /// <summary>Replaces all characters unsafe for file or directory names in <paramref name="value"/>
+        /// with <paramref name="replacement"/>.</summary>
+        internal static string ToFileSafe(this string value, string replacement = "_") 
+            => Regex.Replace(value, "[" + Regex.Escape(new string(Path.GetInvalidFileNameChars())) + "]", replacement);
     }
 }
