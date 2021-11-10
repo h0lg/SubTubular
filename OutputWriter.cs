@@ -27,7 +27,7 @@ namespace SubTubular
         {
             regularForeGround = Console.ForegroundColor; //using current
             this.outputHtml = outputHtml;
-            this.fileOutputPath = fileOutputPath; ;
+            this.fileOutputPath = fileOutputPath;
             this.fileNameWithoutExtension = fileNameWithoutExtension;
             this.terms = terms ?? Enumerable.Empty<string>();
             hasOutputPath = !string.IsNullOrEmpty(fileOutputPath);
