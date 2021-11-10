@@ -64,7 +64,7 @@ namespace SubTubular
                 try
                 {
                     var errorFolder = GetFileStoragePath("errors");
-                    var output = new OutputWriter(originalCommand, false, errorFolder, $"error {DateTime.Now:o}");
+                    var output = new OutputWriter(originalCommand, false, errorFolder, $"error {DateTime.Now:yyyy-MM-dd HHmmss}");
                     output.WriteLine(ex.ToString());
                     var path = await output.WriteOutputFile(() => errorFolder);
                     Console.WriteLine("Error was logged to " + path);
