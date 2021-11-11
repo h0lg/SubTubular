@@ -1,0 +1,1 @@
+dotnet publish --configuration release
