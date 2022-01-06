@@ -41,8 +41,8 @@ namespace SubTubular
         /// <param name="matchingCaptions">The matching captions.</param>
         internal CaptionTrack(CaptionTrack track, Caption[] matchingCaptions)
         {
-            this.LanguageName = track.LanguageName;
-            this.Captions = matchingCaptions;
+            LanguageName = track.LanguageName;
+            Captions = matchingCaptions;
         }
     }
 

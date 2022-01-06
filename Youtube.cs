@@ -30,7 +30,7 @@ namespace SubTubular
             var storageKey = command.StorageKey;
             var playlist = await dataStore.GetAsync<Playlist>(storageKey); //get cached
 
-            if (playlist == null
+            if (playlist == null //playlist cache is missing, outdated or lacking sufficient videos
                 || playlist.Loaded < DateTime.UtcNow.AddHours(-command.CacheHours)
                 || playlist.VideoIds.Count < command.Top)
             {
@@ -48,7 +48,7 @@ namespace SubTubular
                     if (searchResult != null) yield return searchResult;
                 }
             }
-            else
+            else // read from cache
             {
                 foreach (var videoId in playlist.VideoIds.Take(command.Top))
                 {
@@ -82,7 +82,7 @@ namespace SubTubular
             var matchingCaptionTracks = SearchCaptionTracks(video.CaptionTracks, terms);
 
             var matchingDescriptionLines = video.Description.SplitOnNewLines()
-                .Where(l => !string.IsNullOrWhiteSpace(l) && l.ContainsAny(terms))
+                .Where(line => !string.IsNullOrWhiteSpace(line) && line.ContainsAny(terms))
                 .ToArray();
 
             return titleMatches || matchingDescriptionLines.Any() || matchingKeywords.Any()
@@ -102,11 +102,11 @@ namespace SubTubular
             .Where(track => track.Error == null)
             .Select(track =>
             {
-                var words = terms.Where(t => !t.Contains(' ')).ToArray();
-                var matching = track.Captions.Where(c => c.Text.ContainsAny(words)).ToList();
+                var words = terms.Where(term => !term.Contains(' ')).ToArray();
+                var matching = track.Captions.Where(caption => caption.Text.ContainsAny(words)).ToList();
                 var phrases = terms.Except(words).ToArray();
 
-                if (phrases.Any()) matching.AddRange(SearchTrackForPhrases(track, phrases));
+                if (phrases.Any()) matching.AddRange(SearchCaptionTrack(track, phrases));
                 if (matching.Count == 0) return null;
 
                 return new CaptionTrack(track, matching
@@ -115,19 +115,19 @@ namespace SubTubular
                     .OrderBy(c => c.At) //return captions in order
                     .ToArray());
             })
-            .Where(match => match != null)
+            .Where(matchingTrack => matchingTrack != null)
             .ToArray();
 
-        private static IEnumerable<Caption> SearchTrackForPhrases(CaptionTrack track, string[] phrases)
+        private static IEnumerable<Caption> SearchCaptionTrack(CaptionTrack track, string[] phrases)
         {
             const string fullTextSeperator = " ";
-            var startByCaption = new Dictionary<Caption, int>();
+            var captionAtIndex = new Dictionary<Caption, int>();
 
             //aggregate captions into fullText to enable matching phrases across caption boundaries
             var fullText = track.Captions.OrderBy(c => c.At).Aggregate(string.Empty, (fullText, caption) =>
             {
                 //remember at what index in the fullText the caption starts
-                startByCaption.Add(caption, fullText.Length == 0 ? 0 : fullText.Length + fullTextSeperator.Length);
+                captionAtIndex.Add(caption, fullText.Length == 0 ? 0 : fullText.Length + fullTextSeperator.Length);
 
                 return fullText.Length == 0 ? caption.Text : fullText + fullTextSeperator + caption.Text;
             });
@@ -135,14 +135,14 @@ namespace SubTubular
             return fullText.GetMatches(phrases).Select(match =>
             {
                 //find first and last captions containing parts of the phrase
-                var first = startByCaption.Last(x => x.Value <= match.Index);
-                var last = startByCaption.Last(x => first.Value <= x.Value && x.Value < match.Index + match.Length);
+                var first = captionAtIndex.Last(x => x.Value <= match.Index);
+                var last = captionAtIndex.Last(x => first.Value <= x.Value && x.Value < match.Index + match.Length);
 
                 //return a single caption for all captions containing the phrase
                 return new Caption
                 {
                     At = first.Key.At,
-                    Text = startByCaption
+                    Text = captionAtIndex
                         .Where(x => first.Value <= x.Value && x.Value <= last.Value)
                         .Select(x => x.Key.Text)
                         .Join(fullTextSeperator)

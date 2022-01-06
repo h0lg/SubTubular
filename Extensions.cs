@@ -15,18 +15,25 @@ namespace SubTubular
             => timeSpan.ToString(timeSpan.TotalHours >= 1 ? "h':'" + minSec : minSec);
     }
 
+    /// <summary>Extension methods for <see cref="string"/>s.</summary>
     internal static class StringExtensions
     {
-        //inspired by https://stackoverflow.com/a/2642406
+        /// <summary>Returns matches for all occurances of <paramref name="terms"/> in <paramref name="text"/>
+        /// ordered by first occurance while applying <paramref name="options"/> to the search.
+        /// Inspired by https://stackoverflow.com/a/2642406 .</summary>
         internal static IOrderedEnumerable<Match> GetMatches(this string text, IEnumerable<string> terms,
             RegexOptions options = RegexOptions.CultureInvariant | RegexOptions.IgnoreCase) => terms
             .SelectMany(term => Regex.Matches(text, Regex.Escape(term), options))
             .OrderBy(match => match.Index);
 
+        /// <summary>Indicates whether <paramref name="text"/> contains any of the supplied
+        /// <paramref name="terms"/> using <paramref name="stringComparison"/> to compare.</summary>
         internal static bool ContainsAny(this string text, IEnumerable<string> terms,
             StringComparison stringComparison = StringComparison.InvariantCultureIgnoreCase)
             => terms.Any(t => text.Contains(t, stringComparison));
 
+        /// <summary>Concatenates the <paramref name="pieces"/> into a single string
+        /// putting <paramref name="glue"/> in between them.</summary>
         internal static string Join(this IEnumerable<string> pieces, string glue) => string.Join(glue, pieces);
 
         /// <summary>
@@ -36,7 +43,8 @@ namespace SubTubular
         internal static string[] SplitOnNewLines(this string text)
             => text.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
 
-        //from https://stackoverflow.com/a/19596821
+        /// <summary>Indicates whether <paramref name="path"/> points to a directory rather than a file.
+        /// From https://stackoverflow.com/a/19596821 .</summary>
         internal static bool IsDirectoryPath(this string path)
         {
             if (path == null) throw new ArgumentNullException(nameof(path));
