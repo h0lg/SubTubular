@@ -26,9 +26,17 @@ namespace SubTubular
         /// <summary>Returns matches for all occurances of <paramref name="terms"/> in <paramref name="text"/>
         /// ordered by first occurance while applying <paramref name="options"/> to the search.
         /// Inspired by https://stackoverflow.com/a/2642406 .</summary>
-        internal static IOrderedEnumerable<Match> GetMatches(this string text, IEnumerable<string> terms,
+        /// <param name="modifyTermRegex">Optional. Use this for changing the escaped regular expression
+        /// for each term in <paramref name="terms"/> before it is matched against <paramref name="text"/>.</param>
+        internal static IOrderedEnumerable<Match> GetMatches(this string text,
+            IEnumerable<string> terms, Func<string, string> modifyTermRegex = null,
             RegexOptions options = RegexOptions.CultureInvariant | RegexOptions.IgnoreCase) => terms
-            .SelectMany(term => Regex.Matches(text, Regex.Escape(term), options))
+            .SelectMany(term =>
+            {
+                var regex = Regex.Escape(term.NormalizeWhiteSpace());
+                if (modifyTermRegex != null) regex = modifyTermRegex(regex);
+                return Regex.Matches(text, regex, options);
+            })
             .OrderBy(match => match.Index);
 
         /// <summary>Indicates whether <paramref name="text"/> contains any of the supplied
@@ -65,6 +73,28 @@ namespace SubTubular
         /// with <paramref name="replacement"/>.</summary>
         internal static string ToFileSafe(this string value, string replacement = "_")
             => Regex.Replace(value, "[" + Regex.Escape(new string(Path.GetInvalidFileNameChars())) + "]", replacement);
+
+        /// <summary>Splits <paramref name="text"/> into pieces of the maximum given <paramref name="chunkSize"/>
+        /// respecting word boundaries if <paramref name="preserveWords"/> is true.</summary>
+        internal static IEnumerable<string> Chunk(this string text, int chunkSize, bool preserveWords = false)
+        {
+            if (preserveWords)
+            {
+                // from https://stackoverflow.com/a/4398471
+                var charCount = 0;
+
+                return text.Split(' ', StringSplitOptions.RemoveEmptyEntries) // split into words
+                    .GroupBy(word => (charCount += word.Length + 1) / chunkSize)
+                    .Select(line => line.Join(" "));
+            }
+
+            // inspired by https://stackoverflow.com/a/1450797
+            else return Enumerable.Range(0, Math.Max(text.Length / chunkSize, 1)).Select(i =>
+            {
+                var startIndex = i * chunkSize;
+                return text.Substring(startIndex, Math.Min(chunkSize, text.Length - startIndex));
+            });
+        }
     }
 
     /// <summary>Extension methods for <see cref="IEnumerable{T}"/> types.</summary>

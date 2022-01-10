@@ -115,9 +115,10 @@ namespace SubTubular
             else textOut.Write(url);
         }
 
-        private void WriteHighlightingMatches(string text)
+        private void WriteHighlightingMatches(string text, IndentedText indent = null)
         {
             var written = 0;
+            if (indent != null) text = indent.BreakLines(text).Join(Environment.NewLine);
 
             void writeCounting(int length, bool highlight = false)
             {
@@ -129,7 +130,8 @@ namespace SubTubular
                 written += length;
             };
 
-            var matches = text.GetMatches(terms).ToArray();
+            // match multi-word phrases across line breaks because we've inserted indent and line breaks above
+            var matches = text.GetMatches(terms, termRegex => termRegex.Replace("\\ ", "\\s+")).ToArray();
 
             foreach (var match in matches)
             {
@@ -145,10 +147,12 @@ namespace SubTubular
         {
             var videoUrl = SearchVideos.GetVideoUrl(result.Video.Id);
 
-            if (result.TitleMatches) WriteHighlightingMatches(result.Video.Title);
+            if (result.TitleMatches)
+                using (var indent = new IndentedText())
+                    WriteHighlightingMatches(result.Video.Title, indent);
             else Write(result.Video.Title);
-            WriteLine();
 
+            WriteLine();
             Write($"{result.Video.Uploaded:g} ");
             WriteUrl(videoUrl);
             WriteLine();
@@ -159,9 +163,11 @@ namespace SubTubular
 
                 for (int i = 0; i < result.DescriptionMatches.Length; i++)
                 {
-                    var line = result.DescriptionMatches[i];
-                    var prefix = i == 0 ? string.Empty : "    ";
-                    WriteHighlightingMatches(prefix + line);
+                    if (i > 0) Write("    ");
+
+                    using (var indent = new IndentedText())
+                        WriteHighlightingMatches(result.DescriptionMatches[i], indent);
+
                     WriteLine();
                 }
             }
@@ -190,10 +196,20 @@ namespace SubTubular
                 {
                     var offset = TimeSpan.FromSeconds(caption.At).FormatWithOptionalHours().PadLeft(displaysHour ? 7 : 5);
                     Write($"    {offset} ");
-                    WriteHighlightingMatches(caption.Text);
-                    Write("    ");
-                    WriteUrl($"{videoUrl}?t={caption.At}");
-                    WriteLine();
+
+                    using (var indent = new IndentedText())
+                    {
+                        WriteHighlightingMatches(caption.Text, indent);
+
+                        const string padding = "    ";
+                        var url = $"{videoUrl}?t={caption.At}";
+
+                        if (indent.FitsCurrentLine(padding.Length + url.Length)) Write(padding);
+                        else indent.StartNewLine(this);
+
+                        WriteUrl(url);
+                        WriteLine();
+                    }
                 }
             }
 
@@ -263,5 +279,50 @@ namespace SubTubular
             GC.SuppressFinalize(this);
         }
         #endregion
+
+        /// <summary>A helper for writing multiple lines of text at the same indent
+        /// in the <see cref="Console"/>. This is not quite block format, but almost.</summary>
+        internal sealed class IndentedText : IDisposable
+        {
+            private readonly int left, width;
+
+            /// <summary>
+            /// Creates a new indented text block remembering the <see cref="Console.CursorLeft"/> position
+            /// and the <see cref="Console.WindowWidth"/> available for output.
+            /// </summary>
+            internal IndentedText()
+            {
+                left = Console.CursorLeft;
+                width = Console.WindowWidth - 6; // allowing for a buffer to avoid irregular text wrapping
+            }
+
+            /// <summary>Wraps <paramref name="text"/> into multiple lines
+            /// indented by the remembered <see cref="Console.CursorLeft"/>
+            /// fitting the remembered <see cref="Console.WindowWidth"/>.</summary>
+            internal string[] BreakLines(string text)
+            {
+                var chunks = text.Chunk(width - left, preserveWords: true).ToArray();
+
+                return chunks.Select((line, index) =>
+                {
+                    if (index > 0) line = GetLeftPadded(line); // left-pad every but the first line
+                    return line;
+                }).ToArray();
+            }
+
+            private string GetLeftPadded(string line) => line.PadLeft(left + line.Length);
+
+            /// <summary>Indicates whether the number of <paramref name="characters"/> fit the current line.</summary>
+            internal bool FitsCurrentLine(int characters) => characters <= width - Console.CursorLeft;
+
+            /// <summary>Starts a new indented line using the supplied <paramref name="outputWriter"/>.</summary>
+            internal void StartNewLine(OutputWriter outputWriter)
+            {
+                outputWriter.WriteLine(); // start a new one
+                outputWriter.Write(GetLeftPadded(string.Empty)); //and output the correct padding
+            }
+
+            public void Dispose() { } // implementing IDisposable just to enable usage with using() block
+        }
     }
 }
