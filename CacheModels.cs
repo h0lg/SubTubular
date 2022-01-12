@@ -29,7 +29,7 @@ namespace SubTubular
     {
         public string LanguageName { get; set; }
         public string Url { get; set; }
-        public Caption[] Captions { get; set; }
+        public List<Caption> Captions { get; set; }
         public string Error { get; set; }
         public string ErrorMessage { get; set; }
 
@@ -39,7 +39,7 @@ namespace SubTubular
         /// Captions will be set to matchingCaptions instead of cloning track.Captions.</summary>
         /// <param name="track">The track to clone.</param>
         /// <param name="matchingCaptions">The matching captions.</param>
-        internal CaptionTrack(CaptionTrack track, Caption[] matchingCaptions)
+        internal CaptionTrack(CaptionTrack track, List<Caption> matchingCaptions)
         {
             LanguageName = track.LanguageName;
             Captions = matchingCaptions;
@@ -53,5 +53,9 @@ namespace SubTubular
         public int At { get; set; }
 
         public string Text { get; set; }
+
+        // for comparing captions when finding them in a caption track
+        public override bool Equals(object obj) => obj == null ? false : obj.GetHashCode() == GetHashCode();
+        public override int GetHashCode() => HashCode.Combine(At, Text);
     }
 }

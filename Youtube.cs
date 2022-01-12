@@ -113,7 +113,7 @@ namespace SubTubular
                     //only take longest caption at location
                     .GroupBy(c => c.At).Select(g => g.OrderBy(c => c.Text.Length).Last())
                     .OrderBy(c => c.At) //return captions in order
-                    .ToArray());
+                    .ToList());
             })
             .Where(matchingTrack => matchingTrack != null)
             .ToArray();
@@ -124,7 +124,7 @@ namespace SubTubular
             var captionAtIndex = new Dictionary<Caption, int>();
 
             //aggregate captions into fullText to enable matching phrases across caption boundaries
-            var fullText = track.Captions.OrderBy(c => c.At).Aggregate(string.Empty, (fullText, caption) =>
+            var fullText = track.Captions.Aggregate(string.Empty, (fullText, caption) =>
             {
                 //remember at what index in the fullText the caption starts
                 captionAtIndex.Add(caption, fullText.Length == 0 ? 0 : fullText.Length + fullTextSeperator.Length);
@@ -166,6 +166,13 @@ namespace SubTubular
                 await dataStore.SetAsync(videoId, video);
             }
 
+            /* Sanitize captions, making sure cached captions as well as downloaded
+                are cleaned of duplicates and ordered by time.
+                This may be moved into DownloadCaptionTracksAsync() in a future version
+                when we can be reasonably sure caches in the wild are sanitized. */
+            foreach (var track in video.CaptionTracks)
+                track.Captions = track.Captions.Distinct().OrderBy(c => c.At).ToList();
+
             return video;
         }
 
@@ -198,7 +205,7 @@ namespace SubTubular
 
                     captionTrack.Captions = track.Captions
                         .Select(c => new Caption { At = Convert.ToInt32(c.Offset.TotalSeconds), Text = c.Text })
-                        .ToArray();
+                        .ToList();
                 }
                 catch (Exception ex)
                 {
