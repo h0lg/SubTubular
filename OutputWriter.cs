@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using AngleSharp;
 using AngleSharp.Dom;
+using CommandLine.Text;
 
 namespace SubTubular
 {
@@ -118,7 +119,7 @@ namespace SubTubular
         private void WriteHighlightingMatches(string text, IndentedText indent = null)
         {
             var written = 0;
-            if (indent != null) text = indent.BreakLines(text).Join(Environment.NewLine);
+            if (indent != null) text = indent.Wrap(text);
 
             void writeCounting(int length, bool highlight = false)
             {
@@ -293,24 +294,13 @@ namespace SubTubular
             internal IndentedText()
             {
                 left = Console.CursorLeft;
-                width = Console.WindowWidth - 6; // allowing for a buffer to avoid irregular text wrapping
+                width = Console.WindowWidth - 1; // allowing for a buffer to avoid irregular text wrapping
             }
 
             /// <summary>Wraps <paramref name="text"/> into multiple lines
             /// indented by the remembered <see cref="Console.CursorLeft"/>
             /// fitting the remembered <see cref="Console.WindowWidth"/>.</summary>
-            internal string[] BreakLines(string text)
-            {
-                var chunks = text.Chunk(width - left, preserveWords: true).ToArray();
-
-                return chunks.Select((line, index) =>
-                {
-                    if (index > 0) line = GetLeftPadded(line); // left-pad every but the first line
-                    return line;
-                }).ToArray();
-            }
-
-            private string GetLeftPadded(string line) => line.PadLeft(left + line.Length);
+            internal string Wrap(string text) => TextWrapper.WrapAndIndentText(text, left, width - left).TrimStart();
 
             /// <summary>Indicates whether the number of <paramref name="characters"/> fit the current line.</summary>
             internal bool FitsCurrentLine(int characters) => characters <= width - Console.CursorLeft;
@@ -319,7 +309,7 @@ namespace SubTubular
             internal void StartNewLine(OutputWriter outputWriter)
             {
                 outputWriter.WriteLine(); // start a new one
-                outputWriter.Write(GetLeftPadded(string.Empty)); //and output the correct padding
+                outputWriter.Write(string.Empty.PadLeft(left)); //and output the correct padding
             }
 
             public void Dispose() { } // implementing IDisposable just to enable usage with using() block

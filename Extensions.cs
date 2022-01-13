@@ -73,28 +73,6 @@ namespace SubTubular
         /// with <paramref name="replacement"/>.</summary>
         internal static string ToFileSafe(this string value, string replacement = "_")
             => Regex.Replace(value, "[" + Regex.Escape(new string(Path.GetInvalidFileNameChars())) + "]", replacement);
-
-        /// <summary>Splits <paramref name="text"/> into pieces of the maximum given <paramref name="chunkSize"/>
-        /// respecting word boundaries if <paramref name="preserveWords"/> is true.</summary>
-        internal static IEnumerable<string> Chunk(this string text, int chunkSize, bool preserveWords = false)
-        {
-            if (preserveWords)
-            {
-                // from https://stackoverflow.com/a/4398471
-                var charCount = 0;
-
-                return text.Split(' ', StringSplitOptions.RemoveEmptyEntries) // split into words
-                    .GroupBy(word => (charCount += word.Length + 1) / chunkSize)
-                    .Select(line => line.Join(" "));
-            }
-
-            // inspired by https://stackoverflow.com/a/1450797
-            else return Enumerable.Range(0, Math.Max(text.Length / chunkSize, 1)).Select(i =>
-            {
-                var startIndex = i * chunkSize;
-                return text.Substring(startIndex, Math.Min(chunkSize, text.Length - startIndex));
-            });
-        }
     }
 
     /// <summary>Extension methods for <see cref="IEnumerable{T}"/> types.</summary>
