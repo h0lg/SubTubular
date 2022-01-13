@@ -74,12 +74,13 @@ namespace SubTubular
 
         internal void WriteLine(string text = null)
         {
-            Console.WriteLine(text);
+            if (text != null) Write(text);
+            Console.WriteLine();
             if (!writeOutputFile) return;
 
             if (outputHtml)
-                output.InnerHtml += (text ?? string.Empty) + Environment.NewLine;
-            else textOut.WriteLine(text);
+                output.InnerHtml += Environment.NewLine;
+            else textOut.WriteLine();
         }
 
         private void WriteHighlighted(string text)
