@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -111,7 +112,12 @@ namespace SubTubular
 
                     //only writes an output file if command requires it
                     var path = await output.WriteOutputFile(() => GetFileStoragePath("out"));
-                    if (path != null) Console.WriteLine("Search results were written to " + path);
+
+                    if (path != null)
+                    {
+                        Console.WriteLine("Search results were written to " + path);
+                        OpenFile(path); // to spare the user some file browsing
+                    }
                 }
 
                 if (tracksWithErrors.Count > 0)
@@ -154,6 +160,9 @@ namespace SubTubular
             Assembly.GetEntryAssembly().GetName().Name, subFolder);
 
         private static string GetCachePath() => GetFileStoragePath("cache");
+
+        private static void OpenFile(string path) // from https://stackoverflow.com/a/53245993
+            => Process.Start(new ProcessStartInfo(new Uri(path).AbsoluteUri) { UseShellExecute = true });
 
         #region HelpText Option order
         private static int CompareOptions(ComparableOption a, ComparableOption b) => ScoreOption(a) < ScoreOption(b) ? -1 : 1;
