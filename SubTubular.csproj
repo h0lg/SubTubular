@@ -12,15 +12,15 @@
     <Copyright>Copyright © Holger Schmidt 2020</Copyright>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="CommandLineParser" Version="2.8.0" />
-    <PackageReference Include="YoutubeExplode" Version="6.0.5" />
-    <PackageReference Include="AngleSharp" Version="0.16.0" />
+    <PackageReference Include="CommandLineParser" Version="2.8.0"/>
+    <PackageReference Include="YoutubeExplode" Version="6.0.7"/>
+    <PackageReference Include="AngleSharp" Version="0.16.1"/>
   </ItemGroup><!--
     appends git commit hash to assembly informational version; from https://stackoverflow.com/a/45248069
     see also https://andrewlock.net/version-vs-versionsuffix-vs-packageversion-what-do-they-all-mean/ -->
   <Target Name="InitializeSourceControlInformation2" BeforeTargets="AddSourceRevisionToInformationalVersion">
     <Exec Command="git describe --long --always --dirty --exclude=* --abbrev=8" ConsoleToMSBuild="True" IgnoreExitCode="False">
-      <Output PropertyName="SourceRevisionId" TaskParameter="ConsoleOutput" />
+      <Output PropertyName="SourceRevisionId" TaskParameter="ConsoleOutput"/>
     </Exec>
   </Target>
 </Project>
