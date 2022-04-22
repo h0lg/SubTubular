@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SubTubular
 {
@@ -38,12 +40,6 @@ namespace SubTubular
                 return Regex.Matches(text, regex, options);
             })
             .OrderBy(match => match.Index);
-
-        /// <summary>Indicates whether <paramref name="text"/> contains any of the supplied
-        /// <paramref name="terms"/> using <paramref name="stringComparison"/> to compare.</summary>
-        internal static bool ContainsAny(this string text, IEnumerable<string> terms,
-            StringComparison stringComparison = StringComparison.InvariantCultureIgnoreCase)
-            => terms.Any(t => text.Contains(t, stringComparison));
 
         /// <summary>Concatenates the <paramref name="pieces"/> into a single string
         /// putting <paramref name="glue"/> in between them.</summary>
@@ -82,6 +78,9 @@ namespace SubTubular
         /// contains any of the supplied <paramref name="values"/>.</summary>
         internal static bool ContainsAny<T>(this IEnumerable<T> collection, IEnumerable<T> values)
             => values.Intersect(collection).Any();
+
+        /// <summary>Indicates whether <paramref name="collection"/> is not null and contains any items.</summary>
+        internal static bool HasAny<T>(this IEnumerable<T> collection) => collection != null && collection.Any();
     }
 
     /// <summary>Extension methods for <see cref="IComparable"/> types.</summary>
@@ -101,6 +100,42 @@ namespace SubTubular
         {
             var position = comparable.CompareTo(other);
             return orEqualTo ? position <= 0 : position < 0;
+        }
+    }
+
+    internal static class TaskExtensions
+    {
+        /// <summary>
+        /// Returns the input tasks in the order they complete
+        /// From https://devblogs.microsoft.com/pfxteam/processing-tasks-as-they-complete/ .
+        /// </summary>
+        /// <param name="tasks"></param>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        internal static Task<Task<T>>[] Interleaved<T>(this IEnumerable<Task<T>> tasks)
+        {
+            var inputTasks = tasks.ToList();
+            var buckets = new TaskCompletionSource<Task<T>>[inputTasks.Count];
+            var results = new Task<Task<T>>[buckets.Length];
+
+            for (int i = 0; i < buckets.Length; i++)
+            {
+                buckets[i] = new TaskCompletionSource<Task<T>>();
+                results[i] = buckets[i].Task;
+            }
+
+            int nextTaskIndex = -1;
+
+            Action<Task<T>> continuation = completed =>
+            {
+                var bucket = buckets[Interlocked.Increment(ref nextTaskIndex)];
+                bucket.TrySetResult(completed);
+            };
+
+            foreach (var inputTask in inputTasks)
+                inputTask.ContinueWith(continuation, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+
+            return results;
         }
     }
 }

@@ -28,9 +28,9 @@ namespace SubTubular
         {
             regularForeGround = Console.ForegroundColor; //using current
             this.outputHtml = command.OutputHtml;
-            this.fileOutputPath = command.FileOutputPath;
+            this.fileOutputPath = command.FileOutputPath?.Trim('"');
             this.fileNameWithoutExtension = command.Format();
-            this.terms = command.Terms ?? Enumerable.Empty<string>();
+            this.terms = command.Query?.Split('|') ?? Enumerable.Empty<string>();
             hasOutputPath = !string.IsNullOrEmpty(fileOutputPath);
             writeOutputFile = outputHtml || hasOutputPath;
 
@@ -158,7 +158,7 @@ namespace SubTubular
             WriteUrl(videoUrl);
             WriteLine();
 
-            if (result.DescriptionMatches.Any())
+            if (result.DescriptionMatches.HasAny())
             {
                 Write("  in description: ");
 
@@ -173,7 +173,7 @@ namespace SubTubular
                 }
             }
 
-            if (result.MatchingKeywords.Any())
+            if (result.MatchingKeywords.HasAny())
             {
                 Write("  in keywords: ");
                 var lastKeyword = result.MatchingKeywords.Last();
@@ -190,7 +190,6 @@ namespace SubTubular
             foreach (var track in result.MatchingCaptionTracks)
             {
                 WriteLine("  " + track.LanguageName);
-
                 var displaysHour = track.Captions.Any(c => c.At > 3600);
 
                 // skip included line breaks

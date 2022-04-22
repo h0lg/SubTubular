@@ -90,7 +90,7 @@ padded with a "),
         private static void OneInSingleLine(string search, byte padding, string expect)
         {
             var match = Regex.Match(singleLine, search);
-            var paddedMatch = new PaddedMatch(match, padding, singleLine);
+            var paddedMatch = new PaddedMatch(match.Index, match.Length, padding, singleLine);
 
             Debug.Assert(paddedMatch.Value == expect, "unexpected Value");
             Debug.Assert(paddedMatch.Start == match.Index - padding, "unexpected Start");
@@ -109,7 +109,7 @@ padded with a "),
         {
             var matches = Regex.Matches(multiLineText, searched, RegexOptions.IgnoreCase | RegexOptions.Multiline);
 
-            var actual = matches.Select(match => new PaddedMatch(match, padding, multiLineText))
+            var actual = matches.Select(match => new PaddedMatch(match.Index, match.Length, padding, multiLineText))
                 .MergeOverlapping(multiLineText)
                 .ToArray();
 

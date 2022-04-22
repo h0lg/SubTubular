@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Lifti;
 using YoutubeExplode;
 using YoutubeExplode.Common;
 
@@ -11,13 +13,17 @@ namespace SubTubular
 {
     internal sealed class Youtube
     {
+        private readonly YoutubeClient youtube = new YoutubeClient();
         private readonly DataStore dataStore;
-        private readonly YoutubeClient youtube;
+        private readonly VideoIndex videoIndex;
 
-        internal Youtube(DataStore dataStore)
+        // ensures only one process writes to a video index at a time because they're shared across a playlist
+        private readonly SemaphoreSlim indexWriteLock = new SemaphoreSlim(1, 1);
+
+        internal Youtube(DataStore dataStore, VideoIndex videoIndex)
         {
             this.dataStore = dataStore;
-            youtube = new YoutubeClient();
+            this.videoIndex = videoIndex;
         }
 
         /// <summary>Searches videos defined by a playlist.</summary>
@@ -30,33 +36,173 @@ namespace SubTubular
             var storageKey = command.StorageKey;
             var playlist = await dataStore.GetAsync<Playlist>(storageKey); //get cached
 
+            var index = await videoIndex.GetAsync(storageKey);
+            if (index == null) index = videoIndex.Create();
+            string[] videoIds;
+
             if (playlist == null //playlist cache is missing, outdated or lacking sufficient videos
                 || playlist.Loaded < DateTime.UtcNow.AddHours(-Math.Abs(command.CacheHours))
                 || playlist.VideoIds.Count < command.Top)
             {
+                // load and update videos in playlist
                 playlist = new Playlist { Loaded = DateTime.UtcNow };
                 var playlistVideos = await command.GetVideosAsync(youtube, cancellation).CollectAsync(command.Top);
-                playlist.VideoIds = playlistVideos.Select(v => v.Id.Value).ToList();
+                playlist.VideoIds = videoIds = playlistVideos.Select(v => v.Id.Value).ToArray();
                 await dataStore.SetAsync(storageKey, playlist);
+            }
+            else videoIds = playlist.VideoIds.Take(command.Top).ToArray(); // read from cache
 
-                foreach (var playlistVideo in playlistVideos)
+            #region load, index, search and output results for un-indexed videos
+            var unIndexedVideoIds = videoIds.Where(id => !index.Items.Contains(id)).ToArray();
+            var unIndexedSearches = unIndexedVideoIds.Select(videoId => SearchUnIndexedVideo(command, videoId, index, cancellation));
+
+            foreach (var completion in unIndexedSearches.Interleaved()) // yield results of parallel searches as they complete
+            {
+                var search = await completion;
+                var result = await search;
+                if (result != null) yield return result;
+            }
+            #endregion
+
+            // search remaining already indexed videos in one go
+            var indexedVideoIds = videoIds.Except(unIndexedVideoIds).ToArray();
+
+            await foreach (var match in Search(index, command, cancellation))
+            {
+                if (indexedVideoIds.Contains(match.Video.Id)) yield return match;
+            }
+
+            if (unIndexedVideoIds.Any()) await videoIndex.SaveAsync(index, storageKey);
+        }
+
+        private async Task<VideoSearchResult> SearchUnIndexedVideo(SearchCommand command,
+            string videoId, FullTextIndex<string> index, CancellationToken cancellation)
+        {
+            await indexWriteLock.WaitAsync(); // limit write access to index to avoid timeout waiting for write lock
+            await IndexVideo(videoId, index, cancellation);
+            indexWriteLock.Release();
+            VideoSearchResult result = null;
+
+            // search after each loaded and indexed video to output matches as we go
+            await foreach (var match in Search(index, command, cancellation))
+            {
+                // but only output the match for this video, if any
+                if (videoId == match.Video.Id)
                 {
-                    cancellation.ThrowIfCancellationRequested();
-                    var video = await GetVideoAsync(playlistVideo.Id, cancellation);
-
-                    var searchResult = SearchVideo(video, command);
-                    if (searchResult != null) yield return searchResult;
+                    result = match;
+                    break;
                 }
             }
-            else // read from cache
+
+            return result;
+        }
+
+        private async Task IndexVideo(string videoId, FullTextIndex<string> index, CancellationToken cancellation)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            var video = await GetVideoAsync(videoId, cancellation);
+            cancellation.ThrowIfCancellationRequested();
+            index.BeginBatchChange(); // see https://mikegoatly.github.io/lifti/docs/indexing-mutations/batch-mutations/
+            await index.AddAsync(video);
+
+            foreach (var track in video.CaptionTracks)
             {
-                foreach (var videoId in playlist.VideoIds.Take(command.Top))
+                cancellation.ThrowIfCancellationRequested();
+                await index.AddAsync(videoId + "#" + track.LanguageName, track.FullText);
+            }
+
+            await index.CommitBatchChangeAsync();
+        }
+
+        private async IAsyncEnumerable<VideoSearchResult> Search(FullTextIndex<string> index, SearchCommand command,
+            [EnumeratorCancellation] CancellationToken cancellation = default)
+        {
+            var results = index.Search(command.Query);
+
+            var resultsByVideoId = results.Select(result =>
+            {
+                var ids = result.Key.Split('#');
+                var videoId = ids[0];
+                var language = ids.Length > 1 ? ids[1] : null;
+                return new { videoId, language, result };
+            }).GroupBy(m => m.videoId);
+
+            foreach (var group in resultsByVideoId)
+            {
+                var video = await GetVideoAsync(group.Key, cancellation);
+                var result = new VideoSearchResult { Video = video };
+                var metaDataMatch = group.SingleOrDefault(m => m.language == null);
+
+                if (metaDataMatch != null)
                 {
-                    cancellation.ThrowIfCancellationRequested();
-                    var video = await GetVideoAsync(videoId, cancellation);
-                    var searchResult = SearchVideo(video, command);
-                    if (searchResult != null) yield return searchResult;
+                    result.TitleMatches = metaDataMatch.result.FieldMatches.Any(m => m.FoundIn == nameof(Video.Title));
+
+                    result.DescriptionMatches = metaDataMatch.result.FieldMatches
+                        .Where(m => m.FoundIn == nameof(Video.Description))
+                        .SelectMany(m => m.Locations)
+                        .Select(l => new PaddedMatch(l.Start, l.Length, command.Padding, video.Description))
+                        .MergeOverlapping(video.Description)
+                        .Select(m => m.Value).ToArray();
+
+                    var keywordMatches = metaDataMatch.result.FieldMatches
+                        .Where(m => m.FoundIn == nameof(Video.Keywords))
+                        .ToArray();
+
+                    if (keywordMatches.Any())
+                    {
+                        var joinedKeywords = string.Empty;
+
+                        // remembers the index in the list of keywords and start index in joinedKeywords for each keyword
+                        var keywordInfos = video.Keywords.Select((keyword, index) =>
+                        {
+                            var info = new { index, Start = joinedKeywords.Length };
+                            joinedKeywords += keyword;
+                            return info;
+                        }).ToArray();
+
+                        result.MatchingKeywords = keywordMatches.SelectMany(match => match.Locations)
+                            .Select(location => new
+                            {
+                                location, // represents the match location in joinedKeywords
+                                // used to calculate the match index within a matched keyword
+                                keywordInfo = keywordInfos.TakeWhile(info => info.Start <= location.Start).Last()
+                            })
+                            .GroupBy(x => x.keywordInfo.index) // group matches by keyword
+                            .Select(g => video.Keywords[g.Key])
+                            .ToArray();
+                    }
                 }
+
+                result.MatchingCaptionTracks = group.Where(m => m.language != null).Select(m =>
+                {
+                    var track = video.CaptionTracks.SingleOrDefault(t => t.LanguageName == m.language);
+
+                    var matching = m.result.FieldMatches.First().Locations
+                        .Select(l => new PaddedMatch(l.Start, l.Length, command.Padding, track.FullText))
+                        .MergeOverlapping(track.FullText)
+                        .Select(match =>
+                        {
+                            //find first and last captions containing parts of the phrase
+                            var first = track.CaptionAtFullTextIndex.Last(x => x.Value <= match.Start);
+                            var last = track.CaptionAtFullTextIndex.Last(x => first.Value <= x.Value && x.Value <= match.End);
+
+                            //return a single caption for all captions containing the phrase
+                            return new Caption
+                            {
+                                At = first.Key.At,
+                                Text = track.CaptionAtFullTextIndex
+                                    .Where(x => first.Value <= x.Value && x.Value <= last.Value 
+                                        && !string.IsNullOrWhiteSpace(x.Key.Text)) // skip included line breaks
+                                    .Select(x => x.Key.Text.NormalizeWhiteSpace(CaptionTrack.FullTextSeperator)) // replace included line breaks
+                                    .Join(CaptionTrack.FullTextSeperator)
+                            };
+                        })
+                        .OrderBy(caption => caption.At).ToList(); //return captions in order
+
+                    return new CaptionTrack(track, matching);
+                }).ToArray();
+
+                yield return result;
             }
         }
 
@@ -69,84 +215,26 @@ namespace SubTubular
             foreach (var videoId in command.GetVideoIds())
             {
                 cancellation.ThrowIfCancellationRequested();
-                var video = await GetVideoAsync(videoId, cancellation);
-                var searchResult = SearchVideo(video, command);
-                if (searchResult != null) yield return searchResult;
+                var index = await videoIndex.GetAsync(videoId);
+
+                if (index == null)
+                {
+                    index = videoIndex.Create();
+                    await IndexVideo(videoId, index, cancellation);
+                    await videoIndex.SaveAsync(index, videoId);
+                }
+
+                await foreach (var result in Search(index, command, cancellation))
+                    yield return result;
             }
         }
 
-        private VideoSearchResult SearchVideo(Video video, SearchCommand command)
-        {
-            var titleMatches = video.Title.ContainsAny(command.Terms);
-            var matchingKeywords = video.Keywords.Where(kw => kw.ContainsAny(command.Terms)).ToArray();
-            var matchingCaptionTracks = SearchCaptionTracks(video.CaptionTracks, command);
-            var description = video.Description.NormalizeWhiteSpace();
+        private ConcurrentDictionary<string, Video> videoById = new ConcurrentDictionary<string, Video>();
 
-            var descriptionMatches = description.GetMatches(command.Terms)
-                .PadFrom(description, command.Padding).MergeOverlapping(description)
-                .Select(m => m.Value).ToArray();
-
-            return titleMatches || descriptionMatches.Any() || matchingKeywords.Any()
-                || matchingCaptionTracks.Any() || video.CaptionTracks.Any(t => t.Error != null)
-                ? new VideoSearchResult
-                {
-                    Video = video,
-                    TitleMatches = titleMatches,
-                    DescriptionMatches = descriptionMatches,
-                    MatchingKeywords = matchingKeywords,
-                    MatchingCaptionTracks = matchingCaptionTracks
-                }
-                : null;
-        }
-
-        private static CaptionTrack[] SearchCaptionTracks(IList<CaptionTrack> tracks, SearchCommand command) => tracks
-            .Where(track => track.Error == null)
-            .Select(track =>
-            {
-                var matching = SearchCaptionTrack(track, command).ToList();
-                return matching.Count == 0 ? null : new CaptionTrack(track, matching);
-            })
-            .Where(matchingTrack => matchingTrack != null)
-            .ToArray();
-
-        private static IOrderedEnumerable<Caption> SearchCaptionTrack(CaptionTrack track, SearchCommand command)
-        {
-            const string fullTextSeperator = " ";
-            var captionAtIndex = new Dictionary<Caption, int>();
-
-            //aggregate captions into fullText to enable matching phrases across caption boundaries
-            var fullText = track.Captions.Aggregate(string.Empty, (fullText, caption) =>
-            {
-                //remember at what index in the fullText the caption starts
-                captionAtIndex.Add(caption, fullText.Length == 0 ? 0 : fullText.Length + fullTextSeperator.Length);
-
-                return fullText.Length == 0 ? caption.Text : fullText + fullTextSeperator + caption.Text;
-            });
-
-            return fullText.GetMatches(command.Terms)
-                .PadFrom(fullText, command.Padding).MergeOverlapping(fullText)
-                .Select(match =>
-                {
-                    //find first and last captions containing parts of the phrase
-                    var first = captionAtIndex.Last(x => x.Value <= match.Start);
-                    var last = captionAtIndex.Last(x => first.Value <= x.Value && x.Value <= match.End);
-
-                    //return a single caption for all captions containing the phrase
-                    return new Caption
-                    {
-                        At = first.Key.At,
-                        Text = captionAtIndex
-                            .Where(x => first.Value <= x.Value && x.Value <= last.Value)
-                            .Select(x => x.Key.Text)
-                            .Join(fullTextSeperator)
-                    };
-                })
-                .OrderBy(caption => caption.At); //return captions in order
-        }
-
-        private async Task<Video> GetVideoAsync(string videoId, CancellationToken cancellation)
+        private async ValueTask<Video> GetVideoAsync(string videoId, CancellationToken cancellation)
         {
             cancellation.ThrowIfCancellationRequested();
+            if (videoById.ContainsKey(videoId)) return videoById[videoId];
             var video = await dataStore.GetAsync<Video>(videoId);
 
             if (video == null)
@@ -159,6 +247,8 @@ namespace SubTubular
 
                 await dataStore.SetAsync(videoId, video);
             }
+
+            videoById[videoId] = video;
 
             /* Sanitize captions, making sure cached captions as well as downloaded
                 are cleaned of duplicates and ordered by time.

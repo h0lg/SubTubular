@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace SubTubular
 {
@@ -18,10 +17,14 @@ namespace SubTubular
             // add 1 to calculate Length because both Start and End are included
             => Value = fullText.Substring(Start, End - Start + 1);
 
-        /// <summary>Used for <paramref name="padding"/> a <paramref name="match"/>
-        /// from <paramref name="fullText"/>.</summary>
-        internal PaddedMatch(Match match, ushort padding, string fullText)
-            : this(GetPaddedStartIndex(match, padding), GetPaddedEndIndex(match, padding, fullText), fullText) { }
+        /// <summary>Used for <paramref name="padding"/> a match with
+        /// <paramref name="start"/> relative to <paramref name="fullText"/>.</summary>
+        internal PaddedMatch(int start, int length, ushort padding, string fullText)
+            : this(start: GetPaddedStartIndex(start, padding),
+                end: GetPaddedEndIndex(start, length, padding, fullText),
+                fullText: fullText)
+        {
+        }
 
         /// <summary>Used for merging <paramref name="overlapping"/> padded matches
         /// into one spanning all of them to avoid repetition in the output.</summary>
@@ -32,27 +35,22 @@ namespace SubTubular
         public override bool Equals(object obj) => obj == null ? false : obj.GetHashCode() == GetHashCode();
 
         // starting at zero or index minus padding
-        private static int GetPaddedStartIndex(Match match, ushort padding)
-            => match.Index <= padding ? 0 : match.Index - (int)padding;
+        private static int GetPaddedStartIndex(int start, ushort padding)
+            => start <= padding ? 0 : start - (int)padding;
 
         // ending at last index of fullText or last match index plus padding
-        private static int GetPaddedEndIndex(Match match, ushort padding, string fullText)
+        private static int GetPaddedEndIndex(int start, int length, ushort padding, string fullText)
         {
             // substract 1 because start is included in length
-            var paddedEnd = match.Index + match.Length - 1 + (int)padding;
+            var paddedEnd = start + length - 1 + (int)padding;
             var lastIndex = fullText.Length - 1;
             return paddedEnd > lastIndex ? lastIndex : paddedEnd;
         }
     }
 
-    /// <summary>Extensions for <see cref="Match"/> and <see cref="PaddedMatch"/>.</summary>
+    /// <summary>Extensions for <see cref="PaddedMatch"/>.</summary>
     internal static class MatchExtenions
     {
-        /// <summary>Pads every match in <paramref name="matches"/> with
-        /// <paramref name="padding"/>from <paramref name="fullText"/>.</summary>
-        internal static IEnumerable<PaddedMatch> PadFrom(this IEnumerable<Match> matches, string fullText, ushort padding)
-            => matches.Select(match => new PaddedMatch(match, padding, fullText)).ToArray();
-
         /// <summary>Merges overlapping <paramref name="orTouching"/> <paramref name="matches"/> together using
         /// <paramref name="fullText"/> to facilitate selecting the <see cref="PaddedMatch.Value"/> of the merged match.</summary>
         internal static IEnumerable<PaddedMatch> MergeOverlapping(this IEnumerable<PaddedMatch> matches, string fullText, bool orTouching = true)

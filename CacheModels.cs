@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace SubTubular
 {
@@ -44,6 +45,49 @@ namespace SubTubular
             LanguageName = track.LanguageName;
             Captions = matchingCaptions;
         }
+
+        #region FullText
+        internal const string FullTextSeperator = " ";
+        private string fullText;
+        private Dictionary<Caption, int> captionAtFullTextIndex;
+
+        // aggregates captions into fullText to enable matching phrases across caption boundaries
+        internal string FullText
+        {
+            get
+            {
+                if (fullText == null) CacheFullText();
+                return fullText;
+            }
+        }
+
+        internal Dictionary<Caption, int> CaptionAtFullTextIndex
+        {
+            get
+            {
+                if (captionAtFullTextIndex == null) CacheFullText();
+                return captionAtFullTextIndex;
+            }
+        }
+
+        private void CacheFullText()
+        {
+            captionAtFullTextIndex = new Dictionary<Caption, int>();
+
+            fullText = Captions
+                .Where(caption => !string.IsNullOrWhiteSpace(caption.Text)) // skip included line breaks
+                .Aggregate(string.Empty, (fullText, caption) =>
+            {
+                var isFirst = fullText.Length == 0;
+
+                // remember at what index in the fullText the caption starts
+                captionAtFullTextIndex.Add(caption, isFirst ? 0 : fullText.Length + FullTextSeperator.Length);
+
+                var normalized = caption.Text.NormalizeWhiteSpace(FullTextSeperator); // replace included line breaks
+                return isFirst ? normalized : fullText + FullTextSeperator + normalized;
+            });
+        }
+        #endregion
     }
 
     [Serializable]
