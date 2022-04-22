@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -66,6 +65,7 @@ namespace SubTubular
                         h.Copyright = string.Empty;
                     }
 
+                    h.AddEnumValuesToHelpText = true;
                     h.OptionComparison = CompareOptions;
                     h.AddPostOptionsLine($"See {repoUrl} for more info.");
 
@@ -130,7 +130,10 @@ namespace SubTubular
                     if (path != null)
                     {
                         Console.WriteLine("Search results were written to " + path);
-                        OpenFile(path); // to spare the user some file browsing
+
+                        // spare the user some file browsing
+                        if (command.Show == SearchCommand.Shows.file) ShellCommands.OpenFile(path);
+                        if (command.Show == SearchCommand.Shows.folder) ShellCommands.ExploreFolder(path);
                     }
                 }
 
@@ -175,9 +178,6 @@ namespace SubTubular
             Assembly.GetEntryAssembly().GetName().Name, subFolder);
 
         private static string GetCachePath() => GetFileStoragePath("cache");
-
-        private static void OpenFile(string path) // from https://stackoverflow.com/a/53245993
-            => Process.Start(new ProcessStartInfo(new Uri(path).AbsoluteUri) { UseShellExecute = true });
 
         #region HelpText Option order
         private static int CompareOptions(ComparableOption a, ComparableOption b)

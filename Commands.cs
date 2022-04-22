@@ -44,10 +44,15 @@ namespace SubTubular
                 + " to the 'out' folder of SubTubular's AppData directory.")]
         public string FileOutputPath { get; set; }
 
+        [Option('s', "show", HelpText = "The output to open if a file was written.")]
+        public Shows? Show { get; set; }
+
         internal abstract string Label { get; }
         internal abstract IEnumerable<string> GetUrls();
         protected abstract string FormatInternal();
         internal string Format() => FormatInternal() + " " + Terms.Join(" ");
+
+        public enum Shows { file, folder }
     }
 
     internal abstract class SearchPlaylistCommand : SearchCommand
