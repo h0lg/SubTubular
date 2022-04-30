@@ -214,10 +214,10 @@ namespace SubTubular
 
     internal sealed class VideoSearchResult
     {
-        public Video Video { get; set; }
-        public bool TitleMatches { get; set; }
-        public string[] DescriptionMatches { get; internal set; }
-        public string[] MatchingKeywords { get; set; }
-        public CaptionTrack[] MatchingCaptionTracks { get; set; }
+        internal Video Video { get; set; }
+        internal bool TitleMatches { get; set; }
+        internal string[] DescriptionMatches { get; set; }
+        internal string[] MatchingKeywords { get; set; }
+        internal CaptionTrack[] MatchingCaptionTracks { get; set; }
     }
 }
