@@ -35,7 +35,7 @@ namespace SubTubular
 
         public CaptionTrack() { } //required by serializer
 
-        /// <summary>Use this to clone a Captiontrack to include in a VideoSerachResult.
+        /// <summary>Use this to clone a Captiontrack to include in a VideoSearchResult.
         /// Captions will be set to matchingCaptions instead of cloning track.Captions.</summary>
         /// <param name="track">The track to clone.</param>
         /// <param name="matchingCaptions">The matching captions.</param>
