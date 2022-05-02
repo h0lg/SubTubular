@@ -246,10 +246,10 @@ namespace SubTubular
 
         private void ResetConsoleColor() => Console.ForegroundColor = regularForeGround;
 
-        internal static async ValueTask WriteTextToFileAsync(string text, string path)
+        internal static Task WriteTextToFileAsync(string text, string path)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path));
-            await File.WriteAllTextAsync(path, text);
+            return File.WriteAllTextAsync(path, text);
         }
 
         #region IDisposable implementation
