@@ -9,7 +9,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceFolder}/bin/Debug/netcoreapp3.1/SubTubular.dll",
+            "program": "${workspaceFolder}/bin/Debug/net7.0/SubTubular.dll",
             "args": [],
             "cwd": "${workspaceFolder}",
             //https://github.com/OmniSharp/omnisharp-vscode/blob/master/debugger-launchjson.md#console-terminal-window
