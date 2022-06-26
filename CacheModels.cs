@@ -34,18 +34,6 @@ namespace SubTubular
         public string Error { get; set; }
         public string ErrorMessage { get; set; }
 
-        public CaptionTrack() { } //required by serializer
-
-        /// <summary>Use this to clone a Captiontrack to include in a VideoSearchResult.
-        /// Captions will be set to matchingCaptions instead of cloning track.Captions.</summary>
-        /// <param name="track">The track to clone.</param>
-        /// <param name="matchingCaptions">The matching captions.</param>
-        internal CaptionTrack(CaptionTrack track, List<Caption> matchingCaptions)
-        {
-            LanguageName = track.LanguageName;
-            Captions = matchingCaptions;
-        }
-
         #region FullText
         internal const string FullTextSeperator = " ";
         private string fullText;

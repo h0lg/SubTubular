@@ -26,7 +26,6 @@ namespace SubTubular
         private static async Task Main(string[] args)
         {
 #if DEBUG
-            Tests.StringExtensionsTests.RunTests();
             Tests.PaddedMatchTests.Run();
 #endif
 

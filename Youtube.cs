@@ -135,14 +135,17 @@ namespace SubTubular
 
                 if (metaDataMatch != null)
                 {
-                    result.TitleMatches = metaDataMatch.result.FieldMatches.Any(m => m.FoundIn == nameof(Video.Title));
+                    var titleMatches = metaDataMatch.result.FieldMatches.Where(m => m.FoundIn == nameof(Video.Title));
+                    if (titleMatches.Any()) result.TitleMatches = new PaddedMatch(video.Title,
+                        titleMatches.SelectMany(m => m.Locations)
+                            .Select(m => new PaddedMatch.IncludedMatch { Start = m.Start, Length = m.Length }).ToArray());
 
                     result.DescriptionMatches = metaDataMatch.result.FieldMatches
                         .Where(m => m.FoundIn == nameof(Video.Description))
                         .SelectMany(m => m.Locations)
                         .Select(l => new PaddedMatch(l.Start, l.Length, command.Padding, video.Description))
                         .MergeOverlapping(video.Description)
-                        .Select(m => m.Value).ToArray();
+                        .ToArray();
 
                     var keywordMatches = metaDataMatch.result.FieldMatches
                         .Where(m => m.FoundIn == nameof(Video.Keywords))
@@ -160,7 +163,7 @@ namespace SubTubular
                             return info;
                         }).ToArray();
 
-                        result.MatchingKeywords = keywordMatches.SelectMany(match => match.Locations)
+                        result.KeywordMatches = keywordMatches.SelectMany(match => match.Locations)
                             .Select(location => new
                             {
                                 location, // represents the match location in joinedKeywords
@@ -168,7 +171,13 @@ namespace SubTubular
                                 keywordInfo = keywordInfos.TakeWhile(info => info.Start <= location.Start).Last()
                             })
                             .GroupBy(x => x.keywordInfo.index) // group matches by keyword
-                            .Select(g => video.Keywords[g.Key])
+                            .Select(g => new PaddedMatch(video.Keywords[g.Key],
+                                g.Select(x => new PaddedMatch.IncludedMatch
+                                {
+                                    // recalculate match index relative to keyword start
+                                    Start = x.location.Start - x.keywordInfo.Start,
+                                    Length = x.location.Length
+                                }).ToArray()))
                             .ToArray();
                     }
                 }
@@ -177,29 +186,36 @@ namespace SubTubular
                 {
                     var track = video.CaptionTracks.SingleOrDefault(t => t.LanguageName == m.language);
 
-                    var matching = m.result.FieldMatches.First().Locations
+                    var matches = m.result.FieldMatches.First().Locations
+                        // use a temporary/transitory PaddedMatch to ensure the minumum configured padding
                         .Select(l => new PaddedMatch(l.Start, l.Length, command.Padding, track.FullText))
                         .MergeOverlapping(track.FullText)
+                        /*  map transitory padded match to captions containing it and a new padded match
+                            with adjusted included matches containing the joined text of the matched caption */
                         .Select(match =>
                         {
-                            //find first and last captions containing parts of the phrase
+                            // find first and last captions containing parts of the padded match
                             var first = track.CaptionAtFullTextIndex.Last(x => x.Value <= match.Start);
                             var last = track.CaptionAtFullTextIndex.Last(x => first.Value <= x.Value && x.Value <= match.End);
 
-                            //return a single caption for all captions containing the phrase
-                            return new Caption
+                            var captions = track.CaptionAtFullTextIndex // span of captions containing the padded match
+                                .Where(x => first.Value <= x.Value && x.Value <= last.Value).ToArray();
+
+                            // return a single caption for all captions containing the padded match
+                            var joinedCaption = new Caption
                             {
                                 At = first.Key.At,
-                                Text = track.CaptionAtFullTextIndex
-                                    .Where(x => first.Value <= x.Value && x.Value <= last.Value 
-                                        && !string.IsNullOrWhiteSpace(x.Key.Text)) // skip included line breaks
-                                    .Select(x => x.Key.Text.NormalizeWhiteSpace(CaptionTrack.FullTextSeperator)) // replace included line breaks
+                                Text = captions.Select(x => x.Key.Text)
+                                    .Where(text => !string.IsNullOrWhiteSpace(text)) // skip included line breaks
+                                    .Select(text => text.NormalizeWhiteSpace(CaptionTrack.FullTextSeperator)) // replace included line breaks
                                     .Join(CaptionTrack.FullTextSeperator)
                             };
-                        })
-                        .OrderBy(caption => caption.At).ToList(); //return captions in order
 
-                    return new CaptionTrack(track, matching);
+                            return Tuple.Create(new PaddedMatch(match, joinedCaption, first.Value), joinedCaption);
+                        })
+                        .OrderBy(tuple => tuple.Item2.At).ToList(); // return captions in order
+
+                    return new VideoSearchResult.CaptionTrackResult { Track = track, Matches = matches };
                 }).ToArray();
 
                 yield return result;
@@ -303,9 +319,15 @@ namespace SubTubular
     internal sealed class VideoSearchResult
     {
         internal Video Video { get; set; }
-        internal bool TitleMatches { get; set; }
-        internal string[] DescriptionMatches { get; set; }
-        internal string[] MatchingKeywords { get; set; }
-        internal CaptionTrack[] MatchingCaptionTracks { get; set; }
+        internal PaddedMatch TitleMatches { get; set; }
+        internal PaddedMatch[] DescriptionMatches { get; set; }
+        internal PaddedMatch[] KeywordMatches { get; set; }
+        internal CaptionTrackResult[] MatchingCaptionTracks { get; set; }
+
+        internal sealed class CaptionTrackResult
+        {
+            public CaptionTrack Track { get; set; }
+            internal List<Tuple<PaddedMatch, Caption>> Matches { get; set; }
+        }
     }
 }
