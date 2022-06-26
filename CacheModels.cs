@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Text;
 
 namespace SubTubular
 {
@@ -37,43 +37,37 @@ namespace SubTubular
         #region FullText
         internal const string FullTextSeperator = " ";
         private string fullText;
-        private Dictionary<Caption, int> captionAtFullTextIndex;
+        private Dictionary<int, Caption> captionAtFullTextIndex;
 
         // aggregates captions into fullText to enable matching phrases across caption boundaries
-        internal string FullText
+        internal string GetFullText()
         {
-            get
-            {
-                if (fullText == null) CacheFullText();
-                return fullText;
-            }
+            if (fullText == null) CacheFullText();
+            return fullText;
         }
 
-        internal Dictionary<Caption, int> CaptionAtFullTextIndex
+        internal Dictionary<int, Caption> GetCaptionAtFullTextIndex()
         {
-            get
-            {
-                if (captionAtFullTextIndex == null) CacheFullText();
-                return captionAtFullTextIndex;
-            }
+            if (captionAtFullTextIndex == null) CacheFullText();
+            return captionAtFullTextIndex;
         }
 
         private void CacheFullText()
         {
-            captionAtFullTextIndex = new Dictionary<Caption, int>();
+            var writer = new StringBuilder();
+            var captionsAtFullTextIndex = new Dictionary<int, Caption>();
 
-            fullText = Captions
-                .Where(caption => !string.IsNullOrWhiteSpace(caption.Text)) // skip included line breaks
-                .Aggregate(string.Empty, (fullText, caption) =>
+            foreach (var caption in Captions)
             {
-                var isFirst = fullText.Length == 0;
-
-                // remember at what index in the fullText the caption starts
-                captionAtFullTextIndex.Add(caption, isFirst ? 0 : fullText.Length + FullTextSeperator.Length);
-
+                if (string.IsNullOrWhiteSpace(caption.Text)) continue; // skip included line breaks
+                var isFirst = writer.Length == 0;
+                captionsAtFullTextIndex[isFirst ? 0 : writer.Length + FullTextSeperator.Length] = caption;
                 var normalized = caption.Text.NormalizeWhiteSpace(FullTextSeperator); // replace included line breaks
-                return isFirst ? normalized : fullText + FullTextSeperator + normalized;
-            });
+                writer.Append(isFirst ? normalized : FullTextSeperator + normalized);
+            }
+
+            captionAtFullTextIndex = captionsAtFullTextIndex;
+            fullText = writer.ToString();
         }
         #endregion
     }
@@ -87,7 +81,6 @@ namespace SubTubular
         public string Text { get; set; }
 
         // for comparing captions when finding them in a caption track
-        public override bool Equals(object obj) => obj == null ? false : obj.GetHashCode() == GetHashCode();
         public override int GetHashCode() => HashCode.Combine(At, Text);
     }
 }

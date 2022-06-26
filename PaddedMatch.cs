@@ -70,7 +70,7 @@ namespace SubTubular
         /// from a transitory <paramref name="paddedMatch"/>
         /// that only contains the minimum <see cref="SearchCommand.Padding"/>.</summary>
         /// <param name="captionStartIndex">The start index of the <see cref="Caption.Text"/>
-        /// relative to the <see cref="CaptionTrack.FullText"/>.</param>
+        /// relative to the <see cref="CaptionTrack.GetFullText()"/>.</param>
         internal PaddedMatch(PaddedMatch paddedMatch, Caption caption, int captionStartIndex)
             : base(captionStartIndex, captionStartIndex + caption.Text.Length, endIncluded: true)
         {

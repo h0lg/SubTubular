@@ -108,7 +108,7 @@ namespace SubTubular
             foreach (var track in video.CaptionTracks)
             {
                 cancellation.ThrowIfCancellationRequested();
-                await index.AddAsync(videoId + "#" + track.LanguageName, track.FullText);
+                await index.AddAsync(videoId + "#" + track.LanguageName, track.GetFullText());
             }
 
             await index.CommitBatchChangeAsync();
@@ -185,33 +185,35 @@ namespace SubTubular
                 result.MatchingCaptionTracks = group.Where(m => m.language != null).Select(m =>
                 {
                     var track = video.CaptionTracks.SingleOrDefault(t => t.LanguageName == m.language);
+                    var fullText = track.GetFullText();
+                    var captionAtFullTextIndex = track.GetCaptionAtFullTextIndex();
 
                     var matches = m.result.FieldMatches.First().Locations
                         // use a temporary/transitory PaddedMatch to ensure the minumum configured padding
-                        .Select(l => new PaddedMatch(l.Start, l.Length, command.Padding, track.FullText))
-                        .MergeOverlapping(track.FullText)
+                        .Select(l => new PaddedMatch(l.Start, l.Length, command.Padding, fullText))
+                        .MergeOverlapping(fullText)
                         /*  map transitory padded match to captions containing it and a new padded match
                             with adjusted included matches containing the joined text of the matched caption */
                         .Select(match =>
                         {
                             // find first and last captions containing parts of the padded match
-                            var first = track.CaptionAtFullTextIndex.Last(x => x.Value <= match.Start);
-                            var last = track.CaptionAtFullTextIndex.Last(x => first.Value <= x.Value && x.Value <= match.End);
+                            var first = captionAtFullTextIndex.Last(x => x.Key <= match.Start);
+                            var last = captionAtFullTextIndex.Last(x => first.Key <= x.Key && x.Key <= match.End);
 
-                            var captions = track.CaptionAtFullTextIndex // span of captions containing the padded match
-                                .Where(x => first.Value <= x.Value && x.Value <= last.Value).ToArray();
+                            var captions = captionAtFullTextIndex // span of captions containing the padded match
+                                .Where(x => first.Key <= x.Key && x.Key <= last.Key).ToArray();
 
                             // return a single caption for all captions containing the padded match
                             var joinedCaption = new Caption
                             {
-                                At = first.Key.At,
-                                Text = captions.Select(x => x.Key.Text)
+                                At = first.Value.At,
+                                Text = captions.Select(x => x.Value.Text)
                                     .Where(text => !string.IsNullOrWhiteSpace(text)) // skip included line breaks
                                     .Select(text => text.NormalizeWhiteSpace(CaptionTrack.FullTextSeperator)) // replace included line breaks
                                     .Join(CaptionTrack.FullTextSeperator)
                             };
 
-                            return Tuple.Create(new PaddedMatch(match, joinedCaption, first.Value), joinedCaption);
+                            return Tuple.Create(new PaddedMatch(match, joinedCaption, first.Key), joinedCaption);
                         })
                         .OrderBy(tuple => tuple.Item2.At).ToList(); // return captions in order
 
