@@ -143,7 +143,8 @@ namespace SubTubular
         {
             try
             {
-                var path = Path.Combine(GetFileStoragePath("errors"), $"error {DateTime.Now:yyyy-MM-dd HHmmss} {name?.ToFileSafe()}.txt");
+                var fileSafeName = name == null ? null : " " + name.ToFileSafe();
+                var path = Path.Combine(GetFileStoragePath("errors"), $"error {DateTime.Now:yyyy-MM-dd HHmmss}{fileSafeName}.txt");
                 await OutputWriter.WriteTextToFileAsync(originalCommand + errorOutputSpacing + errors, path);
                 Console.WriteLine("Errors were logged to " + path);
             }
