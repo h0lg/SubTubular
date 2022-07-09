@@ -53,9 +53,9 @@ namespace SubTubular
         internal static IEnumerable<PaddedMatch> PadFrom(this IEnumerable<Match> matches, string fullText, byte padding)
             => matches.Select(match => new PaddedMatch(match, padding, fullText)).ToArray();
 
-        /// <summary>Merges overlapping <paramref name="matches"/> together using <paramref name="fullText"/>
-        /// to facilitate selecting the <see cref="PaddedMatch.Value"/> of the merged match.</summary>
-        internal static IEnumerable<PaddedMatch> MergeOverlapping(this IEnumerable<PaddedMatch> matches, string fullText)
-            => matches.GroupOverlapping().Select(group => group.Count() == 1 ? group.First() : new PaddedMatch(group, fullText));
+        /// <summary>Merges overlapping <paramref name="orTouching"/> <paramref name="matches"/> together using
+        /// <paramref name="fullText"/> to facilitate selecting the <see cref="PaddedMatch.Value"/> of the merged match.</summary>
+        internal static IEnumerable<PaddedMatch> MergeOverlapping(this IEnumerable<PaddedMatch> matches, string fullText, bool orTouching = true)
+            => matches.GroupOverlapping(orTouching).Select(group => group.Count() == 1 ? group.First() : new PaddedMatch(group, fullText));
     }
 }

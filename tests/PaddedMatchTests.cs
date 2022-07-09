@@ -33,12 +33,12 @@ Range<T>.Start and Range<T>.End represent the indexes of the padded match in the
                 new ExpectedMatch(242, 246, "match")
             });
 
-            MultipleInMultiLine(multiMatched, padding: 6, new[] {
-                new ExpectedMatch(17, 33, "le to Match inclu"),
-                new ExpectedMatch(55, 86, @"PaddedMatch.Included matches
-pad"),
-                new ExpectedMatch(206, 222, "added match in th"),
-                new ExpectedMatch(236, multiLineText.Length - 1, "t was matched in.")
+            MultipleInMultiLine(multiMatched, padding: 5, new[] {
+                new ExpectedMatch(18, 32, "e to Match incl"),
+                new ExpectedMatch(56, 85, @"addedMatch.Included matches
+pa"),
+                new ExpectedMatch(207, 221, "dded match in t"),
+                new ExpectedMatch(237, 251, " was matched in")
             });
 
             MultipleInMultiLine(multiMatched, padding: 13, new[] {
@@ -64,23 +64,27 @@ padded with a "),
             Debug.Assert(hash != new ExpectedMatch(9, 16).GetHashCode(), "hash codes shouldn't match");
             Debug.Assert(hash != new ExpectedMatch(9, 14).GetHashCode(), "hash codes shouldn't match");
 
+            Debug.Assert(!range.Intersects(new ExpectedMatch(0, 6), orTouches: true), "ranges shouldn't touch");
+            Debug.Assert(range.Intersects(new ExpectedMatch(0, 7), orTouches: true), "ranges should touch");
             Debug.Assert(!range.Intersects(new ExpectedMatch(0, 7)), "ranges shouldn't intersect");
             Debug.Assert(range.Intersects(new ExpectedMatch(0, 8)), "ranges should intersect");
             Debug.Assert(range.Intersects(new ExpectedMatch(8, 15)), "ranges should intersect");
             Debug.Assert(range.Intersects(new ExpectedMatch(15, 20)), "ranges should intersect");
             Debug.Assert(!range.Intersects(new ExpectedMatch(16, 20)), "ranges shouldn't intersect");
+            Debug.Assert(range.Intersects(new ExpectedMatch(16, 20), orTouches: true), "ranges should touch");
+            Debug.Assert(!range.Intersects(new ExpectedMatch(17, 20), orTouches: true), "ranges shouldn't touch");
 
-            new[] { range, new ExpectedMatch(0, 7) }.GroupOverlapping()
-                .ShouldYield(new[] { new[] { range }, new[] { new ExpectedMatch(0, 7) } });
+            new[] { range, new ExpectedMatch(0, 6) }.GroupOverlapping(orTouching: true)
+                .ShouldYield(new[] { new[] { range }, new[] { new ExpectedMatch(0, 6) } });
 
-            new[] { range, new ExpectedMatch(0, 8) }.GroupOverlapping()
-                .ShouldYield(new[] { new[] { range, new ExpectedMatch(0, 8) } });
+            new[] { range, new ExpectedMatch(0, 7) }.GroupOverlapping(orTouching: true)
+                .ShouldYield(new[] { new[] { range, new ExpectedMatch(0, 7) } });
 
-            new[] { range, new ExpectedMatch(0, 8), new ExpectedMatch(15, 20) }.GroupOverlapping()
-                .ShouldYield(new[] { new[] { range, new ExpectedMatch(0, 8), new ExpectedMatch(15, 20) } });
+            new[] { range, new ExpectedMatch(0, 7), new ExpectedMatch(16, 20) }.GroupOverlapping(orTouching: true)
+                .ShouldYield(new[] { new[] { range, new ExpectedMatch(0, 7), new ExpectedMatch(16, 20) } });
 
-            new[] { range, new ExpectedMatch(0, 7), new ExpectedMatch(16, 20) }.GroupOverlapping()
-                .ShouldYield(new[] { new[] { range }, new[] { new ExpectedMatch(0, 7) }, new[] { new ExpectedMatch(16, 20) } });
+            new[] { range, new ExpectedMatch(0, 6), new ExpectedMatch(17, 20) }.GroupOverlapping(orTouching: true)
+                .ShouldYield(new[] { new[] { range }, new[] { new ExpectedMatch(0, 6) }, new[] { new ExpectedMatch(17, 20) } });
         }
 
         private static void OneInSingleLine(string search, byte padding, string expect)

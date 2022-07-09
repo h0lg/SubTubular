@@ -46,13 +46,18 @@ namespace SubTubular
     /// <summary>Extension methods for <see cref="BaseRange"/> and <see cref="Range{T}"/>.</summary>
     internal static class RangeExtensions
     {
-        /// <summary>Groups the incoming <paramref name="ranges"/> by overlap or intersection
-        /// returning ranges that don't overlap with any as the only range within their group
+        /// <summary>Indicates whether the range <paramref name="self"/> <see cref="BaseRange.Intersects(BaseRange)"/>
+        /// <paramref name="orTouches"/> the <paramref name="other"/> range.</summary>
+        internal static bool Intersects(this Range<int> self, Range<int> other, bool orTouches = false)
+            => self.Intersects(other) || orTouches && (self.Start == other.End + 1 || other.Start == self.End + 1);
+
+        /// <summary>Groups the incoming <paramref name="ranges"/> by overlap/intersection <paramref name="orTouching"/>/butting
+        /// returning ranges that don't overlap with or touch any other as the only range within their group
         /// and all overlapping ranges together in the same.
         /// Inspired by union-find algorithm, see https://stackoverflow.com/a/9919203 .</summary>
-        internal static IEnumerable<IEnumerable<T>> GroupOverlapping<T>(this IEnumerable<T> ranges) where T : BaseRange
+        internal static IEnumerable<IEnumerable<T>> GroupOverlapping<T>(this IEnumerable<T> ranges, bool orTouching = false) where T : Range<int>
         {
-            var groups = ranges.Select(i => ranges.Where(o => i == o || i.Intersects(o)).ToList()).ToList();
+            var groups = ranges.Select(i => ranges.Where(o => i == o || i.Intersects(o, orTouching)).ToList()).ToList();
             var groupsWithOverlaps = groups.Where(i => i.Count > 1); // executed repeatedly below
 
             bool MergeGroupsWithOverlaps()
