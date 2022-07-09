@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using CommandLine;
@@ -36,7 +35,7 @@ namespace SubTubular
             try
             {
                 var parserResult = new Parser(with => with.HelpWriter = null)
-                    .ParseArguments<SearchUser, SearchChannel, SearchPlaylist, SearchVideos, ClearCache>(args);
+                    .ParseArguments<SearchUser, SearchChannel, SearchPlaylist, SearchVideos, Open, ClearCache>(args);
 
                 //https://github.com/commandlineparser/commandline/wiki/Getting-Started#using-withparsedasync-in-asyncawait
                 await parserResult.WithParsedAsync<SearchUser>(command
@@ -51,14 +50,14 @@ namespace SubTubular
                 await parserResult.WithParsedAsync<SearchVideos>(command
                     => SearchAsync(command, originalCommand, youtube => youtube.SearchVideosAsync(command)));
 
-                parserResult.WithParsed<ClearCache>(c => new JsonFileDataStore(GetCachePath()).Clear());
+                parserResult.WithParsed<ClearCache>(c => new JsonFileDataStore(Folder.GetPath(Folders.cache)).Clear());
+                parserResult.WithParsed<Open>(open => ShellCommands.ExploreFolder(Folder.GetPath(open.Folder)));
 
                 //see https://github.com/commandlineparser/commandline/wiki/HelpText-Configuration
                 parserResult.WithNotParsed(errors => Console.WriteLine(HelpText.AutoBuild(parserResult, h =>
                 {
-                    var noVerbSelected = parserResult.Errors.Any(error => error.Tag == ErrorType.NoVerbSelectedError);
-
-                    if (noVerbSelected) h.Heading = asciiHeading + h.Heading; // enhance heading for branding
+                    if (parserResult.Errors.Any(error => error.Tag == ErrorType.NoVerbSelectedError))
+                        h.Heading = asciiHeading + h.Heading; // enhance heading for branding
                     else // remove heading and copyright to reduce noise before error if a verb is already selected
                     {
                         h.Heading = string.Empty;
@@ -68,10 +67,6 @@ namespace SubTubular
                     h.AddEnumValuesToHelpText = true;
                     h.OptionComparison = CompareOptions;
                     h.AddPostOptionsLine($"See {repoUrl} for more info.");
-
-                    if (noVerbSelected)
-                        h.AddPostOptionsLine("Subtitles and metadata are cached in " + GetCachePath());
-
                     return h;
                 })));
             }
@@ -107,7 +102,7 @@ namespace SubTubular
                     if (searching) search.Cancel();
                 });
 
-                var youtube = new Youtube(new JsonFileDataStore(GetCachePath()));
+                var youtube = new Youtube(new JsonFileDataStore(Folder.GetPath(Folders.cache)));
                 var tracksWithErrors = new List<CaptionTrack>();
 
                 using (var output = new OutputWriter(originalCommand, command))
@@ -125,7 +120,7 @@ namespace SubTubular
                     catch (OperationCanceledException) { Console.WriteLine("The search was cancelled."); }
 
                     //only writes an output file if command requires it
-                    var path = await output.WriteOutputFile(() => GetFileStoragePath("out"));
+                    var path = await output.WriteOutputFile(() => Folder.GetPath(Folders.output));
 
                     if (path != null)
                     {
@@ -157,7 +152,7 @@ namespace SubTubular
             try
             {
                 var fileSafeName = name == null ? null : " " + name.ToFileSafe();
-                var path = Path.Combine(GetFileStoragePath("errors"), $"error {DateTime.Now:yyyy-MM-dd HHmmss}{fileSafeName}.txt");
+                var path = Path.Combine(Folder.GetPath(Folders.errors), $"error {DateTime.Now:yyyy-MM-dd HHmmss}{fileSafeName}.txt");
                 await OutputWriter.WriteTextToFileAsync(originalCommand + errorOutputSpacing + errors, path);
                 Console.WriteLine("Errors were logged to " + path);
             }
@@ -172,12 +167,6 @@ namespace SubTubular
             Console.WriteLine($"Check out {repoUrl}/issues for existing reports of this error and maybe a solution or work-around."
                 + " If you want to report it, you can do that there to. Please make sure to supply the error details and example input. Thanks!");
         }
-
-        private static string GetFileStoragePath(string subFolder) => Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            Assembly.GetEntryAssembly().GetName().Name, subFolder);
-
-        private static string GetCachePath() => GetFileStoragePath("cache");
 
         #region HelpText Option order
         private static int CompareOptions(ComparableOption a, ComparableOption b)

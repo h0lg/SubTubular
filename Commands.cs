@@ -152,4 +152,11 @@ namespace SubTubular
 
     [Verb("clear-cache", aliases: new[] { "clear" }, HelpText = "Clears cached user, channel, playlist and video info.")]
     internal sealed class ClearCache { }
+
+    [Verb("open", aliases: new[] { "o" }, HelpText = "Opens app-related folders in a file browser.")]
+    internal sealed class Open
+    {
+        [Value(0, MetaName = "folder", Required = true, HelpText = "The folder to open.")]
+        public Folders Folder { get; set; }
+    }
 }
