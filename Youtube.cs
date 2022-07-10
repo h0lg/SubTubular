@@ -15,15 +15,12 @@ namespace SubTubular
     {
         private readonly YoutubeClient youtube = new YoutubeClient();
         private readonly DataStore dataStore;
-        private readonly VideoIndex videoIndex;
+        private readonly VideoIndexRepository videoIndexRepo;
 
-        // ensures only one process writes to a video index at a time because they're shared across a playlist
-        private readonly SemaphoreSlim indexWriteLock = new SemaphoreSlim(1, 1);
-
-        internal Youtube(DataStore dataStore, VideoIndex videoIndex)
+        internal Youtube(DataStore dataStore, VideoIndexRepository videoIndexRepo)
         {
             this.dataStore = dataStore;
-            this.videoIndex = videoIndex;
+            this.videoIndexRepo = videoIndexRepo;
         }
 
         /// <summary>Searches videos defined by a playlist.</summary>
@@ -36,8 +33,8 @@ namespace SubTubular
             var storageKey = command.StorageKey;
             var playlist = await dataStore.GetAsync<Playlist>(storageKey); //get cached
 
-            var index = await videoIndex.GetAsync(storageKey);
-            if (index == null) index = videoIndex.Create();
+            var index = await videoIndexRepo.GetAsync(storageKey);
+            if (index == null) index = videoIndexRepo.Build();
             string[] videoIds;
 
             if (playlist == null //playlist cache is missing, outdated or lacking sufficient videos
@@ -53,13 +50,13 @@ namespace SubTubular
             else videoIds = playlist.VideoIds.Take(command.Top).ToArray(); // read from cache
 
             #region load, index, search and output results for un-indexed videos
-            var unIndexedVideoIds = videoIds.Where(id => !index.Items.Contains(id)).ToArray();
-            var unIndexedSearches = unIndexedVideoIds.Select(videoId => SearchUnIndexedVideo(command, videoId, index, cancellation));
+            var unIndexedVideoIds = await index.GetUnIndexedVideoIdsAsync(videoIds);
+            var unIndexedSearches = unIndexedVideoIds.Select(videoId => SearchUnIndexedVideoAsync(command, videoId, index, cancellation));
 
             foreach (var completion in unIndexedSearches.Interleaved()) // yield results of parallel searches as they complete
             {
                 var search = await completion;
-                var result = await search;
+                var result = search.Result;
                 if (result != null) yield return result;
             }
             #endregion
@@ -67,24 +64,22 @@ namespace SubTubular
             // search remaining already indexed videos in one go
             var indexedVideoIds = videoIds.Except(unIndexedVideoIds).ToArray();
 
-            await foreach (var match in Search(index, command, cancellation))
+            await foreach (var match in SearchAsync(index, command, cancellation))
             {
                 if (indexedVideoIds.Contains(match.Video.Id)) yield return match;
             }
 
-            if (unIndexedVideoIds.Any()) await videoIndex.SaveAsync(index, storageKey);
+            if (unIndexedVideoIds.Any()) await videoIndexRepo.SaveAsync(index, storageKey);
         }
 
-        private async Task<VideoSearchResult> SearchUnIndexedVideo(SearchCommand command,
-            string videoId, FullTextIndex<string> index, CancellationToken cancellation)
+        private async Task<VideoSearchResult> SearchUnIndexedVideoAsync(SearchPlaylistCommand command,
+            string videoId, VideoIndex index, CancellationToken cancellation)
         {
-            await indexWriteLock.WaitAsync(); // limit write access to index to avoid timeout waiting for write lock
-            await IndexVideo(videoId, index, cancellation);
-            indexWriteLock.Release();
+            await IndexVideoAsync(videoId, index, command.StorageKey, cancellation);
             VideoSearchResult result = null;
 
             // search after each loaded and indexed video to output matches as we go
-            await foreach (var match in Search(index, command, cancellation))
+            await foreach (var match in SearchAsync(index, command, cancellation))
             {
                 // but only output the match for this video, if any
                 if (videoId == match.Video.Id)
@@ -97,27 +92,17 @@ namespace SubTubular
             return result;
         }
 
-        private async Task IndexVideo(string videoId, FullTextIndex<string> index, CancellationToken cancellation)
+        private async Task IndexVideoAsync(string videoId, VideoIndex index, string storageKey, CancellationToken cancellation)
         {
             cancellation.ThrowIfCancellationRequested();
             var video = await GetVideoAsync(videoId, cancellation);
-            cancellation.ThrowIfCancellationRequested();
-            index.BeginBatchChange(); // see https://mikegoatly.github.io/lifti/docs/indexing-mutations/batch-mutations/
-            await index.AddAsync(video);
-
-            foreach (var track in video.CaptionTracks)
-            {
-                cancellation.ThrowIfCancellationRequested();
-                await index.AddAsync(videoId + "#" + track.LanguageName, track.GetFullText());
-            }
-
-            await index.CommitBatchChangeAsync();
+            await index.AddAsync(video, cancellation, () => videoIndexRepo.SaveAsync(index, storageKey));
         }
 
-        private async IAsyncEnumerable<VideoSearchResult> Search(FullTextIndex<string> index, SearchCommand command,
+        private async IAsyncEnumerable<VideoSearchResult> SearchAsync(VideoIndex index, SearchCommand command,
             [EnumeratorCancellation] CancellationToken cancellation = default)
         {
-            var results = index.Search(command.Query);
+            var results = await index.SearchAsync(command.Query, cancellation);
 
             var resultsByVideoId = results.Select(result =>
             {
@@ -233,16 +218,15 @@ namespace SubTubular
             foreach (var videoId in command.GetVideoIds())
             {
                 cancellation.ThrowIfCancellationRequested();
-                var index = await videoIndex.GetAsync(videoId);
+                var index = await videoIndexRepo.GetAsync(videoId);
 
                 if (index == null)
                 {
-                    index = videoIndex.Create();
-                    await IndexVideo(videoId, index, cancellation);
-                    await videoIndex.SaveAsync(index, videoId);
+                    index = videoIndexRepo.Build();
+                    await IndexVideoAsync(videoId, index, videoId, cancellation);
                 }
 
-                await foreach (var result in Search(index, command, cancellation))
+                await foreach (var result in SearchAsync(index, command, cancellation))
                     yield return result;
             }
         }

@@ -101,7 +101,7 @@ namespace SubTubular
                 });
 
                 var cacheFolder = Folder.GetPath(Folders.cache);
-                var youtube = new Youtube(new JsonFileDataStore(cacheFolder), new VideoIndex(cacheFolder));
+                var youtube = new Youtube(new JsonFileDataStore(cacheFolder), new VideoIndexRepository(cacheFolder));
                 var tracksWithErrors = new List<CaptionTrack>();
 
                 using (var output = new OutputWriter(originalCommand, command))
