@@ -30,8 +30,17 @@ namespace SubTubular
         {
             var path = GetPath(key);
             if (!File.Exists(path)) return default;
-            var json = await File.ReadAllTextAsync(path);
-            return JsonSerializer.Deserialize<T>(json);
+
+            try
+            {
+                var json = await File.ReadAllTextAsync(path);
+                return JsonSerializer.Deserialize<T>(json);
+            }
+            catch
+            {
+                File.Delete(path); // delete corrupted or incorrectly formatted cache
+                return default;
+            }
         }
 
         public async Task SetAsync<T>(string key, T value)
