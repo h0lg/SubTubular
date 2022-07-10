@@ -8,7 +8,11 @@ namespace SubTubular
     public sealed class Playlist
     {
         public DateTime Loaded { get; set; }
-        public IList<string> VideoIds { get; set; } = new List<string>();
+
+        /// <summary>The IDs and (optional) upload dates of the videos included in the <see cref="Playlist" /></summary>
+        /// <typeparam name="string">The video ID.</typeparam>
+        /// <typeparam name="DateTime?">The upload date of the video.</typeparam>
+        public IDictionary<string, DateTime?> Videos { get; set; } = new Dictionary<string, DateTime?>();
     }
 
     [Serializable]

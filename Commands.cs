@@ -21,6 +21,9 @@ namespace SubTubular
 
         public string Query { get; private set; }
 
+        [Option('r', "order-by", HelpText = "Order the output by 'uploaded' or 'score' with 'desc' for descending.")]
+        public IEnumerable<OrderOptions> OrderBy { get; set; }
+
         [Option('p', "pad", Default = (ushort)23, HelpText = "How much context to display a match in;"
             + " i.e. the minimum number of characters of the original text to display before and after it.")]
         public ushort Padding { get; set; }
@@ -48,6 +51,12 @@ namespace SubTubular
         internal string Format() => FormatInternal() + " " + Query;
 
         public enum Shows { file, folder }
+
+        /// <summary><see cref="Orders"/> and modifiers.</summary>
+        public enum OrderOptions { uploaded, score, asc }
+
+        /// <summary>Mutually exclusive <see cref="OrderOptions"/>.</summary>
+        internal static OrderOptions[] Orders = new[] { OrderOptions.uploaded, OrderOptions.score };
     }
 
     internal abstract class SearchPlaylistCommand : SearchCommand
