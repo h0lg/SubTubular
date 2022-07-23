@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Lifti;
+using Nito.AsyncEx;
 using YoutubeExplode;
 using YoutubeExplode.Common;
 
@@ -53,9 +54,10 @@ namespace SubTubular
             var unIndexedVideoIds = await index.GetUnIndexedVideoIdsAsync(videoIds);
             var unIndexedSearches = unIndexedVideoIds.Select(videoId => SearchUnIndexedVideoAsync(command, videoId, index, cancellation));
 
-            foreach (var completion in unIndexedSearches.Interleaved()) // yield results of parallel searches as they complete
+            /* yields results of parallel searches as they complete;
+                see https://github.com/StephenCleary/AsyncEx/blob/master/doc/TaskExtensions.md */
+            foreach (var search in unIndexedSearches.OrderByCompletion())
             {
-                var search = await completion;
                 var result = search.Result;
                 if (result != null) yield return result;
             }
