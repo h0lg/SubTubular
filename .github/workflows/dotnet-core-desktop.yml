@@ -35,6 +35,7 @@
 # For more information on GitHub Actions, refer to https://github.com/features/actions
 # For a complete CI/CD sample to get started with GitHub Action workflows for Desktop Applications,
 # refer to https://github.com/microsoft/github-actions-for-desktop-apps
+# TODO see https://docs.microsoft.com/en-us/dotnet/devops/dotnet-publish-github-action for a guide
 
 name: .NET Core Desktop
 
