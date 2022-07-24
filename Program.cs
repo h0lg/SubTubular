@@ -41,16 +41,16 @@ namespace SubTubular
 
                 //https://github.com/commandlineparser/commandline/wiki/Getting-Started#using-withparsedasync-in-asyncawait
                 await parserResult.WithParsedAsync<SearchUser>(command
-                    => Search(command, originalCommand, youtube => youtube.SearchPlaylistAsync(command)));
+                    => SearchAsync(command, originalCommand, youtube => youtube.SearchPlaylistAsync(command)));
 
                 await parserResult.WithParsedAsync<SearchChannel>(command
-                    => Search(command, originalCommand, youtube => youtube.SearchPlaylistAsync(command)));
+                    => SearchAsync(command, originalCommand, youtube => youtube.SearchPlaylistAsync(command)));
 
                 await parserResult.WithParsedAsync<SearchPlaylist>(command
-                    => Search(command, originalCommand, youtube => youtube.SearchPlaylistAsync(command)));
+                    => SearchAsync(command, originalCommand, youtube => youtube.SearchPlaylistAsync(command)));
 
                 await parserResult.WithParsedAsync<SearchVideos>(command
-                    => Search(command, originalCommand, youtube => youtube.SearchVideosAsync(command)));
+                    => SearchAsync(command, originalCommand, youtube => youtube.SearchVideosAsync(command)));
 
                 parserResult.WithParsed<ClearCache>(c => new JsonFileDataStore(GetCachePath()).Clear());
 
@@ -65,10 +65,10 @@ namespace SubTubular
                     return h;
                 })));
             }
-            catch (Exception ex) { await WriteErrorLog(originalCommand, ex.ToString()); }
+            catch (Exception ex) { await WriteErrorLogAsync(originalCommand, ex.ToString()); }
         }
 
-        private static async Task Search(SearchCommand command, string originalCommand,
+        private static async Task SearchAsync(SearchCommand command, string originalCommand,
             Func<Youtube, IAsyncEnumerable<VideoSearchResult>> getResultsAsync)
         {
             var terms = command.Terms;
@@ -126,7 +126,7 @@ namespace SubTubular
 
                 if (tracksWithErrors.Count > 0)
                 {
-                    await WriteErrorLog(originalCommand, tracksWithErrors.Select(t =>
+                    await WriteErrorLogAsync(originalCommand, tracksWithErrors.Select(t =>
 @$"{t.LanguageName}: {t.ErrorMessage}
 
   {t.Url}
@@ -139,7 +139,7 @@ namespace SubTubular
             }
         }
 
-        private static async Task WriteErrorLog(string originalCommand, string errors, string name = null)
+        private static async Task WriteErrorLogAsync(string originalCommand, string errors, string name = null)
         {
             try
             {
