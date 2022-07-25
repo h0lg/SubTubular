@@ -75,8 +75,8 @@ namespace SubTubular
         internal abstract IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation);
     }
 
-    [Verb("search-user",
-        HelpText = "Searches the {top} n videos from the Uploads playlist of the {user}'s channel for the specified {terms}."
+    [Verb("search-user", aliases: new[] { "user", "u" },
+        HelpText = "Searches the videos in the Uploads playlist of a user's main channel."
             + " This is a glorified search-playlist.")]
     internal sealed class SearchUser : SearchPlaylistCommand
     {
@@ -100,8 +100,8 @@ namespace SubTubular
         }
     }
 
-    [Verb("search-channel",
-        HelpText = "Searches the {top} n videos from the Uploads playlist of the {channel} for the specified {terms}."
+    [Verb("search-channel", aliases: new[] { "channel", "c" },
+        HelpText = "Searches the videos in a channel's Uploads playlist."
         + " This is a glorified search-playlist.")]
     internal sealed class SearchChannel : SearchPlaylistCommand
     {
@@ -119,7 +119,7 @@ namespace SubTubular
         }
     }
 
-    [Verb("search-playlist", HelpText = "Searches the {top} n videos from the {playlist} for the specified {terms}.")]
+    [Verb("search-playlist", aliases: new[] { "playlist", "p" }, HelpText = "Searches the videos in a playlist.")]
     internal sealed class SearchPlaylist : SearchPlaylistCommand
     {
         [Value(0, MetaName = "playlist", Required = true, HelpText = "The playlist ID or URL.")]
@@ -136,7 +136,7 @@ namespace SubTubular
         }
     }
 
-    [Verb("search-videos", HelpText = "Searches the {videos} for the specified {terms}.")]
+    [Verb("search-videos", aliases: new[] { "videos", "v" }, HelpText = "Searches the specified videos.")]
     internal sealed class SearchVideos : SearchCommand
     {
         internal static string GetVideoUrl(string videoId) => "https://youtu.be/" + videoId;
@@ -150,6 +150,6 @@ namespace SubTubular
         internal override IEnumerable<string> GetUrls() => GetVideoIds().Select(id => GetVideoUrl(id));
     }
 
-    [Verb("clear-cache", HelpText = "Clears cached user, channel, playlist and video info.")]
+    [Verb("clear-cache", aliases: new[] { "clear" }, HelpText = "Clears cached user, channel, playlist and video info.")]
     internal sealed class ClearCache { }
 }
