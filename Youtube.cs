@@ -40,103 +40,58 @@ namespace SubTubular
                 || playlist.Loaded < DateTime.UtcNow.AddHours(-Math.Abs(command.CacheHours))
                 || playlist.Videos.Count < command.Top)
             {
-                // load and update videos in playlist while keeping existing video info
-                playlist = new Playlist { Loaded = DateTime.UtcNow, Videos = playlist?.Videos };
-                var playlistVideos = await command.GetVideosAsync(youtube, cancellation).CollectAsync(command.Top);
+                if (playlist == null) playlist = new Playlist();
 
-                playlist.Videos = playlistVideos.ToDictionary(v => v.Id.Value,
-                    v => playlist.Videos.ContainsKey(v.Id.Value) ? playlist.Videos[v.Id.Value] : null);
+                // load and update videos in playlist while keeping existing video info
+                var playlistVideos = await command.GetVideosAsync(youtube, cancellation).CollectAsync(command.Top);
+                playlist.Loaded = DateTime.UtcNow;
+
+                // use new order but append older entries; note that this leaves remotely deleted videos in the playlist
+                playlist.Videos = playlistVideos.Select(v => v.Id.Value).Union(playlist.Videos.Keys)
+                    .ToDictionary(id => id, id => playlist.Videos.ContainsKey(id) ? playlist.Videos[id] : null);
 
                 videoIds = playlist.Videos.Keys.ToArray();
                 await dataStore.SetAsync(storageKey, playlist);
             }
             else videoIds = playlist.Videos.Take(command.Top).Select(p => p.Key).ToArray(); // read from cache
 
-            var indexedVideoIds = index.GetIndexed(videoIds);
-            var indexedVideos = indexedVideoIds.ToDictionary(id => id, id => playlist.Videos[id]);
+            var videoResults = Channel.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions() { SingleReader = true });
+            var searches = new List<Task>();
 
-            // search already indexed videos in one go
-            await foreach (var result in index.SearchAsync(command, GetVideoAsync, cancellation, indexedVideos, UpdatePlaylistVideosUploaded))
-                yield return result;
+            var indexedVideoIds = index.GetIndexed(videoIds);
+            var indexedVideoInfos = indexedVideoIds.ToDictionary(id => id, id => playlist.Videos[id]);
+
+            /*  search already indexed videos in one go - but on background task
+                to start downloading and indexing videos in parallel */
+            searches.Add(Task.Run(async () =>
+            {
+                await foreach (var result in index.SearchAsync(command, GetVideoAsync,
+                    cancellation, indexedVideoInfos, UpdatePlaylistVideosUploaded))
+                    await videoResults.Writer.WriteAsync(result);
+            }));
 
             var unIndexedVideoIds = videoIds.Except(indexedVideoIds).ToArray();
 
-            // load, index, search and output results for un-indexed videos
-            if (unIndexedVideoIds.Length > 0)
+            // load, index and search un-indexed videos
+            if (unIndexedVideoIds.Length > 0) searches.Add(Task.Run(async () =>
             {
-                /* limit channel capacity to avoid holding a lot of loaded but unprocessed videos in memory
-                    SingleReader because we're reading from it synchronously */
-                var unIndexedVideos = Channel.CreateBounded<Video>(new BoundedChannelOptions(5) { SingleReader = true });
+                // search already indexed videos in one go
+                await foreach (var result in SearchUnindexedVideos(command,
+                    unIndexedVideoIds, index, cancellation, UpdatePlaylistVideosUploaded))
+                    await videoResults.Writer.WriteAsync(result);
+            }));
 
-                // load videos asynchronously in the background and put them on the unIndexedVideos channel for processing
-                var loadVideos = Task.Run(async () =>
-                {
-                    var downloads = new List<Task>();
-                    var loadLimiter = new SemaphoreSlim(5, 5);
+            // hook up writer completion before starting to read to ensure the reader knows when it's done
+            var searchCompletion = Task.WhenAll(searches).ContinueWith(t => videoResults.Writer.Complete());
 
-                    foreach (var id in unIndexedVideoIds)
-                    {
-                        downloads.Add(Task.Run(async () =>
-                        {
-                            /*  pause task here before starting download until channel accepts another video
-                                to avoid holding a lot of loaded but unprocessed videos in memory */
-                            await loadLimiter.WaitAsync();
-
-                            try
-                            {
-                                cancellation.ThrowIfCancellationRequested();
-                                var video = await GetVideoAsync(id, cancellation);
-                                await unIndexedVideos.Writer.WriteAsync(video);
-                            }
-                            /* only start another download if channel has accepted the video or an error occurred */
-                            finally { loadLimiter.Release(); }
-                        }));
-                    }
-
-                    // complete writing after all download tasks finished
-                    await Task.WhenAll(downloads);
-                    unIndexedVideos.Writer.Complete();
-                });
-
-                var unsaved = new List<Video>(); // batch of loaded and indexed, but uncommited video index changes
-
-                // local getter preferring to reuse already loaded video from unsaved bag for better performance
-                Func<string, CancellationToken, Task<Video>> getUnIndexedVideoAsync = async (videoId, cancellation)
-                    => unsaved.SingleOrDefault(v => v.Id == videoId) ?? await GetVideoAsync(videoId, cancellation);
-
-                // read synchronously from the channel because we're writing to the same video index
-                await foreach (var video in unIndexedVideos.Reader.ReadAllAsync())
-                {
-                    cancellation.ThrowIfCancellationRequested();
-
-                    if (unsaved.Count == 0)
-                    {
-                        index.BeginBatchChange();
-                    }
-
-                    await index.AddAsync(video, cancellation);
-                    unsaved.Add(video);
-
-                    // save batch of changes
-                    if (unsaved.Count >= 5 // if the batch grows too big
-                        || unIndexedVideos.Reader.Completion.IsCompleted // to save remaining changes
-                        || unIndexedVideos.Reader.Count == 0) // if we have the time because there's no work waiting
-                    {
-                        await index.CommitBatchChangeAsync();
-                        await Task.WhenAll(videoIndexRepo.SaveAsync(index, storageKey), UpdatePlaylistVideosUploaded(unsaved));
-
-                        var searchedVideos = unsaved.Select(v => v.Id).ToDictionary(id => id, id => playlist.Videos[id]);
-
-                        // search after committing index changes to output matches as we go
-                        await foreach (var result in index.SearchAsync(command, getUnIndexedVideoAsync, cancellation, searchedVideos))
-                            yield return result;
-
-                        unsaved.Clear(); // safe to do because we're reading synchronously and no other thread could have added to it in between
-                    }
-                }
-
-                await loadVideos; // just to rethrow possible exceptions; should have completed at this point
+            // start reading from result channel and return results as they are available
+            await foreach (var result in videoResults.Reader.ReadAllAsync())
+            {
+                yield return result;
+                cancellation.ThrowIfCancellationRequested();
             }
+
+            await searchCompletion; // just to rethrow possible exceptions; should have completed at this point
 
             async Task UpdatePlaylistVideosUploaded(IEnumerable<Video> videos)
             {
@@ -153,6 +108,87 @@ namespace SubTubular
 
                 if (updated) await dataStore.SetAsync(storageKey, playlist);
             }
+        }
+
+        private async IAsyncEnumerable<VideoSearchResult> SearchUnindexedVideos(SearchPlaylistCommand command,
+            string[] unIndexedVideoIds, VideoIndex index, [EnumeratorCancellation] CancellationToken cancellation,
+            Func<IEnumerable<Video>, Task> updatePlaylistVideosUploaded)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            var storageKey = command.StorageKey;
+
+            /* limit channel capacity to avoid holding a lot of loaded but unprocessed videos in memory
+                SingleReader because we're reading from it synchronously */
+            var unIndexedVideos = Channel.CreateBounded<Video>(new BoundedChannelOptions(5) { SingleReader = true });
+
+            // load videos asynchronously in the background and put them on the unIndexedVideos channel for processing
+            var loadVideos = Task.Run(async () =>
+            {
+                var downloads = new List<Task>();
+                var loadLimiter = new SemaphoreSlim(5, 5);
+
+                foreach (var id in unIndexedVideoIds)
+                {
+                    downloads.Add(Task.Run(async () =>
+                    {
+                        /*  pause task here before starting download until channel accepts another video
+                            to avoid holding a lot of loaded but unprocessed videos in memory */
+                        await loadLimiter.WaitAsync();
+
+                        try
+                        {
+                            cancellation.ThrowIfCancellationRequested();
+                            var video = await GetVideoAsync(id, cancellation);
+                            await unIndexedVideos.Writer.WriteAsync(video);
+                        }
+                        /* only start another download if channel has accepted the video or an error occurred */
+                        finally { loadLimiter.Release(); }
+                    }));
+                }
+
+                // complete writing after all download tasks finished
+                await Task.WhenAll(downloads);
+                unIndexedVideos.Writer.Complete();
+            });
+
+            var uncommitted = new List<Video>(); // batch of loaded and indexed, but uncommited video index changes
+
+            // local getter preferring to reuse already loaded video from uncommitted bag for better performance
+            Func<string, CancellationToken, Task<Video>> getVideoAsync = async (videoId, cancellation)
+                => uncommitted.SingleOrDefault(v => v.Id == videoId) ?? await GetVideoAsync(videoId, cancellation);
+
+            // read synchronously from the channel because we're writing to the same video index
+            await foreach (var video in unIndexedVideos.Reader.ReadAllAsync())
+            {
+                cancellation.ThrowIfCancellationRequested();
+
+                if (uncommitted.Count == 0)
+                {
+                    index.BeginBatchChange();
+                }
+
+                await index.AddAsync(video, cancellation);
+                uncommitted.Add(video);
+
+                // save batch of changes
+                if (uncommitted.Count >= 5 // to prevent the batch from growing too big
+                    || unIndexedVideos.Reader.Completion.IsCompleted // to save remaining changes
+                    || unIndexedVideos.Reader.Count == 0) // to use resources efficiently while we've got nothing queued up for indexing
+                {
+                    await index.CommitBatchChangeAsync();
+                    await Task.WhenAll(videoIndexRepo.SaveAsync(index, storageKey), updatePlaylistVideosUploaded(uncommitted));
+
+                    var indexedVideoInfos = uncommitted.ToDictionary(v => v.Id, v => v.Uploaded as DateTime?);
+
+                    // search after committing index changes to output matches as we go
+                    await foreach (var result in index.SearchAsync(command, getVideoAsync, cancellation, indexedVideoInfos))
+                        yield return result;
+
+                    uncommitted.Clear(); // safe to do because we're reading synchronously and no other thread could have added to it in between
+                }
+            }
+
+            await loadVideos; // just to rethrow possible exceptions; should have completed at this point
         }
 
         /// <summary>Searches videos according to the specified command.</summary>
