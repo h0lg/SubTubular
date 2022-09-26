@@ -75,7 +75,7 @@ namespace SubTubular
             + " This is a glorified search-playlist.")]
     internal sealed class SearchUser : SearchPlaylistCommand
     {
-        [Value(0, Required = true, HelpText = "The user name or URL.")]
+        [Value(0, MetaName = "user", Required = true, HelpText = "The user name or URL.")]
         public string User { get; set; }
 
         internal override string Label => "user ";
@@ -100,7 +100,7 @@ namespace SubTubular
         + " This is a glorified search-playlist.")]
     internal sealed class SearchChannel : SearchPlaylistCommand
     {
-        [Value(0, Required = true, HelpText = "The channel ID or URL.")]
+        [Value(0, MetaName = "channel", Required = true, HelpText = "The channel ID or URL.")]
         public string Channel { get; set; }
 
         internal override string Label => "channel ";
@@ -117,7 +117,7 @@ namespace SubTubular
     [Verb("search-playlist", HelpText = "Searches the {top} n videos from the {playlist} for the specified {terms}.")]
     internal sealed class SearchPlaylist : SearchPlaylistCommand
     {
-        [Value(0, Required = true, HelpText = "The playlist ID or URL.")]
+        [Value(0, MetaName = "playlist", Required = true, HelpText = "The playlist ID or URL.")]
         public string Playlist { get; set; }
 
         internal override string Label => "playlist ";
@@ -136,7 +136,7 @@ namespace SubTubular
     {
         internal static string GetVideoUrl(string videoId) => "https://youtu.be/" + videoId;
 
-        [Value(0, Required = true, HelpText = "The space-separated YouTube video IDs and/or URLs.")]
+        [Value(0, MetaName = "videos", Required = true, HelpText = "The space-separated YouTube video IDs and/or URLs.")]
         public IEnumerable<string> Videos { get; set; }
 
         internal override string Label => "videos ";
