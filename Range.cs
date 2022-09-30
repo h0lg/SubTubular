@@ -59,6 +59,8 @@ namespace SubTubular
         {
             var groups = ranges.Select(i => ranges.Where(o => i == o || i.Intersects(o, orTouching)).ToList()).ToList();
             var groupsWithOverlaps = groups.Where(i => i.Count > 1); // executed repeatedly below
+            while (MergeGroupsWithOverlaps()) { } // call repeatedly until it returns false indicating it's done
+            return groups;
 
             bool MergeGroupsWithOverlaps()
             {
@@ -82,10 +84,6 @@ namespace SubTubular
 
                 return false; // indicating no merges were made and we're done
             }
-
-            while (MergeGroupsWithOverlaps()) { } // call repeatedly until it returns false indicating it's done
-
-            return groups;
         }
     }
 }

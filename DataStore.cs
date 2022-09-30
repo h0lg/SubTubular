@@ -17,11 +17,7 @@ namespace SubTubular
         internal JsonFileDataStore(string directory)
         {
             this.directory = directory;
-
-            if (!Directory.Exists(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
+            if (!Directory.Exists(directory)) Directory.CreateDirectory(directory);
         }
 
         private string GetPath(string key) => Path.Combine(directory, key + ".json");

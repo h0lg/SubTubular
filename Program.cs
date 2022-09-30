@@ -170,8 +170,11 @@ namespace SubTubular
             => Process.Start(new ProcessStartInfo(new Uri(path).AbsoluteUri) { UseShellExecute = true });
 
         #region HelpText Option order
-        private static int CompareOptions(ComparableOption a, ComparableOption b) => ScoreOption(a) < ScoreOption(b) ? -1 : 1;
-        private static int ScoreOption(ComparableOption option) => (option.IsValue ? -100 : 100) + (option.Required ? -10 : 10) + option.Index;
+        private static int CompareOptions(ComparableOption a, ComparableOption b)
+            => ScoreOption(a) < ScoreOption(b) ? -1 : 1;
+
+        private static int ScoreOption(ComparableOption option)
+            => (option.IsValue ? -100 : 100) + (option.Required ? -10 : 10) + option.Index;
         #endregion
     }
 }
