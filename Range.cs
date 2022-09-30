@@ -58,12 +58,13 @@ namespace SubTubular
         internal static IEnumerable<IEnumerable<T>> GroupOverlapping<T>(this IEnumerable<T> ranges, bool orTouching = false) where T : Range<int>
         {
             var groups = ranges.Select(i => ranges.Where(o => i == o || i.Intersects(o, orTouching)).ToList()).ToList();
-            var groupsWithOverlaps = groups.Where(i => i.Count > 1); // executed repeatedly below
             while (MergeGroupsWithOverlaps()) { } // call repeatedly until it returns false indicating it's done
             return groups;
 
             bool MergeGroupsWithOverlaps()
             {
+                var groupsWithOverlaps = groups.Where(i => i.Count > 1).ToArray();
+
                 foreach (var group in groupsWithOverlaps)
                 {
                     // other groups with overlaps containing any of the ranges in group

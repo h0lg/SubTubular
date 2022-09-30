@@ -81,7 +81,7 @@ namespace SubTubular
         /// <summary>Indicates whether <paramref name="collection"/>
         /// contains any of the supplied <paramref name="values"/>.</summary>
         internal static bool ContainsAny<T>(this IEnumerable<T> collection, IEnumerable<T> values)
-            => values.Any(value => collection.Contains(value));
+            => values.Intersect(collection).Any();
     }
 
     /// <summary>Extension methods for <see cref="IComparable"/> types.</summary>
