@@ -134,8 +134,8 @@ namespace SubTubular
   {t.Error}").Join(errorOutputSpacing), command.Format());
                 }
 
-                searching = false; //to let the cancel task complete
-                await cancel; //just to rethrow possible exceptions
+                searching = false; // to let the cancel task complete if search did before it
+                await cancel; // just to rethrow possible exceptions
             }
         }
 

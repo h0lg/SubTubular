@@ -10,7 +10,7 @@ namespace SubTubular
         internal IComparable Start { get; }
         internal IComparable End { get; }
 
-        /// <summary>Whether End is included in the range.
+        /// <summary>Whether <see cref="End"/> is included in the range.
         /// Mathematically speaking, true represents a closed and false an open interval.</summary>
         internal readonly bool IsEndIncluded;
 

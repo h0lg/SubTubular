@@ -23,8 +23,8 @@ namespace SubTubular
         internal PaddedMatch(Match match, byte padding, string fullText)
             : this(GetPaddedStartIndex(match, padding), GetPaddedEndIndex(match, padding, fullText), fullText) { }
 
-        /// <summary>Use this for merging <paramref name="overlapping"/>
-        /// padded matches into one spanning all of them.</summary>
+        /// <summary>Used for merging <paramref name="overlapping"/> padded matches
+        /// into one spanning all of them to avoid repetition in the output.</summary>
         internal PaddedMatch(IEnumerable<PaddedMatch> overlapping, string fullText)
             : this(overlapping.Min(m => m.Start), overlapping.Max(m => m.End), fullText) { }
 
