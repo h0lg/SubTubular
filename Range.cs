@@ -27,6 +27,8 @@ namespace SubTubular
         /// <summary>Indicates wheter this range overlaps the <paramref name="other"/> range.
         /// See https://stackoverflow.com/a/7325268 .</summary>
         internal bool Intersects(BaseRange other) => !(IsGreaterThanEnd(other.Start) || other.IsGreaterThanEnd(Start));
+
+        public override int GetHashCode() => HashCode.Combine(Start, End);
     }
 
     /// <summary>A generic implementation of <see cref="BaseRange"/> similar to <see cref="Range"/>

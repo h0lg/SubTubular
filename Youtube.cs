@@ -129,7 +129,7 @@ namespace SubTubular
                 {
                     //find first and last captions containing parts of the phrase
                     var first = captionAtIndex.Last(x => x.Value <= match.Start);
-                    var last = captionAtIndex.Last(x => first.Value <= x.Value && x.Value < match.End);
+                    var last = captionAtIndex.Last(x => first.Value <= x.Value && x.Value <= match.End);
 
                     //return a single caption for all captions containing the phrase
                     return new Caption

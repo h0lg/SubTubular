@@ -27,6 +27,10 @@ namespace SubTubular
 
         private static async Task Main(string[] args)
         {
+#if DEBUG
+            Tests.PaddedMatchTests.Run();
+#endif
+
             var originalCommand = "> SubTubular " + args.Join(" ");
 
             //see https://github.com/commandlineparser/commandline

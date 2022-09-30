@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -12,8 +13,10 @@ namespace SubTubular
     {
         internal string Value { get; }
 
-        private PaddedMatch(int start, int end, string fullText) : base(start, end)
-            => Value = fullText.Substring(Start, End - Start);
+        private PaddedMatch(int start, int end, string fullText)
+            : base(start, end, endIncluded: true)
+            // add 1 to calculate Length because both Start and End are included
+            => Value = fullText.Substring(Start, End - Start + 1);
 
         /// <summary>Used for <paramref name="padding"/> a <paramref name="match"/>
         /// from <paramref name="fullText"/>.</summary>
@@ -32,7 +35,8 @@ namespace SubTubular
         // ending at last index of fullText or last match index plus padding
         private static int GetPaddedEndIndex(Match match, byte padding, string fullText)
         {
-            var paddedEnd = match.Index + match.Length + (int)padding;
+            // substract 1 because start is included in length
+            var paddedEnd = match.Index + match.Length - 1 + (int)padding;
             var lastIndex = fullText.Length - 1;
             return paddedEnd > lastIndex ? lastIndex : paddedEnd;
         }
