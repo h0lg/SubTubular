@@ -28,6 +28,9 @@ namespace SubTubular
         internal PaddedMatch(IEnumerable<PaddedMatch> overlapping, string fullText)
             : this(overlapping.Min(m => m.Start), overlapping.Max(m => m.End), fullText) { }
 
+        public override int GetHashCode() => HashCode.Combine(base.GetHashCode(), Value);
+        public override bool Equals(object obj) => obj == null ? false : obj.GetHashCode() == GetHashCode();
+
         // starting at zero or index minus padding
         private static int GetPaddedStartIndex(Match match, byte padding)
             => match.Index <= padding ? 0 : match.Index - (int)padding;

@@ -32,6 +32,27 @@ Range<T>.Start and Range<T>.End represent the indexes of the padded match in the
                 new ExpectedMatch(212, 216, "match"),
                 new ExpectedMatch(242, 246, "match")
             });
+
+            MultipleInMultiLine(multiMatched, padding: 6, new[] {
+                new ExpectedMatch(17, 33, "le to Match inclu"),
+                new ExpectedMatch(55, 86, @"PaddedMatch.Included matches
+pad"),
+                new ExpectedMatch(206, 222, "added match in th"),
+                new ExpectedMatch(236, multiLineText.Length - 1, "t was matched in.")
+            });
+
+            MultipleInMultiLine(multiMatched, padding: 13, new[] {
+                new ExpectedMatch(10, 40, "omparable to Match including on"),
+                new ExpectedMatch(48, 93, @"ltiple PaddedMatch.Included matches
+padded wit"),
+                new ExpectedMatch(199, multiLineText.Length - 1, "f the padded match in the full text it was matched in.")
+            });
+
+            MultipleInMultiLine(multiMatched, padding: 17, new[] {
+                new ExpectedMatch(6, 97, @"er comparable to Match including one or multiple PaddedMatch.Included matches
+padded with a "),
+                new ExpectedMatch(195, multiLineText.Length - 1, "es of the padded match in the full text it was matched in.")
+            });
         }
 
         private static void Ranges()
