@@ -4,4 +4,4 @@ Thumbs.db
 #Ignore files built by Visual Studio/Code
 [Bb]in
 obj/
-.vscode/
+
