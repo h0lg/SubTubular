@@ -50,7 +50,7 @@ namespace SubTubular
                 await parserResult.WithParsedAsync<SearchVideos>(command
                     => SearchAsync(command, originalCommand, youtube => youtube.SearchVideosAsync(command)));
 
-                parserResult.WithParsed<ClearCache>(c => new JsonFileDataStore(Folder.GetPath(Folders.cache)).Clear());
+                await parserResult.WithParsedAsync<ClearCache>(command => command.Process());
                 parserResult.WithParsed<Open>(open => ShellCommands.ExploreFolder(Folder.GetPath(open.Folder)));
 
                 //see https://github.com/commandlineparser/commandline/wiki/HelpText-Configuration

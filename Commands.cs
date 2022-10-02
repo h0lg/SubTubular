@@ -85,10 +85,12 @@ namespace SubTubular
             + " This is a glorified search-playlist.")]
     internal sealed class SearchUser : SearchPlaylistCommand
     {
+        internal const string StorageKeyPrefix = "user ";
+
         [Value(0, MetaName = "user", Required = true, HelpText = "The user name or URL.")]
         public string User { get; set; }
 
-        internal override string Label => "user ";
+        internal override string Label => StorageKeyPrefix;
         protected override string ID => UserName.Parse(User).Value;
         protected override string UrlFormat => "https://www.youtube.com/user/";
 
@@ -110,10 +112,12 @@ namespace SubTubular
         + " This is a glorified search-playlist.")]
     internal sealed class SearchChannel : SearchPlaylistCommand
     {
+        internal const string StorageKeyPrefix = "channel ";
+
         [Value(0, MetaName = "channel", Required = true, HelpText = "The channel ID or URL.")]
         public string Channel { get; set; }
 
-        internal override string Label => "channel ";
+        internal override string Label => StorageKeyPrefix;
         protected override string ID => ChannelId.Parse(Channel).Value;
         protected override string UrlFormat => "https://www.youtube.com/channel/";
 
@@ -127,10 +131,12 @@ namespace SubTubular
     [Verb("search-playlist", aliases: new[] { "playlist", "p" }, HelpText = "Searches the videos in a playlist.")]
     internal sealed class SearchPlaylist : SearchPlaylistCommand
     {
+        internal const string StorageKeyPrefix = "playlist ";
+
         [Value(0, MetaName = "playlist", Required = true, HelpText = "The playlist ID or URL.")]
         public string Playlist { get; set; }
 
-        internal override string Label => "playlist ";
+        internal override string Label => StorageKeyPrefix;
         protected override string ID => PlaylistId.Parse(Playlist).Value;
         protected override string UrlFormat => "https://www.youtube.com/playlist?list=";
 
@@ -154,9 +160,6 @@ namespace SubTubular
         protected override string FormatInternal() => Label + GetVideoIds().Join(" ");
         internal override IEnumerable<string> GetUrls() => GetVideoIds().Select(id => GetVideoUrl(id));
     }
-
-    [Verb("clear-cache", aliases: new[] { "clear" }, HelpText = "Clears cached user, channel, playlist and video info.")]
-    internal sealed class ClearCache { }
 
     [Verb("open", aliases: new[] { "o" }, HelpText = "Opens app-related folders in a file browser.")]
     internal sealed class Open
