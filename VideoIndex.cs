@@ -24,7 +24,11 @@ namespace SubTubular
                     .WithKey(v => v.Id)
                     .WithField(nameof(Video.Title), v => v.Title)
                     .WithField(nameof(Video.Keywords), v => v.Keywords)
-                    .WithField(nameof(Video.Description), v => v.Description));
+                    .WithField(nameof(Video.Description), v => v.Description))
+                .WithQueryParser(o => o.WithFuzzySearchDefaults(
+                    maxEditDistance: termLength => (ushort)(termLength / 3),
+                    // avoid returning zero here to allow for edits in the first place
+                    maxSequentialEdits: termLength => (ushort)(termLength < 6 ? 1 : termLength / 6)));
 
             serializer = new BinarySerializer<string>();
         }
