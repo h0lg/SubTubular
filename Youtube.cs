@@ -31,7 +31,7 @@ namespace SubTubular
             var playlist = await dataStore.GetAsync<Playlist>(storageKey); //get cached
 
             if (playlist == null //playlist cache is missing, outdated or lacking sufficient videos
-                || playlist.Loaded < DateTime.UtcNow.AddHours(-command.CacheHours)
+                || playlist.Loaded < DateTime.UtcNow.AddHours(-Math.Abs(command.CacheHours))
                 || playlist.VideoIds.Count < command.Top)
             {
                 playlist = new Playlist { Loaded = DateTime.UtcNow };

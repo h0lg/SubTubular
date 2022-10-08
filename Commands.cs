@@ -56,7 +56,7 @@ namespace SubTubular
             HelpText = "The number of videos to return from the top of the playlist."
                 + " The special Uploads playlist of a channel or user are sorted latest uploaded first,"
                 + " but custom playlists may be sorted differently.")]
-        public int Top { get; set; }
+        public ushort Top { get; set; }
 
         [Option('h', "cachehours", Default = 24, HelpText = "The maximum age of a playlist cache in hours"
             + " before it is considered stale and the videos in it are refreshed.")]
