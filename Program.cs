@@ -57,11 +57,21 @@ namespace SubTubular
                 //see https://github.com/commandlineparser/commandline/wiki/HelpText-Configuration
                 parserResult.WithNotParsed(errors => Console.WriteLine(HelpText.AutoBuild(parserResult, h =>
                 {
-                    h.Heading = asciiHeading + h.Heading;
-                    h.AddPreOptionsLine($"See {repoUrl} for more info.");
+                    var noVerbSelected = parserResult.Errors.Any(error => error.Tag == ErrorType.NoVerbSelectedError);
+
+                    if (noVerbSelected) h.Heading = asciiHeading + h.Heading; // enhance heading for branding
+                    else // remove heading and copyright to reduce noise before error if a verb is already selected
+                    {
+                        h.Heading = string.Empty;
+                        h.Copyright = string.Empty;
+                    }
+
                     h.OptionComparison = CompareOptions;
-                    h.AddPostOptionsLine("Subtitles and metadata are cached in " + GetCachePath());
-                    h.AddPostOptionsLine(string.Empty);
+                    h.AddPostOptionsLine($"See {repoUrl} for more info.");
+
+                    if (noVerbSelected)
+                        h.AddPostOptionsLine("Subtitles and metadata are cached in " + GetCachePath());
+
                     return h;
                 })));
             }
