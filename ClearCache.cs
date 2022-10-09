@@ -32,27 +32,20 @@ namespace SubTubular
                 + $" Ignored for explicitly set '{ids}'.")]
         public ushort? NotAccessedForDays { get; set; }
 
-        internal async Task Process()
+        internal async Task<(IEnumerable<string>, IEnumerable<string>)> Process()
         {
+            var filesDeleted = new List<string>();
             var cacheFolder = Folder.GetPath(Folders.cache);
-            var indexRepo = new VideoIndexRepository(cacheFolder);
-            var dataStore = new JsonFileDataStore(cacheFolder);
 
             switch (Scope)
             {
-                case ClearCache.Scopes.all: dataStore.Clear(NotAccessedForDays); break;
+                case ClearCache.Scopes.all:
+                    filesDeleted.AddRange(FileHelper.DeleteFiles(cacheFolder, notAccessedForDays: NotAccessedForDays));
+                    break;
                 case ClearCache.Scopes.videos:
-                    if (Ids.HasAny())
-                        foreach (var videoId in Ids.Select(v => VideoId.Parse(v).Value))
-                        {
-                            indexRepo.Delete(videoId);
-                            dataStore.Delete(videoId);
-                        }
-                    else
-                    {
-                        indexRepo.Delete(IsVideoKey, NotAccessedForDays);
-                        dataStore.Delete(IsVideoKey, NotAccessedForDays);
-                    }
+                    if (Ids.HasAny()) DeleteFilesByNames(Ids.Select(v => VideoId.Parse(v).Value));
+                    else filesDeleted.AddRange(FileHelper.DeleteFiles(cacheFolder,
+                        notAccessedForDays: NotAccessedForDays, isFileNameDeletable: IsVideoFile));
 
                     break;
                 case ClearCache.Scopes.playlists:
@@ -67,27 +60,28 @@ namespace SubTubular
                 default: throw new NotImplementedException($"Clearing {scope} {Scope} is not implemented.");
             }
 
-            bool IsVideoKey(string key) => !(key.StartsWith(SearchPlaylist.StorageKeyPrefix)
-                || key.StartsWith(SearchChannel.StorageKeyPrefix)
-                || key.StartsWith(SearchUser.StorageKeyPrefix));
+            return (filesDeleted.Where(fileName => fileName.EndsWith(JsonFileDataStore.FileExtension)),
+                filesDeleted.Where(fileName => fileName.EndsWith(VideoIndexRepository.FileExtension)));
+
+            bool IsVideoFile(string fileName) => !(fileName.StartsWith(SearchPlaylist.StorageKeyPrefix)
+                || fileName.StartsWith(SearchChannel.StorageKeyPrefix)
+                || fileName.StartsWith(SearchUser.StorageKeyPrefix));
+
+            void DeleteFileByName(string name) => filesDeleted.AddRange(FileHelper.DeleteFiles(cacheFolder, name + ".*"));
+            void DeleteFilesByNames(IEnumerable<string> names) { foreach (var name in names) DeleteFileByName(name); }
 
             async Task ClearPlaylists(string keyPrefix, Func<string, string> parseId)
             {
+                var dataStore = new JsonFileDataStore(cacheFolder);
+
                 var deletableKeys = Ids.HasAny() ? Ids.Select(v => keyPrefix + parseId(v)).ToArray()
                     : dataStore.GetKeysByPrefix(keyPrefix, NotAccessedForDays).ToArray();
 
                 foreach (var key in deletableKeys)
                 {
                     var playlist = await dataStore.GetAsync<Playlist>(key);
-
-                    foreach (var video in playlist.Videos)
-                    {
-                        dataStore.Delete(video.Key);
-                        indexRepo.Delete(video.Key);
-                    }
-
-                    dataStore.Delete(key);
-                    indexRepo.Delete(key);
+                    DeleteFilesByNames(playlist.Videos.Keys);
+                    DeleteFileByName(key);
                 }
             }
         }

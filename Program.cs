@@ -50,7 +50,12 @@ namespace SubTubular
                 await parserResult.WithParsedAsync<SearchVideos>(command
                     => SearchAsync(command, originalCommand, youtube => youtube.SearchVideosAsync(command)));
 
-                await parserResult.WithParsedAsync<ClearCache>(command => command.Process());
+                await parserResult.WithParsedAsync<ClearCache>(async command =>
+                {
+                    (IEnumerable<string> cachesDeleted, IEnumerable<string> indexesDeleted) = await command.Process();
+                    Console.WriteLine($"{cachesDeleted.Count()} info caches and {indexesDeleted.Count()} full-text indexes were deleted.");
+                });
+
                 parserResult.WithParsed<Open>(open => ShellCommands.ExploreFolder(Folder.GetPath(open.Folder)));
 
                 //see https://github.com/commandlineparser/commandline/wiki/HelpText-Configuration

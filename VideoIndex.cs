@@ -12,6 +12,8 @@ namespace SubTubular
 {
     internal sealed class VideoIndexRepository
     {
+        internal const string FileExtension = ".idx";
+
         private readonly string directory;
         private readonly FullTextIndexBuilder<string> builder;
         private readonly IIndexSerializer<string> serializer;
@@ -43,8 +45,7 @@ namespace SubTubular
 
         internal VideoIndex Build() => new VideoIndex(builder.Build());
 
-        private static string GetFileName(string key) => key + ".idx";
-        private string GetPath(string key) => Path.Combine(directory, GetFileName(key));
+        private string GetPath(string key) => Path.Combine(directory, key + FileExtension);
 
         internal async ValueTask<VideoIndex> GetAsync(string key)
         {
@@ -75,11 +76,6 @@ namespace SubTubular
             using (var writer = new FileStream(GetPath(key), FileMode.OpenOrCreate, FileAccess.Write))
                 await serializer.SerializeAsync(index.Index, writer, disposeStream: false);
         }
-
-        internal bool Delete(string key) => FileHelper.DeleteFile(GetPath(key));
-
-        internal void Delete(Func<string, bool> isKeyDeletable, ushort? notAccessedForDays)
-            => FileHelper.DeleteFiles(directory, GetFileName("*"), notAccessedForDays, isKeyDeletable);
     }
 
     internal sealed class VideoIndex

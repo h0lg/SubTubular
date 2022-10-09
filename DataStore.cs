@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -11,12 +10,12 @@ namespace SubTubular
     {
         Task<T> GetAsync<T>(string key);
         Task SetAsync<T>(string key, T value);
-
-        bool Delete(string key);
     }
 
     internal sealed class JsonFileDataStore : DataStore
     {
+        internal const string FileExtension = ".json";
+
         private readonly string directory;
 
         internal JsonFileDataStore(string directory)
@@ -25,7 +24,7 @@ namespace SubTubular
             if (!Directory.Exists(directory)) Directory.CreateDirectory(directory);
         }
 
-        private static string GetFileName(string name) => name + ".json";
+        private static string GetFileName(string key) => key + FileExtension;
         private string GetPath(string key) => Path.Combine(directory, GetFileName(key));
 
         public async Task<T> GetAsync<T>(string key)
@@ -50,22 +49,6 @@ namespace SubTubular
             var json = JsonSerializer.Serialize(value);
             await File.WriteAllTextAsync(GetPath(key), json);
         }
-
-        public bool Delete(string key) => FileHelper.DeleteFile(GetPath(key));
-
-        internal void Clear(ushort? notAccessedForDays = null)
-        {
-            if (notAccessedForDays.HasValue)
-            {
-                var oldest = DateTime.Today.AddDays(-notAccessedForDays.Value);
-                var paths = Directory.EnumerateFiles(directory).Where(path => File.GetLastAccessTime(path) < oldest);
-                foreach (var path in paths) File.Delete(path);
-            }
-            else Directory.Delete(directory, true);
-        }
-
-        internal void Delete(Func<string, bool> isPathDeletable, ushort? notAccessedForDays)
-            => FileHelper.DeleteFiles(directory, GetFileName("*"), notAccessedForDays, isPathDeletable);
 
         internal IEnumerable<string> GetKeysByPrefix(string keyPrefix, ushort? notAccessedForDays)
             => FileHelper.GetFiles(directory, GetFileName(keyPrefix + "*"), notAccessedForDays)
