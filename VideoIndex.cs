@@ -208,7 +208,7 @@ namespace SubTubular
                                     .Join(CaptionTrack.FullTextSeperator)
                             };
 
-                            return Tuple.Create(new PaddedMatch(match, joinedCaption, first.Key), joinedCaption);
+                            return (new PaddedMatch(match, joinedCaption, first.Key), joinedCaption);
                         })
                         .OrderBy(tuple => tuple.Item2.At).ToList(); // return captions in order
 

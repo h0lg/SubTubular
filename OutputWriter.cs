@@ -130,13 +130,13 @@ namespace SubTubular
                         (index diff between wrapped and unwrapped text)
                     2 first index of line in unwrapped text
                     3 last index of line in unwrapped text */
-                var lineInfos = new List<Tuple<int, int, int>>();
+                var lineInfos = new List<(int, int, int)>();
 
                 foreach (var line in text.Split(Environment.NewLine).Select(line => line.Trim()))
                 {
                     var previousLine = lineInfos.LastOrDefault();
 
-                    if (previousLine == null) lineInfos.Add(Tuple.Create(0, 0, line.Length)); // first line
+                    if (previousLine == default) lineInfos.Add((0, 0, line.Length)); // first line
                     else
                     {
                         // start search from previous line's end index to avoid accidental matches in duplicate lines
@@ -144,7 +144,7 @@ namespace SubTubular
                         var startInWrappedText = text.IndexOf(line, startIndex: previousLine.Item1 + previousLineEnd);
                         var startInUnwrappedText = paddedMatch.Value.IndexOf(line, startIndex: previousLineEnd);
 
-                        lineInfos.Add(Tuple.Create(startInWrappedText - startInUnwrappedText,
+                        lineInfos.Add((startInWrappedText - startInUnwrappedText,
                             startInUnwrappedText, startInUnwrappedText + line.Length));
                     }
                 }
@@ -160,7 +160,7 @@ namespace SubTubular
 
                     // shift match Start the number of characters inserted in wrapped text before line
                     var lineContainingMatchStart = lineInfos.LastOrDefault(x => x.Item2 <= match.Start);
-                    if (lineContainingMatchStart != null) match.Start += lineContainingMatchStart.Item1;
+                    if (lineContainingMatchStart != default) match.Start += lineContainingMatchStart.Item1;
 
                     var matched = text.Substring(match.Start);
 

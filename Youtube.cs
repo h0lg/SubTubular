@@ -235,7 +235,7 @@ namespace SubTubular
         internal sealed class CaptionTrackResult
         {
             public CaptionTrack Track { get; set; }
-            internal List<Tuple<PaddedMatch, Caption>> Matches { get; set; }
+            internal List<(PaddedMatch, Caption)> Matches { get; set; }
         }
     }
 }
