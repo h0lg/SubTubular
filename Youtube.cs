@@ -190,12 +190,10 @@ namespace SubTubular
                 cancellation.ThrowIfCancellationRequested();
                 var captionTrack = new CaptionTrack { LanguageName = trackInfo.Language.Name, Url = trackInfo.Url };
 
-                YoutubeExplode.Videos.ClosedCaptions.ClosedCaptionTrack track;
-
                 try
                 {
                     // Get the actual closed caption track
-                    track = await youtube.Videos.ClosedCaptions.GetAsync(trackInfo, cancellation);
+                    var track = await youtube.Videos.ClosedCaptions.GetAsync(trackInfo, cancellation);
 
                     captionTrack.Captions = track.Captions
                         .Select(c => new Caption { At = Convert.ToInt32(c.Offset.TotalSeconds), Text = c.Text })
