@@ -76,9 +76,7 @@ namespace SubTubular
                 await serializer.SerializeAsync(index.Index, writer, disposeStream: false);
         }
 
-        /// <inheritdoc cref="DataStore.Delete(string, ushort?)" />
-        internal bool Delete(string key, ushort? notAccessedForDays = null)
-            => FileHelper.DeleteFile(GetPath(key), notAccessedForDays);
+        internal bool Delete(string key) => FileHelper.DeleteFile(GetPath(key));
 
         internal void Delete(Func<string, bool> isKeyDeletable, ushort? notAccessedForDays)
             => FileHelper.DeleteFiles(directory, GetFileName("*"), notAccessedForDays, isKeyDeletable);

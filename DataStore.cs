@@ -12,10 +12,7 @@ namespace SubTubular
         Task<T> GetAsync<T>(string key);
         Task SetAsync<T>(string key, T value);
 
-        /// <summary>Deletes the entry for <paramref name="key"/> if it exists
-        /// and was <paramref name="notAccessedForDays"/> (if specified).</summary>
-        /// <returns>Whether an entry existed and was kept.</returns>
-        bool Delete(string key, ushort? notAccessedForDays = null);
+        bool Delete(string key);
     }
 
     internal sealed class JsonFileDataStore : DataStore
@@ -54,9 +51,7 @@ namespace SubTubular
             await File.WriteAllTextAsync(GetPath(key), json);
         }
 
-        /// <inheritdoc />
-        public bool Delete(string key, ushort? notAccessedForDays = null)
-            => FileHelper.DeleteFile(GetPath(key), notAccessedForDays);
+        public bool Delete(string key) => FileHelper.DeleteFile(GetPath(key));
 
         internal void Clear(ushort? notAccessedForDays = null)
         {

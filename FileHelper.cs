@@ -7,19 +7,13 @@ namespace SubTubular
 {
     internal static class FileHelper
     {
-        /// <summary>Deletes the file at <paramref name="filePath"/> if it exists
-        /// and was <paramref name="notAccessedForDays"/> (if specified).</summary>
-        /// <returns>Whether a file existed and was kept.</returns>
-        internal static bool DeleteFile(string filePath, ushort? notAccessedForDays = null)
+        internal static bool DeleteFile(string filePath)
         {
             var file = new FileInfo(filePath);
             if (!file.Exists) return false;
 
-            var earliestAccess = GetEarliestAccess(notAccessedForDays);
-            if (earliestAccess.HasValue && file.LastAccessTime >= earliestAccess) return true;
-
             file.Delete();
-            return false;
+            return true;
         }
 
         internal static void DeleteFiles(string directory, string searchPattern,

@@ -28,7 +28,8 @@ namespace SubTubular
 
         [Option('l', "last-access",
             HelpText = "The maximum number of days since the last access of a cache file for it to be excluded from deletion."
-                + " Effectively only deletes old caches that haven't been accessed for this number of days.")]
+                + " Effectively only deletes old caches that haven't been accessed for this number of days."
+                + $" Ignored for explicitly set '{ids}'.")]
         public ushort? NotAccessedForDays { get; set; }
 
         internal async Task Process()
@@ -44,8 +45,8 @@ namespace SubTubular
                     if (Ids.HasAny())
                         foreach (var videoId in Ids.Select(v => VideoId.Parse(v).Value))
                         {
-                            var kept = indexRepo.Delete(videoId, NotAccessedForDays);
-                            if (!kept) dataStore.Delete(videoId);
+                            indexRepo.Delete(videoId);
+                            dataStore.Delete(videoId);
                         }
                     else
                     {
