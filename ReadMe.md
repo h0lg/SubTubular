@@ -1,3 +1,4 @@
+<!-- title: SubTubular --> <!-- of the printed HTML see https://github.com/yzhang-gh/vscode-markdown#print-markdown-to-html -->
 # SubTubular <!-- omit in toc -->
 
 A **full-text search** for **[YouTube](https://www.youtube.com/) subtitles** and **video metadata** with a **command line** interface.
@@ -8,11 +9,12 @@ A **full-text search** for **[YouTube](https://www.youtube.com/) subtitles** and
 - [Commands](#commands)
   - [common search parameters](#common-search-parameters)
     - [common playlist search parameters](#common-playlist-search-parameters)
-  - [search-videos](#search-videos)
-  - [search-playlist](#search-playlist)
-  - [search-channel](#search-channel)
-  - [search-user](#search-user)
-  - [clear-cache](#clear-cache)
+  - [search-videos, videos, v](#search-videos-videos-v)
+  - [search-playlist, playlist, p](#search-playlist-playlist-p)
+  - [search-channel, channel, c](#search-channel-channel-c)
+  - [search-user, user, u](#search-user-user-u)
+  - [open, o](#open-o)
+  - [clear-cache, clear](#clear-cache-clear)
 - [Fair use](#fair-use)
 - [Examples & use cases](#examples--use-cases)
   - [Find specific parts of podcasts or other long-running videos](#find-specific-parts-of-podcasts-or-other-long-running-videos)
@@ -81,40 +83,59 @@ All search commands searching a playlist containing multiple videos (including `
 | `-h`, `--cachehours` | (Default: 24) The maximum age of a playlist cache in hours before it is considered stale and the videos in it are refreshed.                                                                                   |
 
 
-## search-videos
+## search-videos, videos, v
 
-Searches the {videos} {for} the specified terms. Supports the [common search parameters](#common-search-parameters).
+Searches the specified videos. Supports the [common search parameters](#common-search-parameters).
 |                 |                                                              |
 | :-------------- | :----------------------------------------------------------- |
 | videos (pos. 0) | Required. The space-separated YouTube video IDs and/or URLs. |
 
 
-## search-playlist
+## search-playlist, playlist, p
 
-Searches the {top} n videos from the {playlist} {for} the specified terms. Supports the [common playlist search parameters](#common-playlist-search-parameters).
+Searches the videos in a playlist. Supports the [common playlist search parameters](#common-playlist-search-parameters).
 
 |                   |                                   |
 | :---------------- | :-------------------------------- |
 | playlist (pos. 0) | Required. The playlist ID or URL. |
 
-## search-channel
+## search-channel, channel, c
 
-Searches the {top} n videos from the Uploads playlist of the {channel} {for} the specified terms. Supports the [common playlist search parameters](#common-playlist-search-parameters).
+Searches the videos in a channel's Uploads playlist. This is a glorified `search-playlist`. Supports the [common playlist search parameters](#common-playlist-search-parameters).
 
 |                  |                                  |
 | :--------------- | :------------------------------- |
 | channel (pos. 0) | Required. The channel ID or URL. |
 
-## search-user
+## search-user, user, u
 
-Searches the {top} n videos from the Uploads playlist of the {user}'s channel {for} the specified terms.  Supports the [common playlist search parameters](#common-playlist-search-parameters).
+Searches the videos in the Uploads playlist of a user's main channel. This is a glorified `search-playlist`. Supports the [common playlist search parameters](#common-playlist-search-parameters).
 
 |               |                                 |
 | :------------ | :------------------------------ |
 | user (pos. 0) | Required. The user name or URL. |
 
 
-## clear-cache
+## open, o
+
+Opens app-related folders in a file browser.
+
+|                 |                                                                       |
+| :-------------- | :-------------------------------------------------------------------- |
+| folder (pos. 0) | The folder to open. Valid values: app, cache, errors, output, storage |
+
+with
+
+| folder  | being the directory                                                                          |
+| :------ | :------------------------------------------------------------------------------------------- |
+| app     | the app is running from                                                                      |
+| cache   | used for caching user, channel, playlist and video info                                      |
+| errors  | error logs are written to                                                                    |
+| output  | output files are written to by default unless explicitly specified using the `out` parameter |
+| storage | that hosts the `cache`, `errors` and `output` folders                                        |
+
+
+## clear-cache, clear
 
 Clears cached user, channel, playlist and video info.
 
@@ -141,7 +162,7 @@ Scott Adams mentioned this psychological phenomenon named after a physicist one 
 or short
 
 <pre>
-> SubTubular <b>search-videos</b> egeCYaIe21Y gDrFdxWNk8c <b>-f</b> physician,physicist
+> SubTubular <b>videos</b> egeCYaIe21Y gDrFdxWNk8c <b>-f</b> physician,physicist
 </pre>
 
 gives you
@@ -165,7 +186,7 @@ I might have gazed into the abyss for a little too long and now I need a deep br
 or short
 
 <pre>
-> SubTubular <b>search-channel</b> UC0rZoXAD5lxgBHMsjrGwWWQ <b>-f</b> "free speech,censorship,cancel culture,cancelculture,freespeech" <b>-t</b> 500
+> SubTubular <b>channel</b> UC0rZoXAD5lxgBHMsjrGwWWQ <b>-f</b> "free speech,censorship,cancel culture,cancelculture,freespeech" <b>-t</b> 500
 </pre>
 
 Note that title, description and keywords are matched as well as subtitles.
@@ -201,7 +222,7 @@ I have here a pile of rocks that needs grinding. Also, the Middle East could do 
 or short
 
 <pre>
-> SubTubular <b>search-user</b> JoergSprave <b>-f</b> "haha,let me show you its features" <b>-t</b> 100 <b>-h</b> 0
+> SubTubular <b>user</b> JoergSprave <b>-f</b> "haha,let me show you its features" <b>-t</b> 100 <b>-h</b> 0
 </pre>
 
 thankfully at any given time will yield something like
