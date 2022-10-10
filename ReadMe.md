@@ -67,8 +67,9 @@ All search commands share the following parameters:
 | :-------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `-f`, `--for`   | Required. What to search for. Quote "multi-word phrases" and "separate,multiple terms,by comma".                                                                                                                                                                                                                                                                                                                                                         |
 | `-p`, `--pad`   | (Default: 23) How much context to display a match in; i.e. the minimum number of characters of the original text to display before and after it.                                                                                                                                                                                                                                                                                                         |
-| `-m`, `--html`  | If set, outputs the highlighted search result in an HTML file including hyperlinks for easy navigation.                                                                                                                                                                                                                                                                                                                                                  |
-| `-o`, `--out`   | Writes the search results to a file, the format of which - depending on the 'html' flag - is either text or HTML including hyperlinks for easy navigation. Supply EITHER the FULL FILE PATH (any existing file will be overwritten), a FOLDER PATH to output files into - auto-named according to your search parameters - OR OMIT while setting the 'html' flag to have auto-named files written to the 'out' folder of SubTubular's AppData directory. |
+| `-m`, `--html`  | If set, outputs the highlighted search result in an HTML file including hyperlinks for easy navigation. The output path depends on the `out` parameter.                                                                                                                                                                                                                                                                                                  |
+| `-o`, `--out`   | Writes the search results to a file, the format of which - depending on the `html` flag - is either text or HTML including hyperlinks for easy navigation. Supply EITHER the FULL FILE PATH (any existing file will be overwritten), a FOLDER PATH to output files into - auto-named according to your search parameters - OR OMIT while setting the `html` flag to have auto-named files written to the `out` folder of SubTubular's AppData directory. |
+| `-s`, `--show`  | The output to open if a file was written. Valid values: file, folder                                                                                                                                                                                                                                                                                                                                                                                     |
 
 ### common playlist search parameters
 
@@ -83,34 +84,34 @@ All search commands searching a playlist containing multiple videos (including `
 ## search-videos
 
 Searches the {videos} {for} the specified terms. Supports the [common search parameters](#common-search-parameters).
-|                    |                                                              |
-| :----------------- | :----------------------------------------------------------- |
-| value(s) at pos. 0 | Required. The space-separated YouTube video IDs and/or URLs. |
+|                 |                                                              |
+| :-------------- | :----------------------------------------------------------- |
+| videos (pos. 0) | Required. The space-separated YouTube video IDs and/or URLs. |
 
 
 ## search-playlist
 
 Searches the {top} n videos from the {playlist} {for} the specified terms. Supports the [common playlist search parameters](#common-playlist-search-parameters).
 
-|                 |                                   |
-| :-------------- | :-------------------------------- |
-| value at pos. 0 | Required. The playlist ID or URL. |
+|                   |                                   |
+| :---------------- | :-------------------------------- |
+| playlist (pos. 0) | Required. The playlist ID or URL. |
 
 ## search-channel
 
 Searches the {top} n videos from the Uploads playlist of the {channel} {for} the specified terms. Supports the [common playlist search parameters](#common-playlist-search-parameters).
 
-|                 |                                  |
-| :-------------- | :------------------------------- |
-| value at pos. 0 | Required. The channel ID or URL. |
+|                  |                                  |
+| :--------------- | :------------------------------- |
+| channel (pos. 0) | Required. The channel ID or URL. |
 
 ## search-user
 
 Searches the {top} n videos from the Uploads playlist of the {user}'s channel {for} the specified terms.  Supports the [common playlist search parameters](#common-playlist-search-parameters).
 
-|                 |                                 |
-| :-------------- | :------------------------------ |
-| value at pos. 0 | Required. The user name or URL. |
+|               |                                 |
+| :------------ | :------------------------------ |
+| user (pos. 0) | Required. The user name or URL. |
 
 
 ## clear-cache
