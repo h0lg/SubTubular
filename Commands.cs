@@ -52,7 +52,7 @@ namespace SubTubular
 
     internal abstract class SearchPlaylistCommand : SearchCommand
     {
-        [Option('t', "top", Default = 50,
+        [Option('t', "top", Default = (ushort)50,
             HelpText = "The number of videos to return from the top of the playlist."
                 + " The special Uploads playlist of a channel or user are sorted latest uploaded first,"
                 + " but custom playlists may be sorted differently.")]
