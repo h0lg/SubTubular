@@ -1,0 +1,9 @@
+{
+    "recommendations": [
+        "ms-dotnettools.csharp",
+        "yzhang.markdown-all-in-one",
+        "k--kato.docomment",
+        "rogalmic.vscode-xml-complete",
+        "aliasadidev.nugetpackagemanagergui"
+    ]
+}
