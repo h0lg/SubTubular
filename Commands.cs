@@ -62,7 +62,7 @@ namespace SubTubular
         [Option('r', "order-by", HelpText = "Order the output by 'uploaded' or 'score' with 'desc' for descending.")]
         public IEnumerable<OrderOptions> OrderBy { get; set; }
 
-        [Option('h', "cachehours", Default = 24, HelpText = "The maximum age of a playlist cache in hours"
+        [Option('h', "cache-hours", Default = 24, HelpText = "The maximum age of a playlist cache in hours"
             + " before it is considered stale and the videos in it are refreshed.")]
         public float CacheHours { get; set; }
 
