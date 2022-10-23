@@ -30,6 +30,9 @@ namespace SubTubular
                     .WithField(nameof(Video.Title), v => v.Title)
                     .WithField(nameof(Video.Keywords), v => v.Keywords)
                     .WithField(nameof(Video.Description), v => v.Description))
+                .WithObjectTokenization<CaptionTrack>(itemOptions => itemOptions
+                    .WithKey(t => t.Key)
+                    .WithField(nameof(CaptionTrack.Captions), t => t.GetFullText()))
                 .WithQueryParser(o => o.WithFuzzySearchDefaults(
                     maxEditDistance: termLength => (ushort)(termLength / 3),
                     // avoid returning zero here to allow for edits in the first place
@@ -88,7 +91,10 @@ namespace SubTubular
             await Index.AddAsync(video);
 
             foreach (var track in video.CaptionTracks)
-                await Index.AddAsync(video.Id + "#" + track.LanguageName, track.GetFullText());
+            {
+                track.VideoId = video.Id; // set for indexing
+                await Index.AddAsync(track);
+            }
         }
 
         internal void BeginBatchChange() => Index.BeginBatchChange();
@@ -110,7 +116,7 @@ namespace SubTubular
 
             var resultsByVideoId = results.Select(result =>
                 {
-                    var ids = result.Key.Split('#');
+                    var ids = result.Key.Split(CaptionTrack.MultiPartKeySeparator);
                     var videoId = ids[0];
                     var language = ids.Length > 1 ? ids[1] : null;
                     return new { videoId, language, result };
