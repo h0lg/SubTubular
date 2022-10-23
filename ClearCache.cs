@@ -9,11 +9,12 @@ using YoutubeExplode.Videos;
 
 namespace SubTubular
 {
-    [Verb("clear-cache", aliases: new[] { "clear" },
+    [Verb(Command, aliases: new[] { "clear" },
         HelpText = "Deletes cached metadata and full-text indexes for "
             + $"{nameof(Scopes.users)}, {nameof(Scopes.channels)}, {nameof(Scopes.playlists)} and {nameof(Scopes.videos)}.")]
     internal sealed class ClearCache
     {
+        internal const string Command = "clear-cache";
         private const string scope = "scope", ids = "ids";
 
         [Value(0, MetaName = scope, Required = true, HelpText = "The type of caches to delete."

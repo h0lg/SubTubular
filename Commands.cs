@@ -15,31 +15,39 @@ namespace SubTubular
 {
     internal abstract class SearchCommand
     {
+        private const string html = "html", outputPath = "out",
+            existingFilesAreOverWritten = " Existing files with the same name will be overwritten.";
+
         /// <summary>Enables having a multi-word <see cref="Query"/> (i.e. with spaces in between parts)
         /// without having to quote it and double-quote multi-word expressions within it.</summary>
         [Option('f', "for", Required = true, HelpText = "What to search for."
-            + " Quote \"multi-word phrases\" and separate multiple|terms by pipe."
+            + @" Quote ""multi-word phrases"". Single words are matched exactly by default,"
+            + " ?fuzzy or with wild cards for s%ngle and multi* letters."
+            + @" Combine multiple & terms | ""phrases or queries"" using AND '&' and OR '|'"
+            + " and ( use | brackets | for ) & ( complex | expressions )."
+            + $" You can restrict your search to the video '{nameof(Video.Title)}', '{nameof(Video.Description)}',"
+            + $@" '{nameof(Video.Keywords)}' and/or '{nameof(CaptionTrack.Captions)}'; e.g. '{nameof(Video.Title)}=""click bait""'."
             + " Learn more about the query syntax at https://mikegoatly.github.io/lifti/docs/searching/lifti-query-syntax/ .")]
         public IEnumerable<string> QueryWords { set { Query = value.Join(" "); } }
 
         public string Query { get; private set; }
 
-        [Option('p', "pad", Default = (ushort)23, HelpText = "How much context to display a match in;"
-            + " i.e. the minimum number of characters of the original text to display before and after it.")]
+        [Option('p', "pad", Default = (ushort)23, HelpText = "How much context to pad a match in;"
+            + " i.e. the minimum number of characters of the original description or subtitle track"
+            + " to display before and after it.")]
         public ushort Padding { get; set; }
 
-        [Option('m', "html",
+        [Option('m', html,
             HelpText = "If set, outputs the highlighted search result in an HTML file including hyperlinks for easy navigation."
-                + " The output path depends on the 'out' parameter.")]
+                + $" The output path can be configured in the '{outputPath}' parameter."
+                + " Omitting it will save the file into the default 'output' folder - named according to your search parameters."
+                + existingFilesAreOverWritten)]
         public bool OutputHtml { get; set; }
 
-        [Option('o', "out",
-            HelpText = "Writes the search results to a file, the format of which - depending on the 'html' flag -"
-                + " is either text or HTML including hyperlinks for easy navigation."
-                + " Supply EITHER the FULL FILE PATH (any existing file will be overwritten),"
-                + " a FOLDER PATH to output files into - auto-named according to your search parameters -"
-                + " OR OMIT while setting the 'html' flag to have auto-named files written"
-                + " to the 'out' folder of SubTubular's AppData directory.")]
+        [Option('o', outputPath,
+            HelpText = $"Writes the search results to a file, the format of which is either text or HTML depending on the '{html}' flag."
+                + $" Supply either a file or folder path. If the path doesn't contain a file name, the file will be named according to your search parameters."
+                + existingFilesAreOverWritten)]
         public string FileOutputPath { get; set; }
 
         [Option('s', "show", HelpText = "The output to open if a file was written.")]
@@ -67,17 +75,29 @@ namespace SubTubular
 
     internal abstract class SearchPlaylistCommand : SearchCommand
     {
-        [Option('t', "top", Default = (ushort)50,
-            HelpText = "The number of videos to return from the top of the playlist."
-                + " The special Uploads playlist of a channel or user are sorted latest uploaded first,"
-                + " but custom playlists may be sorted differently.")]
+        private const string top = "top", orderBy = "order-by";
+
+        [Option('t', top, Default = (ushort)50,
+            HelpText = "The number of videos to search, counted from the top of the playlist;"
+                + " effectively limiting the search scope to the top partition of it."
+                + " You may want to gradually increase this to include all videos in the list while you're refining your query."
+                + $" Note that the special Uploads playlist of a channel is sorted latest '{nameof(OrderOptions.uploaded)}' first,"
+                + " but custom playlists may be sorted differently. Keep that in mind if you don't find what you're looking for"
+                + $" and when using '--{orderBy}' (which is only applied to the results) with '{nameof(OrderOptions.uploaded)}' on custom playlists.")]
         public ushort Top { get; set; }
 
-        [Option('r', "order-by", HelpText = "Order the output by 'uploaded' or 'score' with 'desc' for descending.")]
+        [Option('r', orderBy, HelpText = $"Order the video search results by '{nameof(OrderOptions.uploaded)}'"
+            + $" or '{nameof(OrderOptions.score)}' with '{nameof(OrderOptions.asc)}' for ascending."
+            + $" The default is descending (i.e. latest respectively highest first) and by '{nameof(OrderOptions.score)}'."
+            + $" Note that the order is only applied to the results with the search scope itself being limited by the '--{top}' parameter."
+            + " Note also that for un-cached videos, this option is ignored in favor of outputting matches as soon as they're found"
+            + " - but simply repeating the search will hit the cache and return them in the requested order.")]
         public IEnumerable<OrderOptions> OrderBy { get; set; }
 
         [Option('h', "cache-hours", Default = 24, HelpText = "The maximum age of a playlist cache in hours"
-            + " before it is considered stale and the videos in it are refreshed.")]
+            + " before it is considered stale and the list of videos in it is refreshed."
+            + " Note this doesn't apply to the videos themselves because their contents rarely change after upload."
+            + $" Use '--{ClearCache.Command}' to clear videos associated with a playlist or channel if that's what you're after.")]
         public float CacheHours { get; set; }
 
         protected string ID { get; set; }
@@ -158,10 +178,10 @@ namespace SubTubular
         }
     }
 
-    [Verb("search-playlist", aliases: new[] { "playlist", "p" }, HelpText = "Searches the videos in a playlist.")]
+    [Verb(Command, aliases: new[] { "playlist", "p" }, HelpText = "Searches the videos in a playlist.")]
     internal sealed class SearchPlaylist : SearchPlaylistCommand
     {
-        internal const string StorageKeyPrefix = "playlist ";
+        internal const string Command = "search-playlist", StorageKeyPrefix = "playlist ";
 
         [Value(0, MetaName = "playlist", Required = true, HelpText = "The playlist ID or URL.")]
         public string Playlist { get; set; }
