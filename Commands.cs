@@ -26,9 +26,9 @@ namespace SubTubular
                 .ToArray();
         }
 
-        [Option('p', "pad", HelpText = "How much context to display a match in;"
+        [Option('p', "pad", Default = (byte)23, HelpText = "How much context to display a match in;"
             + " i.e. the minimum number of characters of the original text to display before and after it.")]
-        public byte Padding { get; set; } = 23;
+        public byte Padding { get; set; }
 
         [Option('m', "html",
             HelpText = "If set, outputs the highlighted search result in an HTML file including hyperlinks for easy navigation."
