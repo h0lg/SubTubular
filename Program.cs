@@ -88,29 +88,14 @@ namespace SubTubular
                     return h;
                 })));
             }
+            catch (InputException ex) { Console.Error.WriteLine(ex.Message); }
             catch (Exception ex) { await WriteErrorLogAsync(originalCommand, ex.ToString()); }
         }
 
         private static async Task SearchAsync(SearchCommand command, string originalCommand,
             Func<Youtube, IAsyncEnumerable<VideoSearchResult>> getResultsAsync)
         {
-            if (string.IsNullOrWhiteSpace(command.Query))
-            {
-                Console.WriteLine("None of the terms contain anything but whitespace. I refuse to work like this!");
-                return;
-            }
-
-            if (command is SearchPlaylistCommand searchPlaylist) // order playlist matches
-            {
-                if (searchPlaylist.OrderBy.Intersect(SearchPlaylistCommand.Orders).Count() > 1)
-                {
-                    Console.WriteLine("You may order by either 'score' or 'uploaded' (date), but not both.");
-                    return;
-                }
-
-                // default to ordering by highest score which is probably most useful for most purposes
-                if (!searchPlaylist.OrderBy.Any()) searchPlaylist.OrderBy = new[] { SearchPlaylistCommand.OrderOptions.score };
-            }
+            command.Validate();
 
             //inspired by https://johnthiriet.com/cancel-asynchronous-operation-in-csharp/
             using (var search = new CancellationTokenSource())

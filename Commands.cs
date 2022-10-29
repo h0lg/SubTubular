@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -49,6 +50,11 @@ namespace SubTubular
 
         public enum Shows { file, folder }
 
+        internal virtual void Validate()
+        {
+            if (string.IsNullOrWhiteSpace(Query)) throw new InputException(
+                "None of the terms contain anything but whitespace. I refuse to work like this!");
+        }
     }
 
     internal abstract class SearchPlaylistCommand : SearchCommand
@@ -72,6 +78,17 @@ namespace SubTubular
         internal string StorageKey => Label + ID;
         protected override string FormatInternal() => StorageKey;
         internal abstract IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation);
+
+        internal override void Validate()
+        {
+            base.Validate();
+
+            if (OrderBy.Intersect(Orders).Count() > 1) throw new InputException(
+                $"You may order by either '{nameof(OrderOptions.score)}' or '{nameof(OrderOptions.uploaded)}' (date), but not both.");
+
+            // default to ordering by highest score which is probably most useful for most purposes
+            if (!OrderBy.Any()) OrderBy = new[] { OrderOptions.score };
+        }
 
         /// <summary>Mutually exclusive <see cref="OrderOptions"/>.</summary>
         internal static OrderOptions[] Orders = new[] { OrderOptions.uploaded, OrderOptions.score };
@@ -166,5 +183,12 @@ namespace SubTubular
     {
         [Value(0, MetaName = "folder", Required = true, HelpText = "The folder to open.")]
         public Folders Folder { get; set; }
+    }
+
+    [Serializable]
+    internal class InputException : Exception
+    {
+        public InputException(string message) : base(message) { }
+        public InputException(string message, Exception innerException) : base(message, innerException) { }
     }
 }
