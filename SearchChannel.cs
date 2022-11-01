@@ -19,7 +19,7 @@ namespace SubTubular
         internal const string StorageKeyPrefix = "channel ";
 
         [Value(0, MetaName = "channel", Required = true,
-            HelpText = "The channel ID, user name or a URL for either of those.")]
+            HelpText = "The channel ID, handle, slug, user name or a URL for either of those.")]
         public string Alias { get; set; }
 
         internal override string Label => StorageKeyPrefix;
@@ -31,12 +31,14 @@ namespace SubTubular
         {
             base.Validate();
 
+            var handle = ChannelHandle.TryParse(Alias);
+            var slug = ChannelSlug.TryParse(Alias);
             var user = UserName.TryParse(Alias);
             var id = ChannelId.TryParse(Alias);
-            validAliases = new object[] { user, id }.Where(id => id != null).ToArray();
+            validAliases = new object[] { handle, slug, user, id }.Where(id => id != null).ToArray();
 
             if (validAliases.Length == 0) throw new InputException(
-                $"'{Alias}' is not a valid channel user name or channel ID.");
+                $"'{Alias}' is not a valid channel handle, slug, user name or channel ID.");
         }
 
         public async Task RemoteValidateAsync(YoutubeClient youtube, DataStore dataStore, CancellationToken cancellation)
@@ -70,7 +72,7 @@ namespace SubTubular
                     return $"{validUrl} points to channel {channelUrl}";
                 })
                 .Where(info => info != null).Join(Environment.NewLine)
-                + Environment.NewLine + "Specify the unique channel ID or full user URL to disambiguate the channel.");
+                + Environment.NewLine + "Specify the unique channel ID or full handle URL, custom/slug URL or user URL to disambiguate the channel.");
             #endregion
 
             var identified = distinct.Single();
@@ -79,7 +81,9 @@ namespace SubTubular
 
             async ValueTask<Channel> GetChannel(object identifier)
             {
-                var loadChannel = identifier is UserName user ? youtube.Channels.GetByUserAsync(user, cancellation)
+                var loadChannel = identifier is ChannelHandle handle ? youtube.Channels.GetByHandleAsync(handle, cancellation)
+                    : identifier is ChannelSlug slug ? youtube.Channels.GetBySlugAsync(slug, cancellation)
+                    : identifier is UserName user ? youtube.Channels.GetByUserAsync(user, cancellation)
                     : identifier is ChannelId id ? youtube.Channels.GetAsync(id, cancellation)
                     : throw new NotImplementedException($"Getting channel for alias {identifier.GetType()} is not implemented.");
 
@@ -94,7 +98,7 @@ namespace SubTubular
 
         private static string GetValidChannelUrl(object id)
         {
-            var urlGlue = id is UserName ? "user/" : id is ChannelId ? "channel/"
+            var urlGlue = id is ChannelHandle ? "@" : id is ChannelSlug ? "c/" : id is UserName ? "user/" : id is ChannelId ? "channel/"
                 : throw new NotImplementedException($"Generating URL for channel identifier {id.GetType()} is not implemented.");
 
             return $"https://www.youtube.com/{urlGlue}{id}";
