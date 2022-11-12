@@ -18,17 +18,18 @@ namespace SubTubular
         private const ConsoleColor highlightColor = ConsoleColor.Yellow;
         private readonly ConsoleColor regularForeGround;
         private readonly bool outputHtml, hasOutputPath, writeOutputFile;
-        private readonly string fileOutputPath, fileNameWithoutExtension;
+        private readonly string fileOutputPath;
+        private readonly SearchCommand command;
         private readonly IDocument document;
         private readonly IElement output;
         private readonly StringWriter textOut;
 
-        internal OutputWriter(string originalCommand, SearchCommand command)
+        internal OutputWriter(SearchCommand command)
         {
             regularForeGround = Console.ForegroundColor; //using current
             this.outputHtml = command.OutputHtml;
             this.fileOutputPath = command.FileOutputPath?.Trim('"');
-            this.fileNameWithoutExtension = command.Format();
+            this.command = command;
             hasOutputPath = !string.IsNullOrEmpty(fileOutputPath);
             writeOutputFile = outputHtml || hasOutputPath;
 
@@ -45,7 +46,10 @@ namespace SubTubular
                 document.Body.Append(output);
             }
             else textOut = new StringWriter();
+        }
 
+        internal void WriteHeader(string originalCommand)
+        {
             //write original search into file header for reference and repeating
             if (writeOutputFile) WriteLine(originalCommand);
 
@@ -282,7 +286,7 @@ namespace SubTubular
             if (!hasOutputPath || fileOutputPath.IsDirectoryPath())
             {
                 var extension = outputHtml ? ".html" : ".txt";
-                var fileName = fileNameWithoutExtension.ToFileSafe() + extension;
+                var fileName = command.Format().ToFileSafe() + extension;
                 var folder = hasOutputPath ? fileOutputPath : getDefaultStorageFolder();
                 path = Path.Combine(folder, fileName);
             }

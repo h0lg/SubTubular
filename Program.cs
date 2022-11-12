@@ -131,8 +131,10 @@ namespace SubTubular
                 var youtube = new Youtube(new JsonFileDataStore(cacheFolder), new VideoIndexRepository(cacheFolder));
                 var tracksWithErrors = new List<CaptionTrack>();
 
-                using (var output = new OutputWriter(originalCommand, command))
+                using (var output = new OutputWriter(command))
                 {
+                    output.WriteHeader(originalCommand);
+
                     try
                     {
                         /* passing token into search implementations for them to react to cancellation,
