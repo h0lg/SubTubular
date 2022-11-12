@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace SubTubular
 {
@@ -104,5 +105,25 @@ namespace SubTubular
 
         // for comparing captions when finding them in a caption track
         public override int GetHashCode() => HashCode.Combine(At, Text);
+    }
+
+    /// <summary>Maps valid channel aliases by <see cref="Type"/> and <see cref="Value"/>
+    /// to an accessible <see cref="ChannelId"/> or null if none was found.</summary>
+    [Serializable]
+    public sealed class ChannelAliasMap
+    {
+        internal const string StorageKey = "known channel alias maps";
+
+        public string Type { get; set; }
+        public string Value { get; set; }
+        public string ChannelId { get; set; }
+
+        internal static (string, string) GetTypeAndValue(object alias) => (alias.GetType().Name, alias.ToString());
+
+        internal static Task<List<ChannelAliasMap>> LoadList(DataStore dataStore)
+            => dataStore.GetAsync<List<ChannelAliasMap>>(StorageKey);
+
+        internal static Task SaveList(List<ChannelAliasMap> maps, DataStore dataStore)
+            => dataStore.SetAsync(StorageKey, maps);
     }
 }

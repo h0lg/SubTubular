@@ -23,7 +23,8 @@ namespace SubTubular
         public Scopes Scope { get; set; }
 
         [Value(1, MetaName = ids, HelpText = $"The space-separated IDs or URLs of elements in the '{scope}' to delete caches for."
-            + $" Can be used with every '{scope}' but '{nameof(Scopes.all)}'."
+            + $" Can be used with every '{scope}' but '{nameof(Scopes.all)}'"
+            + $" while supporting user names, channel handles and slugs besides IDs for '{nameof(Scopes.channels)}'."
             + $" If not set, all elements in the specified '{scope}' are considered for deletion.")]
         public IEnumerable<string> Ids { get; set; }
 
@@ -70,10 +71,22 @@ namespace SubTubular
 
                     break;
                 case ClearCache.Scopes.playlists:
-                    await ClearPlaylists(SearchPlaylist.StorageKeyPrefix, v => PlaylistId.TryParse(v)?.Value);
+                    await ClearPlaylists(SearchPlaylist.StorageKeyPrefix, new JsonFileDataStore(cacheFolder),
+                        v => new[] { PlaylistId.TryParse(v)?.Value });
+
                     break;
                 case ClearCache.Scopes.channels:
-                    await ClearPlaylists(SearchChannel.StorageKeyPrefix, v => ChannelId.TryParse(v)?.Value);
+                    var dataStore = new JsonFileDataStore(cacheFolder);
+                    Func<string, string[]> parseAlias = null;
+
+                    if (Ids.HasAny())
+                    {
+                        var aliasToChannelIds = await ClearChannelAliases(Ids, dataStore, simulate);
+                        parseAlias = alias => aliasToChannelIds.TryGetValue(alias, out var channelIds) ? channelIds : null;
+                    }
+                    else DeleteFileByName(ChannelAliasMap.StorageKey);
+
+                    await ClearPlaylists(SearchChannel.StorageKeyPrefix, dataStore, parseAlias);
                     break;
                 default: throw new NotImplementedException($"Clearing {scope} {Scope} is not implemented.");
             }
@@ -86,20 +99,22 @@ namespace SubTubular
 
             void DeleteFilesByNames(IEnumerable<string> names) { foreach (var name in names) DeleteFileByName(name); }
 
-            async Task ClearPlaylists(string keyPrefix, Func<string, string> parseId)
+            async Task ClearPlaylists(string keyPrefix, JsonFileDataStore dataStore, Func<string, string[]> parseId)
             {
-                var dataStore = new JsonFileDataStore(cacheFolder);
                 string[] deletableKeys;
 
                 if (Ids.HasAny())
                 {
                     var parsed = Ids.ToDictionary(id => id, id => parseId(id));
-                    var invalid = parsed.Where(pair => pair.Value == null).Select(pair => pair.Key).ToArray();
+
+                    var invalid = parsed.Where(pair => !pair.Value.HasAny() || pair.Value.All(id => id == null))
+                        .Select(pair => pair.Key).ToArray();
 
                     if (invalid.Length > 0) throw new InputException(
                         $"The following inputs are not valid {keyPrefix}IDs or URLs: " + invalid.Join(" "));
 
-                    deletableKeys = parsed.Values.Select(id => keyPrefix + id).ToArray();
+                    deletableKeys = parsed.Values.SelectMany(ids => ids).Where(id => id != null)
+                        .Distinct().Select(id => keyPrefix + id).ToArray();
                 }
                 else deletableKeys = dataStore.GetKeysByPrefix(keyPrefix, NotAccessedForDays).ToArray();
 
@@ -110,6 +125,40 @@ namespace SubTubular
                     DeleteFileByName(key);
                 }
             }
+        }
+
+        private static async Task<Dictionary<string, string[]>> ClearChannelAliases(
+            IEnumerable<string> aliases, JsonFileDataStore dataStore, bool simulate)
+        {
+            var cachedMaps = await ChannelAliasMap.LoadList(dataStore);
+            var matchedMaps = new List<ChannelAliasMap>();
+
+            var aliasToChannelIds = aliases.ToDictionary(alias => alias, alias =>
+            {
+                var valid = SearchChannel.ValidateAlias(alias);
+                var matching = valid.Select(alias => cachedMaps.ForAlias(alias)).Where(map => map != null).ToArray();
+                matchedMaps.AddRange(matching);
+
+                return matching.Select(map => map.ChannelId)
+                    // append incoming ChannelId even if it isn't included in cached idMaps
+                    .Append(valid.SingleOrDefault(alias => alias is ChannelId)?.ToString())
+                    .Distinct().Where(id => id != null).ToArray();
+            });
+
+            if (!simulate)
+            {
+                var channelIds = aliasToChannelIds.SelectMany(pair => pair.Value).Distinct().ToArray();
+                var siblings = cachedMaps.Where(map => channelIds.Contains(map.ChannelId));
+                var removable = matchedMaps.Union(siblings).ToArray();
+
+                if (removable.Length > 0)
+                {
+                    foreach (var map in removable) cachedMaps.Remove(map);
+                    await ChannelAliasMap.SaveList(cachedMaps, dataStore);
+                }
+            }
+
+            return aliasToChannelIds;
         }
 
         internal enum Scopes { all, videos, playlists, channels }
