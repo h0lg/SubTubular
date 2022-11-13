@@ -4,10 +4,10 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net7.0</TargetFramework>
     <ApplicationIcon>SubTubular.ico</ApplicationIcon>
-    <AssemblyTitle>SubTubular - full-text search in YouTube video subtitles and metadata</AssemblyTitle>
+    <AssemblyTitle>SubTubular - full-text search for YouTube videos</AssemblyTitle>
     <Product>SubTubular</Product>
     <VersionPrefix>3.0.0</VersionPrefix>
-    <Description>A command-line for full-text-searching YouTube video subtitles and metadata.</Description>
+    <Description>A command-line interface for full-text-searching YouTube video subtitles and metadata.</Description>
     <Authors>Holger Schmidt</Authors>
     <Copyright>Copyright © Holger Schmidt 2020</Copyright>
   </PropertyGroup>
