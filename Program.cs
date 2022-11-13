@@ -134,8 +134,8 @@ namespace SubTubular
 
                     try
                     {
-                        /* passing token into search implementations for them to react to cancellation,
-                            see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables*/
+                        /*  passing token into search implementations for them to react to cancellation,
+                            see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables */
                         await foreach (var result in getResultsAsync(youtube).WithCancellation(search.Token))
                         {
                             output.DisplayVideoResult(result);

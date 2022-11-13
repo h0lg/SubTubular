@@ -82,8 +82,9 @@ namespace SubTubular
 
         protected string ID { get; set; }
         protected abstract string UrlFormat { get; }
-        internal override IEnumerable<string> GetUrls() { yield return UrlFormat + ID; }
         internal string StorageKey => Label + ID;
+
+        internal override IEnumerable<string> GetUrls() { yield return UrlFormat + ID; }
         protected override string FormatInternal() => StorageKey;
         internal abstract IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation);
 
