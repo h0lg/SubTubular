@@ -129,6 +129,7 @@ namespace SubTubular
                 using (var output = new OutputWriter(command))
                 {
                     output.WriteHeader(originalCommand);
+                    var resultDisplayed = false;
 
                     try
                     {
@@ -137,21 +138,27 @@ namespace SubTubular
                         await foreach (var result in getResultsAsync(youtube).WithCancellation(search.Token))
                         {
                             output.DisplayVideoResult(result);
+                            resultDisplayed = true;
                             tracksWithErrors.AddRange(result.Video.CaptionTracks.Where(t => t.Error != null));
                         }
                     }
                     catch (OperationCanceledException) { Console.WriteLine("The search was cancelled."); }
-
-                    //only writes an output file if command requires it
-                    var path = await output.WriteOutputFile(() => Folder.GetPath(Folders.output));
-
-                    if (path != null)
+                    finally // write output file even if exception occurs
                     {
-                        Console.WriteLine("Search results were written to " + path);
+                        if (resultDisplayed) // if we displayed a result before running into the error
+                        {
+                            // only writes an output file if command requires it
+                            var path = await output.WriteOutputFile(() => Folder.GetPath(Folders.output));
 
-                        // spare the user some file browsing
-                        if (command.Show == SearchCommand.Shows.file) ShellCommands.OpenFile(path);
-                        if (command.Show == SearchCommand.Shows.folder) ShellCommands.ExploreFolder(path);
+                            if (path != null)
+                            {
+                                Console.WriteLine("Search results were written to " + path);
+
+                                // spare the user some file browsing
+                                if (command.Show == SearchCommand.Shows.file) ShellCommands.OpenFile(path);
+                                if (command.Show == SearchCommand.Shows.folder) ShellCommands.ExploreFolder(path);
+                            }
+                        }
                     }
                 }
 
