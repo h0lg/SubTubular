@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using CommandLine;
@@ -177,23 +180,51 @@ namespace SubTubular
 
         private static async Task WriteErrorLogAsync(string originalCommand, string errors, string name = null)
         {
+            var assembly = Assembly.GetExecutingAssembly();
+            string productInfo = null;
+
+            try
+            {
+                var versionInfo = FileVersionInfo.GetVersionInfo(assembly.Location);
+                productInfo = $"{versionInfo.ProductName} {versionInfo.ProductVersion}";
+            }
+            catch
+            {
+                var assemblyName = assembly.GetName();
+                productInfo = $"{assemblyName.Name} {assemblyName.Version}";
+            }
+
+            var environmentInfo = new[] { "on", Environment.OSVersion.VersionString,
+                RuntimeInformation.FrameworkDescription, productInfo }.Join(" ");
+
+            var report = (new[] { originalCommand, environmentInfo, errors }).Join(errorOutputSpacing);
+            var fileWritten = false;
+
             try
             {
                 var fileSafeName = name == null ? null : " " + name.ToFileSafe();
                 var path = Path.Combine(Folder.GetPath(Folders.errors), $"error {DateTime.Now:yyyy-MM-dd HHmmss}{fileSafeName}.txt");
-                await OutputWriter.WriteTextToFileAsync(originalCommand + errorOutputSpacing + errors, path);
+                await OutputWriter.WriteTextToFileAsync(report, path);
                 Console.WriteLine("Errors were logged to " + path);
+                fileWritten = true;
             }
-            catch
+            catch (Exception ex)
             {
-                Console.Error.WriteLine("The following errors occurred and we were unabled to write a log for them.");
-                Console.Error.WriteLine(originalCommand);
-                Console.Error.WriteLine(errors);
+                Console.WriteLine("The following errors occurred and we were unabled to write a log for them.");
+                Console.WriteLine();
+                Console.Error.WriteLine(report);
+                Console.WriteLine();
+                Console.Error.WriteLine("Error writing error log: " + ex.ToString());
             }
 
             Console.WriteLine();
-            Console.WriteLine($"Check out {repoUrl}/issues for existing reports of this error and maybe a solution or work-around."
-                + " If you want to report it, you can do that there to. Please make sure to supply the error details and example input. Thanks!");
+
+            Console.WriteLine($"Check {repoUrl}/releases for a version newer than {productInfo} that may have fixed this"
+                + $" or {repoUrl}/issues for existing reports of this error and maybe a solution or work-around."
+                + " If you can reproduce this error in the latest version, reporting it there is your best chance at getting it fixed."
+                + " If you do, make sure to include the original command or parameters to reproduce it,"
+                + " any exception details that have not already been shared and the OS/.NET/SubTubular version you're on."
+                + $" You'll find all that in the error {(fileWritten ? "log file" : "output above")}.");
         }
 
         #region HelpText Option order
