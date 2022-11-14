@@ -86,6 +86,27 @@ namespace SubTubular
             return orEqualTo ? position <= 0 : position < 0;
         }
     }
+
+    /// <summary>Helpers for <see cref="ValueTask"/>s. Inspired by https://stackoverflow.com/a/63141544 .</summary>
+    internal static class ValueTasks
+    {
+        internal static async ValueTask<(T[], Exception[])> WhenAll<T>(IReadOnlyList<ValueTask<T>> tasks)
+        {
+            ArgumentNullException.ThrowIfNull(tasks);
+
+            var exceptions = new Exception[tasks.Count];
+            var results = new T[tasks.Count];
+
+            for (var i = 0; i < tasks.Count; i++)
+                try { results[i] = await tasks[i].ConfigureAwait(false); }
+                catch (Exception ex) { exceptions[i] = ex; }
+
+            return (results, exceptions);
+        }
+
+        internal static ValueTask<(T[], Exception[])> WhenAll<T>(IEnumerable<ValueTask<T>> tasks) => WhenAll(tasks?.ToArray());
+    }
+
     internal static class HttpRequestExceptionExtensions
     {
         internal static bool IsNotFound(this HttpRequestException exception)

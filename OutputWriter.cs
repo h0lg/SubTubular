@@ -56,7 +56,7 @@ namespace SubTubular
             //provide link(s) to the searched playlist or videos for debugging IDs
             Write("searching " + command.Label);
 
-            foreach (var url in command.GetUrls())
+            foreach (var url in command.ValidUrls)
             {
                 WriteUrl(url);
                 Write(" ");

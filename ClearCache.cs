@@ -11,19 +11,19 @@ namespace SubTubular
 {
     [Verb(Command, aliases: new[] { "clear" },
         HelpText = "Deletes cached metadata and full-text indexes for "
-            + $"{nameof(Scopes.users)}, {nameof(Scopes.channels)}, {nameof(Scopes.playlists)} and {nameof(Scopes.videos)}.")]
+            + $"{nameof(Scopes.channels)}, {nameof(Scopes.playlists)} and {nameof(Scopes.videos)}.")]
     internal sealed class ClearCache
     {
         internal const string Command = "clear-cache";
         private const string scope = "scope", ids = "ids";
 
         [Value(0, MetaName = scope, Required = true, HelpText = "The type of caches to delete."
-            + $" For {nameof(Scopes.playlists)}, {nameof(Scopes.channels)} and {nameof(Scopes.users)}"
+            + $" For {nameof(Scopes.playlists)} and {nameof(Scopes.channels)}"
             + $" this will include the associated {nameof(Scopes.videos)}.")]
         public Scopes Scope { get; set; }
 
         [Value(1, MetaName = ids, HelpText = $"The space-separated IDs or URLs of elements in the '{scope}' to delete caches for."
-            + $" Can be used with every '{scope}' but '{nameof(Scopes.all)}', supplying the names instead of IDs for '{nameof(Scopes.users)}'."
+            + $" Can be used with every '{scope}' but '{nameof(Scopes.all)}'."
             + $" If not set, all elements in the specified '{scope}' are considered for deletion.")]
         public IEnumerable<string> Ids { get; set; }
 
@@ -75,9 +75,6 @@ namespace SubTubular
                 case ClearCache.Scopes.channels:
                     await ClearPlaylists(SearchChannel.StorageKeyPrefix, v => ChannelId.TryParse(v)?.Value);
                     break;
-                case ClearCache.Scopes.users:
-                    await ClearPlaylists(SearchUser.StorageKeyPrefix, v => UserName.TryParse(v)?.Value);
-                    break;
                 default: throw new NotImplementedException($"Clearing {scope} {Scope} is not implemented.");
             }
 
@@ -115,7 +112,7 @@ namespace SubTubular
             }
         }
 
-        internal enum Scopes { all, videos, playlists, channels, users }
+        internal enum Scopes { all, videos, playlists, channels }
         internal enum Modes { summary, verbose, simulate }
     }
 }

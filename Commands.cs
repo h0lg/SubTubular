@@ -1,13 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using CommandLine;
 using YoutubeExplode;
-using YoutubeExplode.Channels;
 using YoutubeExplode.Playlists;
 using YoutubeExplode.Videos;
 
@@ -54,8 +51,8 @@ namespace SubTubular
         public Shows? Show { get; set; }
 
         internal abstract string Label { get; }
+        internal IEnumerable<string> ValidUrls { get; set; }
 
-        internal abstract IEnumerable<string> GetUrls();
         protected abstract string FormatInternal();
         internal string Format() => FormatInternal() + " " + Query;
 
@@ -101,10 +98,8 @@ namespace SubTubular
         public float CacheHours { get; set; }
 
         protected string ID { get; set; }
-        protected abstract string UrlFormat { get; }
         internal string StorageKey => Label + ID;
 
-        internal override IEnumerable<string> GetUrls() { yield return UrlFormat + ID; }
         protected override string FormatInternal() => StorageKey;
         internal abstract IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation);
 
@@ -126,68 +121,14 @@ namespace SubTubular
         public enum OrderOptions { uploaded, score, asc }
     }
 
-    [Verb("search-user", aliases: new[] { "user", "u" },
-        HelpText = "Searches the videos in the Uploads playlist of a user's main channel."
-            + " This is a glorified search-playlist.")]
-    internal sealed class SearchUser : SearchPlaylistCommand, RemoteValidated
-    {
-        internal const string StorageKeyPrefix = "user ";
-
-        [Value(0, MetaName = "user", Required = true, HelpText = "The user name or URL.")]
-        public string User { get; set; }
-
-        internal override string Label => StorageKeyPrefix;
-        protected override string UrlFormat => "https://www.youtube.com/user/";
-
-        internal override void Validate()
-        {
-            base.Validate();
-
-            var userName = UserName.TryParse(User);
-            if (userName == null) throw new InputException($"'{User}' is not a valid user name.");
-            ID = userName;
-        }
-
-        public async Task RemoteValidateAsync(YoutubeClient youtube, DataStore dataStore, CancellationToken cancellation)
-        {
-            cancellation.ThrowIfCancellationRequested();
-            Channel channel = null;
-
-            try
-            {
-                channel = await youtube.Channels.GetByUserAsync((UserName)ID, cancellation);
-                ID = channel.Id;
-            }
-            catch (HttpRequestException ex)
-            {
-                if (ex.IsNotFound()) throw new InputException($"User '{User}' could not be found.");
-                else throw; // rethrow to raise assumed transient error
-            }
-        }
-
-        internal override async IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube, [EnumeratorCancellation] CancellationToken cancellation)
-        {
-            cancellation.ThrowIfCancellationRequested();
-            var channel = await youtube.Channels.GetByUserAsync(User, cancellation);
-
-            await foreach (var video in youtube.Channels.GetUploadsAsync(channel.Id, cancellation))
-            {
-                cancellation.ThrowIfCancellationRequested();
-                yield return video;
-            }
-        }
-    }
-
     [Verb(Command, aliases: new[] { "playlist", "p" }, HelpText = "Searches the videos in a playlist.")]
     internal sealed class SearchPlaylist : SearchPlaylistCommand
     {
         internal const string Command = "search-playlist", StorageKeyPrefix = "playlist ";
+        internal override string Label => StorageKeyPrefix;
 
         [Value(0, MetaName = "playlist", Required = true, HelpText = "The playlist ID or URL.")]
         public string Playlist { get; set; }
-
-        internal override string Label => StorageKeyPrefix;
-        protected override string UrlFormat => "https://www.youtube.com/playlist?list=";
 
         internal override void Validate()
         {
@@ -196,6 +137,7 @@ namespace SubTubular
             var id = PlaylistId.TryParse(Playlist);
             if (id == null) throw new InputException($"'{Playlist}' is not a valid playlist ID.");
             ID = id;
+            ValidUrls = new[] { "https://www.youtube.com/playlist?list=" + ID };
         }
 
         internal override IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation)
@@ -217,7 +159,6 @@ namespace SubTubular
         internal string[] ValidIds { get; private set; }
 
         protected override string FormatInternal() => Label + ValidIds.Join(" ");
-        internal override IEnumerable<string> GetUrls() => ValidIds.Select(id => GetVideoUrl(id));
 
         internal override void Validate()
         {
@@ -230,6 +171,7 @@ namespace SubTubular
                 + Environment.NewLine + invalid.Select(pair => pair.Key).Join(Environment.NewLine));
 
             ValidIds = idsToValid.Except(invalid).Select(pair => pair.Value.Value.ToString()).ToArray();
+            ValidUrls = ValidIds.Select(GetVideoUrl).ToArray();
         }
     }
 

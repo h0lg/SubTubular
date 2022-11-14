@@ -39,12 +39,9 @@ namespace SubTubular
             try
             {
                 var parserResult = new Parser(with => with.HelpWriter = null)
-                    .ParseArguments<SearchUser, SearchChannel, SearchPlaylist, SearchVideos, Open, ClearCache>(args);
+                    .ParseArguments<SearchChannel, SearchPlaylist, SearchVideos, Open, ClearCache>(args);
 
                 //https://github.com/commandlineparser/commandline/wiki/Getting-Started#using-withparsedasync-in-asyncawait
-                await parserResult.WithParsedAsync<SearchUser>(command
-                    => SearchAsync(command, originalCommand, youtube => youtube.SearchPlaylistAsync(command)));
-
                 await parserResult.WithParsedAsync<SearchChannel>(command
                     => SearchAsync(command, originalCommand, youtube => youtube.SearchPlaylistAsync(command)));
 
