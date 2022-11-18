@@ -5,7 +5,7 @@ namespace SubTubular
 {
     internal static class AssemblyInfo
     {
-        private static readonly string Location, Version;
+        internal static readonly string Location, Version;
 
         static AssemblyInfo()
         {
