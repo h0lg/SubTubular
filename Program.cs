@@ -70,9 +70,11 @@ namespace SubTubular
 
                 await parserResult.WithParsedAsync<Release>(async release =>
                 {
-                    if (release.List) Console.WriteLine(await release.ListAsync());
-                    else if (!string.IsNullOrEmpty(release.Notes)) await Release.OpenNotesAsync(release.Notes);
-                    else if (!string.IsNullOrEmpty(release.InstallTag)) await release.InstallByTagAsync(Console.Write);
+                    var dataStore = new JsonFileDataStore(Folder.GetPath(Folders.cache));
+
+                    if (release.List) Console.WriteLine(await Release.ListAsync(dataStore));
+                    else if (!string.IsNullOrEmpty(release.Notes)) await Release.OpenNotesAsync(release.Notes, dataStore);
+                    else if (!string.IsNullOrEmpty(release.InstallTag)) await release.InstallByTagAsync(Console.Write, dataStore);
                 });
 
                 parserResult.WithParsed<Open>(open => ShellCommands.ExploreFolder(Folder.GetPath(open.Folder)));

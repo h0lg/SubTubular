@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -8,6 +9,7 @@ namespace SubTubular
 {
     internal interface DataStore
     {
+        DateTime? GetLastModified(string key);
         Task<T> GetAsync<T>(string key);
         Task SetAsync<T>(string key, T value);
     }
@@ -26,6 +28,12 @@ namespace SubTubular
 
         private static string GetFileName(string key) => key + FileExtension;
         private string GetPath(string key) => Path.Combine(directory, GetFileName(key));
+
+        public DateTime? GetLastModified(string key)
+        {
+            var path = GetPath(key);
+            return File.Exists(path) ? File.GetLastWriteTime(path) : null;
+        }
 
         public async Task<T> GetAsync<T>(string key)
         {

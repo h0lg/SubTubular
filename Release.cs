@@ -30,9 +30,9 @@ namespace SubTubular
             + " Supply either the tag of the release to install or 'latest'.")]
         public string InstallTag { get; set; }
 
-        internal async Task<string> ListAsync()
+        internal static async Task<string> ListAsync(DataStore dataStore)
         {
-            var releases = await GetAll();
+            var releases = await GetAll(dataStore);
             var maxTagLength = releases.Max(r => r.TagName.Length);
 
             return releases.Select(r => $"{r.PublishedAt:yyyy-MM-dd} {r.TagName.PadLeft(maxTagLength)} {r.Name}"
@@ -40,9 +40,12 @@ namespace SubTubular
                 .Prepend("date       " + "tag".PadRight(maxTagLength) + " name").Join(Environment.NewLine);
         }
 
-        internal async Task InstallByTagAsync(Action<string> report)
+        internal async Task InstallByTagAsync(Action<string> report, DataStore dataStore)
         {
-            var release = await GetRelease(InstallTag);
+            var release = await GetRelease(InstallTag, dataStore);
+
+            if (release.BinariesZipError != null) throw new InputException(
+                $"Installing release {release.TagName} is not supported because it contains {release.BinariesZipError}.");
 
             if (string.IsNullOrEmpty(InstallFolder)) // STEP 1, running in app to be replaced
             {
@@ -70,26 +73,15 @@ namespace SubTubular
             }
             else // STEP 2, running on backed up binaries of app to be replaced (in archive sub folder)
             {
-                var zips = release.Assets.Where(asset => asset.Name.EndsWith(".zip")).ToArray();
-
-                if (zips.Length > 1) throw new NotImplementedException(
-                    $"Release with tag {release.TagName} contains mulitple custom .zip assets (other than the source code)."
-                    + " To support automatic release installation,"
-                    + " implement a strategy to select the one with the (correct) binaries to download.");
-
-                var asset = zips.SingleOrDefault();
-
-                if (asset == null) throw new Exception(
-                    $"Release with tag {release.TagName} doesn't contain a .zip asset with binaries that could be downloaded.");
-
                 var archiveFolder = GetArchivePath(InstallFolder);
-                var zipPath = Path.Combine(archiveFolder, asset.Name);
+                var zipPath = Path.Combine(archiveFolder, release.BinariesZip.Name);
                 var zipFile = new FileInfo(zipPath);
                 report(Environment.NewLine); // to start in a new line below the prompt
 
-                if (!zipFile.Exists || asset.Size != zipFile.Length)
+                // compare size of downloaded zip with online asset as a simple form of validation
+                if (!zipFile.Exists || release.BinariesZip.Size != zipFile.Length)
                 {
-                    var url = asset.BrowserDownloadUrl;
+                    var url = release.BinariesZip.DownloadUrl;
                     report($"Downloading {release.TagName} from '{url}'{Environment.NewLine}to '{zipPath}' ... ");
                     await FileHelper.DownloadAsync(url, zipPath);
                     report("DONE" + Program.OutputSpacing);
@@ -110,25 +102,96 @@ namespace SubTubular
             }
         }
 
-        internal static async Task OpenNotesAsync(string tag) => OpenNotes(await GetRelease(tag));
-        private static void OpenNotes(Octokit.Release release) => ShellCommands.OpenUri(release.HtmlUrl);
+        internal static async Task OpenNotesAsync(string tag, DataStore dataStore) => OpenNotes(await GetRelease(tag, dataStore));
+        private static void OpenNotes(CacheModel release) => ShellCommands.OpenUri(release.HtmlUrl);
         private static string GetArchivePath(string appFolder) => Path.Combine(appFolder, "other releases");
 
         private static GitHubClient GetGithubClient()
             => new GitHubClient(new ProductHeaderValue(Program.Name, AssemblyInfo.GetProductVersion()));
 
-        private static async Task<IReadOnlyList<Octokit.Release>> GetAll()
-            => await GetGithubClient().Repository.Release.GetAll(Program.RepoOwner, Program.RepoName);
-
-        private static async Task<Octokit.Release> GetRelease(string tag)
+        private static async Task<List<CacheModel>> GetAll(DataStore dataStore)
         {
-            if (tag == "latest") return (await GetAll()).OrderBy(r => r.PublishedAt).Last();
+            const string cacheKey = "releases";
+            var lastModified = dataStore.GetLastModified(cacheKey);
 
-            try { return await GetGithubClient().Repository.Release.Get(Program.RepoOwner, Program.RepoName, tag); }
-            catch (NotFoundException ex)
+            // if cache exists and is not older than 1 hour
+            if (lastModified.HasValue && DateTime.Now.Subtract(lastModified.Value).TotalHours < 1)
             {
-                throw new InputException($"Release with tag {tag} could not be found."
-                    + " Use a value from the 'tag' column in the 'release --list'.", ex);
+                var cached = await dataStore.GetAsync<List<CacheModel>>(cacheKey);
+                if (cached != null) return cached;
+            }
+
+            var freshReleases = await GetGithubClient().Repository.Release.GetAll(Program.RepoOwner, Program.RepoName);
+            var releases = freshReleases.Select(release => new CacheModel(release)).ToList();
+            await dataStore.SetAsync(cacheKey, releases);
+            return releases;
+        }
+
+        private static async Task<CacheModel> GetRelease(string tag, DataStore dataStore)
+        {
+            var releases = await GetAll(dataStore);
+            if (tag == "latest") return releases.OrderBy(r => r.PublishedAt).Last();
+            var matching = releases.Where(r => r.TagName.Contains(tag)).ToArray();
+
+            if (matching.Length > 1) throw new InputException($"'{tag}' matches multiple release tags."
+                + " Specify a unique value: " + matching.Select(r => r.TagName).Join(" | "));
+
+            if (matching.Length < 1) throw new InputException($"Release with tag {tag} could not be found."
+                + " Use a value from the 'tag' column in the 'release --list'.");
+
+            return matching.Single();
+        }
+
+        [Serializable]
+        public sealed class CacheModel
+        {
+            public string Name { get; set; }
+            public string TagName { get; set; }
+            public string HtmlUrl { get; set; }
+            public DateTime PublishedAt { get; set; }
+
+            /// <summary>The .zip asset containing the binaries if <see cref="BinariesZipError"/> is null.</summary>
+            public BinariesZipAsset BinariesZip { get; set; }
+
+            /// <summary>The error identifying the <see cref="BinariesZip"/>, if any.</summary>
+            public string BinariesZipError { get; set; }
+
+            public CacheModel() { } // required for serialization
+
+            internal CacheModel(Octokit.Release release)
+            {
+                Name = release.Name;
+                TagName = release.TagName;
+                HtmlUrl = release.HtmlUrl;
+                PublishedAt = release.PublishedAt.GetValueOrDefault().DateTime;
+
+                var zips = release.Assets.Where(asset => asset.Name.EndsWith(".zip")).ToArray();
+
+                if (zips.Length > 1)
+                {
+                    /*  To support automatic release installation with multiple matching zip files,
+                        implement a strategy to select the one with the (correct) binaries to download. */
+                    BinariesZipError = "multiple .zip assets"; // custom, other than the source code
+                    return;
+                }
+
+                var asset = zips.SingleOrDefault();
+
+                if (asset == null) BinariesZipError = "no .zip asset";
+                else BinariesZip = new BinariesZipAsset
+                {
+                    Name = asset.Name,
+                    DownloadUrl = asset.BrowserDownloadUrl,
+                    Size = asset.Size
+                };
+            }
+
+            [Serializable]
+            public sealed class BinariesZipAsset
+            {
+                public string Name { get; set; }
+                public string DownloadUrl { get; set; }
+                public int Size { get; set; }
             }
         }
     }
