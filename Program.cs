@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,7 +11,7 @@ using CommandLine.Text;
 
 namespace SubTubular
 {
-    internal sealed class Program
+    internal static class Program
     {
         private const string asciiHeading = @"
    _____       __  ______      __          __
@@ -24,7 +22,9 @@ namespace SubTubular
 
 "; //from http://www.patorjk.com/software/taag/#p=display&f=Slant&t=SubTubular
 
-        private const string repoUrl = "https://github.com/h0lg/SubTubular";
+        private const string Name = nameof(SubTubular),
+            repoUrl = "https://github.com/h0lg/SubTubular";
+
         private static string errorOutputSpacing = Environment.NewLine + Environment.NewLine;
 
         private static async Task Main(string[] args)
@@ -33,7 +33,7 @@ namespace SubTubular
             Tests.PaddedMatchTests.Run();
 #endif
 
-            var originalCommand = "> SubTubular " + args.Join(" ");
+            var originalCommand = $"> {Name} " + args.Join(" ");
 
             //see https://github.com/commandlineparser/commandline
             try
@@ -179,19 +179,7 @@ namespace SubTubular
 
         private static async Task WriteErrorLogAsync(string originalCommand, string errors, string name = null)
         {
-            var assembly = Assembly.GetExecutingAssembly();
-            string productInfo = null;
-
-            try
-            {
-                var versionInfo = FileVersionInfo.GetVersionInfo(assembly.Location);
-                productInfo = $"{versionInfo.ProductName} {versionInfo.ProductVersion}";
-            }
-            catch
-            {
-                var assemblyName = assembly.GetName();
-                productInfo = $"{assemblyName.Name} {assemblyName.Version}";
-            }
+            var productInfo = Name + " " + AssemblyInfo.GetProductVersion();
 
             var environmentInfo = new[] { "on", Environment.OSVersion.VersionString,
                 RuntimeInformation.FrameworkDescription, productInfo }.Join(" ");
@@ -222,7 +210,7 @@ namespace SubTubular
                 + $" or {repoUrl}/issues for existing reports of this error and maybe a solution or work-around."
                 + " If you can reproduce this error in the latest version, reporting it there is your best chance at getting it fixed."
                 + " If you do, make sure to include the original command or parameters to reproduce it,"
-                + " any exception details that have not already been shared and the OS/.NET/SubTubular version you're on."
+                + $" any exception details that have not already been shared and the OS/.NET/{Name} version you're on."
                 + $" You'll find all that in the error {(fileWritten ? "log file" : "output above")}.");
         }
 
