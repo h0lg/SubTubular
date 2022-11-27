@@ -75,12 +75,18 @@ namespace SubTubular
             // see https://mikegoatly.github.io/lifti/docs/serialization/
             using (var writer = new FileStream(GetPath(key), FileMode.OpenOrCreate, FileAccess.Write))
                 await serializer.SerializeAsync(index.Index, writer, disposeStream: false);
+
+            index.HasUnsavedChanges = false; // to reset the flag
         }
     }
 
     internal sealed class VideoIndex
     {
         internal FullTextIndex<string> Index { get; }
+
+        /// <summary>Set internally and temporarily when the index was updated
+        /// during an operation signalling to the consumer that it requires saving.</summary>
+        internal bool HasUnsavedChanges { get; set; }
 
         internal VideoIndex(FullTextIndex<string> index) => Index = index;
 
@@ -97,6 +103,8 @@ namespace SubTubular
                 track.VideoId = video.Id; // set for indexing
                 await Index.AddAsync(track);
             }
+
+            HasUnsavedChanges = true;
         }
 
         internal void BeginBatchChange() => Index.BeginBatchChange();
@@ -115,7 +123,7 @@ namespace SubTubular
         /// <param name="updatePlaylistVideosUploaded">A callback for updating the <see cref="Playlist.Videos"/>
         /// with the <see cref="Video.Uploaded"/> dates after loading them for <see cref="SearchCommand.OrderOptions.uploaded"/>.</param>
         internal async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command,
-            Func<string, CancellationToken, Task<Video>> getVideoAsync,
+            Func<string, CancellationToken, Task<(Video, bool)>> getVideoAsync,
             [EnumeratorCancellation] CancellationToken cancellation = default,
             IDictionary<string, DateTime?> relevantVideos = default,
             Func<IEnumerable<Video>, Task> updatePlaylistVideosUploaded = default)
@@ -144,6 +152,7 @@ namespace SubTubular
                 .ToList();
 
             var previouslyLoadedVideos = new Video[0];
+            var unIndexedVideos = new List<Video>();
 
             if (command is SearchPlaylistCommand searchPlaylist) // order playlist matches
             {
@@ -160,7 +169,10 @@ namespace SubTubular
                     {
                         var getVideos = withoutUploadDate.Select(m => getVideoAsync(m.VideoId, cancellation)).ToArray();
                         await Task.WhenAll(getVideos);
-                        previouslyLoadedVideos = getVideos.Select(t => t.Result).ToArray();
+                        var videosCached = getVideos.Select(t => t.Result).ToArray();
+                        previouslyLoadedVideos = videosCached.Select(t => t.Item1).ToArray();
+                        var uncached = videosCached.Where(t => !t.Item2).ToArray();
+                        if (uncached.Length > 0) unIndexedVideos.AddRange(uncached.Select(x => x.Item1));
 
                         foreach (var match in withoutUploadDate)
                             relevantVideos[match.VideoId] = previouslyLoadedVideos.Single(v => v.Id == match.VideoId).Uploaded;
@@ -184,8 +196,23 @@ namespace SubTubular
             {
                 cancellation.ThrowIfCancellationRequested();
 
-                var video = previouslyLoadedVideos.SingleOrDefault(v => v.Id == match.VideoId)
-                    ?? await getVideoAsync(match.VideoId, cancellation);
+                // consider results for uncached videos stale
+                if (unIndexedVideos.Any(video => video.Id == match.VideoId)) continue;
+
+                var video = previouslyLoadedVideos.SingleOrDefault(v => v.Id == match.VideoId);
+
+                if (video == null)
+                {
+                    var (loaded, cached) = await getVideoAsync(match.VideoId, cancellation);
+
+                    if (!cached)
+                    {
+                        unIndexedVideos.Add(loaded);
+                        continue; // consider results for uncached videos stale
+                    }
+
+                    video = loaded;
+                }
 
                 var result = new VideoSearchResult { Video = video };
 
@@ -279,6 +306,41 @@ namespace SubTubular
 
                 yield return result;
             }
+
+            if (unIndexedVideos.Count > 0)
+            {
+                // consider results for uncached videos stale and re-index them
+                await UpdateAsync(unIndexedVideos, cancellation);
+
+                // re-trigger search for re-indexed videos only
+                Func<string, CancellationToken, Task<(Video, bool)>> getReIndexedVideoAsync = async (id, cancellation) =>
+                {
+                    var video = unIndexedVideos.SingleOrDefault(v => v.Id == id);
+                    return video == null ? await getVideoAsync(id, cancellation) : (video, true);
+                };
+
+                await foreach (var result in SearchAsync(command, getReIndexedVideoAsync, cancellation,
+                    unIndexedVideos.ToDictionary(v => v.Id, v => v.Uploaded as DateTime?), updatePlaylistVideosUploaded))
+                    yield return result;
+            }
+        }
+
+        private async Task UpdateAsync(IEnumerable<Video> videos, CancellationToken cancellation)
+        {
+            var indexedKeys = Index.Items.GetIndexedItems().Select(i => i.Item).ToArray();
+            BeginBatchChange();
+
+            foreach (var video in videos)
+            {
+                var captionTrackKeyPrefix = video.Id + CaptionTrack.MultiPartKeySeparator;
+
+                await Task.WhenAll(indexedKeys.Where(key => key == video.Id || key.StartsWith(captionTrackKeyPrefix))
+                    .Select(key => Index.RemoveAsync(key)));
+
+                await AddAsync(video, cancellation); // sets HasUnsavedChanges = true
+            }
+
+            await CommitBatchChangeAsync();
         }
     }
 }
