@@ -33,7 +33,7 @@ namespace SubTubular
             var playlist = await dataStore.GetAsync<Playlist>(storageKey); //get cached
 
             var index = await videoIndexRepo.GetAsync(storageKey);
-            if (index == null) index = videoIndexRepo.Build();
+            if (index == null) index = videoIndexRepo.Build(storageKey);
             string[] videoIds;
 
             if (playlist == null //playlist cache is missing, outdated or lacking sufficient videos
@@ -92,7 +92,6 @@ namespace SubTubular
             }
 
             await searchCompletion; // just to rethrow possible exceptions; should have completed at this point
-            if (index.HasUnsavedChanges) await videoIndexRepo.SaveAsync(index, storageKey);
 
             async Task UpdatePlaylistVideosUploaded(IEnumerable<Video> videos)
             {
@@ -176,8 +175,7 @@ namespace SubTubular
                     || unIndexedVideos.Reader.Completion.IsCompleted // to save remaining changes
                     || unIndexedVideos.Reader.Count == 0) // to use resources efficiently while we've got nothing queued up for indexing
                 {
-                    await index.CommitBatchChangeAsync();
-                    await Task.WhenAll(videoIndexRepo.SaveAsync(index, storageKey), updatePlaylistVideosUploaded(uncommitted));
+                    await Task.WhenAll(index.CommitBatchChangeAsync(), updatePlaylistVideosUploaded(uncommitted));
 
                     var indexedVideoInfos = uncommitted.ToDictionary(v => v.Id, v => v.Uploaded as DateTime?);
 
@@ -210,12 +208,11 @@ namespace SubTubular
 
                 if (index == null)
                 {
-                    index = videoIndexRepo.Build();
+                    index = videoIndexRepo.Build(storageKey);
                     var video = await GetVideoAsync(videoId, cancellation);
                     index.BeginBatchChange();
                     await index.AddAsync(video, cancellation);
                     await index.CommitBatchChangeAsync();
-                    await videoIndexRepo.SaveAsync(index, storageKey);
 
                     // reuse already loaded video for better performance
                     getVideoAsync = (videoId, cancellation) => Task.FromResult(video);
@@ -223,8 +220,6 @@ namespace SubTubular
 
                 await foreach (var result in index.SearchAsync(command, getVideoAsync, cancellation))
                     yield return result;
-
-                if (index.HasUnsavedChanges) await videoIndexRepo.SaveAsync(index, videoId);
             }
         }
 

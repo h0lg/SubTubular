@@ -43,7 +43,16 @@ namespace SubTubular
             serializer = new BinarySerializer<string>();
         }
 
-        internal VideoIndex Build() => new VideoIndex(builder.Build());
+        internal VideoIndex Build(string key)
+        {
+            VideoIndex videoIndex = null;
+
+            videoIndex = new VideoIndex(builder
+                // see https://mikegoatly.github.io/lifti/docs/index-construction/withindexmodificationaction/
+                .WithIndexModificationAction(async (idx) => { await SaveAsync(videoIndex, key); }).Build());
+
+            return videoIndex;
+        }
 
         private string GetPath(string key) => Path.Combine(directory, key + FileExtension);
 
@@ -55,7 +64,7 @@ namespace SubTubular
 
             try
             {
-                var index = Build();
+                var index = Build(key);
 
                 // see https://mikegoatly.github.io/lifti/docs/serialization/
                 using (var reader = file.OpenRead())
@@ -70,23 +79,17 @@ namespace SubTubular
             }
         }
 
-        internal async Task SaveAsync(VideoIndex index, string key)
+        private async Task SaveAsync(VideoIndex index, string key)
         {
             // see https://mikegoatly.github.io/lifti/docs/serialization/
             using (var writer = new FileStream(GetPath(key), FileMode.OpenOrCreate, FileAccess.Write))
                 await serializer.SerializeAsync(index.Index, writer, disposeStream: false);
-
-            index.HasUnsavedChanges = false; // to reset the flag
         }
     }
 
     internal sealed class VideoIndex
     {
         internal FullTextIndex<string> Index { get; }
-
-        /// <summary>Set internally and temporarily when the index was updated
-        /// during an operation signalling to the consumer that it requires saving.</summary>
-        internal bool HasUnsavedChanges { get; set; }
 
         internal VideoIndex(FullTextIndex<string> index) => Index = index;
 
@@ -105,7 +108,6 @@ namespace SubTubular
             }
 
             video.UnIndexed = false; // to reset the flag
-            HasUnsavedChanges = true;
         }
 
         internal void BeginBatchChange() => Index.BeginBatchChange();
@@ -202,15 +204,13 @@ namespace SubTubular
 
                 if (video == null)
                 {
-                    var loaded = await getVideoAsync(match.VideoId, cancellation);
+                    video = await getVideoAsync(match.VideoId, cancellation);
 
-                    if (loaded.UnIndexed)
+                    if (video.UnIndexed)
                     {
-                        unIndexedVideos.Add(loaded);
+                        unIndexedVideos.Add(video);
                         continue; // consider results for uncached videos stale
                     }
-
-                    video = loaded;
                 }
 
                 var result = new VideoSearchResult { Video = video };
@@ -333,7 +333,7 @@ namespace SubTubular
                 await Task.WhenAll(indexedKeys.Where(key => key == video.Id || key.StartsWith(captionTrackKeyPrefix))
                     .Select(key => Index.RemoveAsync(key)));
 
-                await AddAsync(video, cancellation); // sets HasUnsavedChanges = true
+                await AddAsync(video, cancellation);
             }
 
             await CommitBatchChangeAsync();
