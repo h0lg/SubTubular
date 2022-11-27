@@ -142,34 +142,40 @@ namespace SubTubular
                 .ToList();
 
             var previouslyLoadedVideos = new Video[0];
-            var orderByUploaded = command.OrderBy.Contains(SearchCommand.OrderOptions.uploaded);
 
-            if (orderByUploaded)
+            if (command is SearchPlaylistCommand searchPlaylist) // order playlist matches
             {
-                if (relevantVideos == default) relevantVideos = new Dictionary<string, DateTime?>();
-                var withoutUploadDate = matches.Where(m => !relevantVideos.ContainsKey(m.VideoId) || relevantVideos[m.VideoId] == null).ToArray();
+                var orderByUploaded = searchPlaylist.OrderBy.Contains(SearchPlaylistCommand.OrderOptions.uploaded);
 
-                if (withoutUploadDate.Any())
+                if (orderByUploaded)
                 {
-                    var getVideos = withoutUploadDate.Select(m => getVideoAsync(m.VideoId, cancellation)).ToArray();
-                    await Task.WhenAll(getVideos);
-                    previouslyLoadedVideos = getVideos.Select(t => t.Result).ToArray();
+                    if (relevantVideos == default) relevantVideos = new Dictionary<string, DateTime?>();
 
-                    foreach (var match in withoutUploadDate)
-                        relevantVideos[match.VideoId] = previouslyLoadedVideos.Single(v => v.Id == match.VideoId).Uploaded;
+                    var withoutUploadDate = matches.Where(m => !relevantVideos.ContainsKey(m.VideoId)
+                        || relevantVideos[m.VideoId] == null).ToArray();
 
-                    if (updatePlaylistVideosUploaded != default)
-                        await updatePlaylistVideosUploaded(previouslyLoadedVideos);
+                    if (withoutUploadDate.Any()) // get upload dates for videos that we don't know it of
+                    {
+                        var getVideos = withoutUploadDate.Select(m => getVideoAsync(m.VideoId, cancellation)).ToArray();
+                        await Task.WhenAll(getVideos);
+                        previouslyLoadedVideos = getVideos.Select(t => t.Result).ToArray();
+
+                        foreach (var match in withoutUploadDate)
+                            relevantVideos[match.VideoId] = previouslyLoadedVideos.Single(v => v.Id == match.VideoId).Uploaded;
+
+                        if (updatePlaylistVideosUploaded != default)
+                            await updatePlaylistVideosUploaded(previouslyLoadedVideos);
+                    }
                 }
-            }
 
-            if (command.OrderBy.ContainsAny(SearchCommand.Orders))
-            {
-                var orderded = command.OrderBy.Contains(SearchCommand.OrderOptions.asc)
-                    ? matches.OrderBy(m => orderByUploaded ? relevantVideos[m.VideoId] : m.Score as object)
-                    : matches.OrderByDescending(m => orderByUploaded ? relevantVideos[m.VideoId] : m.Score as object);
+                if (searchPlaylist.OrderBy.ContainsAny(SearchPlaylistCommand.Orders))
+                {
+                    var orderded = searchPlaylist.OrderBy.Contains(SearchPlaylistCommand.OrderOptions.asc)
+                        ? matches.OrderBy(m => orderByUploaded ? relevantVideos[m.VideoId] : m.Score as object)
+                        : matches.OrderByDescending(m => orderByUploaded ? relevantVideos[m.VideoId] : m.Score as object);
 
-                matches = orderded.ToList();
+                    matches = orderded.ToList();
+                }
             }
 
             foreach (var match in matches)
