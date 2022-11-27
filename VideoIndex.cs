@@ -104,6 +104,7 @@ namespace SubTubular
                 await Index.AddAsync(track);
             }
 
+            video.UnIndexed = false; // to reset the flag
             HasUnsavedChanges = true;
         }
 
@@ -123,7 +124,7 @@ namespace SubTubular
         /// <param name="updatePlaylistVideosUploaded">A callback for updating the <see cref="Playlist.Videos"/>
         /// with the <see cref="Video.Uploaded"/> dates after loading them for <see cref="SearchCommand.OrderOptions.uploaded"/>.</param>
         internal async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command,
-            Func<string, CancellationToken, Task<(Video, bool)>> getVideoAsync,
+            Func<string, CancellationToken, Task<Video>> getVideoAsync,
             [EnumeratorCancellation] CancellationToken cancellation = default,
             IDictionary<string, DateTime?> relevantVideos = default,
             Func<IEnumerable<Video>, Task> updatePlaylistVideosUploaded = default)
@@ -169,10 +170,8 @@ namespace SubTubular
                     {
                         var getVideos = withoutUploadDate.Select(m => getVideoAsync(m.VideoId, cancellation)).ToArray();
                         await Task.WhenAll(getVideos);
-                        var videosCached = getVideos.Select(t => t.Result).ToArray();
-                        previouslyLoadedVideos = videosCached.Select(t => t.Item1).ToArray();
-                        var uncached = videosCached.Where(t => !t.Item2).ToArray();
-                        if (uncached.Length > 0) unIndexedVideos.AddRange(uncached.Select(x => x.Item1));
+                        previouslyLoadedVideos = getVideos.Select(t => t.Result).ToArray();
+                        unIndexedVideos.AddRange(previouslyLoadedVideos.Where(v => v.UnIndexed));
 
                         foreach (var match in withoutUploadDate)
                             relevantVideos[match.VideoId] = previouslyLoadedVideos.Single(v => v.Id == match.VideoId).Uploaded;
@@ -203,9 +202,9 @@ namespace SubTubular
 
                 if (video == null)
                 {
-                    var (loaded, cached) = await getVideoAsync(match.VideoId, cancellation);
+                    var loaded = await getVideoAsync(match.VideoId, cancellation);
 
-                    if (!cached)
+                    if (loaded.UnIndexed)
                     {
                         unIndexedVideos.Add(loaded);
                         continue; // consider results for uncached videos stale
@@ -313,11 +312,8 @@ namespace SubTubular
                 await UpdateAsync(unIndexedVideos, cancellation);
 
                 // re-trigger search for re-indexed videos only
-                Func<string, CancellationToken, Task<(Video, bool)>> getReIndexedVideoAsync = async (id, cancellation) =>
-                {
-                    var video = unIndexedVideos.SingleOrDefault(v => v.Id == id);
-                    return video == null ? await getVideoAsync(id, cancellation) : (video, true);
-                };
+                Func<string, CancellationToken, Task<Video>> getReIndexedVideoAsync = async (id, cancellation)
+                    => unIndexedVideos.SingleOrDefault(v => v.Id == id) ?? await getVideoAsync(id, cancellation);
 
                 await foreach (var result in SearchAsync(command, getReIndexedVideoAsync, cancellation,
                     unIndexedVideos.ToDictionary(v => v.Id, v => v.Uploaded as DateTime?), updatePlaylistVideosUploaded))

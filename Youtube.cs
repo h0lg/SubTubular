@@ -139,7 +139,7 @@ namespace SubTubular
                         try
                         {
                             cancellation.ThrowIfCancellationRequested();
-                            var (video, cached) = await GetVideoAsync(id, cancellation);
+                            var video = await GetVideoAsync(id, cancellation);
                             await unIndexedVideos.Writer.WriteAsync(video);
                         }
                         /* only start another download if channel has accepted the video or an error occurred */
@@ -155,11 +155,8 @@ namespace SubTubular
             var uncommitted = new List<Video>(); // batch of loaded and indexed, but uncommited video index changes
 
             // local getter preferring to reuse already loaded video from uncommitted bag for better performance
-            Func<string, CancellationToken, Task<(Video, bool)>> getVideoAsync = async (videoId, cancellation) =>
-            {
-                var video = uncommitted.SingleOrDefault(v => v.Id == videoId);
-                return video == null ? await GetVideoAsync(videoId, cancellation) : (video, true);
-            };
+            Func<string, CancellationToken, Task<Video>> getVideoAsync = async (videoId, cancellation)
+                => uncommitted.SingleOrDefault(v => v.Id == videoId) ?? await GetVideoAsync(videoId, cancellation);
 
             // read synchronously from the channel because we're writing to the same video index
             await foreach (var video in unIndexedVideos.Reader.ReadAllAsync())
@@ -208,20 +205,20 @@ namespace SubTubular
                 var index = await videoIndexRepo.GetAsync(storageKey);
 
                 // used to get a video during search
-                Func<string, CancellationToken, Task<(Video, bool)>> getVideoAsync = (videoId, cancellation)
+                Func<string, CancellationToken, Task<Video>> getVideoAsync = (videoId, cancellation)
                     => GetVideoAsync(videoId, cancellation);
 
                 if (index == null)
                 {
                     index = videoIndexRepo.Build();
-                    var (video, cached) = await GetVideoAsync(videoId, cancellation);
+                    var video = await GetVideoAsync(videoId, cancellation);
                     index.BeginBatchChange();
                     await index.AddAsync(video, cancellation);
                     await index.CommitBatchChangeAsync();
                     await videoIndexRepo.SaveAsync(index, storageKey);
 
                     // reuse already loaded video for better performance
-                    getVideoAsync = (videoId, cancellation) => Task.FromResult((video, true));
+                    getVideoAsync = (videoId, cancellation) => Task.FromResult(video);
                 }
 
                 await foreach (var result in index.SearchAsync(command, getVideoAsync, cancellation))
@@ -231,18 +228,17 @@ namespace SubTubular
             }
         }
 
-        private async Task<(Video, bool)> GetVideoAsync(string videoId, CancellationToken cancellation)
+        private async Task<Video> GetVideoAsync(string videoId, CancellationToken cancellation)
         {
             cancellation.ThrowIfCancellationRequested();
             var storageKey = Video.StorageKeyPrefix + videoId;
             var video = await dataStore.GetAsync<Video>(storageKey);
-            var cached = true;
 
             if (video == null)
             {
-                cached = false;
                 var vid = await youtube.Videos.GetAsync(videoId, cancellation);
                 video = MapVideo(vid);
+                video.UnIndexed = true; // to re-index it if it was already indexed
 
                 await foreach (var track in DownloadCaptionTracksAsync(videoId, cancellation))
                     video.CaptionTracks.Add(track);
@@ -257,7 +253,7 @@ namespace SubTubular
             foreach (var track in video.CaptionTracks)
                 track.Captions = track.Captions.Distinct().OrderBy(c => c.At).ToList();
 
-            return (video, cached);
+            return video;
         }
 
         private static Video MapVideo(YoutubeExplode.Videos.Video video) => new Video
