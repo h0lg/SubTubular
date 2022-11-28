@@ -74,7 +74,7 @@ namespace SubTubular
 
                     if (release.List) Console.WriteLine(await Release.ListAsync(dataStore));
                     else if (!string.IsNullOrEmpty(release.Notes)) await Release.OpenNotesAsync(release.Notes, dataStore);
-                    else if (!string.IsNullOrEmpty(release.InstallTag)) await release.InstallByTagAsync(Console.Write, dataStore);
+                    else if (!string.IsNullOrEmpty(release.InstallVersion)) await release.InstallByTagAsync(Console.Write, dataStore);
                 });
 
                 parserResult.WithParsed<Open>(open => ShellCommands.ExploreFolder(Folder.GetPath(open.Folder)));

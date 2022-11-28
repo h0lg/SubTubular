@@ -19,7 +19,7 @@ namespace SubTubular
         public bool List { get; set; }
 
         [Option('n', "notes", Group = actions, HelpText = "Opens the github release notes for a single release."
-            + " Supply either the tag of the release you're interested in or 'latest'.")]
+            + " Supply either the version of the release you're interested in or 'latest'.")]
         public string Notes { get; set; }
 
         [Option('t', into, Hidden = true)]
@@ -27,25 +27,29 @@ namespace SubTubular
 
         [Option('i', install, Group = actions, HelpText = "Downloads a release from github"
             + " and unzips it to the current installation folder while backing up the running version."
-            + " Supply either the tag of the release to install or 'latest'.")]
-        public string InstallTag { get; set; }
+            + " Supply either the version of the release to install or 'latest'.")]
+        public string InstallVersion { get; set; }
 
         internal static async Task<string> ListAsync(DataStore dataStore)
         {
             var releases = await GetAll(dataStore);
-            var maxTagLength = releases.Max(r => r.TagName.Length);
+            const string version = "version";
+            var maxVersionLength = Math.Max(version.Length, releases.Max(r => r.Version.Length));
 
-            return releases.Select(r => $"{r.PublishedAt:yyyy-MM-dd} {r.TagName.PadLeft(maxTagLength)} {r.Name}"
-                + (r.TagName.Contains(AssemblyInfo.Version) ? "     <<<<<  YOU ARE HERE" : null))
-                .Prepend("date       " + "tag".PadRight(maxTagLength) + " name").Join(Environment.NewLine);
+            return releases.Select(r => $"{r.PublishedAt:yyyy-MM-dd} {r.Version.PadLeft(maxVersionLength)} {r.Name}"
+                + (r.Version == AssemblyInfo.Version ? "     <<<<<  YOU ARE HERE" : null))
+                .Prepend("date       " + version.PadRight(maxVersionLength) + " name").Join(Environment.NewLine);
         }
 
         internal async Task InstallByTagAsync(Action<string> report, DataStore dataStore)
         {
-            var release = await GetRelease(InstallTag, dataStore);
+            var release = await GetRelease(InstallVersion, dataStore);
+
+            if (release.Version == AssemblyInfo.Version)
+                throw new InputException($"Release {release.Version} is already installed.");
 
             if (release.BinariesZipError != null) throw new InputException(
-                $"Installing release {release.TagName} is not supported because it contains {release.BinariesZipError}.");
+                $"Installing release {release.Version} is not supported because it contains {release.BinariesZipError}.");
 
             if (string.IsNullOrEmpty(InstallFolder)) // STEP 1, running in app to be replaced
             {
@@ -69,7 +73,7 @@ namespace SubTubular
                 /*  start STEP 2 on backed up binaries and have them replace
                     the ones in the current location with the requested version */
                 Process.Start(Path.Combine(backupFolder, Program.Name + ".exe"),
-                    $"release --{install} {release.TagName} --{into} {appFolder}");
+                    $"release --{install} {release.Version} --{into} {appFolder}");
             }
             else // STEP 2, running on backed up binaries of app to be replaced (in archive sub folder)
             {
@@ -82,7 +86,7 @@ namespace SubTubular
                 if (!zipFile.Exists || release.BinariesZip.Size != zipFile.Length)
                 {
                     var url = release.BinariesZip.DownloadUrl;
-                    report($"Downloading {release.TagName} from '{url}'{Environment.NewLine}to '{zipPath}' ... ");
+                    report($"Downloading {release.Version} from '{url}'{Environment.NewLine}to '{zipPath}' ... ");
                     await FileHelper.DownloadAsync(url, zipPath);
                     report("DONE" + Program.OutputSpacing);
                 }
@@ -96,13 +100,15 @@ namespace SubTubular
                 report("DONE" + Program.OutputSpacing);
 
                 report($"The binaries in '{InstallFolder}'" + Environment.NewLine
-                    + $"have successfully been updated to {release.TagName} - opening release notes.");
+                    + $"have successfully been updated to {release.Version} - opening release notes.");
 
                 OpenNotes(release); // by default to update users about changes
             }
         }
 
-        internal static async Task OpenNotesAsync(string tag, DataStore dataStore) => OpenNotes(await GetRelease(tag, dataStore));
+        internal static async Task OpenNotesAsync(string version, DataStore dataStore)
+            => OpenNotes(await GetRelease(version, dataStore));
+
         private static void OpenNotes(CacheModel release) => ShellCommands.OpenUri(release.HtmlUrl);
         private static string GetArchivePath(string appFolder) => Path.Combine(appFolder, "other releases");
 
@@ -127,26 +133,29 @@ namespace SubTubular
             return releases;
         }
 
-        private static async Task<CacheModel> GetRelease(string tag, DataStore dataStore)
+        private static async Task<CacheModel> GetRelease(string version, DataStore dataStore)
         {
             var releases = await GetAll(dataStore);
-            if (tag == "latest") return releases.OrderBy(r => r.PublishedAt).Last();
-            var matching = releases.Where(r => r.TagName.Contains(tag)).ToArray();
+            if (version == "latest") return releases.OrderBy(r => r.PublishedAt).Last();
+            var containing = releases.Where(r => r.Version.Contains(version)).ToArray();
 
-            if (matching.Length > 1) throw new InputException($"'{tag}' matches multiple release tags."
-                + " Specify a unique value: " + matching.Select(r => r.TagName).Join(" | "));
+            if (containing.Length < 1) throw new InputException($"Release with version {version} could not be found."
+                + " Use a value from the 'version' column in the 'release --list'.");
 
-            if (matching.Length < 1) throw new InputException($"Release with tag {tag} could not be found."
-                + " Use a value from the 'tag' column in the 'release --list'.");
+            if (containing.Length == 1) return containing.Single();
 
-            return matching.Single();
+            var matching = containing.Where(r => r.Version == version).ToArray();
+            if (matching.Length == 1) return matching[0];
+
+            throw new InputException($"'{version}' matches multiple release versions."
+                + " Specify a unique value: " + containing.Select(r => r.Version).Join(" | "));
         }
 
         [Serializable]
         public sealed class CacheModel
         {
             public string Name { get; set; }
-            public string TagName { get; set; }
+            public string Version { get; set; }
             public string HtmlUrl { get; set; }
             public DateTime PublishedAt { get; set; }
 
@@ -161,7 +170,7 @@ namespace SubTubular
             internal CacheModel(Octokit.Release release)
             {
                 Name = release.Name;
-                TagName = release.TagName;
+                Version = release.TagName.TrimStart('v');
                 HtmlUrl = release.HtmlUrl;
                 PublishedAt = release.PublishedAt.GetValueOrDefault().DateTime;
 
