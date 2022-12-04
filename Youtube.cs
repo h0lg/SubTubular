@@ -200,7 +200,8 @@ namespace SubTubular
             foreach (var videoId in command.GetVideoIds())
             {
                 cancellation.ThrowIfCancellationRequested();
-                var index = await videoIndexRepo.GetAsync(videoId);
+                var storageKey = Video.StorageKeyPrefix + videoId;
+                var index = await videoIndexRepo.GetAsync(storageKey);
 
                 // used to get a video during search
                 Func<string, CancellationToken, Task<Video>> getVideoAsync = (videoId, cancellation)
@@ -213,7 +214,7 @@ namespace SubTubular
                     index.BeginBatchChange();
                     await index.AddAsync(video, cancellation);
                     await index.CommitBatchChangeAsync();
-                    await videoIndexRepo.SaveAsync(index, videoId);
+                    await videoIndexRepo.SaveAsync(index, storageKey);
 
                     // reuse already loaded video for better performance
                     getVideoAsync = (videoId, cancellation) => Task.FromResult(video);
@@ -227,7 +228,8 @@ namespace SubTubular
         private async Task<Video> GetVideoAsync(string videoId, CancellationToken cancellation)
         {
             cancellation.ThrowIfCancellationRequested();
-            var video = await dataStore.GetAsync<Video>(videoId);
+            var storageKey = Video.StorageKeyPrefix + videoId;
+            var video = await dataStore.GetAsync<Video>(storageKey);
 
             if (video == null)
             {
@@ -237,7 +239,7 @@ namespace SubTubular
                 await foreach (var track in DownloadCaptionTracksAsync(videoId, cancellation))
                     video.CaptionTracks.Add(track);
 
-                await dataStore.SetAsync(videoId, video);
+                await dataStore.SetAsync(storageKey, video);
             }
 
             /* Sanitize captions, making sure cached captions as well as downloaded

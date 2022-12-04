@@ -18,6 +18,8 @@ namespace SubTubular
     [Serializable]
     public sealed class Video
     {
+        internal const string StorageKeyPrefix = "video ";
+
         public string Id { get; set; }
         public string Title { get; set; }
         public string Description { get; set; }

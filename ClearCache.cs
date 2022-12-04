@@ -47,10 +47,10 @@ namespace SubTubular
                     {
                         var parsed = Ids.ToDictionary(id => id, id => VideoId.TryParse(id));
                         var valid = parsed.Where(pair => pair.Value != null);
-                        DeleteFilesByNames(valid.Select(pair => pair.Value.Value.ToString()));
+                        DeleteFilesByNames(valid.Select(pair => Video.StorageKeyPrefix + pair.Value));
                     }
-                    else filesDeleted.AddRange(FileHelper.DeleteFiles(cacheFolder,
-                        notAccessedForDays: NotAccessedForDays, isFileNameDeletable: IsVideoFile));
+                    else filesDeleted.AddRange(FileHelper.DeleteFiles(cacheFolder, Video.StorageKeyPrefix + "*",
+                        notAccessedForDays: NotAccessedForDays));
 
                     break;
                 case ClearCache.Scopes.playlists:
@@ -68,10 +68,6 @@ namespace SubTubular
             return (filesDeleted.Where(fileName => fileName.EndsWith(JsonFileDataStore.FileExtension)),
                 filesDeleted.Where(fileName => fileName.EndsWith(VideoIndexRepository.FileExtension)));
 
-            bool IsVideoFile(string fileName) => !(fileName.StartsWith(SearchPlaylist.StorageKeyPrefix)
-                || fileName.StartsWith(SearchChannel.StorageKeyPrefix)
-                || fileName.StartsWith(SearchUser.StorageKeyPrefix));
-
             void DeleteFileByName(string name) => filesDeleted.AddRange(FileHelper.DeleteFiles(cacheFolder, name + ".*"));
             void DeleteFilesByNames(IEnumerable<string> names) { foreach (var name in names) DeleteFileByName(name); }
 
@@ -86,7 +82,7 @@ namespace SubTubular
                 foreach (var key in deletableKeys)
                 {
                     var playlist = await dataStore.GetAsync<Playlist>(key);
-                    DeleteFilesByNames(playlist.Videos.Keys);
+                    DeleteFilesByNames(playlist.Videos.Keys.Select(videoId => Video.StorageKeyPrefix + videoId));
                     DeleteFileByName(key);
                 }
             }
