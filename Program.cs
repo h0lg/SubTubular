@@ -53,7 +53,17 @@ namespace SubTubular
                 await parserResult.WithParsedAsync<ClearCache>(async command =>
                 {
                     (IEnumerable<string> cachesDeleted, IEnumerable<string> indexesDeleted) = await command.Process();
-                    Console.WriteLine($"{cachesDeleted.Count()} info caches and {indexesDeleted.Count()} full-text indexes were deleted.");
+
+                    if (command.Mode != ClearCache.Modes.summary)
+                    {
+                        Console.WriteLine(cachesDeleted.Join(" "));
+                        Console.WriteLine();
+                        Console.WriteLine(indexesDeleted.Join(" "));
+                        Console.WriteLine();
+                    }
+
+                    var be = command.Mode == ClearCache.Modes.simulate ? "would be" : "were";
+                    Console.WriteLine($"{cachesDeleted.Count()} info caches and {indexesDeleted.Count()} full-text indexes {be} deleted.");
                 });
 
                 parserResult.WithParsed<Open>(open => ShellCommands.ExploreFolder(Folder.GetPath(open.Folder)));

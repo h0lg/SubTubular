@@ -32,15 +32,26 @@ namespace SubTubular
                 + $" Ignored for explicitly set '{ids}'.")]
         public ushort? NotAccessedForDays { get; set; }
 
+        [Option('m', "mode", Default = Modes.summary,
+            HelpText = "The deletion mode;"
+                + $" '{nameof(Modes.summary)}' only outputs how many of what file type were deleted."
+                + $" '{nameof(Modes.verbose)}' outputs the deleted file names as well as the summary."
+                + $" '{nameof(Modes.simulate)}' lists all file names that would be deleted by running the command instead of deleting them."
+                + " You can use this to preview the files that would be deleted.")]
+        public Modes Mode { get; set; }
+
         internal async Task<(IEnumerable<string>, IEnumerable<string>)> Process()
         {
             var filesDeleted = new List<string>();
             var cacheFolder = Folder.GetPath(Folders.cache);
+            var simulate = Mode == Modes.simulate;
 
             switch (Scope)
             {
                 case ClearCache.Scopes.all:
-                    filesDeleted.AddRange(FileHelper.DeleteFiles(cacheFolder, notAccessedForDays: NotAccessedForDays));
+                    filesDeleted.AddRange(FileHelper.DeleteFiles(cacheFolder,
+                        simulate: simulate, notAccessedForDays: NotAccessedForDays));
+
                     break;
                 case ClearCache.Scopes.videos:
                     if (Ids.HasAny())
@@ -50,7 +61,7 @@ namespace SubTubular
                         DeleteFilesByNames(valid.Select(pair => Video.StorageKeyPrefix + pair.Value));
                     }
                     else filesDeleted.AddRange(FileHelper.DeleteFiles(cacheFolder, Video.StorageKeyPrefix + "*",
-                        notAccessedForDays: NotAccessedForDays));
+                        simulate: simulate, notAccessedForDays: NotAccessedForDays));
 
                     break;
                 case ClearCache.Scopes.playlists:
@@ -68,7 +79,9 @@ namespace SubTubular
             return (filesDeleted.Where(fileName => fileName.EndsWith(JsonFileDataStore.FileExtension)),
                 filesDeleted.Where(fileName => fileName.EndsWith(VideoIndexRepository.FileExtension)));
 
-            void DeleteFileByName(string name) => filesDeleted.AddRange(FileHelper.DeleteFiles(cacheFolder, name + ".*"));
+            void DeleteFileByName(string name) => filesDeleted.AddRange(
+                FileHelper.DeleteFiles(cacheFolder, name + ".*", simulate: simulate));
+
             void DeleteFilesByNames(IEnumerable<string> names) { foreach (var name in names) DeleteFileByName(name); }
 
             async Task ClearPlaylists(string keyPrefix, Func<string, string> parseId)
@@ -89,5 +102,6 @@ namespace SubTubular
         }
 
         internal enum Scopes { all, videos, playlists, channels, users }
+        internal enum Modes { summary, verbose, simulate }
     }
 }
