@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -89,6 +90,13 @@ namespace SubTubular
                 })));
             }
             catch (InputException ex) { Console.Error.WriteLine(ex.Message); }
+            catch (HttpRequestException ex)
+            {
+                Console.Error.WriteLine("An unexpected error occurred loading data from YouTube."
+                    + " Try again later or with an updated version. " + ex.Message);
+
+                await WriteErrorLogAsync(originalCommand, ex.ToString());
+            }
             catch (Exception ex) { await WriteErrorLogAsync(originalCommand, ex.ToString()); }
         }
 
@@ -117,6 +125,7 @@ namespace SubTubular
 
                 var cacheFolder = Folder.GetPath(Folders.cache);
                 var youtube = new Youtube(new JsonFileDataStore(cacheFolder), new VideoIndexRepository(cacheFolder));
+                if (command is RemoteValidated remoteValidated) await youtube.RemoteValidateAsync(remoteValidated, search.Token);
                 var tracksWithErrors = new List<CaptionTrack>();
 
                 using (var output = new OutputWriter(command))

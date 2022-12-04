@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Tasks;
 using CommandLine;
 using YoutubeExplode;
 using YoutubeExplode.Channels;
@@ -44,6 +46,7 @@ namespace SubTubular
         public Shows? Show { get; set; }
 
         internal abstract string Label { get; }
+
         internal abstract IEnumerable<string> GetUrls();
         protected abstract string FormatInternal();
         internal string Format() => FormatInternal() + " " + Query;
@@ -55,6 +58,11 @@ namespace SubTubular
             if (string.IsNullOrWhiteSpace(Query)) throw new InputException(
                 "None of the terms contain anything but whitespace. I refuse to work like this!");
         }
+    }
+
+    internal interface RemoteValidated
+    {
+        Task RemoteValidateAsync(YoutubeClient youtube, DataStore dataStore, CancellationToken cancellation);
     }
 
     internal abstract class SearchPlaylistCommand : SearchCommand
@@ -72,7 +80,7 @@ namespace SubTubular
             + " before it is considered stale and the videos in it are refreshed.")]
         public float CacheHours { get; set; }
 
-        protected abstract string ID { get; }
+        protected string ID { get; set; }
         protected abstract string UrlFormat { get; }
         internal override IEnumerable<string> GetUrls() { yield return UrlFormat + ID; }
         internal string StorageKey => Label + ID;
@@ -100,7 +108,7 @@ namespace SubTubular
     [Verb("search-user", aliases: new[] { "user", "u" },
         HelpText = "Searches the videos in the Uploads playlist of a user's main channel."
             + " This is a glorified search-playlist.")]
-    internal sealed class SearchUser : SearchPlaylistCommand
+    internal sealed class SearchUser : SearchPlaylistCommand, RemoteValidated
     {
         internal const string StorageKeyPrefix = "user ";
 
@@ -108,8 +116,33 @@ namespace SubTubular
         public string User { get; set; }
 
         internal override string Label => StorageKeyPrefix;
-        protected override string ID => UserName.Parse(User).Value;
         protected override string UrlFormat => "https://www.youtube.com/user/";
+
+        internal override void Validate()
+        {
+            base.Validate();
+
+            var userName = UserName.TryParse(User);
+            if (userName == null) throw new InputException($"'{User}' is not a valid user name.");
+            ID = userName;
+        }
+
+        public async Task RemoteValidateAsync(YoutubeClient youtube, DataStore dataStore, CancellationToken cancellation)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            Channel channel = null;
+
+            try
+            {
+                channel = await youtube.Channels.GetByUserAsync((UserName)ID, cancellation);
+                ID = channel.Id;
+            }
+            catch (HttpRequestException ex)
+            {
+                if (ex.IsNotFound()) throw new InputException($"User '{User}' could not be found.");
+                else throw; // rethrow to raise assumed transient error
+            }
+        }
 
         internal override async IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube, [EnumeratorCancellation] CancellationToken cancellation)
         {
@@ -133,8 +166,16 @@ namespace SubTubular
         public string Playlist { get; set; }
 
         internal override string Label => StorageKeyPrefix;
-        protected override string ID => PlaylistId.Parse(Playlist).Value;
         protected override string UrlFormat => "https://www.youtube.com/playlist?list=";
+
+        internal override void Validate()
+        {
+            base.Validate();
+
+            var id = PlaylistId.TryParse(Playlist);
+            if (id == null) throw new InputException($"'{Playlist}' is not a valid playlist ID.");
+            ID = id;
+        }
 
         internal override IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation)
         {
@@ -152,9 +193,23 @@ namespace SubTubular
         public IEnumerable<string> Videos { get; set; }
 
         internal override string Label => "videos ";
-        internal IEnumerable<string> GetVideoIds() => Videos.Select(v => VideoId.Parse(v).Value);
-        protected override string FormatInternal() => Label + GetVideoIds().Join(" ");
-        internal override IEnumerable<string> GetUrls() => GetVideoIds().Select(id => GetVideoUrl(id));
+        internal string[] ValidIds { get; private set; }
+
+        protected override string FormatInternal() => Label + ValidIds.Join(" ");
+        internal override IEnumerable<string> GetUrls() => ValidIds.Select(id => GetVideoUrl(id));
+
+        internal override void Validate()
+        {
+            base.Validate();
+
+            var idsToValid = Videos.ToDictionary(id => id, id => VideoId.TryParse(id));
+            var invalid = idsToValid.Where(pair => pair.Value == null).ToArray();
+
+            if (invalid.Length > 0) throw new InputException("The following video IDs or URLs are invalid:"
+                + Environment.NewLine + invalid.Select(pair => pair.Key).Join(Environment.NewLine));
+
+            ValidIds = idsToValid.Except(invalid).Select(pair => pair.Value.Value.ToString()).ToArray();
+        }
     }
 
     [Verb("open", aliases: new[] { "o" }, HelpText = "Opens app-related folders in a file browser.")]

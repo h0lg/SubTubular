@@ -18,13 +18,21 @@ namespace SubTubular
         public string Channel { get; set; }
 
         internal override string Label => StorageKeyPrefix;
-        protected override string ID => ChannelId.Parse(Channel).Value;
         protected override string UrlFormat => "https://www.youtube.com/channel/";
+
+        internal override void Validate()
+        {
+            base.Validate();
+
+            var id = ChannelId.TryParse(Channel);
+            if (id == null) throw new InputException($"'{Channel}' is not a valid channel ID.");
+            ID = id;
+        }
 
         internal override IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation)
         {
             cancellation.ThrowIfCancellationRequested();
-            return youtube.Channels.GetUploadsAsync(Channel, cancellation);
+            return youtube.Channels.GetUploadsAsync(ID, cancellation);
         }
     }
 }
