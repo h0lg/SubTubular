@@ -57,8 +57,12 @@ namespace SubTubular
                     if (Ids.HasAny())
                     {
                         var parsed = Ids.ToDictionary(id => id, id => VideoId.TryParse(id));
-                        var valid = parsed.Where(pair => pair.Value != null);
-                        DeleteFilesByNames(valid.Select(pair => Video.StorageKeyPrefix + pair.Value));
+                        var invalid = parsed.Where(pair => pair.Value == null).Select(pair => pair.Key).ToArray();
+
+                        if (invalid.Length > 0) throw new InputException(
+                            "The following inputs are not valid video IDs or URLs: " + invalid.Join(" "));
+
+                        DeleteFilesByNames(parsed.Values.Select(videoId => Video.StorageKeyPrefix + videoId.Value));
                     }
                     else filesDeleted.AddRange(FileHelper.DeleteFiles(cacheFolder, Video.StorageKeyPrefix + "*",
                         simulate: simulate, notAccessedForDays: NotAccessedForDays));
@@ -87,10 +91,19 @@ namespace SubTubular
             async Task ClearPlaylists(string keyPrefix, Func<string, string> parseId)
             {
                 var dataStore = new JsonFileDataStore(cacheFolder);
+                string[] deletableKeys;
 
-                var deletableKeys = Ids.HasAny()
-                    ? Ids.Select(v => parseId(v)).Where(id => id != null).Select(id => keyPrefix + id).ToArray()
-                    : dataStore.GetKeysByPrefix(keyPrefix, NotAccessedForDays).ToArray();
+                if (Ids.HasAny())
+                {
+                    var parsed = Ids.ToDictionary(id => id, id => parseId(id));
+                    var invalid = parsed.Where(pair => pair.Value == null).Select(pair => pair.Key).ToArray();
+
+                    if (invalid.Length > 0) throw new InputException(
+                        $"The following inputs are not valid {keyPrefix}IDs or URLs: " + invalid.Join(" "));
+
+                    deletableKeys = parsed.Values.Select(id => keyPrefix + id).ToArray();
+                }
+                else deletableKeys = dataStore.GetKeysByPrefix(keyPrefix, NotAccessedForDays).ToArray();
 
                 foreach (var key in deletableKeys)
                 {
