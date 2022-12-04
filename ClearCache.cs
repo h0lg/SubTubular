@@ -43,19 +43,24 @@ namespace SubTubular
                     filesDeleted.AddRange(FileHelper.DeleteFiles(cacheFolder, notAccessedForDays: NotAccessedForDays));
                     break;
                 case ClearCache.Scopes.videos:
-                    if (Ids.HasAny()) DeleteFilesByNames(Ids.Select(v => VideoId.Parse(v).Value));
+                    if (Ids.HasAny())
+                    {
+                        var parsed = Ids.ToDictionary(id => id, id => VideoId.TryParse(id));
+                        var valid = parsed.Where(pair => pair.Value != null);
+                        DeleteFilesByNames(valid.Select(pair => pair.Value.Value.ToString()));
+                    }
                     else filesDeleted.AddRange(FileHelper.DeleteFiles(cacheFolder,
                         notAccessedForDays: NotAccessedForDays, isFileNameDeletable: IsVideoFile));
 
                     break;
                 case ClearCache.Scopes.playlists:
-                    await ClearPlaylists(SearchPlaylist.StorageKeyPrefix, v => PlaylistId.Parse(v).Value);
+                    await ClearPlaylists(SearchPlaylist.StorageKeyPrefix, v => PlaylistId.TryParse(v)?.Value);
                     break;
                 case ClearCache.Scopes.channels:
-                    await ClearPlaylists(SearchChannel.StorageKeyPrefix, v => ChannelId.Parse(v).Value);
+                    await ClearPlaylists(SearchChannel.StorageKeyPrefix, v => ChannelId.TryParse(v)?.Value);
                     break;
                 case ClearCache.Scopes.users:
-                    await ClearPlaylists(SearchUser.StorageKeyPrefix, v => UserName.Parse(v).Value);
+                    await ClearPlaylists(SearchUser.StorageKeyPrefix, v => UserName.TryParse(v)?.Value);
                     break;
                 default: throw new NotImplementedException($"Clearing {scope} {Scope} is not implemented.");
             }
@@ -74,7 +79,8 @@ namespace SubTubular
             {
                 var dataStore = new JsonFileDataStore(cacheFolder);
 
-                var deletableKeys = Ids.HasAny() ? Ids.Select(v => keyPrefix + parseId(v)).ToArray()
+                var deletableKeys = Ids.HasAny()
+                    ? Ids.Select(v => parseId(v)).Where(id => id != null).Select(id => keyPrefix + id).ToArray()
                     : dataStore.GetKeysByPrefix(keyPrefix, NotAccessedForDays).ToArray();
 
                 foreach (var key in deletableKeys)
