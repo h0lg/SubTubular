@@ -12,12 +12,12 @@ namespace SubTubular
 {
     internal abstract class SearchCommand
     {
-        private const string html = "html", outputPath = "out", @for = "for",
+        private const string html = "html", outputPath = "out", query = "query", @for = "for",
             existingFilesAreOverWritten = " Existing files with the same name will be overwritten.";
 
         /// <summary>Enables having a multi-word <see cref="Query"/> (i.e. with spaces in between parts)
         /// without having to quote it and double-quote multi-word expressions within it.</summary>
-        [Option('f', @for, Required = true, HelpText = "What to search for."
+        [Option('f', @for, Group = query, HelpText = "What to search for."
             + @" Quote ""multi-word phrases"". Single words are matched exactly by default,"
             + " ?fuzzy or with wild cards for s%ngle and multi* letters."
             + @" Combine multiple & terms | ""phrases or queries"" using AND '&' and OR '|'"
@@ -28,6 +28,10 @@ namespace SubTubular
         public IEnumerable<string> QueryWords { set { Query = value.Join(" "); } }
 
         public string Query { get; private set; }
+
+        [Option('k', "keywords", Group = query,
+            HelpText = "Lists the keywords the videos in scope are tagged with including their number of occurrences.")]
+        public bool ListKeywords { get; set; }
 
         [Option('p', "pad", Default = (ushort)23, HelpText = "How much context to pad a match in;"
             + " i.e. the minimum number of characters of the original description or subtitle track"

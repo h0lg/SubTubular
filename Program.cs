@@ -143,13 +143,27 @@ namespace SubTubular
 
                     try
                     {
-                        /*  passing token into search implementations for them to react to cancellation,
-                            see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables */
-                        await foreach (var result in getResultsAsync(youtube).WithCancellation(search.Token))
+                        if (command.ListKeywords)
                         {
-                            output.DisplayVideoResult(result);
-                            resultDisplayed = true;
-                            tracksWithErrors.AddRange(result.Video.CaptionTracks.Where(t => t.Error != null));
+                            var keywords = await youtube.ListKeywordsAsync(command, search.Token);
+
+                            if (keywords.Any())
+                            {
+                                ListKeywords(keywords);
+                                resultDisplayed = true;
+                            }
+                            else Console.WriteLine("Found no keywords.");
+                        }
+                        else // search videos in scope
+                        {
+                            /*  passing token into search implementations for them to react to cancellation,
+                                see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables */
+                            await foreach (var result in getResultsAsync(youtube).WithCancellation(search.Token))
+                            {
+                                output.DisplayVideoResult(result);
+                                resultDisplayed = true;
+                                tracksWithErrors.AddRange(result.Video.CaptionTracks.Where(t => t.Error != null));
+                            }
                         }
                     }
                     catch (OperationCanceledException) { Console.WriteLine("The search was cancelled."); }
@@ -184,6 +198,31 @@ namespace SubTubular
 
                 searching = false; // to let the cancel task complete if search did before it
                 await cancel; // just to rethrow possible exceptions
+            }
+        }
+
+        /// <summary>Displays the <paramref name="keywords"/> on the <see cref="Console"/>,
+        /// most often occurring keyword first.</summary>
+        /// <param name="keywords">The keywords and their corresponding number of occurrences.</param>
+        private static void ListKeywords(Dictionary<string, ushort> keywords)
+        {
+            const string separator = " | ";
+            var width = Console.WindowWidth;
+            var line = string.Empty;
+
+            // prevent breaking line mid-keyword on Console and breaks output into multiple lines for file
+            foreach (var tag in keywords.OrderByDescending(pair => pair.Value).ThenBy(pair => pair.Key))
+            {
+                var keyword = tag.Value + "x " + tag.Key;
+
+                // does keyword still fit into the current line?
+                if ((line.Length + separator.Length + keyword.Length) < width)
+                    line += separator + keyword; // add it
+                else // keyword doesn't fit
+                {
+                    if (line.Length > 0) Console.WriteLine(line); // write current line
+                    line = keyword; // and start a new one
+                }
             }
         }
 

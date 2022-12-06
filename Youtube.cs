@@ -244,6 +244,37 @@ namespace SubTubular
             }
         }
 
+        /// <summary>Returns the <see cref="Video.Keywords"/> and their corresponding number of occurrences
+        /// from the videos scoped by <paramref name="command"/>.</summary>
+        internal async Task<Dictionary<string, ushort>> ListKeywordsAsync(SearchCommand command, CancellationToken cancellation)
+        {
+            string[] videoIds;
+
+            if (command is SearchVideos searchVideos) videoIds = searchVideos.ValidIds;
+            else if (command is SearchPlaylistCommand searchPlaylist)
+            {
+                var playlist = await GetPlaylistAsync(searchPlaylist, cancellation);
+                videoIds = playlist.Videos.Keys.Take(searchPlaylist.Top).ToArray();
+            }
+            else throw new NotImplementedException(
+                $"Listing keywords for search command {command.GetType().Name} is not implemented.");
+
+            var downloadLimiter = new SemaphoreSlim(5, 5);
+
+            var videoTasks = videoIds.Select(async id =>
+            {
+                await downloadLimiter.WaitAsync();
+                var video = await GetVideoAsync(id, cancellation);
+                downloadLimiter.Release();
+                return video;
+            });
+
+            await Task.WhenAll(videoTasks);
+
+            return videoTasks.SelectMany(t => t.Result.Keywords).GroupBy(keyword => keyword)
+                .ToDictionary(group => group.Key, group => (ushort)group.Count());
+        }
+
         private async Task<Video> GetVideoAsync(string videoId, CancellationToken cancellation)
         {
             cancellation.ThrowIfCancellationRequested();
