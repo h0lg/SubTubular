@@ -211,37 +211,58 @@ namespace SubTubular
             await loadVideos; // just to rethrow possible exceptions; should have completed at this point
         }
 
-        /// <summary>Searches videos according to the specified command.</summary>
+        /// <summary>Searches videos scoped by the specified <paramref name="command"/>.</summary>
         /// <param name="cancellation">Passed in either explicitly or by the IAsyncEnumerable.WithCancellation() extension,
         /// see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables</param>
         internal async IAsyncEnumerable<VideoSearchResult> SearchVideosAsync(
             SearchVideos command, [EnumeratorCancellation] CancellationToken cancellation = default)
         {
-            foreach (var videoId in command.ValidIds)
+            var videoResults = Channel.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions() { SingleReader = true });
+
+            var searches = command.ValidIds.Select(async videoId =>
             {
+                var result = await SearchVideoAsync(videoId, command, cancellation);
+                if (result != null) await videoResults.Writer.WriteAsync(result);
+            });
+
+            // hook up writer completion before starting to read to ensure the reader knows when it's done
+            var searchCompletion = Task.WhenAll(searches).ContinueWith(t => videoResults.Writer.Complete());
+
+            // start reading from result channel and return results as they are available
+            await foreach (var result in videoResults.Reader.ReadAllAsync())
+            {
+                yield return result;
                 cancellation.ThrowIfCancellationRequested();
-                var storageKey = Video.StorageKeyPrefix + videoId;
-                var index = await videoIndexRepo.GetAsync(storageKey);
-
-                // used to get a video during search
-                Func<string, CancellationToken, Task<Video>> getVideoAsync = (videoId, cancellation)
-                    => GetVideoAsync(videoId, cancellation);
-
-                if (index == null)
-                {
-                    index = videoIndexRepo.Build(storageKey);
-                    var video = await GetVideoAsync(videoId, cancellation);
-                    index.BeginBatchChange();
-                    await index.AddAsync(video, cancellation);
-                    await index.CommitBatchChangeAsync();
-
-                    // reuse already loaded video for better performance
-                    getVideoAsync = (videoId, cancellation) => Task.FromResult(video);
-                }
-
-                await foreach (var result in index.SearchAsync(command, getVideoAsync, cancellation))
-                    yield return result;
             }
+
+            await searchCompletion; // just to rethrow possible exceptions; should have completed at this point
+        }
+
+        /// <summary>Searches the video with <paramref name="videoId"/> according to the <paramref name="command"/>.</summary>
+        private async Task<VideoSearchResult> SearchVideoAsync(string videoId, SearchVideos command, CancellationToken cancellation)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            var storageKey = Video.StorageKeyPrefix + videoId;
+            var index = await videoIndexRepo.GetAsync(storageKey);
+
+            // used to get a video during search
+            Func<string, CancellationToken, Task<Video>> getVideoAsync = (videoId, cancellation)
+                => GetVideoAsync(videoId, cancellation);
+
+            if (index == null)
+            {
+                index = videoIndexRepo.Build(storageKey);
+                var video = await GetVideoAsync(videoId, cancellation);
+                index.BeginBatchChange();
+                await index.AddAsync(video, cancellation);
+                await index.CommitBatchChangeAsync();
+
+                // reuse already loaded video for better performance
+                getVideoAsync = (videoId, cancellation) => Task.FromResult(video);
+            }
+
+            var results = await index.SearchAsync(command, getVideoAsync, cancellation).ToListAsync();
+            return results.SingleOrDefault(); // there can only be one
         }
 
         /// <summary>Returns the <see cref="Video.Keywords"/> and their corresponding number of occurrences
