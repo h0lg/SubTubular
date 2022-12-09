@@ -25,7 +25,8 @@ namespace SubTubular
         [Value(1, MetaName = ids, HelpText = $"The space-separated IDs or URLs of elements in the '{scope}' to delete caches for."
             + $" Can be used with every '{scope}' but '{nameof(Scopes.all)}'"
             + $" while supporting user names, channel handles and slugs besides IDs for '{nameof(Scopes.channels)}'."
-            + $" If not set, all elements in the specified '{scope}' are considered for deletion.")]
+            + $" If not set, all elements in the specified '{scope}' are considered for deletion."
+            + SearchVideos.QuoteIdsStartingWithDash)]
         public IEnumerable<string> Ids { get; set; }
 
         [Option('l', "last-access",
@@ -58,7 +59,7 @@ namespace SubTubular
                 case ClearCache.Scopes.videos:
                     if (Ids.HasAny())
                     {
-                        var parsed = Ids.ToDictionary(id => id, id => VideoId.TryParse(id));
+                        var parsed = Ids.ToDictionary(id => id, id => VideoId.TryParse(id.Trim('"')));
                         var invalid = parsed.Where(pair => pair.Value == null).Select(pair => pair.Key).ToArray();
 
                         if (invalid.Length > 0) throw new InputException(
