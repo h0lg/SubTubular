@@ -20,7 +20,7 @@ namespace SubTubular
 
         /// <summary>Used for <paramref name="padding"/> a <paramref name="match"/>
         /// from <paramref name="fullText"/>.</summary>
-        internal PaddedMatch(Match match, byte padding, string fullText)
+        internal PaddedMatch(Match match, ushort padding, string fullText)
             : this(GetPaddedStartIndex(match, padding), GetPaddedEndIndex(match, padding, fullText), fullText) { }
 
         /// <summary>Used for merging <paramref name="overlapping"/> padded matches
@@ -32,11 +32,11 @@ namespace SubTubular
         public override bool Equals(object obj) => obj == null ? false : obj.GetHashCode() == GetHashCode();
 
         // starting at zero or index minus padding
-        private static int GetPaddedStartIndex(Match match, byte padding)
+        private static int GetPaddedStartIndex(Match match, ushort padding)
             => match.Index <= padding ? 0 : match.Index - (int)padding;
 
         // ending at last index of fullText or last match index plus padding
-        private static int GetPaddedEndIndex(Match match, byte padding, string fullText)
+        private static int GetPaddedEndIndex(Match match, ushort padding, string fullText)
         {
             // substract 1 because start is included in length
             var paddedEnd = match.Index + match.Length - 1 + (int)padding;
@@ -50,7 +50,7 @@ namespace SubTubular
     {
         /// <summary>Pads every match in <paramref name="matches"/> with
         /// <paramref name="padding"/>from <paramref name="fullText"/>.</summary>
-        internal static IEnumerable<PaddedMatch> PadFrom(this IEnumerable<Match> matches, string fullText, byte padding)
+        internal static IEnumerable<PaddedMatch> PadFrom(this IEnumerable<Match> matches, string fullText, ushort padding)
             => matches.Select(match => new PaddedMatch(match, padding, fullText)).ToArray();
 
         /// <summary>Merges overlapping <paramref name="orTouching"/> <paramref name="matches"/> together using
