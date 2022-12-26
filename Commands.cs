@@ -12,12 +12,12 @@ namespace SubTubular
 {
     internal abstract class SearchCommand
     {
-        private const string html = "html", outputPath = "out",
+        private const string html = "html", outputPath = "out", @for = "for",
             existingFilesAreOverWritten = " Existing files with the same name will be overwritten.";
 
         /// <summary>Enables having a multi-word <see cref="Query"/> (i.e. with spaces in between parts)
         /// without having to quote it and double-quote multi-word expressions within it.</summary>
-        [Option('f', "for", Required = true, HelpText = "What to search for."
+        [Option('f', @for, Required = true, HelpText = "What to search for."
             + @" Quote ""multi-word phrases"". Single words are matched exactly by default,"
             + " ?fuzzy or with wild cards for s%ngle and multi* letters."
             + @" Combine multiple & terms | ""phrases or queries"" using AND '&' and OR '|'"
@@ -56,13 +56,21 @@ namespace SubTubular
         protected abstract string FormatInternal();
         internal string Format() => FormatInternal() + " " + Query;
 
-        public enum Shows { file, folder }
+        #region VALIDATION
+        // see Lifti.Querying.QueryTokenizer.ParseQueryTokens()
+        private static char[] controlChars = new[] { '*', '%', '|', '&', '"', '~', '>', '?', '(', ')', '=', ',' };
 
         internal virtual void Validate()
         {
-            if (string.IsNullOrWhiteSpace(Query)) throw new InputException(
-                "None of the terms contain anything but whitespace. I refuse to work like this!");
+            // string.IsNullOrWhiteSpace(Query) is caught by validation of CommandLineParser
+            if (Query.HasAny() && Query.All(c => controlChars.Contains(c))) throw new InputException(
+                $"The '--{@for}' option contains nothing but control characters."
+                + " That'll stay unsupported unless you come up with a good reason for why it should be."
+                + $" If you can, leave it at {Program.IssuesUrl} .");
         }
+        #endregion
+
+        public enum Shows { file, folder }
     }
 
     internal interface RemoteValidated
