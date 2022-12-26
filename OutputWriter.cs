@@ -193,14 +193,15 @@ namespace SubTubular
 
                 var displaysHour = track.Captions.Any(c => c.At > 3600);
 
-                foreach (var caption in track.Captions)
+                // skip included line breaks
+                foreach (var caption in track.Captions.Where(caption => !string.IsNullOrWhiteSpace(caption.Text)))
                 {
                     var offset = TimeSpan.FromSeconds(caption.At).FormatWithOptionalHours().PadLeft(displaysHour ? 7 : 5);
                     Write($"    {offset} ");
 
                     using (var indent = new IndentedText())
                     {
-                        WriteHighlightingMatches(caption.Text, indent);
+                        WriteHighlightingMatches(caption.Text.NormalizeWhiteSpace(), indent);
 
                         const string padding = "    ";
                         var url = $"{videoUrl}?t={caption.At}";
