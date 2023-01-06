@@ -108,11 +108,11 @@ namespace SubTubular
                 try
                 {
                     // load and update videos in playlist while keeping existing video info
-                    var playlistVideos = await command.GetVideosAsync(youtube, cancellation).CollectAsync(command.Top);
+                    var freshVideos = await command.GetVideosAsync(youtube, cancellation).CollectAsync(command.Top);
                     playlist.Loaded = DateTime.UtcNow;
 
                     // use new order but append older entries; note that this leaves remotely deleted videos in the playlist
-                    playlist.Videos = playlistVideos.Select(v => v.Id.Value).Union(playlist.Videos.Keys)
+                    playlist.Videos = freshVideos.Select(v => v.Id.Value).Union(playlist.Videos.Keys)
                         .ToDictionary(id => id, id => playlist.Videos.ContainsKey(id) ? playlist.Videos[id] : null);
 
                     await dataStore.SetAsync(storageKey, playlist);
