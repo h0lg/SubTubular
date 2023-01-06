@@ -112,8 +112,10 @@ namespace SubTubular
                     playlist.Loaded = DateTime.UtcNow;
 
                     // use new order but append older entries; note that this leaves remotely deleted videos in the playlist
-                    playlist.Videos = freshVideos.Select(v => v.Id.Value).Union(playlist.Videos.Keys)
-                        .ToDictionary(id => id, id => playlist.Videos.ContainsKey(id) ? playlist.Videos[id] : null);
+                    var freshKeys = freshVideos.Select(v => v.Id.Value).ToArray();
+
+                    playlist.Videos = freshKeys.Concat(playlist.Videos.Keys.Except(freshKeys))
+                        .ToDictionary(id => id, id => playlist.Videos.TryGetValue(id, out var uploaded) ? uploaded : null);
 
                     await dataStore.SetAsync(storageKey, playlist);
                 }
