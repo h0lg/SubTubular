@@ -18,6 +18,8 @@ namespace SubTubular
     [Serializable]
     public sealed class Video
     {
+        internal const string StorageKeyPrefix = "video ";
+
         public string Id { get; set; }
         public string Title { get; set; }
         public string Description { get; set; }
@@ -25,6 +27,10 @@ namespace SubTubular
 
         /// <summary>Upload time in UTC.</summary>
         public DateTime Uploaded { get; set; }
+
+        /// <summary>Set internally and temporarily when a video was re-loaded from YouTube and needs re-indexing.
+        /// This is a work-around for <see cref="ClearCache"/> not cleaning up playlist indexes when singular videos are cleared.</summary>
+        internal bool UnIndexed { get; set; }
 
         public IList<CaptionTrack> CaptionTracks { get; set; } = new List<CaptionTrack>();
     }
