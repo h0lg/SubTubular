@@ -82,6 +82,18 @@ namespace SubTubular
                 return;
             }
 
+            if (command is SearchPlaylistCommand searchPlaylist) // order playlist matches
+            {
+                if (searchPlaylist.OrderBy.Intersect(SearchPlaylistCommand.Orders).Count() > 1)
+                {
+                    Console.WriteLine("You may order by either 'score' or 'uploaded' (date), but not both.");
+                    return;
+                }
+
+                // default to ordering by highest score which is probably most useful for most purposes
+                if (!searchPlaylist.OrderBy.Any()) searchPlaylist.OrderBy = new[] { SearchPlaylistCommand.OrderOptions.score };
+            }
+
             //inspired by https://johnthiriet.com/cancel-asynchronous-operation-in-csharp/
             using (var search = new CancellationTokenSource())
             {

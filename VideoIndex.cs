@@ -105,50 +105,104 @@ namespace SubTubular
         /// and returns <see cref="VideoSearchResult"/>s until all are processed
         /// or the <paramref name="cancellation"/> is invoked.</summary>
         /// <param name="command">Determines the <see cref="SearchCommand.Query"/> for the search
-        /// and <see cref="SearchCommand.Padding"/> of the results.</param>
-        /// <param name="relevantVideoIds"><see cref="Video.Id"/>s the search is limited to.</param>
+        /// and the <see cref="SearchCommand.OrderBy"/> and <see cref="SearchCommand.Padding"/> of the results.</param>
+        /// <param name="relevantVideos"><see cref="Video.Id"/>s the search is limited to
+        /// accompanied by their corresponding <see cref="Video.Uploaded"/> dates, if known.
+        /// The latter are only used for <see cref="SearchCommand.OrderOptions.uploaded"/>
+        /// and missing dates are determined by loading the videos using <paramref name="getVideoAsync"/>.</param>
+        /// <param name="updatePlaylistVideosUploaded">A callback for updating the <see cref="Playlist.Videos"/>
+        /// with the <see cref="Video.Uploaded"/> dates after loading them for <see cref="SearchCommand.OrderOptions.uploaded"/>.</param>
         internal async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command,
-            Func<string, CancellationToken, ValueTask<Video>> getVideoAsync,
-            [EnumeratorCancellation] CancellationToken cancellation = default, string[] relevantVideoIds = default)
+            Func<string, CancellationToken, Task<Video>> getVideoAsync,
+            [EnumeratorCancellation] CancellationToken cancellation = default,
+            IDictionary<string, DateTime?> relevantVideos = default,
+            Func<IEnumerable<Video>, Task> updatePlaylistVideosUploaded = default)
         {
             cancellation.ThrowIfCancellationRequested();
             var results = Index.Search(command.Query);
 
-            var resultsByVideoId = results.Select(result =>
+            var matches = results
+                .Select(result =>
                 {
                     var ids = result.Key.Split(CaptionTrack.MultiPartKeySeparator);
                     var videoId = ids[0];
                     var language = ids.Length > 1 ? ids[1] : null;
                     return new { videoId, language, result };
                 })
-            // make sure to only return results for the requested videos; index may contain more
-            .Where(m => relevantVideoIds == null || relevantVideoIds.Contains(m.videoId))
-            .GroupBy(m => m.videoId);
+                // make sure to only return results for the requested videos if specified; index may contain more
+                .Where(m => relevantVideos == default || relevantVideos.Keys.Contains(m.videoId))
+                .GroupBy(m => m.videoId)
+                .Select(group => new
+                {
+                    VideoId = group.Key,
+                    InMetaData = group.SingleOrDefault(m => m.language == null)?.result,
+                    InCaptions = group.Where(m => m.language != null),
+                    Score = group.Select(r => r.result.Score).Average()
+                })
+                .ToList();
 
-            foreach (var group in resultsByVideoId)
+            var previouslyLoadedVideos = new Video[0];
+
+            if (command is SearchPlaylistCommand searchPlaylist) // order playlist matches
+            {
+                var orderByUploaded = searchPlaylist.OrderBy.Contains(SearchPlaylistCommand.OrderOptions.uploaded);
+
+                if (orderByUploaded)
+                {
+                    if (relevantVideos == default) relevantVideos = new Dictionary<string, DateTime?>();
+
+                    var withoutUploadDate = matches.Where(m => !relevantVideos.ContainsKey(m.VideoId)
+                        || relevantVideos[m.VideoId] == null).ToArray();
+
+                    if (withoutUploadDate.Any()) // get upload dates for videos that we don't know it of
+                    {
+                        var getVideos = withoutUploadDate.Select(m => getVideoAsync(m.VideoId, cancellation)).ToArray();
+                        await Task.WhenAll(getVideos);
+                        previouslyLoadedVideos = getVideos.Select(t => t.Result).ToArray();
+
+                        foreach (var match in withoutUploadDate)
+                            relevantVideos[match.VideoId] = previouslyLoadedVideos.Single(v => v.Id == match.VideoId).Uploaded;
+
+                        if (updatePlaylistVideosUploaded != default)
+                            await updatePlaylistVideosUploaded(previouslyLoadedVideos);
+                    }
+                }
+
+                if (searchPlaylist.OrderBy.ContainsAny(SearchPlaylistCommand.Orders))
+                {
+                    var orderded = searchPlaylist.OrderBy.Contains(SearchPlaylistCommand.OrderOptions.asc)
+                        ? matches.OrderBy(m => orderByUploaded ? relevantVideos[m.VideoId] : m.Score as object)
+                        : matches.OrderByDescending(m => orderByUploaded ? relevantVideos[m.VideoId] : m.Score as object);
+
+                    matches = orderded.ToList();
+                }
+            }
+
+            foreach (var match in matches)
             {
                 cancellation.ThrowIfCancellationRequested();
-                var video = await getVideoAsync(group.Key, cancellation);
+
+                var video = previouslyLoadedVideos.SingleOrDefault(v => v.Id == match.VideoId)
+                    ?? await getVideoAsync(match.VideoId, cancellation);
 
                 var result = new VideoSearchResult { Video = video };
-                var metaDataMatch = group.SingleOrDefault(m => m.language == null);
 
-                if (metaDataMatch != null)
+                if (match.InMetaData != null)
                 {
-                    var titleMatches = metaDataMatch.result.FieldMatches.Where(m => m.FoundIn == nameof(Video.Title));
+                    var titleMatches = match.InMetaData.FieldMatches.Where(m => m.FoundIn == nameof(Video.Title));
 
                     if (titleMatches.Any()) result.TitleMatches = new PaddedMatch(video.Title,
                         titleMatches.SelectMany(m => m.Locations)
                             .Select(m => new PaddedMatch.IncludedMatch { Start = m.Start, Length = m.Length }).ToArray());
 
-                    result.DescriptionMatches = metaDataMatch.result.FieldMatches
+                    result.DescriptionMatches = match.InMetaData.FieldMatches
                         .Where(m => m.FoundIn == nameof(Video.Description))
                         .SelectMany(m => m.Locations)
                         .Select(l => new PaddedMatch(l.Start, l.Length, command.Padding, video.Description))
                         .MergeOverlapping(video.Description)
                         .ToArray();
 
-                    var keywordMatches = metaDataMatch.result.FieldMatches
+                    var keywordMatches = match.InMetaData.FieldMatches
                         .Where(m => m.FoundIn == nameof(Video.Keywords))
                         .ToArray();
 
@@ -183,7 +237,7 @@ namespace SubTubular
                     }
                 }
 
-                result.MatchingCaptionTracks = group.Where(m => m.language != null).Select(m =>
+                result.MatchingCaptionTracks = match.InCaptions.Where(m => m.language != null).Select(m =>
                 {
                     var track = video.CaptionTracks.SingleOrDefault(t => t.LanguageName == m.language);
                     var fullText = track.GetFullText();

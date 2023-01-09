@@ -38,20 +38,25 @@ namespace SubTubular
 
             if (playlist == null //playlist cache is missing, outdated or lacking sufficient videos
                 || playlist.Loaded < DateTime.UtcNow.AddHours(-Math.Abs(command.CacheHours))
-                || playlist.VideoIds.Count < command.Top)
+                || playlist.Videos.Count < command.Top)
             {
-                // load and update videos in playlist
-                playlist = new Playlist { Loaded = DateTime.UtcNow };
+                // load and update videos in playlist while keeping existing video info
+                playlist = new Playlist { Loaded = DateTime.UtcNow, Videos = playlist?.Videos };
                 var playlistVideos = await command.GetVideosAsync(youtube, cancellation).CollectAsync(command.Top);
-                playlist.VideoIds = videoIds = playlistVideos.Select(v => v.Id.Value).ToArray();
+
+                playlist.Videos = playlistVideos.ToDictionary(v => v.Id.Value,
+                    v => playlist.Videos.ContainsKey(v.Id.Value) ? playlist.Videos[v.Id.Value] : null);
+
+                videoIds = playlist.Videos.Keys.ToArray();
                 await dataStore.SetAsync(storageKey, playlist);
             }
-            else videoIds = playlist.VideoIds.Take(command.Top).ToArray(); // read from cache
+            else videoIds = playlist.Videos.Take(command.Top).Select(p => p.Key).ToArray(); // read from cache
 
             var indexedVideoIds = index.GetIndexed(videoIds);
+            var indexedVideos = indexedVideoIds.ToDictionary(id => id, id => playlist.Videos[id]);
 
             // search already indexed videos in one go
-            await foreach (var result in index.SearchAsync(command, GetVideoAsync, cancellation, indexedVideoIds))
+            await foreach (var result in index.SearchAsync(command, GetVideoAsync, cancellation, indexedVideos, UpdatePlaylistVideosUploaded))
                 yield return result;
 
             var unIndexedVideoIds = videoIds.Except(indexedVideoIds).ToArray();
@@ -96,7 +101,7 @@ namespace SubTubular
                 var unsaved = new List<Video>(); // batch of loaded and indexed, but uncommited video index changes
 
                 // local getter preferring to reuse already loaded video from unsaved bag for better performance
-                Func<string, CancellationToken, ValueTask<Video>> getVideoAsync = async (videoId, cancellation)
+                Func<string, CancellationToken, Task<Video>> getUnIndexedVideoAsync = async (videoId, cancellation)
                     => unsaved.SingleOrDefault(v => v.Id == videoId) ?? await GetVideoAsync(videoId, cancellation);
 
                 // read synchronously from the channel because we're writing to the same video index
@@ -118,10 +123,12 @@ namespace SubTubular
                         || unIndexedVideos.Reader.Count == 0) // if we have the time because there's no work waiting
                     {
                         await index.CommitBatchChangeAsync();
-                        await videoIndexRepo.SaveAsync(index, storageKey);
+                        await Task.WhenAll(videoIndexRepo.SaveAsync(index, storageKey), UpdatePlaylistVideosUploaded(unsaved));
+
+                        var searchedVideos = unsaved.Select(v => v.Id).ToDictionary(id => id, id => playlist.Videos[id]);
 
                         // search after committing index changes to output matches as we go
-                        await foreach (var result in index.SearchAsync(command, getVideoAsync, cancellation, unsaved.Select(v => v.Id).ToArray()))
+                        await foreach (var result in index.SearchAsync(command, getUnIndexedVideoAsync, cancellation, searchedVideos))
                             yield return result;
 
                         unsaved.Clear(); // safe to do because we're reading synchronously and no other thread could have added to it in between
@@ -129,6 +136,22 @@ namespace SubTubular
                 }
 
                 await loadVideos; // just to rethrow possible exceptions; should have completed at this point
+            }
+
+            async Task UpdatePlaylistVideosUploaded(IEnumerable<Video> videos)
+            {
+                var updated = false;
+
+                foreach (var video in videos)
+                {
+                    if (playlist.Videos[video.Id] != video.Uploaded)
+                    {
+                        playlist.Videos[video.Id] = video.Uploaded;
+                        updated = true;
+                    }
+                }
+
+                if (updated) await dataStore.SetAsync(storageKey, playlist);
             }
         }
 
@@ -143,6 +166,10 @@ namespace SubTubular
                 cancellation.ThrowIfCancellationRequested();
                 var index = await videoIndexRepo.GetAsync(videoId);
 
+                // used to get a video during search
+                Func<string, CancellationToken, Task<Video>> getVideoAsync = (videoId, cancellation)
+                    => GetVideoAsync(videoId, cancellation);
+
                 if (index == null)
                 {
                     index = videoIndexRepo.Build();
@@ -151,14 +178,17 @@ namespace SubTubular
                     await index.AddAsync(video, cancellation);
                     await index.CommitBatchChangeAsync();
                     await videoIndexRepo.SaveAsync(index, videoId);
+
+                    // reuse already loaded video for better performance
+                    getVideoAsync = (videoId, cancellation) => Task.FromResult(video);
                 }
 
-                await foreach (var result in index.SearchAsync(command, GetVideoAsync, cancellation))
+                await foreach (var result in index.SearchAsync(command, getVideoAsync, cancellation))
                     yield return result;
             }
         }
 
-        private async ValueTask<Video> GetVideoAsync(string videoId, CancellationToken cancellation)
+        private async Task<Video> GetVideoAsync(string videoId, CancellationToken cancellation)
         {
             cancellation.ThrowIfCancellationRequested();
             var video = await dataStore.GetAsync<Video>(videoId);
