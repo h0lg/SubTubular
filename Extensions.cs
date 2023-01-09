@@ -23,28 +23,6 @@ namespace SubTubular
         internal static string NormalizeWhiteSpace(this string input, string normalizeTo = " ")
             => System.Text.RegularExpressions.Regex.Replace(input, @"\s+", normalizeTo);
 
-        /// <summary>Returns matches for all occurances of <paramref name="terms"/> in <paramref name="text"/>
-        /// ordered by first occurance while applying <paramref name="options"/> to the search.
-        /// Inspired by https://stackoverflow.com/a/2642406 .</summary>
-        /// <param name="modifyTermRegex">Optional. Use this for changing the escaped regular expression
-        /// for each term in <paramref name="terms"/> before it is matched against <paramref name="text"/>.</param>
-        internal static IOrderedEnumerable<Match> GetMatches(this string text,
-            IEnumerable<string> terms, Func<string, string> modifyTermRegex = null,
-            RegexOptions options = RegexOptions.CultureInvariant | RegexOptions.IgnoreCase) => terms
-            .SelectMany(term =>
-            {
-                var regex = Regex.Escape(term.NormalizeWhiteSpace());
-                if (modifyTermRegex != null) regex = modifyTermRegex(regex);
-                return Regex.Matches(text, regex, options);
-            })
-            .OrderBy(match => match.Index);
-
-        /// <summary>Indicates whether <paramref name="text"/> contains any of the supplied
-        /// <paramref name="terms"/> using <paramref name="stringComparison"/> to compare.</summary>
-        internal static bool ContainsAny(this string text, IEnumerable<string> terms,
-            StringComparison stringComparison = StringComparison.InvariantCultureIgnoreCase)
-            => terms.Any(t => text.Contains(t, stringComparison));
-
         /// <summary>Concatenates the <paramref name="pieces"/> into a single string
         /// putting <paramref name="glue"/> in between them.</summary>
         internal static string Join(this IEnumerable<string> pieces, string glue) => string.Join(glue, pieces);
@@ -82,6 +60,9 @@ namespace SubTubular
         /// contains any of the supplied <paramref name="values"/>.</summary>
         internal static bool ContainsAny<T>(this IEnumerable<T> collection, IEnumerable<T> values)
             => values.Intersect(collection).Any();
+
+        /// <summary>Indicates whether <paramref name="collection"/> is not null and contains any items.</summary>
+        internal static bool HasAny<T>(this IEnumerable<T> collection) => collection != null && collection.Any();
     }
 
     /// <summary>Extension methods for <see cref="IComparable"/> types.</summary>

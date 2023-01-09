@@ -12,19 +12,14 @@ namespace SubTubular
 {
     internal abstract class SearchCommand
     {
-        private string[] terms;
+        /// <summary>Enables having a multi-word <see cref="Query"/> (i.e. with spaces in between parts)
+        /// without having to quote it and double-quote multi-word expressions within it.</summary>
+        [Option('f', "for", Required = true, HelpText = "What to search for."
+            + " Quote \"multi-word phrases\" and separate multiple|terms by pipe."
+            + " Learn more about the query syntax at https://mikegoatly.github.io/lifti/docs/searching/lifti-query-syntax/ .")]
+        public IEnumerable<string> QueryWords { set { Query = value.Join(" "); } }
 
-        [Option('f', "for", Required = true, Separator = ',', HelpText = "What to search for."
-            + " Quote \"multi-word phrases\" and \"separate,multiple terms,by comma\".")]
-        public IEnumerable<string> Terms
-        {
-            get => terms;
-            set => terms = value
-                .Where(t => !string.IsNullOrWhiteSpace(t))
-                .Select(t => t.Trim().Replace(@"\s+", " ")) //trim and replace multiple whitespaces with just one space
-                .Distinct()
-                .ToArray();
-        }
+        public string Query { get; private set; }
 
         [Option('p', "pad", Default = (ushort)23, HelpText = "How much context to display a match in;"
             + " i.e. the minimum number of characters of the original text to display before and after it.")]
@@ -50,7 +45,7 @@ namespace SubTubular
         internal abstract string Label { get; }
         internal abstract IEnumerable<string> GetUrls();
         protected abstract string FormatInternal();
-        internal string Format() => FormatInternal() + " " + Terms.Join(" ");
+        internal string Format() => FormatInternal() + " " + Query;
 
         public enum Shows { file, folder }
     }

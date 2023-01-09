@@ -25,33 +25,38 @@ Range<T>.Start and Range<T>.End represent the indexes of the padded match in the
 
             const string multiMatched = "match";
 
+            MultipleInSingleLine(multiMatched, new ExpectedMatch(0, singleLine.Length - 1, singleLine,
+                multiMatched.Length, 23, 61, 76));
+
             MultipleInMultiLine(multiMatched, padding: 0, new[] {
-                new ExpectedMatch(23, 27, "Match"),
-                new ExpectedMatch(61, 65, "Match"),
-                new ExpectedMatch(76, 80, "match"),
-                new ExpectedMatch(212, 216, "match"),
-                new ExpectedMatch(242, 246, "match")
+                new ExpectedMatch(23, 27, "Match", multiMatched.Length, 0),
+                new ExpectedMatch(61, 65, "Match", multiMatched.Length, 0),
+                new ExpectedMatch(76, 80, "match", multiMatched.Length, 0),
+                new ExpectedMatch(212, 216, "match", multiMatched.Length, 0),
+                new ExpectedMatch(242, 246, "match", multiMatched.Length, 0)
             });
 
             MultipleInMultiLine(multiMatched, padding: 5, new[] {
-                new ExpectedMatch(18, 32, "e to Match incl"),
+                new ExpectedMatch(18, 32, "e to Match incl", multiMatched.Length, 5),
                 new ExpectedMatch(56, 85, @"addedMatch.Included matches
-pa"),
-                new ExpectedMatch(207, 221, "dded match in t"),
-                new ExpectedMatch(237, 251, " was matched in")
+pa", multiMatched.Length, 5, 20),
+                new ExpectedMatch(207, 221, "dded match in t", multiMatched.Length, 5),
+                new ExpectedMatch(237, 251, " was matched in", multiMatched.Length, 5)
             });
 
             MultipleInMultiLine(multiMatched, padding: 13, new[] {
-                new ExpectedMatch(10, 40, "omparable to Match including on"),
+                new ExpectedMatch(10, 40, "omparable to Match including on", multiMatched.Length, 13),
                 new ExpectedMatch(48, 93, @"ltiple PaddedMatch.Included matches
-padded wit"),
-                new ExpectedMatch(199, multiLineText.Length - 1, "f the padded match in the full text it was matched in.")
+padded wit", multiMatched.Length, 13, 28),
+                new ExpectedMatch(199, multiLineText.Length - 1, "f the padded match in the full text it was matched in.",
+                    multiMatched.Length, 13, 43)
             });
 
             MultipleInMultiLine(multiMatched, padding: 17, new[] {
                 new ExpectedMatch(6, 97, @"er comparable to Match including one or multiple PaddedMatch.Included matches
-padded with a "),
-                new ExpectedMatch(195, multiLineText.Length - 1, "es of the padded match in the full text it was matched in.")
+padded with a ", multiMatched.Length, 17, 55, 70),
+                new ExpectedMatch(195, multiLineText.Length - 1, "es of the padded match in the full text it was matched in.",
+                    multiMatched.Length, 17, 47)
             });
         }
 
@@ -90,12 +95,26 @@ padded with a "),
         private static void OneInSingleLine(string search, byte padding, string expect)
         {
             var match = Regex.Match(singleLine, search);
-            var paddedMatch = new PaddedMatch(match, padding, singleLine);
+            var paddedMatch = new PaddedMatch(match.Index, match.Length, padding, singleLine);
 
             Debug.Assert(paddedMatch.Value == expect, "unexpected Value");
             Debug.Assert(paddedMatch.Start == match.Index - padding, "unexpected Start");
             // substract 1 because start is included in length
             Debug.Assert(paddedMatch.End == match.Index + search.Length - 1 + padding, "unexpected End");
+            Debug.Assert(paddedMatch.Included.Length == 1, "unexpected Included.Length");
+            Debug.Assert(paddedMatch.Included[0].Start == padding, "unexpected Included.Start");
+            Debug.Assert(paddedMatch.Included[0].Length == search.Length, "unexpected Included.Length");
+        }
+
+        private static void MultipleInSingleLine(string searched, ExpectedMatch expected)
+        {
+            var matches = Regex.Matches(singleLine, searched, RegexOptions.IgnoreCase);
+
+            var actual = new PaddedMatch(singleLine, matches
+                .Select(match => new PaddedMatch.IncludedMatch { Start = match.Index, Length = match.Length })
+                .ToArray());
+
+            Compare(expected, actual);
         }
 
         private static void Compare(ExpectedMatch expected, PaddedMatch actual)
@@ -103,13 +122,22 @@ padded with a "),
             Debug.Assert(actual.Value == expected.Value, "unexpected Value");
             Debug.Assert(actual.Start == expected.Start, "unexpected Start");
             Debug.Assert(actual.End == expected.End, "unexpected End");
+            Debug.Assert(actual.Included.Length == expected.Included.Length, "unexpected Included.Length");
+
+            for (var i = 0; i < expected.Included.Length; i++)
+            {
+                var actualIncluded = actual.Included[i];
+                var expectedIncluded = expected.Included[i];
+                Debug.Assert(actualIncluded.Start == expectedIncluded.Start, "unexpected Included.Start");
+                Debug.Assert(actualIncluded.Length == expectedIncluded.Length, "unexpected Included.Length");
+            }
         }
 
         private static void MultipleInMultiLine(string searched, byte padding, ExpectedMatch[] expected)
         {
             var matches = Regex.Matches(multiLineText, searched, RegexOptions.IgnoreCase | RegexOptions.Multiline);
 
-            var actual = matches.Select(match => new PaddedMatch(match, padding, multiLineText))
+            var actual = matches.Select(match => new PaddedMatch(match.Index, match.Length, padding, multiLineText))
                 .MergeOverlapping(multiLineText)
                 .ToArray();
 
@@ -124,8 +152,16 @@ padded with a "),
             /// <summary>The text containing the <see cref="Included"/> matches including padding.</summary>
             internal string Value { get; set; }
 
-            internal ExpectedMatch(int start, int end, string value = null)
-                : base(start, end, endIncluded: true) => Value = value;
+            /// <summary>Contains the internal match(es) with <see cref="IncludedMatch.Start"/> relative to <see cref="Value"/>.</summary>
+            internal PaddedMatch.IncludedMatch[] Included { get; set; }
+
+            internal ExpectedMatch(int start, int end,
+                string value = null, int matchLength = 0, params int[] includedStarts)
+                : base(start, end, endIncluded: true)
+            {
+                Value = value;
+                Included = includedStarts.Select(start => new PaddedMatch.IncludedMatch { Start = start, Length = matchLength }).ToArray();
+            }
         }
     }
 

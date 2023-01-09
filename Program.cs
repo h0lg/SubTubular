@@ -26,7 +26,6 @@ namespace SubTubular
         private static async Task Main(string[] args)
         {
 #if DEBUG
-            Tests.StringExtensionsTests.RunTests();
             Tests.PaddedMatchTests.Run();
 #endif
 
@@ -77,9 +76,7 @@ namespace SubTubular
         private static async Task SearchAsync(SearchCommand command, string originalCommand,
             Func<Youtube, IAsyncEnumerable<VideoSearchResult>> getResultsAsync)
         {
-            var terms = command.Terms;
-
-            if (!terms.Any())
+            if (string.IsNullOrWhiteSpace(command.Query))
             {
                 Console.WriteLine("None of the terms contain anything but whitespace. I refuse to work like this!");
                 return;
@@ -103,7 +100,8 @@ namespace SubTubular
                     if (searching) search.Cancel();
                 });
 
-                var youtube = new Youtube(new JsonFileDataStore(Folder.GetPath(Folders.cache)));
+                var cacheFolder = Folder.GetPath(Folders.cache);
+                var youtube = new Youtube(new JsonFileDataStore(cacheFolder), new VideoIndexRepository(cacheFolder));
                 var tracksWithErrors = new List<CaptionTrack>();
 
                 using (var output = new OutputWriter(originalCommand, command))

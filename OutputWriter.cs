@@ -19,7 +19,6 @@ namespace SubTubular
         private readonly ConsoleColor regularForeGround;
         private readonly bool outputHtml, hasOutputPath, writeOutputFile;
         private readonly string fileOutputPath, fileNameWithoutExtension;
-        private readonly IEnumerable<string> terms;
         private readonly IDocument document;
         private readonly IElement output;
         private readonly StringWriter textOut;
@@ -28,9 +27,8 @@ namespace SubTubular
         {
             regularForeGround = Console.ForegroundColor; //using current
             this.outputHtml = command.OutputHtml;
-            this.fileOutputPath = command.FileOutputPath;
+            this.fileOutputPath = command.FileOutputPath?.Trim('"');
             this.fileNameWithoutExtension = command.Format();
-            this.terms = command.Terms ?? Enumerable.Empty<string>();
             hasOutputPath = !string.IsNullOrEmpty(fileOutputPath);
             writeOutputFile = outputHtml || hasOutputPath;
 
@@ -116,41 +114,92 @@ namespace SubTubular
             else textOut.Write(url);
         }
 
-        private void WriteHighlightingMatches(string text, IndentedText indent = null)
+        private void WriteHighlightingMatches(PaddedMatch paddedMatch, IndentedText indent = null)
         {
-            var written = 0;
-            if (indent != null) text = indent.Wrap(text);
+            var charsWritten = 0; // counts characters written
+            var text = new String(paddedMatch.Value);
+
+            if (indent != null)
+            {
+                text = indent.Wrap(text); // inserts line breaks to wrap and spaces to indent into block
+
+                #region accumulate info about wrapped lines for mapping padded matches (relative to unwrapped text)
+
+                /*  a list of infos about each wrapped line with each item containing:
+                    1 number of characters inserted before text in wrapped line compared to unwrapped text
+                        (index diff between wrapped and unwrapped text)
+                    2 first index of line in unwrapped text
+                    3 last index of line in unwrapped text */
+                var lineInfos = new List<(int, int, int)>();
+
+                foreach (var line in text.Split(Environment.NewLine).Select(line => line.Trim()))
+                {
+                    var previousLine = lineInfos.LastOrDefault();
+
+                    if (previousLine == default) lineInfos.Add((0, 0, line.Length)); // first line
+                    else
+                    {
+                        // start search from previous line's end index to avoid accidental matches in duplicate lines
+                        var previousLineEnd = previousLine.Item3; // in unwrapped text
+                        var startInWrappedText = text.IndexOf(line, startIndex: previousLine.Item1 + previousLineEnd);
+                        var startInUnwrappedText = paddedMatch.Value.IndexOf(line, startIndex: previousLineEnd);
+
+                        lineInfos.Add((startInWrappedText - startInUnwrappedText,
+                            startInUnwrappedText, startInUnwrappedText + line.Length));
+                    }
+                }
+                #endregion
+
+                foreach (var match in paddedMatch.Included)
+                {
+                    /*  shift match Length the number of chars inserted between
+                        line containing Start and line containing end of match
+                        and do so before modifying match Start */
+                    var end = match.Start + match.Length;
+                    var lineContainingMatchEnd = lineInfos.LastOrDefault(x => x.Item2 <= end);
+
+                    // shift match Start the number of characters inserted in wrapped text before line
+                    var lineContainingMatchStart = lineInfos.LastOrDefault(x => x.Item2 <= match.Start);
+                    if (lineContainingMatchStart != default) match.Start += lineContainingMatchStart.Item1;
+
+                    var matched = text.Substring(match.Start);
+
+                    if (lineContainingMatchEnd != lineContainingMatchStart)
+                        match.Length += lineContainingMatchEnd.Item1 - lineContainingMatchStart.Item1;
+                }
+            }
+
 
             void writeCounting(int length, bool highlight = false)
             {
-                var phrase = text.Substring(written, length);
+                var phrase = text.Substring(charsWritten, length);
 
                 if (highlight) WriteHighlighted(phrase);
                 else Write(phrase);
 
-                written += length;
+                charsWritten += length;
             };
 
-            // match multi-word phrases across line breaks because we've inserted indent and line breaks above
-            var matches = text.GetMatches(terms, termRegex => termRegex.Replace("\\ ", "\\s+")).ToArray();
-
-            foreach (var match in matches)
+            foreach (var match in paddedMatch.Included.OrderBy(m => m.Start))
             {
-                if (written < match.Index) writeCounting(match.Index - written); //write text preceding match
-                if (match.Index < written && match.Index <= written - match.Length) continue; //letters already matched
-                writeCounting(match.Length - (written - match.Index), true); //write remaining matched letters
+                if (charsWritten < match.Start) writeCounting(match.Start - charsWritten); // write text preceding match
+
+                // matched characters are already written; this may happen if included matches overlap each other
+                if (match.Start < charsWritten && match.Start <= charsWritten - match.Length) continue;
+
+                writeCounting(match.Length - (charsWritten - match.Start), true); // write (remaining) matched characters
             }
 
-            if (written < text.Length) writeCounting(text.Length - written); //write text trailing last match
+            if (charsWritten < text.Length) writeCounting(text.Length - charsWritten); // write text trailing last included match
         }
 
         internal void DisplayVideoResult(VideoSearchResult result)
         {
             var videoUrl = SearchVideos.GetVideoUrl(result.Video.Id);
 
-            if (result.TitleMatches)
+            if (result.TitleMatches != null)
                 using (var indent = new IndentedText())
-                    WriteHighlightingMatches(result.Video.Title, indent);
+                    WriteHighlightingMatches(result.TitleMatches, indent);
             else Write(result.Video.Title);
 
             WriteLine();
@@ -158,7 +207,7 @@ namespace SubTubular
             WriteUrl(videoUrl);
             WriteLine();
 
-            if (result.DescriptionMatches.Any())
+            if (result.DescriptionMatches.HasAny())
             {
                 Write("  in description: ");
 
@@ -173,35 +222,33 @@ namespace SubTubular
                 }
             }
 
-            if (result.MatchingKeywords.Any())
+            if (result.KeywordMatches.HasAny())
             {
                 Write("  in keywords: ");
-                var lastKeyword = result.MatchingKeywords.Last();
+                var lastKeyword = result.KeywordMatches.Last();
 
-                foreach (var keyword in result.MatchingKeywords)
+                foreach (var match in result.KeywordMatches)
                 {
-                    WriteHighlightingMatches(keyword);
+                    WriteHighlightingMatches(match);
 
-                    if (keyword != lastKeyword) Write(", ");
+                    if (match != lastKeyword) Write(", ");
                     else WriteLine();
                 }
             }
 
-            foreach (var track in result.MatchingCaptionTracks)
+            foreach (var trackResult in result.MatchingCaptionTracks)
             {
-                WriteLine("  " + track.LanguageName);
+                WriteLine("  " + trackResult.Track.LanguageName);
+                var displaysHour = trackResult.Matches.Any(c => c.Item2.At > 3600);
 
-                var displaysHour = track.Captions.Any(c => c.At > 3600);
-
-                // skip included line breaks
-                foreach (var caption in track.Captions.Where(caption => !string.IsNullOrWhiteSpace(caption.Text)))
+                foreach (var (match, caption) in trackResult.Matches)
                 {
                     var offset = TimeSpan.FromSeconds(caption.At).FormatWithOptionalHours().PadLeft(displaysHour ? 7 : 5);
                     Write($"    {offset} ");
 
                     using (var indent = new IndentedText())
                     {
-                        WriteHighlightingMatches(caption.Text.NormalizeWhiteSpace(), indent);
+                        WriteHighlightingMatches(match, indent);
 
                         const string padding = "    ";
                         var url = $"{videoUrl}?t={caption.At}";

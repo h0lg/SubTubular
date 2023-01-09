@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 
 namespace SubTubular
 {
@@ -33,17 +34,54 @@ namespace SubTubular
         public string Error { get; set; }
         public string ErrorMessage { get; set; }
 
-        public CaptionTrack() { } //required by serializer
+        #region INDEXING
+        /// <summary>Used for separating <see cref="VideoId"/> from <see cref="LanguageName"/> in <see cref="Key"/>.</summary>
+        internal const char MultiPartKeySeparator = '#';
 
-        /// <summary>Use this to clone a Captiontrack to include in a VideoSearchResult.
-        /// Captions will be set to matchingCaptions instead of cloning track.Captions.</summary>
-        /// <param name="track">The track to clone.</param>
-        /// <param name="matchingCaptions">The matching captions.</param>
-        internal CaptionTrack(CaptionTrack track, List<Caption> matchingCaptions)
+        /// <summary>The <see cref="Video.Id"/>. Needs to be set before indexing to generate a valid <see cref="Key"/>.</summary>
+        internal string VideoId { private get; set; }
+
+        /// <summary>Used for indexing. Conatins <see cref="VideoId"/> and <see cref="LanguageName"/>
+        /// separated by <see cref="MultiPartKeySeparator"/> to identify the matched video and caption track.</summary>
+        internal string Key => VideoId + MultiPartKeySeparator + LanguageName;
+        #endregion
+
+        #region FullText
+        internal const string FullTextSeperator = " ";
+        private string fullText;
+        private Dictionary<int, Caption> captionAtFullTextIndex;
+
+        // aggregates captions into fullText to enable matching phrases across caption boundaries
+        internal string GetFullText()
         {
-            LanguageName = track.LanguageName;
-            Captions = matchingCaptions;
+            if (fullText == null) CacheFullText();
+            return fullText;
         }
+
+        internal Dictionary<int, Caption> GetCaptionAtFullTextIndex()
+        {
+            if (captionAtFullTextIndex == null) CacheFullText();
+            return captionAtFullTextIndex;
+        }
+
+        private void CacheFullText()
+        {
+            var writer = new StringBuilder();
+            var captionsAtFullTextIndex = new Dictionary<int, Caption>();
+
+            foreach (var caption in Captions)
+            {
+                if (string.IsNullOrWhiteSpace(caption.Text)) continue; // skip included line breaks
+                var isFirst = writer.Length == 0;
+                captionsAtFullTextIndex[isFirst ? 0 : writer.Length + FullTextSeperator.Length] = caption;
+                var normalized = caption.Text.NormalizeWhiteSpace(FullTextSeperator); // replace included line breaks
+                writer.Append(isFirst ? normalized : FullTextSeperator + normalized);
+            }
+
+            captionAtFullTextIndex = captionsAtFullTextIndex;
+            fullText = writer.ToString();
+        }
+        #endregion
     }
 
     [Serializable]
@@ -55,7 +93,6 @@ namespace SubTubular
         public string Text { get; set; }
 
         // for comparing captions when finding them in a caption track
-        public override bool Equals(object obj) => obj == null ? false : obj.GetHashCode() == GetHashCode();
         public override int GetHashCode() => HashCode.Combine(At, Text);
     }
 }
