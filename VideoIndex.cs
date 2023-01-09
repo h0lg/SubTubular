@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Lifti;
+using Lifti.Querying;
 using Lifti.Serialization.Binary;
 
 namespace SubTubular
@@ -132,7 +133,10 @@ namespace SubTubular
             Func<IEnumerable<Video>, Task> updatePlaylistVideosUploaded = default)
         {
             cancellation.ThrowIfCancellationRequested();
-            var results = Index.Search(command.Query);
+            IEnumerable<SearchResult<string>> results;
+
+            try { results = Index.Search(command.Query); }
+            catch (QueryParserException ex) { throw new InputException("Error parsing query from --for | -f parameter: " + ex.Message, ex); }
 
             var matches = results
                 .Select(result =>

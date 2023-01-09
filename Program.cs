@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -88,29 +89,21 @@ namespace SubTubular
                     return h;
                 })));
             }
+            catch (InputException ex) { Console.Error.WriteLine(ex.Message); }
+            catch (HttpRequestException ex)
+            {
+                Console.Error.WriteLine("An unexpected error occurred loading data from YouTube."
+                    + " Try again later or with an updated version. " + ex.Message);
+
+                await WriteErrorLogAsync(originalCommand, ex.ToString());
+            }
             catch (Exception ex) { await WriteErrorLogAsync(originalCommand, ex.ToString()); }
         }
 
         private static async Task SearchAsync(SearchCommand command, string originalCommand,
             Func<Youtube, IAsyncEnumerable<VideoSearchResult>> getResultsAsync)
         {
-            if (string.IsNullOrWhiteSpace(command.Query))
-            {
-                Console.WriteLine("None of the terms contain anything but whitespace. I refuse to work like this!");
-                return;
-            }
-
-            if (command is SearchPlaylistCommand searchPlaylist) // order playlist matches
-            {
-                if (searchPlaylist.OrderBy.Intersect(SearchPlaylistCommand.Orders).Count() > 1)
-                {
-                    Console.WriteLine("You may order by either 'score' or 'uploaded' (date), but not both.");
-                    return;
-                }
-
-                // default to ordering by highest score which is probably most useful for most purposes
-                if (!searchPlaylist.OrderBy.Any()) searchPlaylist.OrderBy = new[] { SearchPlaylistCommand.OrderOptions.score };
-            }
+            command.Validate();
 
             //inspired by https://johnthiriet.com/cancel-asynchronous-operation-in-csharp/
             using (var search = new CancellationTokenSource())
@@ -132,6 +125,7 @@ namespace SubTubular
 
                 var cacheFolder = Folder.GetPath(Folders.cache);
                 var youtube = new Youtube(new JsonFileDataStore(cacheFolder), new VideoIndexRepository(cacheFolder));
+                if (command is RemoteValidated remoteValidated) await youtube.RemoteValidateAsync(remoteValidated, search.Token);
                 var tracksWithErrors = new List<CaptionTrack>();
 
                 using (var output = new OutputWriter(command))

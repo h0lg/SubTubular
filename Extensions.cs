@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace SubTubular
 {
@@ -84,4 +86,10 @@ namespace SubTubular
             return orEqualTo ? position <= 0 : position < 0;
         }
     }
+    internal static class HttpRequestExceptionExtensions
+    {
+        internal static bool IsNotFound(this HttpRequestException exception)
+            => exception.StatusCode == System.Net.HttpStatusCode.NotFound || exception.Message.Contains("404 (NotFound)");
+    }
+
 }

@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using YoutubeExplode;
 using YoutubeExplode.Common;
+using YoutubeExplode.Exceptions;
 
 namespace SubTubular
 {
@@ -21,6 +23,10 @@ namespace SubTubular
             this.dataStore = dataStore;
             this.videoIndexRepo = videoIndexRepo;
         }
+
+        // an adapter injecting the YoutubeClient and data store into the command
+        internal Task RemoteValidateAsync(RemoteValidated command, CancellationToken cancellation)
+            => command.RemoteValidateAsync(youtube, dataStore, cancellation); // inject YoutubeClient
 
         /// <summary>Searches videos defined by a playlist.</summary>
         /// <param name="cancellation">Passed in either explicitly or by the IAsyncEnumerable.WithCancellation() extension,
@@ -42,16 +48,26 @@ namespace SubTubular
             {
                 if (playlist == null) playlist = new Playlist();
 
-                // load and update videos in playlist while keeping existing video info
-                var playlistVideos = await command.GetVideosAsync(youtube, cancellation).CollectAsync(command.Top);
-                playlist.Loaded = DateTime.UtcNow;
+                try
+                {
+                    // load and update videos in playlist while keeping existing video info
+                    var playlistVideos = await command.GetVideosAsync(youtube, cancellation).CollectAsync(command.Top);
+                    playlist.Loaded = DateTime.UtcNow;
 
-                // use new order but append older entries; note that this leaves remotely deleted videos in the playlist
-                playlist.Videos = playlistVideos.Select(v => v.Id.Value).Union(playlist.Videos.Keys)
-                    .ToDictionary(id => id, id => playlist.Videos.ContainsKey(id) ? playlist.Videos[id] : null);
+                    // use new order but append older entries; note that this leaves remotely deleted videos in the playlist
+                    playlist.Videos = playlistVideos.Select(v => v.Id.Value).Union(playlist.Videos.Keys)
+                        .ToDictionary(id => id, id => playlist.Videos.ContainsKey(id) ? playlist.Videos[id] : null);
 
-                videoIds = playlist.Videos.Keys.ToArray();
-                await dataStore.SetAsync(storageKey, playlist);
+                    videoIds = playlist.Videos.Keys.ToArray();
+                    await dataStore.SetAsync(storageKey, playlist);
+                }
+                catch (PlaylistUnavailableException ex)
+                {
+                    // treat playlist identified by user input not being available as input error
+                    if (command is SearchPlaylist searchPlaylist) throw new InputException(
+                        $"Could not find {searchPlaylist.Label}'{searchPlaylist.Playlist}'.", ex);
+                    else throw; // rethrow otherwise; the uploads playlist of a channel being unavailable is unexpected
+                }
             }
             else videoIds = playlist.Videos.Take(command.Top).Select(p => p.Key).ToArray(); // read from cache
 
@@ -196,7 +212,7 @@ namespace SubTubular
         internal async IAsyncEnumerable<VideoSearchResult> SearchVideosAsync(
             SearchVideos command, [EnumeratorCancellation] CancellationToken cancellation = default)
         {
-            foreach (var videoId in command.GetVideoIds())
+            foreach (var videoId in command.ValidIds)
             {
                 cancellation.ThrowIfCancellationRequested();
                 var storageKey = Video.StorageKeyPrefix + videoId;
@@ -231,14 +247,22 @@ namespace SubTubular
 
             if (video == null)
             {
-                var vid = await youtube.Videos.GetAsync(videoId, cancellation);
-                video = MapVideo(vid);
-                video.UnIndexed = true; // to re-index it if it was already indexed
+                try
+                {
+                    var vid = await youtube.Videos.GetAsync(videoId, cancellation);
+                    video = MapVideo(vid);
+                    video.UnIndexed = true; // to re-index it if it was already indexed
 
-                await foreach (var track in DownloadCaptionTracksAsync(videoId, cancellation))
-                    video.CaptionTracks.Add(track);
+                    await foreach (var track in DownloadCaptionTracksAsync(videoId, cancellation))
+                        video.CaptionTracks.Add(track);
 
-                await dataStore.SetAsync(storageKey, video);
+                    await dataStore.SetAsync(storageKey, video);
+                }
+                catch (HttpRequestException ex)
+                {
+                    if (ex.IsNotFound()) throw new InputException($"Video '{videoId}' could not be found.", ex);
+                    else throw;
+                }
             }
 
             /* Sanitize captions, making sure cached captions as well as downloaded
