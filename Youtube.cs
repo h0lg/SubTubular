@@ -36,44 +36,12 @@ namespace SubTubular
         {
             cancellation.ThrowIfCancellationRequested();
             var storageKey = command.StorageKey;
-            var playlist = await dataStore.GetAsync<Playlist>(storageKey); //get cached
-
             var index = await videoIndexRepo.GetAsync(storageKey);
             if (index == null) index = videoIndexRepo.Build(storageKey);
-            string[] videoIds;
-
-            if (playlist == null //playlist cache is missing, outdated or lacking sufficient videos
-                || playlist.Loaded < DateTime.UtcNow.AddHours(-Math.Abs(command.CacheHours))
-                || playlist.Videos.Count < command.Top)
-            {
-                if (playlist == null) playlist = new Playlist();
-
-                try
-                {
-                    // load and update videos in playlist while keeping existing video info
-                    var playlistVideos = await command.GetVideosAsync(youtube, cancellation).CollectAsync(command.Top);
-                    playlist.Loaded = DateTime.UtcNow;
-
-                    // use new order but append older entries; note that this leaves remotely deleted videos in the playlist
-                    playlist.Videos = playlistVideos.Select(v => v.Id.Value).Union(playlist.Videos.Keys)
-                        .ToDictionary(id => id, id => playlist.Videos.ContainsKey(id) ? playlist.Videos[id] : null);
-
-                    videoIds = playlist.Videos.Keys.ToArray();
-                    await dataStore.SetAsync(storageKey, playlist);
-                }
-                catch (PlaylistUnavailableException ex)
-                {
-                    // treat playlist identified by user input not being available as input error
-                    if (command is SearchPlaylist searchPlaylist) throw new InputException(
-                        $"Could not find {searchPlaylist.Label}'{searchPlaylist.Playlist}'.", ex);
-                    else throw; // rethrow otherwise; the uploads playlist of a channel being unavailable is unexpected
-                }
-            }
-            else videoIds = playlist.Videos.Take(command.Top).Select(p => p.Key).ToArray(); // read from cache
-
-            var videoResults = Channel.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions() { SingleReader = true });
+            var playlist = await GetPlaylistAsync(command,  cancellation);
             var searches = new List<Task>();
-
+            var videoResults = Channel.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions() { SingleReader = true });
+            var videoIds = playlist.Videos.Keys.Take(command.Top).ToArray();
             var indexedVideoIds = index.GetIndexed(videoIds);
             var indexedVideoInfos = indexedVideoIds.ToDictionary(id => id, id => playlist.Videos[id]);
 
@@ -124,6 +92,43 @@ namespace SubTubular
 
                 if (updated) await dataStore.SetAsync(storageKey, playlist);
             }
+        }
+
+        private async Task<Playlist> GetPlaylistAsync(SearchPlaylistCommand command, CancellationToken cancellation)
+        {
+            var storageKey = command.StorageKey;
+            var playlist = await dataStore.GetAsync<Playlist>(storageKey); //get cached
+
+            if (playlist == null //playlist cache is missing, outdated or lacking sufficient videos
+                || playlist.Loaded < DateTime.UtcNow.AddHours(-Math.Abs(command.CacheHours))
+                || playlist.Videos.Count < command.Top)
+            {
+                if (playlist == null) playlist = new Playlist();
+
+                try
+                {
+                    // load and update videos in playlist while keeping existing video info
+                    var freshVideos = await command.GetVideosAsync(youtube, cancellation).CollectAsync(command.Top);
+                    playlist.Loaded = DateTime.UtcNow;
+
+                    // use new order but append older entries; note that this leaves remotely deleted videos in the playlist
+                    var freshKeys = freshVideos.Select(v => v.Id.Value).ToArray();
+
+                    playlist.Videos = freshKeys.Concat(playlist.Videos.Keys.Except(freshKeys))
+                        .ToDictionary(id => id, id => playlist.Videos.TryGetValue(id, out var uploaded) ? uploaded : null);
+
+                    await dataStore.SetAsync(storageKey, playlist);
+                }
+                catch (PlaylistUnavailableException ex)
+                {
+                    // treat playlist identified by user input not being available as input error
+                    if (command is SearchPlaylist searchPlaylist) throw new InputException(
+                        $"Could not find {searchPlaylist.Label}'{searchPlaylist.Playlist}'.", ex);
+                    else throw; // rethrow otherwise; the uploads playlist of a channel being unavailable is unexpected
+                }
+            }
+
+            return playlist;
         }
 
         private async IAsyncEnumerable<VideoSearchResult> SearchUnindexedVideos(SearchPlaylistCommand command,
