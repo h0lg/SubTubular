@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,7 +11,7 @@ using CommandLine.Text;
 
 namespace SubTubular
 {
-    internal sealed class Program
+    internal static class Program
     {
         private const string asciiHeading = @"
    _____       __  ______      __          __
@@ -24,8 +22,11 @@ namespace SubTubular
 
 "; //from http://www.patorjk.com/software/taag/#p=display&f=Slant&t=SubTubular
 
-        private const string repoUrl = "https://github.com/h0lg/SubTubular";
-        private static string errorOutputSpacing = Environment.NewLine + Environment.NewLine;
+        internal const string Name = nameof(SubTubular),
+            RepoOwner = "h0lg", RepoName = Name, RepoUrl = $"https://github.com/{RepoOwner}/{RepoName}",
+            IssuesUrl = $"{RepoUrl}/issues", ReleasesUrl = $"{RepoUrl}/releases";
+
+        internal static string OutputSpacing = Environment.NewLine + Environment.NewLine;
 
         private static async Task Main(string[] args)
         {
@@ -33,13 +34,13 @@ namespace SubTubular
             Tests.PaddedMatchTests.Run();
 #endif
 
-            var originalCommand = "> SubTubular " + args.Join(" ");
+            var originalCommand = $"> {Name} " + args.Join(" ");
 
             //see https://github.com/commandlineparser/commandline
             try
             {
                 var parserResult = new Parser(with => with.HelpWriter = null)
-                    .ParseArguments<SearchChannel, SearchPlaylist, SearchVideos, Open, ClearCache>(args);
+                    .ParseArguments<SearchChannel, SearchPlaylist, SearchVideos, Open, ClearCache, Release>(args);
 
                 //https://github.com/commandlineparser/commandline/wiki/Getting-Started#using-withparsedasync-in-asyncawait
                 await parserResult.WithParsedAsync<SearchChannel>(command
@@ -67,6 +68,15 @@ namespace SubTubular
                     Console.WriteLine($"{cachesDeleted.Count()} info caches and {indexesDeleted.Count()} full-text indexes {be} deleted.");
                 });
 
+                await parserResult.WithParsedAsync<Release>(async release =>
+                {
+                    var dataStore = new JsonFileDataStore(Folder.GetPath(Folders.cache));
+
+                    if (release.List) Console.WriteLine(await Release.ListAsync(dataStore));
+                    else if (!string.IsNullOrEmpty(release.Notes)) await Release.OpenNotesAsync(release.Notes, dataStore);
+                    else if (!string.IsNullOrEmpty(release.InstallVersion)) await release.InstallByTagAsync(Console.Write, dataStore);
+                });
+
                 parserResult.WithParsed<Open>(open => ShellCommands.ExploreFolder(Folder.GetPath(open.Folder)));
 
                 //see https://github.com/commandlineparser/commandline/wiki/HelpText-Configuration
@@ -83,7 +93,7 @@ namespace SubTubular
                     h.MaximumDisplayWidth = Console.WindowWidth;
                     h.AddEnumValuesToHelpText = true;
                     h.OptionComparison = CompareOptions;
-                    h.AddPostOptionsLine($"See {repoUrl} for more info.");
+                    h.AddPostOptionsLine($"See {RepoUrl} for more info.");
                     return h;
                 })));
             }
@@ -169,7 +179,7 @@ namespace SubTubular
 
   {t.Url}
 
-  {t.Error}").Join(errorOutputSpacing), command.Format());
+  {t.Error}").Join(OutputSpacing), command.Format());
                 }
 
                 searching = false; // to let the cancel task complete if search did before it
@@ -179,24 +189,12 @@ namespace SubTubular
 
         private static async Task WriteErrorLogAsync(string originalCommand, string errors, string name = null)
         {
-            var assembly = Assembly.GetExecutingAssembly();
-            string productInfo = null;
-
-            try
-            {
-                var versionInfo = FileVersionInfo.GetVersionInfo(assembly.Location);
-                productInfo = $"{versionInfo.ProductName} {versionInfo.ProductVersion}";
-            }
-            catch
-            {
-                var assemblyName = assembly.GetName();
-                productInfo = $"{assemblyName.Name} {assemblyName.Version}";
-            }
+            var productInfo = Name + " " + AssemblyInfo.GetProductVersion();
 
             var environmentInfo = new[] { "on", Environment.OSVersion.VersionString,
                 RuntimeInformation.FrameworkDescription, productInfo }.Join(" ");
 
-            var report = (new[] { originalCommand, environmentInfo, errors }).Join(errorOutputSpacing);
+            var report = (new[] { originalCommand, environmentInfo, errors }).Join(OutputSpacing);
             var fileWritten = false;
 
             try
@@ -218,11 +216,11 @@ namespace SubTubular
 
             Console.WriteLine();
 
-            Console.WriteLine($"Check {repoUrl}/releases for a version newer than {productInfo} that may have fixed this"
-                + $" or {repoUrl}/issues for existing reports of this error and maybe a solution or work-around."
+            Console.WriteLine($"Try 'release --list' or check {ReleasesUrl} for a version newer than {productInfo} that may have fixed this"
+                + $" or {IssuesUrl} for existing reports of this error and maybe a solution or work-around."
                 + " If you can reproduce this error in the latest version, reporting it there is your best chance at getting it fixed."
                 + " If you do, make sure to include the original command or parameters to reproduce it,"
-                + " any exception details that have not already been shared and the OS/.NET/SubTubular version you're on."
+                + $" any exception details that have not already been shared and the OS/.NET/{Name} version you're on."
                 + $" You'll find all that in the error {(fileWritten ? "log file" : "output above")}.");
         }
 

@@ -7,8 +7,11 @@ namespace SubTubular
 {
     internal static class ShellCommands
     {
-        internal static void OpenFile(string path) // from https://stackoverflow.com/a/53245993
-            => Process.Start(new ProcessStartInfo(new Uri(path).AbsoluteUri) { UseShellExecute = true });
+        internal static void OpenUri(string uri) // from https://stackoverflow.com/a/61035650
+            => Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true });
+
+        // from https://stackoverflow.com/a/53245993
+        internal static void OpenFile(string path) => OpenUri(new Uri(path).AbsoluteUri);
 
         #region explore folder in file browser, from https://stackoverflow.com/a/65886646
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
