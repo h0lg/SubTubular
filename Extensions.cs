@@ -113,4 +113,14 @@ namespace SubTubular
             => exception.StatusCode == System.Net.HttpStatusCode.NotFound || exception.Message.Contains("404 (NotFound)");
     }
 
+    internal static class ChannelAliasMapExtensions
+    {
+        internal static ChannelAliasMap ForAlias(this List<ChannelAliasMap> maps, object alias)
+        {
+            var (type, value) = ChannelAliasMap.GetTypeAndValue(alias);
+
+            return maps.SingleOrDefault(known => known.Type == type
+                && known.Value.Equals(value, StringComparison.OrdinalIgnoreCase));
+        }
+    }
 }
