@@ -9,7 +9,7 @@ namespace SubTubular
 {
     [Verb("search-channel", aliases: new[] { "channel", "c" },
         HelpText = "Searches the videos in a channel's Uploads playlist."
-        + " This is a glorified search-playlist.")]
+        + $" This is a glorified '{SearchPlaylist.Command}'.")]
     internal sealed class SearchChannel : SearchPlaylistCommand
     {
         internal const string StorageKeyPrefix = "channel ";

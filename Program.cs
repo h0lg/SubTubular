@@ -83,6 +83,7 @@ namespace SubTubular
                         h.Copyright = string.Empty;
                     }
 
+                    h.MaximumDisplayWidth = Console.WindowWidth;
                     h.AddEnumValuesToHelpText = true;
                     h.OptionComparison = CompareOptions;
                     h.AddPostOptionsLine($"See {repoUrl} for more info.");
