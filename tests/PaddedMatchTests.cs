@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Text.RegularExpressions;
 
 namespace Tests
@@ -64,19 +63,19 @@ padded with a ", multiMatched.Length, 17, 55, 70),
             var range = new ExpectedMatch(08, 15);
             var hash = range.GetHashCode();
 
-            Debug.Assert(hash == new ExpectedMatch(15, 8).GetHashCode(), "hash codes should match");
-            Debug.Assert(hash != new ExpectedMatch(9, 16).GetHashCode(), "hash codes shouldn't match");
-            Debug.Assert(hash != new ExpectedMatch(9, 14).GetHashCode(), "hash codes shouldn't match");
+            Assert.AreEqual(new ExpectedMatch(15, 8).GetHashCode(), hash, "hash codes should match");
+            Assert.AreNotEqual(new ExpectedMatch(9, 16).GetHashCode(), hash, "hash codes shouldn't match");
+            Assert.AreNotEqual(new ExpectedMatch(9, 14).GetHashCode(), hash, "hash codes shouldn't match");
 
-            Debug.Assert(!range.Intersects(new ExpectedMatch(0, 6), orTouches: true), "ranges shouldn't touch");
-            Debug.Assert(range.Intersects(new ExpectedMatch(0, 7), orTouches: true), "ranges should touch");
-            Debug.Assert(!range.Intersects(new ExpectedMatch(0, 7)), "ranges shouldn't intersect");
-            Debug.Assert(range.Intersects(new ExpectedMatch(0, 8)), "ranges should intersect");
-            Debug.Assert(range.Intersects(new ExpectedMatch(8, 15)), "ranges should intersect");
-            Debug.Assert(range.Intersects(new ExpectedMatch(15, 20)), "ranges should intersect");
-            Debug.Assert(!range.Intersects(new ExpectedMatch(16, 20)), "ranges shouldn't intersect");
-            Debug.Assert(range.Intersects(new ExpectedMatch(16, 20), orTouches: true), "ranges should touch");
-            Debug.Assert(!range.Intersects(new ExpectedMatch(17, 20), orTouches: true), "ranges shouldn't touch");
+            Assert.IsFalse(range.Intersects(new ExpectedMatch(0, 6), orTouches: true), "ranges shouldn't touch");
+            Assert.IsTrue(range.Intersects(new ExpectedMatch(0, 7), orTouches: true), "ranges should touch");
+            Assert.IsFalse(range.Intersects(new ExpectedMatch(0, 7)), "ranges shouldn't intersect");
+            Assert.IsTrue(range.Intersects(new ExpectedMatch(0, 8)), "ranges should intersect");
+            Assert.IsTrue(range.Intersects(new ExpectedMatch(8, 15)), "ranges should intersect");
+            Assert.IsTrue(range.Intersects(new ExpectedMatch(15, 20)), "ranges should intersect");
+            Assert.IsFalse(range.Intersects(new ExpectedMatch(16, 20)), "ranges shouldn't intersect");
+            Assert.IsTrue(range.Intersects(new ExpectedMatch(16, 20), orTouches: true), "ranges should touch");
+            Assert.IsFalse(range.Intersects(new ExpectedMatch(17, 20), orTouches: true), "ranges shouldn't touch");
 
             new[] { range, new ExpectedMatch(0, 6) }.GroupOverlapping(orTouching: true)
                 .ShouldYield(new[] { new[] { range }, new[] { new ExpectedMatch(0, 6) } });
@@ -96,13 +95,15 @@ padded with a ", multiMatched.Length, 17, 55, 70),
             var match = Regex.Match(singleLine, search);
             var paddedMatch = new PaddedMatch(match.Index, match.Length, padding, singleLine);
 
-            Debug.Assert(paddedMatch.Value == expect, "unexpected Value");
-            Debug.Assert(paddedMatch.Start == match.Index - padding, "unexpected Start");
+            Assert.AreEqual(expect, paddedMatch.Value, "unexpected Value");
+            Assert.AreEqual(match.Index - padding, paddedMatch.Start, "unexpected Start");
+
             // substract 1 because start is included in length
-            Debug.Assert(paddedMatch.End == match.Index + search.Length - 1 + padding, "unexpected End");
-            Debug.Assert(paddedMatch.Included.Length == 1, "unexpected Included.Length");
-            Debug.Assert(paddedMatch.Included[0].Start == padding, "unexpected Included.Start");
-            Debug.Assert(paddedMatch.Included[0].Length == search.Length, "unexpected Included.Length");
+            Assert.AreEqual(match.Index + search.Length - 1 + padding, paddedMatch.End, "unexpected End");
+
+            Assert.AreEqual(1, paddedMatch.Included.Length, "unexpected Included.Length");
+            Assert.AreEqual(padding, paddedMatch.Included[0].Start, "unexpected Included.Start");
+            Assert.AreEqual(search.Length, paddedMatch.Included[0].Length, "unexpected Included.Length");
         }
 
         private static void MultipleInSingleLine(string searched, ExpectedMatch expected)
@@ -118,17 +119,17 @@ padded with a ", multiMatched.Length, 17, 55, 70),
 
         private static void Compare(ExpectedMatch expected, PaddedMatch actual)
         {
-            Debug.Assert(actual.Value == expected.Value, "unexpected Value");
-            Debug.Assert(actual.Start == expected.Start, "unexpected Start");
-            Debug.Assert(actual.End == expected.End, "unexpected End");
-            Debug.Assert(actual.Included.Length == expected.Included.Length, "unexpected Included.Length");
+            Assert.AreEqual(expected.Value, actual.Value, "unexpected Value");
+            Assert.AreEqual(expected.Start, actual.Start, "unexpected Start");
+            Assert.AreEqual(expected.End, actual.End, "unexpected End");
+            Assert.AreEqual(expected.Included.Length, actual.Included.Length, "unexpected Included.Length");
 
             for (var i = 0; i < expected.Included.Length; i++)
             {
                 var actualIncluded = actual.Included[i];
                 var expectedIncluded = expected.Included[i];
-                Debug.Assert(actualIncluded.Start == expectedIncluded.Start, "unexpected Included.Start");
-                Debug.Assert(actualIncluded.Length == expectedIncluded.Length, "unexpected Included.Length");
+                Assert.AreEqual(expectedIncluded.Start, actualIncluded.Start, "unexpected Included.Start");
+                Assert.AreEqual(expectedIncluded.Length, actualIncluded.Length, "unexpected Included.Length");
             }
         }
 
@@ -140,7 +141,7 @@ padded with a ", multiMatched.Length, 17, 55, 70),
                 .MergeOverlapping(multiLineText)
                 .ToArray();
 
-            Debug.Assert(actual.Length == expected.Length, "unexpected number of matches");
+            Assert.AreEqual(expected.Length, actual.Length, "unexpected number of matches");
 
             for (var i = 0; i < expected.Length; i++)
                 Compare(expected[i], actual[i]);
@@ -168,21 +169,21 @@ padded with a ", multiMatched.Length, 17, 55, 70),
     {
         internal static void ShouldYield<T>(this IEnumerable<IEnumerable<T>> actual, T[][] expected) where T : Range<int>
         {
-            Debug.Assert(actual.Count() == expected.Length, "unexpected group number");
+            Assert.AreEqual(expected.Length, actual.Count(), "unexpected group number");
 
             for (int i = 0; i < expected.Length; i++)
             {
                 var actualGroup = actual.ElementAt(i);
                 var expectedGroup = expected[i];
 
-                Debug.Assert(actualGroup.Count() == expectedGroup.Length, "unexpected group length");
+                Assert.AreEqual(expectedGroup.Length, actualGroup.Count(), "unexpected group length");
 
                 for (int j = 0; j < expectedGroup.Length; j++)
                 {
                     var actualRange = actualGroup.ElementAt(j);
                     var expectedRange = expectedGroup[j];
-                    Debug.Assert(actualRange.Start == expectedRange.Start, "unexpected Start");
-                    Debug.Assert(actualRange.End == expectedRange.End, "unexpected End");
+                    Assert.AreEqual(expectedRange.Start, actualRange.Start, "unexpected Start");
+                    Assert.AreEqual(expectedRange.End, actualRange.End, "unexpected End");
                 }
             }
         }
