@@ -1,12 +1,10 @@
-#if DEBUG
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Text.RegularExpressions;
 
-namespace SubTubular.Tests
+namespace Tests
 {
-    internal static class PaddedMatchTests
+    [TestClass]
+    public class PaddedMatchTests
     {
         const string singleLine = "A helper comparable to Match including one or multiple PaddedMatch.Included matches";
 
@@ -14,7 +12,8 @@ namespace SubTubular.Tests
 padded with a number of characters on each end for context.
 Range<T>.Start and Range<T>.End represent the indexes of the padded match in the full text it was matched in.";
 
-        internal static void Run()
+        [TestMethod]
+        public void Run()
         {
             Ranges();
 
@@ -189,4 +188,3 @@ padded with a ", multiMatched.Length, 17, 55, 70),
         }
     }
 }
-#endif
