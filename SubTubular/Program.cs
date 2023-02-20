@@ -30,10 +30,6 @@ namespace SubTubular
 
         private static async Task Main(string[] args)
         {
-#if DEBUG
-            Tests.PaddedMatchTests.Run();
-#endif
-
             var originalCommand = $"> {Name}.exe " + args.Select(arg => arg.Contains('|') ? $"\"{arg.Replace("\"", "\"\"")}\"" : arg).Join(" ");
 
             //see https://github.com/commandlineparser/commandline

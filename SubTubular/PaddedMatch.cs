@@ -8,13 +8,13 @@ namespace SubTubular
     /// <see cref="Included"/> matches padded with a number of characters on each end for context.
     /// The <see cref="Range{T}.Start" /> and the (included, i.e. closed interval) <see cref="Range{T}.End" />
     /// represent the indexes of the padded match in the full text it was matched in.</summary>
-    internal sealed class PaddedMatch : Range<int>
+    public sealed class PaddedMatch : Range<int>
     {
         /// <summary>The text containing the <see cref="Included"/> matches including padding.</summary>
-        internal string Value { get; }
+        public string Value { get; }
 
         /// <summary>Contains the internal match(es) with <see cref="IncludedMatch.Start"/> relative to <see cref="Value"/>.</summary>
-        internal IncludedMatch[] Included { get; }
+        public IncludedMatch[] Included { get; }
 
         private PaddedMatch(int start, int end, string fullText)
             : base(start, end, endIncluded: true)
@@ -23,7 +23,7 @@ namespace SubTubular
 
         /// <summary>Used for <paramref name="padding"/> a match with
         /// <paramref name="start"/> relative to <paramref name="fullText"/>.</summary>
-        internal PaddedMatch(int start, int length, ushort padding, string fullText)
+        public PaddedMatch(int start, int length, ushort padding, string fullText)
             : this(start: GetPaddedStartIndex(start, padding),
                 end: GetPaddedEndIndex(start, length, padding, fullText),
                 fullText: fullText)
@@ -37,7 +37,7 @@ namespace SubTubular
         /// for situations in which you want to output the entire full text as <see cref="Value"/>
         /// and the <see cref="IncludedMatch.Start"/> of <paramref name="includedMatches"/>
         /// are already relative to <paramref name="value"/>.</summary>
-        internal PaddedMatch(string value, IncludedMatch[] includedMatches)
+        public PaddedMatch(string value, IncludedMatch[] includedMatches)
             : base(0, value.Length - 1, endIncluded: true)
         {
             Value = value;
@@ -102,22 +102,22 @@ namespace SubTubular
 
         /// <summary>A structure for remembering the locations of matches included in a padded
         /// (and maybe merged) match. Resembles <see cref="Match" /> semantically.</summary>
-        internal sealed class IncludedMatch
+        public sealed class IncludedMatch
         {
             /// <summary>The start index of a match in <see cref="PaddedMatch.Value" />.</summary>
-            internal int Start { get; set; }
+            public int Start { get; set; }
 
             /// <summary>The length of the match.</summary>
-            internal int Length { get; set; }
+            public int Length { get; set; }
         }
     }
 
     /// <summary>Extensions for <see cref="PaddedMatch"/>.</summary>
-    internal static class MatchExtenions
+    public static class MatchExtenions
     {
         /// <summary>Merges overlapping <paramref name="orTouching"/> <paramref name="matches"/> together using
         /// <paramref name="fullText"/> to facilitate selecting the <see cref="PaddedMatch.Value"/> of the merged match.</summary>
-        internal static IEnumerable<PaddedMatch> MergeOverlapping(this IEnumerable<PaddedMatch> matches, string fullText, bool orTouching = true)
+        public static IEnumerable<PaddedMatch> MergeOverlapping(this IEnumerable<PaddedMatch> matches, string fullText, bool orTouching = true)
             => matches.GroupOverlapping(orTouching).Select(group => group.Count() == 1 ? group.First() : new PaddedMatch(group, fullText));
     }
 }

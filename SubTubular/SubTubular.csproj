@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net7.0</TargetFramework>
-    <ApplicationIcon>SubTubular.ico</ApplicationIcon>
+    <ApplicationIcon>../SubTubular.ico</ApplicationIcon>
     <AssemblyTitle>SubTubular - full-text search for YouTube videos</AssemblyTitle>
     <Product>SubTubular</Product>
     <VersionPrefix>3.0.0</VersionPrefix>
