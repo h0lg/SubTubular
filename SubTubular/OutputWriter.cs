@@ -75,7 +75,7 @@ namespace SubTubular
             else textOut.Write(text);
         }
 
-        internal void WriteLine(string text = null)
+        private void WriteLine(string text = null)
         {
             if (text != null) Write(text);
             Console.WriteLine();
