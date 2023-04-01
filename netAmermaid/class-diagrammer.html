@@ -1,0 +1,1809 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>SubTubular class diagrammer - netAmermaid</title>
+    <link rel="icon" type="image/x-icon" href="netAmermaid.ico" />
+    <link rel="stylesheet" href="styles.css" type="text/css" />
+    <style id="filter-width"></style>
+</head>
+<body class="container">
+
+    <!-- for animated background -->
+    <ul class="bubbles container">
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+    </ul>
+
+    <div id="content" class="flx">
+        <form id="filter" class="flx col open">
+            <div class="flx gap">
+                <input id="pre-filter-types" placeholder="pre-filter" class="grow"
+                       title="🐋 I sift through the types for you.&#10;Feed me vanilla 🦐 plain text or ES/JS flavored 🍤 RegEx.&#10;🔭 Focus me with [Ctrl + K]. " />
+                <label for="type-select" class="grow">types</label>
+                <button type="button" class="icon" data-toggles="#info" title="🕯️ Shed light on the type selection"><span class="torch"></span></button>
+            </div>
+
+            <div id="info" class="scndry vertical collapse">
+                <p>
+                    The <big>type picker</big> is ✜ focused when you open the app.
+                    You can just <b>⌨️ key in the first letter/s</b> of the type
+                    you want to start your diagram with and <b>hit [Enter] to render</b> it.
+                </p>
+                <p>
+                    After rendering you can 👆 <b>tap types</b> on the diagram
+                    to update your selection and redraw.
+                    This allows you to <b>explore the domain</b> along relations.
+                </p>
+                <p>
+                    Don't forget that you can hold [Shift] to <b>↕ range-select</b>
+                    and [Ctrl] to <b>± add to or subtract from</b> your selection.
+                </p>
+                <p>
+                    Note that the diagram has a 🟈 <b>layout direction</b> -
+                    i.e. it depends on how you <b>⇅ sort selected types</b> using [Alt + Arrow Up|Down].
+                </p>
+                <p>
+                    Changing the type selection or rendering options
+                    updates the URL in the location bar. That means you can
+                    <ul>
+                        <li><b>🔖 bookmark or 📣 share the URL</b> to your diagram with whoever has access to this diagrammer,</li>
+                        <li><b>access 🕔 earlier diagrams</b> recorded in your 🧾 browser history and</li>
+                        <li><b>⇥ restore your type selection</b> to the picker from the URL using ⟳ Refresh [F5] if you lose it.</li>
+                    </ul>
+                </p>
+                <h3>Looking for help with something else?</h3>
+                <p>
+                    <b>Stop and spot the tooltips.</b> 🌷 They'll give you more info where necessary.
+                    Get a hint for elements with helping tooltips using [Alt + i].
+                </p>
+                <p>Alternatively, find helpful links to the docs and discussions in the
+                    <a href="#build-info" class="toggle">build info <img src="netAmermaid.ico" /> ➪</a></p>
+            </div>
+
+            <select multiple id="type-select" class="grow" title="🥢 pick types to include in your diagram"></select>
+
+            <fieldset id="inheritance" class="scndry flx" title="You may find these options useful to reason about type inheritance - probably less so when looking at entity relations.">
+                <legend>show inherited</legend>
+
+                <span class="scndry flx" title="Render direct base types.">
+                    <input type="checkbox" id="show-base-types" checked />
+                    <label for="show-base-types">types</label>
+                </span>
+                <span class="scndry flx" title="Render direct interfaces.">
+                    <input type="checkbox" id="show-interfaces" checked />
+                    <label for="show-interfaces">interfaces</label>
+                </span>
+                <span class="scndry flx" title="Render members inherited from ancestor types - unless those are also selected and rendered in detail.">
+                    <input type="checkbox" id="show-inherited-members" checked />
+                    <label for="show-inherited-members">members</label>
+                </span>
+            </fieldset>
+
+            <fieldset id="direction" class="scndry flx" title="[Ctrl + arrow keys] You may want to change this depending on your screen or printer and the size of the diagram.">
+                <legend>layout direction</legend>
+                <input type="radio" name="direction" value="RL" id="dir-rl" />
+                <label for="dir-rl">⮘</label>
+                <input type="radio" name="direction" value="TB" id="dir-tb" />
+                <label for="dir-tb">⮛</label>
+                <input type="radio" name="direction" value="BT" id="dir-bt" />
+                <label for="dir-bt">⮙</label>
+                <input type="radio" name="direction" value="LR" id="dir-lr" checked />
+                <label for="dir-lr">⮚</label>
+            </fieldset>
+
+            <div id="actions" class="flx spaced">
+                <button title="Render the selected types. [Enter] with the side bar in focus will do."
+                        type="submit" id="render" disabled><span class="trawl-net"></span> Cast the diagram</button>
+                <button type="button" class="icon" data-toggles="#exportOptions" id="exportOptions-toggle" hidden title="toggle 🥡 export options">🎣</button>
+            </div>
+
+            <div id="exportOptions" class="scndry vertical collapse aligned spaced flx gap col">
+
+                <div class="flx gap" title="Note that you can also use your browser's Print function [Ctrl + P] to export to PDF or paper or split up the diagram into multiple pages.">
+                    <button type="button" id="save" data-assembly="SubTubular" title="[Ctrl + S] Saves the diagram in the selected format using a generated name.">💾 Save</button>
+                    <label>or</label>
+                    <button type="button" id="copy" title="[Ctrl + C] Copies the diagram in the selected format to your clipboard for you to paste directly into a messenger, word- or image processor.">📋 Copy to clipboard</button>
+                </div>
+
+                <div class="flx">
+                    <label>as</label>
+                    <span class="flx" title="Extports the diagram as SVG to render in an HTML document or SVG-enabled word processor.">
+                        <input type="radio" name="saveAs" value="svg" id="saveAs-svg" />
+                        <label for="saveAs-svg">svg</label>
+                    </span>
+                    <span class="flx" title="Exports the the diagram as a base-64 encoded PNG.">
+                        <input type="radio" name="saveAs" value="png" id="saveAs-png" checked />
+                        <label for="saveAs-png">png</label>
+                    </span>
+                    <span class="flx" title="Extports the mermaid syntax for the diagram.">
+                        <input type="radio" name="saveAs" value="mmd" id="saveAs-mmd" />
+                        <label for="saveAs-mmd">mmd</label>
+                    </span>
+                </div>
+
+                <div id="dimensions" class="vertical open collapse">
+                    <fieldset title="Applied when saving and in (unscalable) image format. Note these settings indirectly determine the resolution.">
+                        <legend>png dimensions</legend>
+
+                        <div class="flx">
+                            <input type="radio" name="dimension" value="auto" id="dimension-current" checked />
+                            <label for="dimension-current">current</label>
+                            <input type="radio" name="dimension" value="scale" id="dimension-scale" />
+                            <label for="dimension-scale">scale to fixed</label>
+                        </div>
+
+                        <div id="scale-controls" class="flx aligned">
+                            <input type="radio" name="scale" value="width" id="scale-width" checked disabled />
+                            <label for="scale-width">width</label>
+                            <input type="radio" name="scale" value="height" id="scale-height" disabled />
+                            <label for="scale-height">height</label>
+                            <div class="scale-size flx aligned">
+                                <label for="scale-size">of</label>
+                                <input type="text" id="scale-size" value="1080" disabled />
+                                <label for="scale-size">px</label>
+                            </div>
+                        </div>
+                    </fieldset>
+                </div>
+            </div>
+        </form>
+
+        <button type="button" class="icon" id="filter-toggle" title="🧜‍♂️ Let me lay it out for you.&#10👆 Tap me to toggle the side bar [Ctrl + B].&#10;👌 Grab and drag me if you need ⇢ more space for the type selection.">⥂</button>
+
+        <div id="output" class="grow" data-title="🧜‍♀️ I'm not your basic diagram.&#10;👆 Tap my types to toggle them.&#10;&#10;🔍 Zoom me with [Ctrl + mouse wheel].&#10;👌 Grab and drag me around to pan after.&#10;🧽 Reset zoom and pan with [Ctrl + 0]."></div>
+    </div>
+
+    <div id="netAmermaid" class="flx col gap" title="🐙 build info and project links">
+        <div id="toaster" class="flx col gap"></div>
+        <div class="build-info flx">
+            <div id="build-info" class="scndry horizontal collapse flx col">
+                <span>built from SubTubular v3.0.1.0</span>
+                <span>
+                    using <a class="project" target="_blank" href="https://github.com/h0lg/netAmermaid#readme" title="🤿 get learned and find out about or 🔱 fork the project">netAmermaid</a> v2.0.0
+                    <a target="_blank" href="https://github.com/h0lg/netAmermaid/tree/v2.0.0#readme" title="the manual for v2.0.0">📜</a>
+                    <a target="_blank" href="https://github.com/h0lg/netAmermaid/discussions" title="🤔 ask questions, share and discuss 💡 ideas">💬</a>
+                    <a target="_blank" href="https://github.com/h0lg/netAmermaid/issues" title="🦟 feed bugs to the fishes and request 🌱 new features"><span class="mano-a-borsa"></span></a>
+                    <a target="_blank" href="https://github.com/h0lg/netAmermaid/releases/latest" title="☄️ download the latest bits to 🌊 generate better diagrammers">🌩️</a>
+                </span>
+            </div>
+            <img data-toggles="#build-info" src="netAmermaid.ico" />
+        </div>
+    </div>
+
+    <div id="pressed-keys" class="hidden"></div>
+    <div id="mouse" hidden></div>
+
+    <script id="model" type="application/json">{
+  "OutsideReferences": {
+    "System_Exception": "System.Exception",
+    "System_IDisposable": "System.IDisposable",
+    "System_ValueType": "System.ValueType"
+  },
+  "TypesByNamespace": {
+    "": {
+      "_Module_": {
+        "Name": "\u2770Module\u2771",
+        "Body": "class _Module_ {\n    \n}",
+        "Inherited": {}
+      }
+    },
+    "SubTubular": {
+      "AssemblyInfo": {
+        "Body": "class AssemblyInfo {\n    ~GetProductVersion()$ string\n    ~string Location$\n    ~string Version$\n    \u003C\u003CService\u003E\u003E\n}",
+        "Inherited": {}
+      },
+      "AsyncEnumerableExtensions": {
+        "Body": "class AsyncEnumerableExtensions {\n    ~ToListAsync\u2770T\u2771(IAsyncEnumerable\u2770T\u2771 asyncEnumerable)$ Task\u2770List\u2770T\u2771\u2771\n    \u003C\u003CService\u003E\u003E\n}",
+        "Inherited": {},
+        "XmlDocs": {
+          "ToListAsync": "Enumerates the [asyncEnumerable] and returns a list with all results.\r\nInspired by https://stackoverflow.com/a/58915390 ."
+        }
+      },
+      "BaseRange": {
+        "Body": "class BaseRange {\n    ~IComparable Start\n    ~IComparable End\n    -IsGreaterThanEnd(IComparable value) bool\n    \u002BIntersects(BaseRange other) bool\n    \u002BGetHashCode() int\n    ~bool IsEndIncluded\n    \u003C\u003CAbstract\u003E\u003E\n}",
+        "Inherited": {},
+        "XmlDocs": {
+          "": "A non-generic base type for [SubTubular.Range\u00601].",
+          "IsEndIncluded": "Whether [SubTubular.BaseRange.End] is included in the range.\r\nMathematically speaking, true represents a closed and false an open interval.",
+          "Intersects": "Indicates wheter this range overlaps the [other] range.\r\nSee https://stackoverflow.com/a/7325268 ."
+        }
+      },
+      "Caption": {
+        "Body": "class Caption {\n    \u002Bint At\n    \u002Bstring Text\n    \u002BGetHashCode() int\n}",
+        "Inherited": {},
+        "XmlDocs": {
+          "At": "The offset from the start of the video in seconds."
+        }
+      },
+      "CaptionTrack": {
+        "Body": "class CaptionTrack {\n    \u002Bstring LanguageName\n    \u002Bstring Url\n    \u002Bstring Error\n    \u002Bstring ErrorMessage\n    ~string VideoId\n    ~string Key\n    ~GetFullText() string\n    ~GetCaptionAtFullTextIndex() Dictionary\u2770int, Caption\u2771\n    -CacheFullText() void\n    ~char MultiPartKeySeparator$\n    ~string FullTextSeperator$\n    -string fullText\n    -Dictionary\u2770int, Caption\u2771 captionAtFullTextIndex\n}",
+        "Inherited": {},
+        "XmlDocs": {
+          "MultiPartKeySeparator": "Used for separating [SubTubular.CaptionTrack.VideoId] from [SubTubular.CaptionTrack.LanguageName] in [SubTubular.CaptionTrack.Key].",
+          "VideoId": "The [SubTubular.Video.Id]. Needs to be set before indexing to generate a valid [SubTubular.CaptionTrack.Key].",
+          "Key": "Used for indexing. Conatins [SubTubular.CaptionTrack.VideoId] and [SubTubular.CaptionTrack.LanguageName]\r\nseparated by [SubTubular.CaptionTrack.MultiPartKeySeparator] to identify the matched video and caption track."
+        },
+        "HasMany": {
+          "Captions": "Caption"
+        }
+      },
+      "ChannelAliasMap": {
+        "Body": "class ChannelAliasMap {\n    \u002Bstring Type\n    \u002Bstring Value\n    \u002Bstring ChannelId\n    ~GetTypeAndValue(object alias)$ ValueTuple\n    ~LoadList(DataStore dataStore)$ Task\u2770List\u2770ChannelAliasMap\u2771\u2771\n    ~SaveList(List\u2770ChannelAliasMap\u2771 maps, DataStore dataStore)$ Task\n    ~string StorageKey$\n}",
+        "Inherited": {},
+        "XmlDocs": {
+          "": "Maps valid channel aliases by [SubTubular.ChannelAliasMap.Type] and [SubTubular.ChannelAliasMap.Value]\r\nto an accessible [SubTubular.ChannelAliasMap.ChannelId] or null if none was found."
+        }
+      },
+      "ChannelAliasMapExtensions": {
+        "Body": "class ChannelAliasMapExtensions {\n    ~ForAlias(List\u2770ChannelAliasMap\u2771 maps, object alias)$ ChannelAliasMap\n    \u003C\u003CService\u003E\u003E\n}",
+        "Inherited": {}
+      },
+      "ClearCache": {
+        "Body": "class ClearCache {\n    \u002BIEnumerable\u2770string\u2771 Ids\n    \u002Bushort? NotAccessedForDays\n    ~Process() Task\u2770ValueTuple\u2771\n    -ClearChannelAliases(IEnumerable\u2770string\u2771 aliases, JsonFileDataStore dataStore, bool simulate)$ Task\u2770Dictionary\u2770string, string[]\u2771\u2771\n    ~string Command$\n    -string scope$\n    -string ids$\n}",
+        "Inherited": {},
+        "HasOne": {
+          "Scope": "Scopes",
+          "Mode": "Modes"
+        }
+      },
+      "Modes": {
+        "Name": "ClearCache\u002BModes",
+        "Body": "class Modes {\n    \u003C\u003CEnumeration\u003E\u003E\n    summary\n    verbose\n    simulate\n}"
+      },
+      "Scopes": {
+        "Name": "ClearCache\u002BScopes",
+        "Body": "class Scopes {\n    \u003C\u003CEnumeration\u003E\u003E\n    all\n    videos\n    playlists\n    channels\n}"
+      },
+      "ComparableExtensions": {
+        "Body": "class ComparableExtensions {\n    ~IsGreaterThan(IComparable comparable, IComparable other, bool orEqualTo)$ bool\n    ~IsLessThan(IComparable comparable, IComparable other, bool orEqualTo)$ bool\n    \u003C\u003CService\u003E\u003E\n}",
+        "Inherited": {},
+        "XmlDocs": {
+          "": "Extension methods for [System.IComparable] types.",
+          "IsGreaterThan": "Determines whether [other] is greater than\r\n[orEqualTo] the [other].",
+          "IsLessThan": "Determines whether [other] is less than\r\n[orEqualTo] the [other]."
+        }
+      },
+      "DataStore": {
+        "Body": "class DataStore {\n    \u002BGetLastModified(string key)* DateTime?\n    \u002BGetAsync\u2770T\u2771(string key)* Task\u2770T\u2771\n    \u002BSetAsync\u2770T\u2771(string key, T value)* Task\n    \u003C\u003CInterface\u003E\u003E\n}",
+        "Inherited": {}
+      },
+      "EnumerableExtenions": {
+        "Body": "class EnumerableExtenions {\n    ~ContainsAny\u2770T\u2771(IEnumerable\u2770T\u2771 collection, IEnumerable\u2770T\u2771 values)$ bool\n    ~HasAny\u2770T\u2771(IEnumerable\u2770T\u2771 collection)$ bool\n    \u003C\u003CService\u003E\u003E\n}",
+        "Inherited": {},
+        "XmlDocs": {
+          "": "Extension methods for [System.Collections.Generic.IEnumerable\u00601] types.",
+          "ContainsAny": "Indicates whether [collection]\r\ncontains any of the supplied [values].",
+          "HasAny": "Indicates whether [collection] is not null and contains any items."
+        }
+      },
+      "FileHelper": {
+        "Body": "class FileHelper {\n    ~DeleteFiles(string directory, string searchPattern, ushort? notAccessedForDays, bool simulate)$ IEnumerable\u2770string\u2771\n    ~GetFiles(string directory, string searchPattern, ushort? notAccessedForDays)$ IEnumerable\u2770FileInfo\u2771\n    ~GetFilesExcluding(string folder, string excludedFolder)$ IEnumerable\u2770string\u2771\n    ~CreateFolder(string filePath)$ void\n    ~DownloadAsync(string downloadUrl, string targetPath)$ Task\n    ~Unzip(string zipFile, string targetFolder)$ void\n    \u003C\u003CService\u003E\u003E\n}",
+        "Inherited": {},
+        "XmlDocs": {
+          "GetFilesExcluding": "Returns all file paths in [folder] recursively\r\nexcept for paths in [excludedFolder].",
+          "CreateFolder": "Creates the parent directory/ies for [filePath] if they don\u0027t exist already.",
+          "DownloadAsync": "Asynchronously downloads a file from [downloadUrl]\r\nand saves it at [targetPath].",
+          "Unzip": "Unpacks the [zipFile] into the [targetFolder]\r\nwhile flattening a top-level folder that wraps all zip contents."
+        }
+      },
+      "Folder": {
+        "Body": "class Folder {\n    ~GetPath(Folders folder)$ string\n    -GetStoragePath(string subFolder)$ string\n    \u003C\u003CService\u003E\u003E\n}",
+        "Inherited": {}
+      },
+      "Folders": {
+        "Body": "class Folders {\n    \u003C\u003CEnumeration\u003E\u003E\n    app\n    cache\n    errors\n    output\n    storage\n}",
+        "XmlDocs": {
+          "": "App-related folders.",
+          "app": "The directory the app is running from.",
+          "cache": "The directory used for caching channel, playlist and video info.",
+          "errors": "The directory error logs are written to.",
+          "output": "The directory output files are written to by default\r\n(unless explicitly specified using [SubTubular.SearchCommand.FileOutputPath]).",
+          "storage": "The directory that hosts the [SubTubular.Folders.cache],\r\n[SubTubular.Folders.errors] and [SubTubular.Folders.output] folders."
+        }
+      },
+      "HttpRequestExceptionExtensions": {
+        "Body": "class HttpRequestExceptionExtensions {\n    ~IsNotFound(HttpRequestException exception)$ bool\n    \u003C\u003CService\u003E\u003E\n}",
+        "Inherited": {}
+      },
+      "InputException": {
+        "Body": "class InputException {\n    \n}",
+        "BaseType": {
+          "System_Exception": null
+        },
+        "Inherited": {
+          "System_Exception": {
+            "FlatMembers": "InputException : \u002BMethodBase TargetSite\nInputException : -bool HasBeenThrown\nInputException : -object SerializationWatsonBuckets\nInputException : \u002Bstring Message\nInputException : \u002BIDictionary Data\nInputException : \u002BException InnerException\nInputException : \u002Bstring HelpLink\nInputException : \u002Bstring Source\nInputException : \u002Bint HResult\nInputException : \u002Bstring StackTrace\nInputException : -string SerializationStackTraceString\nInputException : -CreateDataContainer() IDictionary\nInputException : -IsImmutableAgileException(Exception e)$ bool\nInputException : -GetMethodFromStackTrace(object stackTrace)$ IRuntimeMethodInfo\nInputException : -GetExceptionMethodFromStackTrace() MethodBase\nInputException : -OnDeserialized(StreamingContext context) void\nInputException : ~InternalPreserveStackTrace() void\nInputException : -PrepareForForeignExceptionRaise()$ void\nInputException : -GetStackTracesDeepCopy(Exception exception, \u0026byte[] currentStackTrace, \u0026object[] dynamicMethodArray)$ void\nInputException : ~SaveStackTracesFromDeepCopy(Exception exception, byte[] currentStackTrace, object[] dynamicMethodArray)$ void\nInputException : ~GetExceptionCount()$ uint\nInputException : ~RestoreDispatchState(\u0026Exception\u002BDispatchState dispatchState) void\nInputException : ~GetMessageFromNativeResources(Exception\u002BExceptionMessageKind kind)$ string\nInputException : -GetMessageFromNativeResources(Exception\u002BExceptionMessageKind kind, StringHandleOnStack retMesg)$ void\nInputException : ~CaptureDispatchState() Exception\u002BDispatchState\nInputException : -CanSetRemoteStackTrace() bool\nInputException : ~GetHelpContext(\u0026uint helpContext) string\nInputException : -GetClassName() string\nInputException : \u002BGetBaseException() Exception\nInputException : \u002BGetObjectData(SerializationInfo info, StreamingContext context) void\nInputException : \u002BGetType() Type\nInputException : -RestoreRemoteStackTrace(SerializationInfo info, StreamingContext context) void\nInputException : -GetStackTrace() string\nInputException : ~SetCurrentStackTrace() void\nInputException : ~SetRemoteStackTrace(string stackTrace) void\nInputException : -MethodBase _exceptionMethod\nInputException : ~string _message\nInputException : -IDictionary _data\nInputException : -Exception _innerException\nInputException : -string _helpURL\nInputException : -byte[] _stackTrace\nInputException : -byte[] _watsonBuckets\nInputException : -string _stackTraceString\nInputException : -string _remoteStackTraceString\nInputException : -object[] _dynamicMethods\nInputException : -string _source\nInputException : -nuint _ipForWatsonBuckets\nInputException : -nint _xptrs\nInputException : -int _xcode\nInputException : -int _COMPlusExceptionCode$\nInputException : ~string InnerExceptionPrefix$"
+          }
+        }
+      },
+      "JsonFileDataStore": {
+        "Body": "class JsonFileDataStore {\n    -GetFileName(string key)$ string\n    -GetPath(string key) string\n    \u002BGetLastModified(string key) DateTime?\n    \u002BGetAsync\u2770T\u2771(string key) Task\u2770T\u2771\n    \u002BSetAsync\u2770T\u2771(string key, T value) Task\n    ~GetKeysByPrefix(string keyPrefix, ushort? notAccessedForDays) IEnumerable\u2770string\u2771\n    ~string FileExtension$\n    -string directory\n}",
+        "Interfaces": {
+          "DataStore": null
+        },
+        "Inherited": {}
+      },
+      "MatchExtenions": {
+        "Body": "class MatchExtenions {\n    \u002BMergeOverlapping(IEnumerable\u2770PaddedMatch\u2771 matches, string fullText, bool orTouching)$ IEnumerable\u2770PaddedMatch\u2771\n    \u003C\u003CService\u003E\u003E\n}",
+        "Inherited": {},
+        "XmlDocs": {
+          "": "Extensions for [SubTubular.PaddedMatch].",
+          "MergeOverlapping": "Merges overlapping [orTouching] [matches] together using\r\n[fullText] to facilitate selecting the [SubTubular.PaddedMatch.Value] of the merged match."
+        }
+      },
+      "Open": {
+        "Body": "class Open {\n    \n}",
+        "Inherited": {},
+        "HasOne": {
+          "Folder": "Folders"
+        }
+      },
+      "OutputWriter": {
+        "Body": "class OutputWriter {\n    ~WriteHeader(string originalCommand) void\n    -Write(string text) void\n    -WriteLine(string text) void\n    -WriteHighlighted(string text) void\n    -WriteUrl(string url) void\n    -WriteHighlightingMatches(PaddedMatch paddedMatch, OutputWriter\u002BIndentedText indent) void\n    ~DisplayVideoResult(VideoSearchResult result) void\n    ~WriteOutputFile(Func\u2770string\u2771 getDefaultStorageFolder) ValueTask\u2770string\u2771\n    -ResetConsoleColor() void\n    ~WriteTextToFileAsync(string text, string path)$ Task\n    -Dispose(bool disposing) void\n    \u002BDispose() void\n    -ConsoleColor highlightColor$\n    -ConsoleColor regularForeGround\n    -bool outputHtml\n    -bool hasOutputPath\n    -bool writeOutputFile\n    -string fileOutputPath\n    -SearchCommand command\n    -IDocument document\n    -IElement output\n    -StringWriter textOut\n    -bool disposedValue\n}",
+        "Interfaces": {
+          "System_IDisposable": null
+        },
+        "Inherited": {},
+        "XmlDocs": {
+          "": "Provides formatted and highlighted output for Console\r\nas well as either plain text or HTML."
+        }
+      },
+      "IndentedText": {
+        "Name": "OutputWriter\u002BIndentedText",
+        "Body": "class IndentedText {\n    ~Wrap(string text) string\n    ~FitsCurrentLine(int characters) bool\n    ~StartNewLine(OutputWriter outputWriter) void\n    \u002BDispose() void\n    -int left\n    -int width\n}",
+        "Interfaces": {
+          "System_IDisposable": null
+        },
+        "Inherited": {},
+        "XmlDocs": {
+          "": "A helper for writing multiple lines of text at the same indent\r\nin the [System.Console]. This is not quite block format, but almost.",
+          "Wrap": "Wraps [text] into multiple lines\r\nindented by the remembered [System.Console.CursorLeft]\r\nfitting the remembered [System.Console.WindowWidth].",
+          "FitsCurrentLine": "Indicates whether the number of [characters] fit the current line.",
+          "StartNewLine": "Starts a new indented line using the supplied [outputWriter]."
+        }
+      },
+      "PaddedMatch": {
+        "Body": "class PaddedMatch {\n    \u002Bstring Value\n    \u002BGetHashCode() int\n    \u002BEquals(object obj) bool\n    -GetPaddedStartIndex(int start, ushort padding)$ int\n    -GetPaddedEndIndex(int start, int length, ushort padding, string fullText)$ int\n}",
+        "BaseType": {
+          "Range": "Range\u2770int\u2771"
+        },
+        "Inherited": {
+          "BaseRange": {
+            "FlatMembers": "PaddedMatch : ~IComparable Start\nPaddedMatch : ~IComparable End\nPaddedMatch : -IsGreaterThanEnd(IComparable value) bool\nPaddedMatch : \u002BIntersects(BaseRange other) bool\nPaddedMatch : ~bool IsEndIncluded"
+          },
+          "Range": {
+            "FlatMembers": "PaddedMatch : \u002Bint Start\nPaddedMatch : \u002Bint End"
+          }
+        },
+        "XmlDocs": {
+          "": "A helper comparable to [System.Text.RegularExpressions.Match] including one or multiple\r\n[SubTubular.PaddedMatch.Included] matches padded with a number of characters on each end for context.\r\nThe [SubTubular.Range\u00601.Start] and the (included, i.e. closed interval) [SubTubular.Range\u00601.End]\r\nrepresent the indexes of the padded match in the full text it was matched in.",
+          "IsEndIncluded": "Whether [SubTubular.BaseRange.End] is included in the range.\r\nMathematically speaking, true represents a closed and false an open interval.",
+          "Value": "The text containing the [SubTubular.PaddedMatch.Included] matches including padding.",
+          "Included": "Contains the internal match(es) with [SubTubular.PaddedMatch.IncludedMatch.Start] relative to [SubTubular.PaddedMatch.Value].",
+          "Intersects": "Indicates wheter this range overlaps the [other] range.\r\nSee https://stackoverflow.com/a/7325268 ."
+        },
+        "HasMany": {
+          "Included": "IncludedMatch"
+        }
+      },
+      "IncludedMatch": {
+        "Name": "PaddedMatch\u002BIncludedMatch",
+        "Body": "class IncludedMatch {\n    \u002Bint Start\n    \u002Bint Length\n}",
+        "Inherited": {},
+        "XmlDocs": {
+          "": "A structure for remembering the locations of matches included in a padded\r\n(and maybe merged) match. Resembles [System.Text.RegularExpressions.Match] semantically.",
+          "Start": "The start index of a match in [SubTubular.PaddedMatch.Value].",
+          "Length": "The length of the match."
+        }
+      },
+      "Playlist": {
+        "Body": "class Playlist {\n    \u002BDateTime Loaded\n    \u002BIDictionary\u2770string, DateTime?\u2771 Videos\n}",
+        "Inherited": {},
+        "XmlDocs": {
+          "Videos": "The [SubTubular.Video.Id]s and (optional) upload dates\r\nof the videos included in the [SubTubular.Playlist]."
+        }
+      },
+      "Program": {
+        "Body": "class Program {\n    -Main(string[] args)$ Task\n    -SearchAsync(SearchCommand command, string originalCommand, Func\u2770Youtube, IAsyncEnumerable\u2770VideoSearchResult\u2771\u2771 getResultsAsync)$ Task\n    -ListKeywords(Dictionary\u2770string, ushort\u2771 keywords)$ void\n    -WriteErrorLogAsync(string originalCommand, string errors, string name)$ Task\n    -CompareOptions(ComparableOption a, ComparableOption b)$ int\n    -ScoreOption(ComparableOption option)$ int\n    -\u003CMain\u003E(string[] args)$ void\n    -string asciiHeading$\n    ~string Name$\n    ~string RepoOwner$\n    ~string RepoName$\n    ~string RepoUrl$\n    ~string IssuesUrl$\n    ~string ReleasesUrl$\n    ~string OutputSpacing$\n    \u003C\u003CService\u003E\u003E\n}",
+        "Inherited": {},
+        "XmlDocs": {
+          "ListKeywords": "Displays the [keywords] on the [System.Console],\r\nmost often occurring keyword first.\r\n[param name=\u0022keywords\u0022]The keywords and their corresponding number of occurrences.[/param]"
+        }
+      },
+      "Range": {
+        "Name": "Range\u2770T\u2771",
+        "Body": "class Range {\n    \u002BT Start\n    \u002BT End\n    \u003C\u003CAbstract\u003E\u003E\n}",
+        "BaseType": {
+          "BaseRange": null
+        },
+        "Inherited": {
+          "BaseRange": {
+            "FlatMembers": "Range : ~IComparable Start\nRange : ~IComparable End\nRange : -IsGreaterThanEnd(IComparable value) bool\nRange : \u002BIntersects(BaseRange other) bool\nRange : ~bool IsEndIncluded"
+          }
+        },
+        "XmlDocs": {
+          "": "A generic implementation of [SubTubular.BaseRange] similar to [System.Range]\r\nrepresenting a span or period of elements of type [typeT]\r\nwith a [SubTubular.Range\u00601.Start] and an [SubTubular.Range\u00601.End].\r\nInspired by https://stackoverflow.com/a/16103156 and https://stackoverflow.com/a/10174234 .",
+          "IsEndIncluded": "Whether [SubTubular.BaseRange.End] is included in the range.\r\nMathematically speaking, true represents a closed and false an open interval.",
+          "Intersects": "Indicates wheter this range overlaps the [other] range.\r\nSee https://stackoverflow.com/a/7325268 ."
+        }
+      },
+      "RangeExtensions": {
+        "Body": "class RangeExtensions {\n    \u002BIntersects(Range\u2770int\u2771 self, Range\u2770int\u2771 other, bool orTouches)$ bool\n    \u002BGroupOverlapping\u2770T\u2771(IEnumerable\u2770T\u2771 ranges, bool orTouching)$ IEnumerable\u2770IEnumerable\u2770T\u2771\u2771\n    \u003C\u003CService\u003E\u003E\n}",
+        "Inherited": {},
+        "XmlDocs": {
+          "": "Extension methods for [SubTubular.BaseRange] and [SubTubular.Range\u00601].",
+          "Intersects": "Indicates whether the range [self] [SubTubular.BaseRange.Intersects(SubTubular.BaseRange)]\r\n[orTouches] the [other] range.",
+          "GroupOverlapping": "Groups the incoming [ranges] by overlap/intersection [orTouching]/butting\r\nreturning ranges that don\u0027t overlap with or touch any other as the only range within their group\r\nand all overlapping ranges together in the same.\r\nInspired by union-find algorithm, see https://stackoverflow.com/a/9919203 ."
+        }
+      },
+      "Release": {
+        "Body": "class Release {\n    \u002Bbool List\n    \u002Bstring Notes\n    \u002Bstring InstallFolder\n    \u002Bstring InstallVersion\n    ~ListAsync(DataStore dataStore)$ Task\u2770string\u2771\n    ~InstallByTagAsync(Action\u2770string\u2771 report, DataStore dataStore) Task\n    ~OpenNotesAsync(string version, DataStore dataStore)$ Task\n    -OpenNotes(Release\u002BCacheModel release)$ void\n    -GetArchivePath(string appFolder)$ string\n    -GetGithubClient()$ GitHubClient\n    -GetAll(DataStore dataStore)$ Task\u2770List\u2770Release\u002BCacheModel\u2771\u2771\n    -GetRelease(string version, DataStore dataStore)$ Task\u2770Release\u002BCacheModel\u2771\n    -string actions$\n    -string into$\n    -string install$\n}",
+        "Inherited": {}
+      },
+      "CacheModel": {
+        "Name": "Release\u002BCacheModel",
+        "Body": "class CacheModel {\n    \u002Bstring Name\n    \u002Bstring Version\n    \u002Bstring HtmlUrl\n    \u002BDateTime PublishedAt\n    \u002Bstring BinariesZipError\n}",
+        "Inherited": {},
+        "XmlDocs": {
+          "BinariesZip": "The .zip asset containing the binaries if [SubTubular.Release.CacheModel.BinariesZipError] is null.",
+          "BinariesZipError": "The error identifying the [SubTubular.Release.CacheModel.BinariesZip], if any."
+        },
+        "HasOne": {
+          "BinariesZip": "BinariesZipAsset"
+        }
+      },
+      "BinariesZipAsset": {
+        "Name": "CacheModel\u002BBinariesZipAsset",
+        "Body": "class BinariesZipAsset {\n    \u002Bstring Name\n    \u002Bstring DownloadUrl\n    \u002Bint Size\n}",
+        "Inherited": {}
+      },
+      "RemoteValidated": {
+        "Body": "class RemoteValidated {\n    \u002BRemoteValidateAsync(YoutubeClient youtube, DataStore dataStore, CancellationToken cancellation)* Task\n    \u003C\u003CInterface\u003E\u003E\n}",
+        "Inherited": {}
+      },
+      "SearchChannel": {
+        "Body": "class SearchChannel {\n    \u002Bstring Alias\n    ~string Label\n    ~Validate() void\n    ~ValidateAlias(string alias)$ object[]\n    \u002BRemoteValidateAsync(YoutubeClient youtube, DataStore dataStore, CancellationToken cancellation) Task\n    -GetValidUrl(object alias)$ string\n    ~GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation) IAsyncEnumerable\u2770PlaylistVideo\u2771\n    -object[] validAliases\n}",
+        "BaseType": {
+          "SearchPlaylistCommand": null
+        },
+        "Interfaces": {
+          "RemoteValidated": null
+        },
+        "Inherited": {
+          "SearchCommand": {
+            "FlatMembers": "SearchChannel : \u002BIEnumerable\u2770string\u2771 QueryWords\nSearchChannel : \u002Bstring Query\nSearchChannel : \u002Bbool ListKeywords\nSearchChannel : \u002Bushort Padding\nSearchChannel : \u002Bbool OutputHtml\nSearchChannel : \u002Bstring FileOutputPath\nSearchChannel : ~string Label*\nSearchChannel : ~IEnumerable\u2770string\u2771 ValidUrls\nSearchChannel : #FormatInternal()* string\nSearchChannel : ~Format() string\nSearchChannel : ~Validate() void\nSearchChannel : -string html$\nSearchChannel : -string outputPath$\nSearchChannel : -string for$\nSearchChannel : -string existingFilesAreOverWritten$\nSearchChannel : -char[] controlChars$",
+            "HasOne": {
+              "Show ?": "Shows"
+            }
+          },
+          "SearchPlaylistCommand": {
+            "FlatMembers": "SearchChannel : \u002Bushort Top\nSearchChannel : \u002Bfloat CacheHours\nSearchChannel : #string ID\nSearchChannel : ~string StorageKey\nSearchChannel : #FormatInternal() string\nSearchChannel : ~GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation)* IAsyncEnumerable\u2770PlaylistVideo\u2771\nSearchChannel : ~Validate() void\nSearchChannel : -string top$\nSearchChannel : -string orderBy$\nSearchChannel : ~SearchPlaylistCommand\u002BOrderOptions[] Orders$",
+            "HasMany": {
+              "OrderBy": "OrderOptions"
+            }
+          }
+        },
+        "XmlDocs": {
+          "Orders": "Mutually exclusive [SubTubular.SearchPlaylistCommand.OrderOptions].",
+          "QueryWords": "Enables having a multi-word [SubTubular.SearchCommand.Query] (i.e. with spaces in between parts)\r\nwithout having to quote it and double-quote multi-word expressions within it."
+        }
+      },
+      "SearchCommand": {
+        "Body": "class SearchCommand {\n    \u002BIEnumerable\u2770string\u2771 QueryWords\n    \u002Bstring Query\n    \u002Bbool ListKeywords\n    \u002Bushort Padding\n    \u002Bbool OutputHtml\n    \u002Bstring FileOutputPath\n    ~string Label*\n    ~IEnumerable\u2770string\u2771 ValidUrls\n    #FormatInternal()* string\n    ~Format() string\n    ~Validate() void\n    -string html$\n    -string outputPath$\n    -string for$\n    -string existingFilesAreOverWritten$\n    -char[] controlChars$\n    \u003C\u003CAbstract\u003E\u003E\n}",
+        "Inherited": {},
+        "XmlDocs": {
+          "QueryWords": "Enables having a multi-word [SubTubular.SearchCommand.Query] (i.e. with spaces in between parts)\r\nwithout having to quote it and double-quote multi-word expressions within it."
+        },
+        "HasOne": {
+          "Show ?": "Shows"
+        }
+      },
+      "Shows": {
+        "Name": "SearchCommand\u002BShows",
+        "Body": "class Shows {\n    \u003C\u003CEnumeration\u003E\u003E\n    file\n    folder\n}"
+      },
+      "SearchPlaylist": {
+        "Body": "class SearchPlaylist {\n    ~string Label\n    \u002Bstring Playlist\n    ~Validate() void\n    ~GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation) IAsyncEnumerable\u2770PlaylistVideo\u2771\n    ~string Command$\n}",
+        "BaseType": {
+          "SearchPlaylistCommand": null
+        },
+        "Inherited": {
+          "SearchCommand": {
+            "FlatMembers": "SearchPlaylist : \u002BIEnumerable\u2770string\u2771 QueryWords\nSearchPlaylist : \u002Bstring Query\nSearchPlaylist : \u002Bbool ListKeywords\nSearchPlaylist : \u002Bushort Padding\nSearchPlaylist : \u002Bbool OutputHtml\nSearchPlaylist : \u002Bstring FileOutputPath\nSearchPlaylist : ~string Label*\nSearchPlaylist : ~IEnumerable\u2770string\u2771 ValidUrls\nSearchPlaylist : #FormatInternal()* string\nSearchPlaylist : ~Format() string\nSearchPlaylist : ~Validate() void\nSearchPlaylist : -string html$\nSearchPlaylist : -string outputPath$\nSearchPlaylist : -string for$\nSearchPlaylist : -string existingFilesAreOverWritten$\nSearchPlaylist : -char[] controlChars$",
+            "HasOne": {
+              "Show ?": "Shows"
+            }
+          },
+          "SearchPlaylistCommand": {
+            "FlatMembers": "SearchPlaylist : \u002Bushort Top\nSearchPlaylist : \u002Bfloat CacheHours\nSearchPlaylist : #string ID\nSearchPlaylist : ~string StorageKey\nSearchPlaylist : #FormatInternal() string\nSearchPlaylist : ~GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation)* IAsyncEnumerable\u2770PlaylistVideo\u2771\nSearchPlaylist : ~Validate() void\nSearchPlaylist : -string top$\nSearchPlaylist : -string orderBy$\nSearchPlaylist : ~SearchPlaylistCommand\u002BOrderOptions[] Orders$",
+            "HasMany": {
+              "OrderBy": "OrderOptions"
+            }
+          }
+        },
+        "XmlDocs": {
+          "Orders": "Mutually exclusive [SubTubular.SearchPlaylistCommand.OrderOptions].",
+          "QueryWords": "Enables having a multi-word [SubTubular.SearchCommand.Query] (i.e. with spaces in between parts)\r\nwithout having to quote it and double-quote multi-word expressions within it."
+        }
+      },
+      "SearchPlaylistCommand": {
+        "Body": "class SearchPlaylistCommand {\n    \u002Bushort Top\n    \u002Bfloat CacheHours\n    #string ID\n    ~string StorageKey\n    #FormatInternal() string\n    ~GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation)* IAsyncEnumerable\u2770PlaylistVideo\u2771\n    ~Validate() void\n    -string top$\n    -string orderBy$\n    ~SearchPlaylistCommand\u002BOrderOptions[] Orders$\n    \u003C\u003CAbstract\u003E\u003E\n}",
+        "BaseType": {
+          "SearchCommand": null
+        },
+        "Inherited": {
+          "SearchCommand": {
+            "FlatMembers": "SearchPlaylistCommand : \u002BIEnumerable\u2770string\u2771 QueryWords\nSearchPlaylistCommand : \u002Bstring Query\nSearchPlaylistCommand : \u002Bbool ListKeywords\nSearchPlaylistCommand : \u002Bushort Padding\nSearchPlaylistCommand : \u002Bbool OutputHtml\nSearchPlaylistCommand : \u002Bstring FileOutputPath\nSearchPlaylistCommand : ~string Label*\nSearchPlaylistCommand : ~IEnumerable\u2770string\u2771 ValidUrls\nSearchPlaylistCommand : #FormatInternal()* string\nSearchPlaylistCommand : ~Format() string\nSearchPlaylistCommand : ~Validate() void\nSearchPlaylistCommand : -string html$\nSearchPlaylistCommand : -string outputPath$\nSearchPlaylistCommand : -string for$\nSearchPlaylistCommand : -string existingFilesAreOverWritten$\nSearchPlaylistCommand : -char[] controlChars$",
+            "HasOne": {
+              "Show ?": "Shows"
+            }
+          }
+        },
+        "XmlDocs": {
+          "Orders": "Mutually exclusive [SubTubular.SearchPlaylistCommand.OrderOptions].",
+          "QueryWords": "Enables having a multi-word [SubTubular.SearchCommand.Query] (i.e. with spaces in between parts)\r\nwithout having to quote it and double-quote multi-word expressions within it."
+        },
+        "HasMany": {
+          "OrderBy": "OrderOptions"
+        }
+      },
+      "OrderOptions": {
+        "Name": "SearchPlaylistCommand\u002BOrderOptions",
+        "Body": "class OrderOptions {\n    \u003C\u003CEnumeration\u003E\u003E\n    uploaded\n    score\n    asc\n}",
+        "XmlDocs": {
+          "": "[SubTubular.SearchPlaylistCommand.Orders] and modifiers."
+        }
+      },
+      "SearchVideos": {
+        "Body": "class SearchVideos {\n    \u002BIEnumerable\u2770string\u2771 Videos\n    ~string Label\n    ~string[] ValidIds\n    ~GetVideoUrl(string videoId)$ string\n    #FormatInternal() string\n    ~Validate() void\n    ~string QuoteIdsStartingWithDash$\n}",
+        "BaseType": {
+          "SearchCommand": null
+        },
+        "Inherited": {
+          "SearchCommand": {
+            "FlatMembers": "SearchVideos : \u002BIEnumerable\u2770string\u2771 QueryWords\nSearchVideos : \u002Bstring Query\nSearchVideos : \u002Bbool ListKeywords\nSearchVideos : \u002Bushort Padding\nSearchVideos : \u002Bbool OutputHtml\nSearchVideos : \u002Bstring FileOutputPath\nSearchVideos : ~string Label*\nSearchVideos : ~IEnumerable\u2770string\u2771 ValidUrls\nSearchVideos : #FormatInternal()* string\nSearchVideos : ~Format() string\nSearchVideos : ~Validate() void\nSearchVideos : -string html$\nSearchVideos : -string outputPath$\nSearchVideos : -string for$\nSearchVideos : -string existingFilesAreOverWritten$\nSearchVideos : -char[] controlChars$",
+            "HasOne": {
+              "Show ?": "Shows"
+            }
+          }
+        },
+        "XmlDocs": {
+          "QueryWords": "Enables having a multi-word [SubTubular.SearchCommand.Query] (i.e. with spaces in between parts)\r\nwithout having to quote it and double-quote multi-word expressions within it."
+        }
+      },
+      "ShellCommands": {
+        "Body": "class ShellCommands {\n    ~OpenUri(string uri)$ void\n    ~OpenFile(string path)$ void\n    -ShellExecuteEx(\u0026ShellCommands\u002BSHELLEXECUTEINFO lpExecInfo)$ bool\n    ~ExploreFolder(string folder)$ bool\n    -int SW_SHOW$\n    \u003C\u003CService\u003E\u003E\n}",
+        "Inherited": {}
+      },
+      "SHELLEXECUTEINFO": {
+        "Name": "ShellCommands\u002BSHELLEXECUTEINFO",
+        "Body": "class SHELLEXECUTEINFO {\n    \u002Bint cbSize\n    \u002Buint fMask\n    \u002Bnint hwnd\n    \u002Bstring lpVerb\n    \u002Bstring lpFile\n    \u002Bstring lpParameters\n    \u002Bstring lpDirectory\n    \u002Bint nShow\n    \u002Bnint hInstApp\n    \u002Bnint lpIDList\n    \u002Bstring lpClass\n    \u002Bnint hkeyClass\n    \u002Buint dwHotKey\n    \u002Bnint hIcon\n    \u002Bnint hProcess\n}",
+        "BaseType": {
+          "System_ValueType": null
+        },
+        "Inherited": {
+          "System_ValueType": {
+            "FlatMembers": "SHELLEXECUTEINFO : -CanCompareBits(object obj)$ bool"
+          }
+        }
+      },
+      "StringExtensions": {
+        "Body": "class StringExtensions {\n    ~NormalizeWhiteSpace(string input, string normalizeTo)$ string\n    ~Join(IEnumerable\u2770string\u2771 pieces, string glue)$ string\n    ~IsDirectoryPath(string path)$ bool\n    ~ToFileSafe(string value, string replacement)$ string\n    \u003C\u003CService\u003E\u003E\n}",
+        "Inherited": {},
+        "XmlDocs": {
+          "": "Extension methods for [System.String]s.",
+          "NormalizeWhiteSpace": "Replaces all consecutive white space characters in\r\n[input] with [normalizeTo].",
+          "Join": "Concatenates the [pieces] into a single string\r\nputting [glue] in between them.",
+          "IsDirectoryPath": "Indicates whether [path] points to a directory rather than a file.\r\nFrom https://stackoverflow.com/a/19596821 .",
+          "ToFileSafe": "Replaces all characters unsafe for file or directory names in [value]\r\nwith [replacement]."
+        }
+      },
+      "TaskExtensions": {
+        "Body": "class TaskExtensions {\n    ~WithAggregateException(Task task)$ Task\n    \u003C\u003CService\u003E\u003E\n}",
+        "Inherited": {},
+        "XmlDocs": {
+          "WithAggregateException": "Use with the [task] returned by [System.Threading.Tasks.Task.WhenAll(System.Collections.Generic.IEnumerable{System.Threading.Tasks.Task})]\r\nto throw all exceptions as an [System.AggregateException] instead of only the first one (as is the default).\r\nFrom https://github.com/dotnet/runtime/issues/47605#issuecomment-778930734"
+        }
+      },
+      "TimeSpanExtensions": {
+        "Body": "class TimeSpanExtensions {\n    ~FormatWithOptionalHours(TimeSpan timeSpan)$ string\n    -string minSec$\n    \u003C\u003CService\u003E\u003E\n}",
+        "Inherited": {}
+      },
+      "ValueTasks": {
+        "Body": "class ValueTasks {\n    ~WhenAll\u2770T\u2771(IReadOnlyList\u2770ValueTask\u2770T\u2771\u2771 tasks)$ ValueTask\u2770ValueTuple\u2771\n    ~WhenAll\u2770T\u2771(IEnumerable\u2770ValueTask\u2770T\u2771\u2771 tasks)$ ValueTask\u2770ValueTuple\u2771\n    \u003C\u003CService\u003E\u003E\n}",
+        "Inherited": {},
+        "XmlDocs": {
+          "": "Helpers for [System.Threading.Tasks.ValueTask]s. Inspired by https://stackoverflow.com/a/63141544 ."
+        }
+      },
+      "Video": {
+        "Body": "class Video {\n    \u002Bstring Id\n    \u002Bstring Title\n    \u002Bstring Description\n    \u002Bstring[] Keywords\n    \u002BDateTime Uploaded\n    ~bool UnIndexed\n    ~string StorageKeyPrefix$\n}",
+        "Inherited": {},
+        "XmlDocs": {
+          "Uploaded": "Upload time in UTC.",
+          "UnIndexed": "Set internally and temporarily when a video was re-loaded from YouTube and needs re-indexing.\r\nThis is a work-around for [SubTubular.ClearCache] not cleaning up playlist indexes when singular videos are cleared."
+        },
+        "HasMany": {
+          "CaptionTracks": "CaptionTrack"
+        }
+      },
+      "VideoIndex": {
+        "Body": "class VideoIndex {\n    ~FullTextIndex\u2770string\u2771 Index\n    ~GetIndexed(IEnumerable\u2770string\u2771 videoIds) string[]\n    ~AddAsync(Video video, CancellationToken cancellation) Task\n    ~BeginBatchChange() void\n    ~CommitBatchChangeAsync() Task\n    ~SearchAsync(SearchCommand command, Func\u2770string, CancellationToken, Task\u2770Video\u2771\u2771 getVideoAsync, CancellationToken cancellation, IDictionary\u2770string, DateTime?\u2771 relevantVideos, Func\u2770IEnumerable\u2770Video\u2771, Task\u2771 updatePlaylistVideosUploaded) IAsyncEnumerable\u2770VideoSearchResult\u2771\n    -UpdateAsync(IEnumerable\u2770Video\u2771 videos, CancellationToken cancellation) Task\n}",
+        "Inherited": {},
+        "XmlDocs": {
+          "SearchAsync": "Searches the index according to the specified [command],\r\nrecombining the matches with [SubTubular.Video]s loaded using [getVideoAsync]\r\nand returns [SubTubular.VideoSearchResult]s until all are processed\r\nor the [cancellation] is invoked.\r\n[param name=\u0022command\u0022]Determines the [SubTubular.SearchCommand.Query] for the search\r\nand the [SubTubular.SearchPlaylistCommand.OrderBy] and [SubTubular.SearchCommand.Padding] of the results.[/param]\r\n[param name=\u0022relevantVideos\u0022][SubTubular.Video.Id]s the search is limited to\r\naccompanied by their corresponding [SubTubular.Video.Uploaded] dates, if known.\r\nThe latter are only used for [SubTubular.SearchPlaylistCommand.OrderOptions.uploaded]\r\nand missing dates are determined by loading the videos using [getVideoAsync].[/param]\r\n[param name=\u0022updatePlaylistVideosUploaded\u0022]A callback for updating the [SubTubular.Playlist.Videos]\r\nwith the [SubTubular.Video.Uploaded] dates after loading them for\r\n[SubTubular.SearchPlaylistCommand.OrderOptions.uploaded].[/param]"
+        }
+      },
+      "VideoIndexRepository": {
+        "Body": "class VideoIndexRepository {\n    ~Build(string key) VideoIndex\n    -GetPath(string key) string\n    ~GetAsync(string key) ValueTask\u2770VideoIndex\u2771\n    -SaveAsync(VideoIndex index, string key) Task\n    ~string FileExtension$\n    -string directory\n    -FullTextIndexBuilder\u2770string\u2771 builder\n    -IIndexSerializer\u2770string\u2771 serializer\n}",
+        "Inherited": {}
+      },
+      "VideoSearchResult": {
+        "Body": "class VideoSearchResult {\n    \n}",
+        "Inherited": {},
+        "HasOne": {
+          "Video": "Video",
+          "TitleMatches": "PaddedMatch"
+        },
+        "HasMany": {
+          "DescriptionMatches": "PaddedMatch",
+          "KeywordMatches": "PaddedMatch",
+          "MatchingCaptionTracks": "CaptionTrackResult"
+        }
+      },
+      "CaptionTrackResult": {
+        "Name": "VideoSearchResult\u002BCaptionTrackResult",
+        "Body": "class CaptionTrackResult {\n    ~List\u2770ValueTuple\u2771 Matches\n}",
+        "Inherited": {},
+        "HasOne": {
+          "Track": "CaptionTrack"
+        }
+      },
+      "Youtube": {
+        "Body": "class Youtube {\n    ~RemoteValidateAsync(RemoteValidated command, CancellationToken cancellation) Task\n    ~SearchPlaylistAsync(SearchPlaylistCommand command, CancellationToken cancellation) IAsyncEnumerable\u2770VideoSearchResult\u2771\n    -GetPlaylistAsync(SearchPlaylistCommand command, CancellationToken cancellation) Task\u2770Playlist\u2771\n    -SearchUnindexedVideos(SearchPlaylistCommand command, string[] unIndexedVideoIds, VideoIndex index, CancellationToken cancellation, Func\u2770IEnumerable\u2770Video\u2771, Task\u2771 updatePlaylistVideosUploaded) IAsyncEnumerable\u2770VideoSearchResult\u2771\n    ~SearchVideosAsync(SearchVideos command, CancellationToken cancellation) IAsyncEnumerable\u2770VideoSearchResult\u2771\n    -SearchVideoAsync(string videoId, SearchVideos command, CancellationToken cancellation) Task\u2770VideoSearchResult\u2771\n    ~ListKeywordsAsync(SearchCommand command, CancellationToken cancellation) Task\u2770Dictionary\u2770string, ushort\u2771\u2771\n    -GetVideoAsync(string videoId, CancellationToken cancellation) Task\u2770Video\u2771\n    -MapVideo(Video video)$ Video\n    -DownloadCaptionTracksAsync(string videoId, CancellationToken cancellation) IAsyncEnumerable\u2770CaptionTrack\u2771\n    -YoutubeClient youtube\n    -DataStore dataStore\n    -VideoIndexRepository videoIndexRepo\n}",
+        "Inherited": {},
+        "XmlDocs": {
+          "SearchPlaylistAsync": "Searches videos defined by a playlist.\r\n[param name=\u0022cancellation\u0022]Passed in either explicitly or by the IAsyncEnumerable.WithCancellation() extension,\r\nsee https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables[/param]",
+          "SearchVideosAsync": "Searches videos scoped by the specified [command].\r\n[param name=\u0022cancellation\u0022]Passed in either explicitly or by the IAsyncEnumerable.WithCancellation() extension,\r\nsee https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables[/param]",
+          "SearchVideoAsync": "Searches the video with [videoId] according to the [command].",
+          "ListKeywordsAsync": "Returns the [SubTubular.Video.Keywords] and their corresponding number of occurrences\r\nfrom the videos scoped by [command]."
+        }
+      }
+    }
+  }
+}</script>
+    <script type="module">// see CDN example https://mermaid.js.org/intro/n00b-gettingStarted.html#_3-calling-the-javascript-api
+import mermaid from 'https://unpkg.com/mermaid@10.5.0/dist/mermaid.esm.min.mjs';
+
+const getById = id => document.getElementById(id),
+    triggerChangeOn = element => { element.dispatchEvent(new Event('change')); },
+    hasProperty = (obj, name) => Object.prototype.hasOwnProperty.call(obj, name);
+
+const checkable = (() => {
+    const checked = ':checked',
+        inputsByName = name => `input[name=${name}]`,
+        getInput = (name, filter, context) => (context || document).querySelector(inputsByName(name) + filter),
+        getInputs = (name, context) => (context || document).querySelectorAll(inputsByName(name));
+
+    return {
+        getValue: (name, context) => getInput(name, checked, context).value,
+
+        onChange: (name, handle, context) => {
+            for (let input of getInputs(name, context)) input.onchange = handle;
+        },
+
+        setChecked: (name, value, triggerChange, context) => {
+            const input = getInput(name, `[value="${value}"]`, context);
+            input.checked = true;
+            if (triggerChange !== false) triggerChangeOn(input);
+        }
+    };
+})();
+
+const collapse = (() => {
+    const open = 'open',
+        isOpen = element => element.classList.contains(open),
+
+        /** Toggles the open class on the collapse.
+         *  @param {HTMLElement} element The collapse to toggle.
+         *  @param {boolean} force The state to force. */
+        toggle = (element, force) => element.classList.toggle(open, force);
+
+    return {
+        toggle,
+
+        open: element => {
+            if (isOpen(element)) return false; // return whether collapse was opened by this process
+            return toggle(element, true);
+        },
+
+        initToggles: () => {
+            for (let trigger of [...document.querySelectorAll('.toggle[href],[data-toggles]')]) {
+                trigger.addEventListener('click', event => {
+                    event.preventDefault(); // to avoid pop-state event
+                    const trigger = event.currentTarget;
+                    trigger.ariaExpanded = !(trigger.ariaExpanded === 'true');
+                    toggle(document.querySelector(trigger.attributes.href?.value || trigger.dataset.toggles));
+                });
+            }
+        }
+    };
+})();
+
+const notify = (() => {
+    const toaster = getById('toaster');
+
+    return message => {
+        const toast = document.createElement('span');
+        toast.innerText = message;
+        toaster.appendChild(toast); // fades in the message
+
+        setTimeout(() => {
+            toast.classList.add('leaving'); // fades out the message
+
+            // ...and removes it. Note this timeout has to match the animation duration for '.leaving' in the .less file.
+            setTimeout(() => { toast.remove(); }, 1000);
+        }, 5000);
+    };
+})();
+
+const output = (function () {
+    const output = getById('output'),
+        hasSVG = () => output.childElementCount > 0,
+        getSVG = () => hasSVG() ? output.children[0] : null,
+
+        updateSvgViewBox = (svg, viewBox) => {
+            if (svg.originalViewBox === undefined) {
+                const vb = svg.viewBox.baseVal;
+                svg.originalViewBox = { x: vb.x, y: vb.y, width: vb.width, height: vb.height, };
+            }
+
+            svg.setAttribute('viewBox', `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`);
+        };
+
+    // enable zooming SVG using Ctrl + mouse wheel
+    const zoomFactor = 0.1, panFactor = 2023; // to go with the Zeitgeist
+
+    output.addEventListener('wheel', event => {
+        if (!event.ctrlKey || !hasSVG()) return;
+        event.preventDefault();
+
+        const svg = getSVG(),
+            delta = event.deltaY < 0 ? 1 : -1,
+            zoomDelta = 1 + zoomFactor * delta,
+            viewBox = svg.viewBox.baseVal;
+
+        viewBox.width *= zoomDelta;
+        viewBox.height *= zoomDelta;
+        updateSvgViewBox(svg, viewBox);
+    });
+
+    // enable panning SVG by grabbing and dragging
+    let isPanning = false, panStartX = 0, panStartY = 0;
+
+    output.addEventListener('mousedown', event => {
+        isPanning = true;
+        panStartX = event.clientX;
+        panStartY = event.clientY;
+    });
+
+    output.addEventListener('mouseup', () => { isPanning = false; });
+
+    output.addEventListener('mousemove', event => {
+        if (!isPanning || !hasSVG()) return;
+        event.preventDefault();
+
+        const svg = getSVG(),
+            viewBox = svg.viewBox.baseVal,
+            dx = event.clientX - panStartX,
+            dy = event.clientY - panStartY;
+
+        viewBox.x -= dx * panFactor / viewBox.width;
+        viewBox.y -= dy * panFactor / viewBox.height;
+        panStartX = event.clientX;
+        panStartY = event.clientY;
+        updateSvgViewBox(svg, viewBox);
+    });
+
+    return {
+        getDiagramTitle: () => output.dataset.title,
+        setSVG: svg => { output.innerHTML = svg; },
+        getSVG,
+
+        resetZoomAndPan: () => {
+            const svg = getSVG();
+            if (svg !== null) updateSvgViewBox(svg, svg.originalViewBox);
+        }
+    };
+})();
+
+const mermaidExtensions = (() => {
+
+    const logLevel = (() => {
+        /* int indexes as well as string values can identify a valid log level;
+            see log levels and logger definition at https://github.com/mermaid-js/mermaid/blob/develop/packages/mermaid/src/logger.ts .
+            Note the names correspond to console output methods https://developer.mozilla.org/en-US/docs/Web/API/console .*/
+        const names = ['trace', 'debug', 'info', 'warn', 'error', 'fatal'],
+            maxIndex = names.length - 1,
+
+            getIndex = level => {
+                const index = Number.isInteger(level) ? level : names.indexOf(level);
+                return index < 0 ? maxIndex : Math.min(index, maxIndex); // normalize, but return maxIndex (i.e. lowest level) by default
+            };
+
+        let requested; // the log level index of the in-coming config or the default
+
+        return {
+            /** Sets the desired log level.
+             * @param {string|int} level The name or index of the desired log level. */
+            setRequested: level => { requested = getIndex(level); },
+
+            /** Returns all names above (not including) the given level.
+             * @param {int} level The excluded lower boundary log level index (not name).
+             * @returns an array. */
+            above: level => names.slice(level + 1),
+
+            /** Indicates whether the log level is configured to be enabled.
+             * @param {string|int} level The log level to test.
+             * @returns a boolean. */
+            isEnabled: level => requested <= getIndex(level)
+        };
+    })();
+
+    /** Calculates the shortest distance in pixels between a point
+     *  represented by 'top' and 'left' and the closest side of an axis-aligned rectangle.
+     *  Returns 0 if the point is inside or on the edge of the rectangle.
+     *  Inspired by https://gamedev.stackexchange.com/a/50722 .
+     *  @param {int} top The distance of the point from the top of the viewport.
+     *  @param {int} left The distance of the point from the left of the viewport.
+     *  @param {DOMRect} rect The bounding box to get the distance to.
+     *  @returns {int} The distance of the outside point or 0. */
+    function getDistanceToRect(top, left, rect) {
+        const dx = Math.max(rect.left, Math.min(left, rect.right)),
+            dy = Math.max(rect.top, Math.min(top, rect.bottom));
+
+        return Math.sqrt((left - dx) * (left - dx) + (top - dy) * (top - dy));
+    }
+
+    /** Calculates the distance between two non-overlapping axis-aligned rectangles.
+     *  Returns 0 if the rectangles touch or overlap.
+     *  @param {DOMRect} a The first bounding box.
+     *  @param {DOMRect} b The second bounding box.
+     *  @returns {int} The distance between the two bounding boxes or 0 if they touch or overlap. */
+    function getDistance(a, b) {
+        /** Gets coordinate pairs for the corners of a rectangle r.
+         * @param {DOMRect} r the rectangle.
+         * @returns {Array}} */
+        const getCorners = r => [[r.top, r.left], [r.top, r.right], [r.bottom, r.left], [r.bottom, r.right]],
+            /** Gets the distances of the corners of rectA to rectB. */
+            getCornerDistances = (rectA, rectB) => getCorners(rectA).map(c => getDistanceToRect(c[0], c[1], rectB)),
+            aRect = a.getBoundingClientRect(),
+            bRect = b.getBoundingClientRect(),
+            cornerDistances = getCornerDistances(aRect, bRect).concat(getCornerDistances(bRect, aRect));
+
+        return Math.min(...cornerDistances);
+    }
+
+    function interceptConsole(interceptorsByLevel) {
+        const originals = {};
+
+        for (let [level, interceptor] of Object.entries(interceptorsByLevel)) {
+            if (typeof console[level] !== 'function') continue;
+            originals[level] = console[level];
+            console[level] = function () { interceptor.call(this, originals[level], arguments); };
+        }
+
+        return () => { // call to detach interceptors
+            for (let [level, original] of Object.entries(originals))
+                console[level] = original;
+        };
+    }
+
+    let renderedEdges = [], // contains info about the arrows between types on the diagram once rendered
+        lastRenderedDiagram;
+
+    function getRelationLabels(svg, typeId) {
+        const edgeLabels = [...svg.querySelectorAll('.edgeLabels span.edgeLabel span')],
+            extension = 'extension';
+
+        return renderedEdges.filter(e => e.v === typeId // type name needs to match
+            && e.value.arrowTypeStart !== extension && e.value.arrowTypeEnd !== extension) // exclude inheritance arrows
+            .map(edge => {
+                const labelHtml = edge.value.label,
+                    // filter edge labels with matching HTML
+                    labels = edgeLabels.filter(l => l.outerHTML === labelHtml);
+
+                if (labels.length === 1) return labels[0]; // return the only matching label
+                else if (labels.length < 1) console.error(
+                    "Tried to find a relation label for the following edge (by its value.label) but couldn't.", edge);
+                else { // there are multiple edge labels with the same HTML (i.e. matching relation name)
+                    // find the path that is rendered for the edge
+                    const path = svg.querySelector('.edgePaths>path.relation#' + edge.value.id),
+                        labelsByDistance = labels.sort((a, b) => getDistance(path, a) - getDistance(path, b));
+
+                    console.warn('Found multiple relation labels matching the following edge (by its value.label). Returning the closest/first.',
+                        edge, labelsByDistance);
+
+                    return labelsByDistance[0]; // and return the matching label closest to it
+                }
+            });
+    }
+
+    return {
+        init: config => {
+
+            /* Override console.info to intercept a message posted by mermaid including information about the edges
+                (represented by arrows between types in the rendered diagram) to access the relationship info
+                parsed from the diagram descriptions of selected types.
+                This works around the mermaid API currently not providing access to this information
+                and it being hard to reconstruct from the rendered SVG alone.
+                Why do we need that info? Knowing about the relationships between types, we can find the label
+                corresponding to a relation and attach XML documentation information to it, if available.
+                See how getRelationLabels is used. */
+            const interceptors = {
+                info: function (overridden, args) {
+                    // intercept message containing rendered edges
+                    if (args[2] === 'Graph in recursive render: XXX') renderedEdges = args[3].edges;
+
+                    // only foward to overridden method if this log level was originally enabled
+                    if (logLevel.isEnabled(2)) overridden.call(this, ...args);
+                }
+            };
+
+            logLevel.setRequested(config.logLevel); // remember original log level
+            const requiredLevel = 2; // to enable intercepting info message above
+
+            // lower configured log level if required to guarantee above interceptor gets called
+            if (!logLevel.isEnabled(requiredLevel)) config.logLevel = requiredLevel;
+
+            // suppress console output for higher log levels accidentally activated by lowering to required level
+            for (let level of logLevel.above(requiredLevel))
+                if (!logLevel.isEnabled(level)) interceptors[level] = () => { };
+
+            const detachInterceptors = interceptConsole(interceptors); // attaches console interceptors
+            mermaid.initialize(config); // init the mermaid sub-system with interceptors in place
+            detachInterceptors(); // to avoid intercepting messages outside of that context we're not interested in
+        },
+
+        /**
+         * 
+         * @param {object} typeDetails An object with the IDs of types to display in detail (i.e. with members) for keys
+         * and objects with the data structure of MermaidClassDiagrammer.Namespace.Type (excluding the Id) for values.
+         * @param {string} direction The layout direction of the resulting diagram
+         * @param {object} showInherited A regular expression matching things to exclude from the diagram definition.
+         * @returns
+         */
+        processTypes: (typeDetails, getTypeLabel, direction, showInherited) => {
+            const detailedTypes = Object.keys(typeDetails), // types that will be rendered including their members and relations
+                xmlDocs = {}, // to be appended with docs of selected types below
+                getAncestorTypes = typeDetails => Object.keys(typeDetails.Inherited),
+                isRendered = type => detailedTypes.includes(type),
+
+                mayNeedLabelling = new Set(),
+
+                cleanUpDiagramMmd = mmd => mmd.replace(/(\r?\n){3,}/g, '\n\n'), // squash more than two consecutive line breaks down into two
+
+                // renders base type and interfaces depending on settings and selected types
+                renderSuperType = (supertTypeId, link, typeId, name, displayAll) => {
+                    /* display relation arrow if either the user chose to display this kind of super type
+                        or the super type is selected to be rendered anyway and we might as well for completeness */
+                    if (displayAll || isRendered(supertTypeId)) {
+                        const label = name ? ' : ' + name : '';
+                        diagram += `${supertTypeId} <|${link} ${typeId}${label}\n`;
+                        mayNeedLabelling.add(supertTypeId);
+                    }
+                },
+
+                // renders HasOne and HasMany relations
+                renderRelations = (typeId, relations, many) => {
+                    if (relations) // expecting object; only process if not null or undefined
+                        for (let [label, relatedId] of Object.entries(relations)) {
+                            const nullable = label.endsWith(' ?');
+                            const cardinality = many ? '"*" ' : nullable ? '"?" ' : '';
+                            if (nullable) label = label.substring(0, label.length - 2); // nullability is expressed via cardinality
+                            diagram += `${typeId} --> ${cardinality}${relatedId} : ${label}\n`;
+                            mayNeedLabelling.add(relatedId);
+                        }
+                },
+
+                renderInheritedMembers = (typeId, details) => {
+                    const ancestorTypes = getAncestorTypes(details);
+
+                    // only include inherited members in sub classes if they aren't already rendered in a super class
+                    for (let [ancestorType, members] of Object.entries(details.Inherited)) {
+                        if (isRendered(ancestorType)) continue; // inherited members will be rendered in base type
+
+                        let ancestorsOfDetailedAncestors = ancestorTypes.filter(t => detailedTypes.includes(t)) // get detailed ancestor types
+                            .map(type => getAncestorTypes(typeDetails[type])) // select their ancestor types
+                            .reduce((union, ancestors) => union.concat(ancestors), []); // squash them into a one-dimensional array (ignoring duplicates)
+
+                        // skip displaying inherited members already displayed by detailed ancestor types
+                        if (ancestorsOfDetailedAncestors.includes(ancestorType)) continue;
+
+                        diagram += members.FlatMembers + '\n';
+                        renderRelations(typeId, members.HasOne);
+                        renderRelations(typeId, members.HasMany, true);
+                    }
+                };
+
+            // init diagram code with header and layout direction to be appended to below
+            let diagram = 'classDiagram' + '\n'
+                + 'direction ' + direction + '\n\n';
+
+            // process selected types
+            for (let [typeId, details] of Object.entries(typeDetails)) {
+                mayNeedLabelling.add(typeId);
+                diagram += details.Body + '\n\n';
+
+                if (details.BaseType) // expecting object; only process if not null or undefined
+                    for (let [baseTypeId, label] of Object.entries(details.BaseType))
+                        renderSuperType(baseTypeId, '--', typeId, label, showInherited.types);
+
+                if (details.Interfaces) // expecting object; only process if not null or undefined
+                    for (let [ifaceId, label] of Object.entries(details.Interfaces))
+                        renderSuperType(ifaceId, '..', typeId, label, showInherited.interfaces);
+
+                renderRelations(typeId, details.HasOne);
+                renderRelations(typeId, details.HasMany, true);
+                xmlDocs[typeId] = details.XmlDocs;
+                if (showInherited.members && details.Inherited) renderInheritedMembers(typeId, details);
+            }
+
+            for (let typeId of mayNeedLabelling) {
+                const label = getTypeLabel(typeId);
+                if (label !== typeId) diagram += `class ${typeId} ["${label}"]\n`;
+            }
+
+            diagram = cleanUpDiagramMmd(diagram);
+            lastRenderedDiagram = diagram; // store diagram syntax for export
+            return { diagram, detailedTypes, xmlDocs };
+        },
+
+        getDiagram: () => lastRenderedDiagram,
+
+        postProcess: (svg, options) => {
+            // matches 'MyClass2' from generated id attributes in the form of 'classId-MyClass2-0'
+            const typeIdFromDomId = /(?<=classId-)\w+(?=-\d+)/;
+
+            for (let entity of svg.querySelectorAll('g.nodes>g').values()) {
+                const typeId = typeIdFromDomId.exec(entity.id)[0];
+
+                // clone to have a modifyable collection without affecting the original
+                const docs = structuredClone((options.xmlDocs || [])[typeId]);
+
+                // splice in XML documentation as label titles if available
+                if (docs) {
+                    const typeKey = '', nodeLabel = 'span.nodeLabel',
+                        title = entity.querySelector('.classTitle'),
+                        relationLabels = getRelationLabels(svg, typeId),
+
+                        setDocs = (label, member) => {
+                            label.title = docs[member];
+                            delete docs[member];
+                        },
+
+                        documentOwnLabel = (label, member) => {
+                            setDocs(label, member);
+                            ownLabels = ownLabels.filter(l => l !== label); // remove label
+                        };
+
+                    let ownLabels = [...entity.querySelectorAll('g.label ' + nodeLabel)];
+
+                    // document the type label itself
+                    if (hasProperty(docs, typeKey)) documentOwnLabel(title.querySelector(nodeLabel), typeKey);
+
+                    // loop through documented members longest name first
+                    for (let member of Object.keys(docs).sort((a, b) => b.length - a.length)) {
+                        // matches only whole words in front of method signatures starting with (
+                        const memberName = new RegExp(`(?<!.*\\(.*)\\b${member}\\b`),
+                            matchingLabels = ownLabels.filter(l => memberName.test(l.textContent)),
+                            related = relationLabels.find(l => l.textContent === member);
+
+                        if (related) matchingLabels.push(related);
+                        if (matchingLabels.length === 0) continue; // members may be rendered in an ancestor type
+
+                        if (matchingLabels.length > 1) console.warn(
+                            `Expected to find one member or relation label for ${title.textContent}.${member}`
+                            + ' to attach the XML documentation to but found multiple. Applying the first.', matchingLabels);
+
+                        documentOwnLabel(matchingLabels[0], member);
+                    }
+                }
+
+                if (typeof options.onTypeClick === 'function') entity.addEventListener('click',
+                    function (event) { options.onTypeClick.call(this, event, typeId); });
+            }
+        }
+    };
+})();
+
+const state = (() => {
+    const typeUrlDelimiter = '-',
+        originalTitle = document.head.getElementsByTagName('title')[0].textContent;
+
+    const restore = async data => {
+        if (data.d) layoutDirection.set(data.d);
+
+        if (data.t) {
+            inheritanceFilter.setFlagHash(data.i || ''); // if types are set, enable deselecting all options
+            typeSelector.setSelected(data.t.split(typeUrlDelimiter));
+            await render(true);
+        }
+    };
+
+    function updateQueryString(href, params) {
+        // see https://developer.mozilla.org/en-US/docs/Web/API/URL
+        const url = new URL(href), search = url.searchParams;
+
+        for (const [name, value] of Object.entries(params)) {
+            //see https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
+            if (value === null || value === undefined || value === '') search.delete(name);
+            else if (Array.isArray(value)) {
+                search.delete(name);
+                for (let item of value) search.append(name, item);
+            }
+            else search.set(name, value);
+        }
+
+        url.search = search.toString();
+        return url.href;
+    }
+
+    window.onpopstate = async event => { await restore(event.state); };
+
+    return {
+        update: () => {
+            const types = typeSelector.getSelected(),
+                t = Object.keys(types).join(typeUrlDelimiter),
+                d = layoutDirection.get(),
+                i = inheritanceFilter.getFlagHash(),
+                data = { t, d, i },
+                typeNames = Object.values(types).map(t => t.Name);
+
+            history.pushState(data, '', updateQueryString(location.href, data));
+
+            // record selected types in title so users see which selection they return to when using a history link
+            document.title = (typeNames.length ? typeNames.join(', ') + ' - ' : '') + originalTitle;
+        },
+        restore: async () => {
+            if (!location.search) return; // assume fresh open and don't try to restore state, preventing inheritance options from being unset
+            const search = new URLSearchParams(location.search);
+            await restore({ d: search.get('d'), i: search.get('i'), t: search.get('t') });
+        }
+    };
+})();
+
+const typeSelector = (() => {
+    const select = getById('type-select'),
+        preFilter = getById('pre-filter-types'),
+        renderBtn = getById('render'),
+        model = JSON.parse(getById('model').innerHTML),
+        tags = { optgroup: 'OPTGROUP', option: 'option' },
+        getNamespace = option => option.parentElement.nodeName === tags.optgroup ? option.parentElement.label : '',
+        getOption = typeId => select.querySelector(tags.option + `[value='${typeId}']`);
+
+    // fill select list
+    for (let [namespace, types] of Object.entries(model.TypesByNamespace)) {
+        let optionParent;
+
+        if (namespace) {
+            const group = document.createElement(tags.optgroup);
+            group.label = namespace;
+            select.appendChild(group);
+            optionParent = group;
+        } else optionParent = select;
+
+        for (let typeId of Object.keys(types)) {
+            const type = types[typeId],
+                option = document.createElement(tags.option);
+
+            option.value = typeId;
+            if (!type.Name) type.Name = typeId; // set omitted label to complete structure
+            option.innerText = type.Name;
+            optionParent.appendChild(option);
+        }
+    }
+
+    // only enable render button if types are selected
+    select.onchange = () => { renderBtn.disabled = select.selectedOptions.length < 1; };
+
+    preFilter.addEventListener('input', () => {
+        const regex = preFilter.value ? new RegExp(preFilter.value, 'i') : null;
+
+        for (let option of select.options)
+            option.hidden = regex !== null && !regex.test(option.innerHTML);
+
+        // toggle option groups hidden depending on whether they have visible children
+        for (let group of select.getElementsByTagName(tags.optgroup))
+            group.hidden = regex !== null && [...group.children].filter(o => !o.hidden).length === 0;
+    });
+
+    return {
+        focus: () => select.focus(),
+        focusFilter: () => preFilter.focus(),
+
+        setSelected: types => {
+            for (let option of select.options)
+                option.selected = types.includes(option.value);
+
+            triggerChangeOn(select);
+        },
+
+        toggleOption: typeId => {
+            const option = getOption(typeId);
+
+            if (option !== null) {
+                option.selected = !option.selected;
+                triggerChangeOn(select);
+            }
+        },
+
+        /** Returns the types selected by the user in the form of an object with the type IDs for keys
+         *  and objects with the data structure of MermaidClassDiagrammer.Namespace.Type (excluding the Id) for values. */
+        getSelected: () => Object.fromEntries([...select.selectedOptions].map(option => {
+            const namespace = getNamespace(option), typeId = option.value,
+                details = model.TypesByNamespace[namespace][typeId];
+
+            return [typeId, details];
+        })),
+
+        moveSelection: up => {
+            // inspired by https://stackoverflow.com/a/25851154
+            for (let option of select.selectedOptions) {
+                if (up && option.previousElementSibling) { // move up
+                    option.parentElement.insertBefore(option, option.previousElementSibling);
+                } else if (!up && option.nextElementSibling) { // move down
+                    // see https://developer.mozilla.org/en-US/docs/Web/API/Node/insertBefore
+                    option.parentElement.insertBefore(option, option.nextElementSibling.nextElementSibling);
+                }
+            }
+        },
+
+        //TODO add method returning namespace to add to title
+        getLabel: typeId => {
+            const option = getOption(typeId);
+            return option ? option.innerText : model.OutsideReferences[typeId];
+        }
+    };
+})();
+
+const inheritanceFilter = (() => {
+    const baseType = getById('show-base-types'),
+        interfaces = getById('show-interfaces'),
+        members = getById('show-inherited-members'),
+        getFlags = () => { return { types: baseType.checked, interfaces: interfaces.checked, members: members.checked }; };
+
+    // automatically re-render on change
+    for (let checkbox of [baseType, interfaces, members])
+        checkbox.onchange = async () => { await render(); };
+
+    return {
+        getFlags,
+
+        getFlagHash: () => Object.entries(getFlags())
+            .filter(([, value]) => value) // only true flags
+            .map(([key]) => key[0]).join(''), // first character of each flag
+
+        setFlagHash: hash => {
+            baseType.checked = hash.includes('t');
+            interfaces.checked = hash.includes('i');
+            members.checked = hash.includes('m');
+        }
+    };
+})();
+
+const layoutDirection = (() => {
+    const inputName = 'direction';
+
+    // automatically re-render on change
+    checkable.onChange(inputName, async () => { await render(); });
+
+    return {
+        get: () => checkable.getValue(inputName),
+        set: (value, event) => {
+            const hasEvent = event !== undefined;
+            checkable.setChecked(inputName, value, hasEvent);
+            if (hasEvent) event.preventDefault();
+        }
+    };
+})();
+
+const render = async isRestoringState => {
+    const { diagram, detailedTypes, xmlDocs } = mermaidExtensions.processTypes(
+        typeSelector.getSelected(), typeSelector.getLabel, layoutDirection.get(), inheritanceFilter.getFlags());
+
+    console.info(diagram);
+    const titledDiagram = diagram + '\naccTitle: ' + output.getDiagramTitle().replaceAll('\n', '#10;') + '\n';
+
+    /* Renders response and deconstructs returned object because we're only interested in the svg.
+        Note that the ID supplied as the first argument must not match any existing element ID
+        unless you want its contents to be replaced. See https://mermaid.js.org/config/usage.html#api-usage */
+    const { svg } = await mermaid.render('foo', titledDiagram);
+    output.setSVG(svg);
+
+    mermaidExtensions.postProcess(output.getSVG(), {
+        xmlDocs,
+
+        onTypeClick: async (event, typeId) => {
+            // toggle selection and re-render on clicking entity
+            typeSelector.toggleOption(typeId);
+            await render();
+        }
+    });
+
+    exportOptions.enable(detailedTypes.length > 0);
+    if (!isRestoringState) state.update();
+};
+
+const filterSidebar = (() => {
+    const filterForm = getById('filter'),
+        resizing = 'resizing',
+        toggleBtn = getById('filter-toggle'),
+        toggle = () => collapse.toggle(filterForm);
+
+    // enable rendering by hitting Enter on filter form
+    filterForm.onsubmit = async (event) => {
+        event.preventDefault();
+        await render();
+    };
+
+    // enable adjusting max sidebar width
+    (() => {
+        const filterWidthOverride = getById('filter-width'), // a style tag dedicated to overriding the default filter max-width
+            minWidth = 210, maxWidth = window.innerWidth / 2; // limit the width of the sidebar
+
+        let isDragging = false; // tracks whether the sidbar is being dragged
+        let pickedUp = 0; // remembers where the dragging started from
+        let widthBefore = 0; // remembers the width when dragging starts
+        let change = 0; // remembers the total distance of the drag
+
+        toggleBtn.addEventListener('mousedown', (event) => {
+            isDragging = true;
+            pickedUp = event.clientX;
+            widthBefore = filterForm.offsetWidth;
+        });
+
+        document.addEventListener('mousemove', (event) => {
+            if (!isDragging) return;
+
+            const delta = event.clientX - pickedUp,
+                newWidth = Math.max(minWidth, Math.min(maxWidth, widthBefore + delta));
+
+            change = delta;
+            filterForm.classList.add(resizing);
+            filterWidthOverride.innerHTML = `#filter.open { max-width: ${newWidth}px; }`;
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (!isDragging) return;
+            isDragging = false;
+            filterForm.classList.remove(resizing);
+        });
+
+        // enable toggling filter info on click
+        toggleBtn.addEventListener('click', () => {
+            if (Math.abs(change) < 5) toggle(); // prevent toggling for small, accidental drags
+            change = 0; // reset the remembered distance to enable subsequent clicks
+        });
+    })();
+
+    return {
+        toggle,
+        open: () => collapse.open(filterForm)
+    };
+})();
+
+/* Shamelessly copied from https://github.com/mermaid-js/mermaid-live-editor/blob/develop/src/lib/components/Actions.svelte
+    with only a few modifications after I failed to get the solutions described here working:
+    https://stackoverflow.com/questions/28226677/save-inline-svg-as-jpeg-png-svg/28226736#28226736
+    The closest I got was with this example https://canvg.js.org/examples/offscreen , but the shapes would remain empty. */
+const exporter = (() => {
+    const getSVGstring = (svg, width, height) => {
+        height && svg?.setAttribute('height', `${height}px`);
+        width && svg?.setAttribute('width', `${width}px`); // Workaround https://stackoverflow.com/questions/28690643/firefox-error-rendering-an-svg-image-to-html5-canvas-with-drawimage
+        if (!svg) svg = getSvgEl();
+
+        return svg.outerHTML.replaceAll('<br>', '<br/>')
+            .replaceAll(/<img([^>]*)>/g, (m, g) => `<img ${g} />`);
+    };
+
+    const toBase64 = utf8String => {
+        const bytes = new TextEncoder().encode(utf8String);
+        return window.btoa(String.fromCharCode.apply(null, bytes));
+    };
+
+    const getBase64SVG = (svg, width, height) => toBase64(getSVGstring(svg, width, height));
+
+    const exportImage = (event, exporter, imagemodeselected, userimagesize) => {
+        const canvas = document.createElement('canvas');
+        const svg = document.querySelector('#output svg');
+        if (!svg) {
+            throw new Error('svg not found');
+        }
+        const box = svg.getBoundingClientRect();
+        canvas.width = box.width;
+        canvas.height = box.height;
+        if (imagemodeselected === 'width') {
+            const ratio = box.height / box.width;
+            canvas.width = userimagesize;
+            canvas.height = userimagesize * ratio;
+        } else if (imagemodeselected === 'height') {
+            const ratio = box.width / box.height;
+            canvas.width = userimagesize * ratio;
+            canvas.height = userimagesize;
+        }
+        const context = canvas.getContext('2d');
+        if (!context) {
+            throw new Error('context not found');
+        }
+        context.fillStyle = 'white';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        const image = new Image();
+        image.onload = exporter(context, image);
+        image.src = `data:image/svg+xml;base64,${getBase64SVG(svg, canvas.width, canvas.height)}`;
+        event.stopPropagation();
+        event.preventDefault();
+    };
+
+    const getSvgEl = () => {
+        const svgEl = document.querySelector('#output svg').cloneNode(true);
+        svgEl.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+        const fontAwesomeCdnUrl = Array.from(document.head.getElementsByTagName('link'))
+            .map((l) => l.href)
+            .find((h) => h.includes('font-awesome'));
+        if (fontAwesomeCdnUrl == null) {
+            return svgEl;
+        }
+        const styleEl = document.createElement('style');
+        styleEl.innerText = `@import url("${fontAwesomeCdnUrl}");'`;
+        svgEl.prepend(styleEl);
+        return svgEl;
+    };
+
+    const simulateDownload = (download, href) => {
+        const a = document.createElement('a');
+        a.download = download;
+        a.href = href;
+        a.click();
+        a.remove();
+    };
+
+    const downloadImage = (context, image) => {
+        return () => {
+            const { canvas } = context;
+            context.drawImage(image, 0, 0, canvas.width, canvas.height);
+            simulateDownload(
+                exportOptions.getFileName('png'),
+                canvas.toDataURL('image/png').replace('image/png', 'image/octet-stream')
+            );
+        };
+    };
+
+    const tryWriteToClipboard = blob => {
+        try {
+            if (!blob) throw new Error('blob is empty');
+            void navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+            return true;
+        } catch (error) {
+            console.error(error);
+            return false;
+        }
+    };
+
+    const copyPNG = (context, image) => {
+        return () => {
+            const { canvas } = context;
+            context.drawImage(image, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob(blob => { tryWriteToClipboard(blob); });
+        };
+    };
+
+    const tryWriteTextToClipboard = async text => {
+        try {
+            if (!text) throw new Error('text is empty');
+            await navigator.clipboard.writeText(text);
+            return true;
+        } catch (error) {
+            console.error(error);
+            return false;
+        }
+    };
+
+    const copyText = async (event, text) => {
+        if (await tryWriteTextToClipboard(text)) {
+            event.stopPropagation();
+            event.preventDefault();
+        }
+    };
+
+    return {
+        isClipboardAvailable: () => hasProperty(window, 'ClipboardItem'),
+        onCopyPNG: (event, imagemodeselected, userimagesize) => {
+            exportImage(event, copyPNG, imagemodeselected, userimagesize);
+        },
+        onCopySVG: event => { void copyText(event, getSVGstring()); },
+        onCopyMMD: (event, diagram) => { void copyText(event, diagram); },
+        onDownloadPNG: (event, imagemodeselected, userimagesize) => {
+            exportImage(event, downloadImage, imagemodeselected, userimagesize);
+        },
+        onDownloadSVG: () => {
+            simulateDownload(exportOptions.getFileName('svg'), `data:image/svg+xml;base64,${getBase64SVG()}`);
+        },
+        onDownloadMMD: diagram => {
+            simulateDownload(exportOptions.getFileName('mmd'), `data:text/vnd.mermaid;base64,${toBase64(diagram)}`);
+        }
+    };
+})();
+
+const exportOptions = (() => {
+    let wereOpened = false; // used to track whether user was able to see save options and may quick-save
+
+    const container = getById('exportOptions'),
+        toggle = getById('exportOptions-toggle'),
+        saveBtn = getById('save'),
+        copyBtn = getById('copy'),
+        saveAs = 'saveAs',
+        png = 'png',
+        svg = 'svg',
+        isDisabled = () => toggle.hidden, // using toggle visibility as indicator
+
+        open = () => {
+            wereOpened = true;
+            return collapse.open(container);
+        },
+
+        copy = event => {
+            if (isDisabled()) return; // allow the default for copying text if no types are rendered
+
+            if (!exporter.isClipboardAvailable()) notify('The clipboard seems unavailable in this browser :(');
+            else {
+                const type = checkable.getValue(saveAs);
+
+                try {
+                    if (type === png) {
+                        const [dimension, size] = getDimensions();
+                        exporter.onCopyPNG(event, dimension, size);
+                    }
+                    else if (type === svg) exporter.onCopySVG(event);
+                    else exporter.onCopyMMD(event, mermaidExtensions.getDiagram());
+
+                    notify(`The diagram ${type.toUpperCase()} is in your clipboard.`);
+                } catch (e) {
+                    notify(e.toString());
+                }
+            }
+        },
+
+        save = event => {
+            const type = checkable.getValue(saveAs);
+
+            if (type === png) {
+                const [dimension, size] = getDimensions();
+                exporter.onDownloadPNG(event, dimension, size);
+            }
+            else if (type === svg) exporter.onDownloadSVG();
+            else exporter.onDownloadMMD(mermaidExtensions.getDiagram());
+        };
+
+    const getDimensions = (() => {
+        const inputName = 'dimension',
+            dimensions = getById('dimensions'),
+            scaleInputs = container.querySelectorAll('#scale-controls input');
+
+        // enable toggling dimension controls
+        checkable.onChange(saveAs, event => {
+            collapse.toggle(dimensions, event.target.value === png);
+        }, container);
+
+        // enable toggling scale controls
+        checkable.onChange(inputName, event => {
+            const disabled = event.target.value !== 'scale';
+            for (let input of scaleInputs) input.disabled = disabled;
+        }, container);
+
+        return () => {
+            let dimension = checkable.getValue(inputName);
+
+            // return dimension to scale to desired size if not exporting in current size
+            if (dimension !== 'auto') dimension = checkable.getValue('scale');
+
+            return [dimension, getById('scale-size').value];
+        };
+    })();
+
+    if (exporter.isClipboardAvailable()) copyBtn.onclick = copy;
+    else copyBtn.hidden = true;
+
+    saveBtn.onclick = save;
+
+    return {
+        copy,
+        getFileName: ext => `${saveBtn.dataset.assembly}-diagram-${new Date().toISOString().replace(/[Z:.]/g, '')}.${ext}`,
+
+        enable: enable => {
+            if (!enable) collapse.toggle(container, false); // make sure the container is closed when disabling
+            toggle.hidden = !enable;
+        },
+
+        quickSave: event => {
+            if (isDisabled()) return; // allow the default for saving HTML doc if no types are rendered
+
+            if (wereOpened) {
+                save(event); // allow quick save
+                return;
+            }
+
+            const filterOpened = filterSidebar.open(),
+                optionsOpenend = open();
+
+            /* Make sure the collpases containing the save options are open and visible when user hits Ctrl + S.
+                If neither needed opening, trigger saving. I.e. hitting Ctrl + S again should do it. */
+            if (!filterOpened && !optionsOpenend) save(event);
+            else event.preventDefault(); // prevent saving HTML page
+        }
+    };
+})();
+
+// displays pressed keys and highlights mouse cursor for teaching usage and other presentations
+const controlDisplay = (function () {
+    let used = new Set(), enabled = false, wheelTimeout;
+
+    const alt = 'Alt',
+        display = getById('pressed-keys'), // a label displaying the keys being pressed and mousewheel being scrolled
+        mouse = getById('mouse'), // a circle tracking the mouse to make following it easier
+
+        translateKey = key => key.length === 1 ? key.toUpperCase() : key,
+
+        updateDisplay = () => {
+            display.textContent = [...used].join(' + ');
+            display.classList.toggle('hidden', used.size === 0);
+        },
+
+        eventHandlers = {
+            keydown: event => {
+                if (event.altKey) used.add(alt); // handle separately because Alt key alone doesn't trigger a key event
+                used.add(translateKey(event.key));
+                updateDisplay();
+            },
+
+            keyup: event => {
+                setTimeout(() => {
+                    if (!event.altKey && used.has(alt)) used.delete(alt);
+                    used.delete(translateKey(event.key));
+                    updateDisplay();
+                }, 500);
+            },
+
+            wheel: event => {
+                const label = 'wheel ' + (event.deltaY < 0 ? 'up' : 'down'),
+                    wasUsed = used.has(label);
+
+                if (wasUsed) {
+                    if (wheelTimeout) clearTimeout(wheelTimeout);
+                } else {
+                    used.add(label);
+                    updateDisplay();
+                }
+
+                // automatically remove
+                wheelTimeout = setTimeout(() => {
+                    used.delete(label);
+                    updateDisplay();
+                    wheelTimeout = undefined;
+                }, 500);
+            },
+
+            mousemove: event => {
+                mouse.style.top = event.clientY + 'px';
+                mouse.style.left = event.clientX + 'px';
+            },
+
+            mousedown: () => { mouse.classList.add('down'); },
+            mouseup: () => { setTimeout(() => { mouse.classList.remove('down'); }, 300); }
+        };
+
+    return {
+        toggle: () => {
+            enabled = !enabled;
+
+            if (enabled) {
+                mouse.hidden = false;
+
+                for (let [event, handler] of Object.entries(eventHandlers))
+                    document.addEventListener(event, handler);
+            } else {
+                mouse.hidden = true;
+
+                for (let [event, handler] of Object.entries(eventHandlers))
+                    document.removeEventListener(event, handler);
+
+                used.clear();
+                updateDisplay();
+            }
+        }
+    };
+})();
+
+// key bindings
+document.onkeydown = async (event) => {
+    const arrowUp = 'ArrowUp', arrowDown = 'ArrowDown';
+
+    // support Cmd key as alternative on Mac, see https://stackoverflow.com/a/5500536
+    if (event.ctrlKey || event.metaKey) {
+        switch (event.key) {
+            case 'b': filterSidebar.toggle(); return;
+            case 'k':
+                event.preventDefault();
+                filterSidebar.open();
+                typeSelector.focusFilter();
+                return;
+            case 's': exportOptions.quickSave(event); return;
+            case 'c': exportOptions.copy(event); return;
+            case 'i':
+                event.preventDefault();
+                controlDisplay.toggle();
+                return;
+            case 'ArrowLeft': layoutDirection.set('RL', event); return;
+            case 'ArrowRight': layoutDirection.set('LR', event); return;
+            case arrowUp: layoutDirection.set('BT', event); return;
+            case arrowDown: layoutDirection.set('TB', event); return;
+            case '0': output.resetZoomAndPan(); return;
+        }
+    }
+
+    if (event.altKey) { // naturally triggered by Mac's option key as well
+        // enable moving selected types up and down using arrow keys while holding [Alt]
+        const upOrDown = event.key === arrowUp ? true : event.key === arrowDown ? false : null;
+
+        if (upOrDown !== null) {
+            typeSelector.focus();
+            typeSelector.moveSelection(upOrDown);
+            event.preventDefault();
+            return;
+        }
+
+        // pulse-animate elements with helping title attributes to point them out
+        if (event.key === 'i') {
+            event.preventDefault();
+            const pulsing = 'pulsing';
+
+            for (let element of document.querySelectorAll('[title],:has(title)')) {
+                element.addEventListener('animationend', () => { element.classList.remove(pulsing); }, { once: true });
+                element.classList.add(pulsing);
+            }
+        }
+    }
+};
+
+// rewrite help replacing references to 'Ctrl' with 'Cmd' for Mac users
+if (/(Mac)/i.test(navigator.userAgent)) {
+    const ctrl = /Ctrl/mg,
+        replace = source => source.replaceAll(ctrl, '⌘');
+
+    for (let titled of document.querySelectorAll('[title]'))
+        if (ctrl.test(titled.title)) titled.title = replace(titled.title);
+
+    for (let titled of document.querySelectorAll('[data-title]'))
+        if (ctrl.test(titled.dataset.title)) titled.dataset.title = replace(titled.dataset.title);
+
+    for (let element of getById('info').querySelectorAll('*')) {
+        const text = element.innerText || element.textContent; // Get the text content of the element
+        if (ctrl.test(text)) element.innerHTML = replace(text);
+    }
+}
+
+collapse.initToggles();
+mermaidExtensions.init({ startOnLoad: false }); // initializes mermaid as well
+typeSelector.focus(); // focus type filter initially to enable keyboard input
+await state.restore();</script>
+</body>
+</html>

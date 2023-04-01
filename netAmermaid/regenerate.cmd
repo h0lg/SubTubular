@@ -1,0 +1,1 @@
+..\..\netAmermaid\publish\netAmermaid.exe --assembly ..\SubTubular\bin\Debug\net7.0\SubTubular.dll --output-folder .
