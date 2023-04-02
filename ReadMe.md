@@ -3,7 +3,7 @@
 
 A **full-text search** for **[YouTube](https://www.youtube.com/)** with a **command line interface**. Searches **subtitles** and **video metadata**, returning **time-stamped video links**.
 
-<img src="./SubTubular.ico" title="best-looking tuber in the soup" />
+<img src="./SubTubular.ico" align="left" title="best-looking tuber in the soup" />
 
 - [Overview](#overview)
 - [Commands](#commands)
