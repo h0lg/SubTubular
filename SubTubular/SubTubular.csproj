@@ -27,4 +27,7 @@
       <Output PropertyName="SourceRevisionId" TaskParameter="ConsoleOutput" />
     </Exec>
   </Target>
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="'$(Configuration)' == 'Release'">
+    <Exec Command="$(SolutionDir)..\netAmermaid\publish\netAmermaid.exe --assembly $(TargetPath) --output-folder $(SolutionDir)netAmermaid" />
+  </Target>
 </Project>
