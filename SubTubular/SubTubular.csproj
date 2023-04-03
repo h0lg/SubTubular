@@ -30,4 +30,7 @@
   <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="'$(Configuration)' == 'Release'">
     <Exec Command="$(SolutionDir)..\netAmermaid\publish\netAmermaid.exe --assembly $(TargetPath) --output-folder $(SolutionDir)netAmermaid" />
   </Target>
+  <Target Name="GenerateHtmlDiagrammer" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release'">
+    <Exec Command="$(SolutionDir)..\netAmermaid\publish\netAmermaid.exe --assembly $(TargetPath) --output-folder $(SolutionDir)netAmermaid" />
+  </Target>
 </Project>
