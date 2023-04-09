@@ -1,0 +1,328 @@
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+body {
+  font-family: system-ui, sans-serif;
+  background: #4e54c8;
+  background-image: linear-gradient(to left, #8f94fb, #4e54c8);
+}
+input[type=text] {
+  border-radius: 3px;
+}
+button {
+  border-radius: 3px;
+  background-color: #aad;
+  border: none;
+  color: #117;
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.5;
+}
+[type=checkbox],
+[type=radio] {
+  cursor: pointer;
+}
+[type=checkbox] ~ label,
+[type=radio] ~ label {
+  cursor: pointer;
+}
+fieldset {
+  border-radius: 5px;
+}
+select {
+  border: none;
+  border-radius: 3px;
+  background-color: #0003;
+  color: whitesmoke;
+}
+select option:checked {
+  background-color: #0003;
+  color: darkorange;
+}
+.flx:not([hidden]) {
+  display: flex;
+}
+.flx:not([hidden]).col {
+  flex-direction: column;
+}
+.flx:not([hidden]).spaced {
+  justify-content: space-between;
+}
+.flx:not([hidden]).aligned {
+  align-items: center;
+}
+.flx:not([hidden]) .grow {
+  flex-grow: 1;
+}
+.collapse.vertical {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height ease-in-out 0.5s;
+}
+.collapse.vertical.open {
+  max-height: 100vh;
+}
+.collapse.horizontal {
+  max-width: 0;
+  padding: 0;
+  transition: max-width padding ease-in-out 0.5s;
+  overflow: hidden;
+}
+.collapse.horizontal.open {
+  padding: revert;
+  max-width: 1000px;
+}
+.container {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  margin: 0;
+}
+.scndry {
+  font-size: smaller;
+}
+#content {
+  height: 100%;
+  position: relative;
+}
+#filter {
+  max-width: 0;
+  transition: max-width ease-in-out 0.5s;
+  overflow: hidden;
+  background-color: #0003;
+  color: whitesmoke;
+}
+#filter.open {
+  max-width: 14em;
+  overflow: auto;
+}
+#filter > * {
+  margin: 0.3em 0.3em 0;
+}
+#filter > *:last-child {
+  margin-bottom: 0.3em;
+}
+#filter #info {
+  overflow: auto;
+  background-color: #fff3;
+}
+#filter #typeFilter {
+  overflow: auto;
+}
+#filter #restore-last-rendered {
+  transform: scale(1, -1);
+  font-weight: bold;
+  height: 1.4em;
+  padding-bottom: 0;
+}
+#filter #direction [type=radio] {
+  display: none;
+}
+#filter #direction [type=radio]:checked + label {
+  background-color: #fff3;
+}
+#filter #direction label {
+  flex-grow: 1;
+  text-align: center;
+  margin: -1em 0 -0.7em;
+  padding-top: 0.2em;
+}
+#filter #direction label:first-of-type {
+  margin-left: -0.8em;
+  border-top-left-radius: 5px;
+  border-bottom-left-radius: 5px;
+}
+#filter #direction label:last-of-type {
+  margin-right: -0.8em;
+  border-top-right-radius: 5px;
+  border-bottom-right-radius: 5px;
+}
+#filter #actions {
+  margin-top: 1em;
+  justify-content: space-between;
+}
+#filter #actions #render,
+#filter #actions #exportOptions-toggle {
+  font-weight: bold;
+}
+#filter #exportOptions {
+  overflow: auto;
+  gap: 0.5em;
+  background-color: #fff3;
+}
+#filter #exportOptions #save {
+  margin-right: 0.5em;
+}
+#filter #exportOptions #dimensions fieldset {
+  padding: 0.5em;
+}
+#filter #exportOptions #dimensions fieldset .scale-size {
+  margin-left: 0.5em;
+}
+#filter #exportOptions #dimensions fieldset .scale-size #scale-size {
+  width: 2.5em;
+  margin: 0 0.2em;
+}
+#filter-toggle {
+  padding: 0;
+  border-radius: 0;
+  background-color: #117;
+  color: whitesmoke;
+}
+#output {
+  overflow: auto;
+}
+#output .edgeLabels .edgeTerminals .edgeLabel {
+  color: whitesmoke;
+}
+#output .edgeLabels .edgeLabel {
+  border-radius: 3px;
+}
+#output .edgeLabels foreignObject .edgeLabel span.edgeLabel[title] {
+  color: darkgoldenrod;
+}
+#output path.relation {
+  stroke: whitesmoke;
+}
+#output g.nodes > g {
+  cursor: pointer;
+}
+#output g.nodes > g > rect {
+  rx: 5px;
+  ry: 5px;
+}
+#output g.nodes g.label foreignObject .nodeLabel[title] {
+  color: darkgoldenrod;
+}
+#toaster {
+  position: absolute;
+  bottom: 2em;
+  right: 2em;
+  gap: 0.5em;
+}
+#toaster span {
+  animation: 0.5s ease-in fadeIn;
+  border-radius: 0.5em;
+  padding: 0.5em;
+  background-color: #fff3;
+  color: whitesmoke;
+}
+#toaster span.leaving {
+  animation: 1s ease-in-out fadeOut;
+}
+/* hide stuff in print view */
+@media print {
+  #filter,
+  #filter-toggle,
+  .bubbles {
+    display: none;
+  }
+}
+/* ANIMATED BACKGROUND, from https://codepen.io/alvarotrigo/pen/GRvYNax
+    found in https://alvarotrigo.com/blog/animated-backgrounds-css/ */
+@keyframes rotateUp {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+    border-radius: 100%;
+  }
+  100% {
+    transform: translateY(-150vh) rotate(720deg);
+    opacity: 0;
+    border-radius: 0;
+  }
+}
+.bubbles {
+  overflow: hidden;
+}
+.bubbles li {
+  position: absolute;
+  display: block;
+  list-style: none;
+  width: 20px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.2);
+  animation: rotateUp 25s linear infinite;
+  bottom: -150px;
+}
+.bubbles li:nth-child(1) {
+  left: 25%;
+  width: 80px;
+  height: 80px;
+  animation-delay: 0s;
+}
+.bubbles li:nth-child(2) {
+  left: 10%;
+  width: 20px;
+  height: 20px;
+  animation-delay: 2s;
+  animation-duration: 12s;
+}
+.bubbles li:nth-child(3) {
+  left: 70%;
+  width: 20px;
+  height: 20px;
+  animation-delay: 4s;
+}
+.bubbles li:nth-child(4) {
+  left: 40%;
+  width: 60px;
+  height: 60px;
+  animation-delay: 0s;
+  animation-duration: 18s;
+}
+.bubbles li:nth-child(5) {
+  left: 65%;
+  width: 20px;
+  height: 20px;
+  animation-delay: 0s;
+}
+.bubbles li:nth-child(6) {
+  left: 75%;
+  width: 110px;
+  height: 110px;
+  animation-delay: 3s;
+}
+.bubbles li:nth-child(7) {
+  left: 35%;
+  width: 150px;
+  height: 150px;
+  animation-delay: 7s;
+}
+.bubbles li:nth-child(8) {
+  left: 50%;
+  width: 25px;
+  height: 25px;
+  animation-delay: 15s;
+  animation-duration: 45s;
+}
+.bubbles li:nth-child(9) {
+  left: 20%;
+  width: 15px;
+  height: 15px;
+  animation-delay: 2s;
+  animation-duration: 35s;
+}
+.bubbles li:nth-child(10) {
+  left: 85%;
+  width: 150px;
+  height: 150px;
+  animation-delay: 0s;
+  animation-duration: 11s;
+}

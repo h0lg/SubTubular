@@ -1,0 +1,1 @@
+..\..\netAmermaid\publish\netAmermaid.exe --assembly ..\bin\release\net7.0\publish\SubTubular.dll --output-folder . --strip-namespaces SubTubular

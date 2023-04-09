@@ -10,6 +10,7 @@
     <Description>A command-line interface for full-text-searching YouTube video subtitles and metadata.</Description>
     <Authors>Holger Schmidt</Authors>
     <Copyright>Copyright © Holger Schmidt 2020</Copyright>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="CommandLineParser" Version="2.9.1" />
