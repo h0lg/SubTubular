@@ -119,13 +119,14 @@ namespace SubTubular
         /// and returns <see cref="VideoSearchResult"/>s until all are processed
         /// or the <paramref name="cancellation"/> is invoked.</summary>
         /// <param name="command">Determines the <see cref="SearchCommand.Query"/> for the search
-        /// and the <see cref="SearchCommand.OrderBy"/> and <see cref="SearchCommand.Padding"/> of the results.</param>
+        /// and the <see cref="SearchPlaylistCommand.OrderBy"/> and <see cref="SearchCommand.Padding"/> of the results.</param>
         /// <param name="relevantVideos"><see cref="Video.Id"/>s the search is limited to
         /// accompanied by their corresponding <see cref="Video.Uploaded"/> dates, if known.
-        /// The latter are only used for <see cref="SearchCommand.OrderOptions.uploaded"/>
+        /// The latter are only used for <see cref="SearchPlaylistCommand.OrderOptions.uploaded"/>
         /// and missing dates are determined by loading the videos using <paramref name="getVideoAsync"/>.</param>
         /// <param name="updatePlaylistVideosUploaded">A callback for updating the <see cref="Playlist.Videos"/>
-        /// with the <see cref="Video.Uploaded"/> dates after loading them for <see cref="SearchCommand.OrderOptions.uploaded"/>.</param>
+        /// with the <see cref="Video.Uploaded"/> dates after loading them for
+        /// <see cref="SearchPlaylistCommand.OrderOptions.uploaded"/>.</param>
         internal async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command,
             Func<string, CancellationToken, Task<Video>> getVideoAsync,
             [EnumeratorCancellation] CancellationToken cancellation = default,

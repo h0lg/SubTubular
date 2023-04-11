@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace SubTubular
 {
-    /// <summary>A helper comparable to <see cref="Match"/> including one or multiple
+    /// <summary>A helper comparable to <see cref="System.Text.RegularExpressions.Match"/> including one or multiple
     /// <see cref="Included"/> matches padded with a number of characters on each end for context.
     /// The <see cref="Range{T}.Start" /> and the (included, i.e. closed interval) <see cref="Range{T}.End" />
     /// represent the indexes of the padded match in the full text it was matched in.</summary>
@@ -101,7 +101,7 @@ namespace SubTubular
         }
 
         /// <summary>A structure for remembering the locations of matches included in a padded
-        /// (and maybe merged) match. Resembles <see cref="Match" /> semantically.</summary>
+        /// (and maybe merged) match. Resembles <see cref="System.Text.RegularExpressions.Match" /> semantically.</summary>
         internal sealed class IncludedMatch
         {
             /// <summary>The start index of a match in <see cref="PaddedMatch.Value" />.</summary>
