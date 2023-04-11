@@ -152,7 +152,7 @@ padded with a ", multiMatched.Length, 17, 55, 70),
             /// <summary>The text containing the <see cref="Included"/> matches including padding.</summary>
             internal string Value { get; set; }
 
-            /// <summary>Contains the internal match(es) with <see cref="IncludedMatch.Start"/> relative to <see cref="Value"/>.</summary>
+            /// <summary>Contains the internal match(es) with <see cref="PaddedMatch.IncludedMatch.Start"/> relative to <see cref="Value"/>.</summary>
             internal PaddedMatch.IncludedMatch[] Included { get; set; }
 
             internal ExpectedMatch(int start, int end,

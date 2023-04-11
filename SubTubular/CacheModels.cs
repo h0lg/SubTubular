@@ -10,9 +10,8 @@ namespace SubTubular
     {
         public DateTime Loaded { get; set; }
 
-        /// <summary>The IDs and (optional) upload dates of the videos included in the <see cref="Playlist" /></summary>
-        /// <typeparam name="string">The video ID.</typeparam>
-        /// <typeparam name="DateTime?">The upload date of the video.</typeparam>
+        /// <summary>The <see cref="Video.Id"/>s and (optional) upload dates
+        /// of the videos included in the <see cref="Playlist" />.</summary>
         public IDictionary<string, DateTime?> Videos { get; set; } = new Dictionary<string, DateTime?>();
     }
 
