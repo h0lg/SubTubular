@@ -13,11 +13,11 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="CommandLineParser" Version="2.9.1" />
-    <PackageReference Include="lifti.core" Version="4.0.1" />
+    <PackageReference Include="Lifti.Core" Version="5.0.0" />
     <PackageReference Include="System.Threading.Channels" Version="7.0.0" />
-    <PackageReference Include="YoutubeExplode" Version="6.2.5" />
-    <PackageReference Include="AngleSharp" Version="1.0.1" />
-    <PackageReference Include="Octokit" Version="4.0.4" />
+    <PackageReference Include="YoutubeExplode" Version="6.3.5" />
+    <PackageReference Include="AngleSharp" Version="1.0.5" />
+    <PackageReference Include="Octokit" Version="8.0.1" />
   </ItemGroup><!--
     appends git commit hash to assembly informational version; from https://stackoverflow.com/a/45248069
     see also https://andrewlock.net/version-vs-versionsuffix-vs-packageversion-what-do-they-all-mean/ -->
