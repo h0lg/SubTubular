@@ -41,18 +41,6 @@ public sealed class CaptionTrack
     public string Error { get; set; }
     public string ErrorMessage { get; set; }
 
-    #region INDEXING
-    /// <summary>Used for separating <see cref="VideoId"/> from <see cref="LanguageName"/> in <see cref="Key"/>.</summary>
-    internal const char MultiPartKeySeparator = '#';
-
-    /// <summary>The <see cref="Video.Id"/>. Needs to be set before indexing to generate a valid <see cref="Key"/>.</summary>
-    internal string VideoId { private get; set; }
-
-    /// <summary>Used for indexing. Conatins <see cref="VideoId"/> and <see cref="LanguageName"/>
-    /// separated by <see cref="MultiPartKeySeparator"/> to identify the matched video and caption track.</summary>
-    internal string Key => VideoId + MultiPartKeySeparator + LanguageName;
-    #endregion
-
     #region FullText
     internal const string FullTextSeperator = " ";
     private string fullText;
@@ -88,6 +76,17 @@ public sealed class CaptionTrack
         captionAtFullTextIndex = captionsAtFullTextIndex;
         fullText = writer.ToString();
     }
+    #endregion
+
+    #region Indexing
+    /// <summary>The (constant) suffix of <see cref="FieldName"/>.</summary>
+    internal const string FieldSuffix = "Caps";
+
+    private string fieldName;
+
+    /// <summary>For indexing <see cref="CaptionTrack"/>s with a <see cref="Video"/>
+    /// as dynamic fields identifyable by <see cref="LanguageName"/>.</summary>
+    internal string FieldName => fieldName ??= LanguageName + FieldSuffix;
     #endregion
 }
 
