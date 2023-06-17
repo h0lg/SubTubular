@@ -45,18 +45,6 @@ namespace SubTubular
         public string Error { get; set; }
         public string ErrorMessage { get; set; }
 
-        #region INDEXING
-        /// <summary>Used for separating <see cref="VideoId"/> from <see cref="LanguageName"/> in <see cref="Key"/>.</summary>
-        internal const char MultiPartKeySeparator = '#';
-
-        /// <summary>The <see cref="Video.Id"/>. Needs to be set before indexing to generate a valid <see cref="Key"/>.</summary>
-        internal string VideoId { private get; set; }
-
-        /// <summary>Used for indexing. Conatins <see cref="VideoId"/> and <see cref="LanguageName"/>
-        /// separated by <see cref="MultiPartKeySeparator"/> to identify the matched video and caption track.</summary>
-        internal string Key => VideoId + MultiPartKeySeparator + LanguageName;
-        #endregion
-
         #region FullText
         internal const string FullTextSeperator = " ";
         private string fullText;
