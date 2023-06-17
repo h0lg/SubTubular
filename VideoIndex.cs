@@ -33,22 +33,8 @@ namespace SubTubular
                     .WithField(nameof(Video.Title), v => v.Title)
                     .WithField(nameof(Video.Keywords), v => v.Keywords)
                     .WithField(nameof(Video.Description), v => v.Description))
-                /* TODO How can I index the nested caption tracks while
-                    - still being able to identify the matched one by language?
-                    - supporting field restrictions?
-
-                    There doesn't seem to be an API for "deep-indexing" an object.
-                    This is how I'd imagine it:
-                    .WithNested(nameof(Video.CaptionTracks),
-                        v => v.CaptionTracks, // accessor for enumerable property
-                        trackBuilder => trackBuilder // tokenization builder for nested CaptionTrack
-                            .WithKey(track => track.LanguageName) // identifies the nested CaptionTrack in the context of a Video
-                            .WithField(nameof(CaptionTrack.Captions), t => t.GetFullText())) // the deep field to index
-                */
-
-                // I currently work around it like this: Here I configure the object tokenization of the nested CaptionTracks
                 .WithObjectTokenization<CaptionTrack>(itemOptions => itemOptions
-                    .WithKey(t => t.Key) // using a composite key that also identifies the parent Video
+                    .WithKey(t => t.Key)
                     .WithField(nameof(CaptionTrack.Captions), t => t.GetFullText()))
                 .WithQueryParser(o => o.WithFuzzySearchDefaults(
                     maxEditDistance: termLength => (ushort)(termLength / 3),
@@ -118,7 +104,6 @@ namespace SubTubular
 
             foreach (var track in video.CaptionTracks)
             {
-                // I currently work around it like this: Here I set the VideoId on the track before indexing
                 track.VideoId = video.Id; // set for indexing
                 await Index.AddAsync(track);
             }
@@ -156,7 +141,6 @@ namespace SubTubular
             var matches = results
                 .Select(result =>
                 {
-                    // I currently work around it like this: Here I split up the Video.Id and CaptionTrack.LanguageName again
                     var ids = result.Key.Split(CaptionTrack.MultiPartKeySeparator);
                     var videoId = ids[0];
                     var language = ids.Length > 1 ? ids[1] : null;
@@ -164,10 +148,9 @@ namespace SubTubular
                 })
                 // make sure to only return results for the requested videos if specified; index may contain more
                 .Where(m => relevantVideos == default || relevantVideos.Keys.Contains(m.videoId))
-                .GroupBy(m => m.videoId) // and then group by Video.Id
+                .GroupBy(m => m.videoId)
                 .Select(group => new
                 {
-                    // to get all results in one match
                     VideoId = group.Key,
                     InMetaData = group.SingleOrDefault(m => m.language == null)?.result,
                     InCaptions = group.Where(m => m.language != null),

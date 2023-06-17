@@ -52,7 +52,6 @@ namespace SubTubular
         /// <summary>The <see cref="Video.Id"/>. Needs to be set before indexing to generate a valid <see cref="Key"/>.</summary>
         internal string VideoId { private get; set; }
 
-        // I currently work around it like this: Here I concatenate the VideoId and LanguageName to form the index key
         /// <summary>Used for indexing. Conatins <see cref="VideoId"/> and <see cref="LanguageName"/>
         /// separated by <see cref="MultiPartKeySeparator"/> to identify the matched video and caption track.</summary>
         internal string Key => VideoId + MultiPartKeySeparator + LanguageName;
