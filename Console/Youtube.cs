@@ -38,7 +38,7 @@ namespace SubTubular
             var storageKey = command.StorageKey;
             var index = await videoIndexRepo.GetAsync(storageKey);
             if (index == null) index = videoIndexRepo.Build(storageKey);
-            var playlist = await GetPlaylistAsync(command,  cancellation);
+            var playlist = await GetPlaylistAsync(command, cancellation);
             var searches = new List<Task>();
             var videoResults = Channel.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions() { SingleReader = true });
             var videoIds = playlist.Videos.Keys.Take(command.Top).ToArray();
