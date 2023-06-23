@@ -48,10 +48,10 @@ namespace SubTubular
         {
             VideoIndex videoIndex = null;
 
-            videoIndex = new VideoIndex(builder
-                // see https://mikegoatly.github.io/lifti/docs/index-construction/withindexmodificationaction/
-                .WithIndexModificationAction(async (idx) => { await SaveAsync(videoIndex, key); }).Build());
+            // see https://mikegoatly.github.io/lifti/docs/index-construction/withindexmodificationaction/
+            FullTextIndex<string> index = builder.WithIndexModificationAction(async idx => await SaveAsync(videoIndex, key)).Build();
 
+            videoIndex = new VideoIndex(index);
             return videoIndex;
         }
 
