@@ -144,13 +144,13 @@ namespace SubTubular
 
             /* limit channel capacity to avoid holding a lot of loaded but unprocessed videos in memory
                 SingleReader because we're reading from it synchronously */
-            var unIndexedVideos = Channel.CreateBounded<Video>(new BoundedChannelOptions(5) { SingleReader = true });
+            var unIndexedVideos = Channel.CreateBounded<Video>(new BoundedChannelOptions(10) { SingleReader = true });
 
             // load videos asynchronously in the background and put them on the unIndexedVideos channel for processing
             var loadVideos = Task.Run(async () =>
             {
                 var downloads = new List<Task>();
-                var loadLimiter = new SemaphoreSlim(5, 5);
+                var loadLimiter = new SemaphoreSlim(10, 10);
 
                 foreach (var id in unIndexedVideoIds)
                 {
@@ -199,7 +199,7 @@ namespace SubTubular
                 uncommitted.Add(video);
 
                 // save batch of changes
-                if (uncommitted.Count >= 5 // to prevent the batch from growing too big
+                if (uncommitted.Count >= 10 // to prevent the batch from growing too big
                     || unIndexedVideos.Reader.Completion.IsCompleted // to save remaining changes
                     || unIndexedVideos.Reader.Count == 0) // to use resources efficiently while we've got nothing queued up for indexing
                 {
@@ -291,7 +291,7 @@ namespace SubTubular
             else throw new NotImplementedException(
                 $"Listing keywords for search command {command.GetType().Name} is not implemented.");
 
-            var downloadLimiter = new SemaphoreSlim(5, 5);
+            var downloadLimiter = new SemaphoreSlim(10, 10);
 
             var videoTasks = videoIds.Select(async id =>
             {
