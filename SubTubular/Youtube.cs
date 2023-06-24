@@ -171,7 +171,7 @@ namespace SubTubular
                     }));
                 }
 
-                try { await Task.WhenAll(downloads); }
+                try { await Task.WhenAll(downloads).WithAggregateException(); }
                 finally
                 {
                     // complete writing after all download tasks finished
@@ -203,7 +203,7 @@ namespace SubTubular
                     || unIndexedVideos.Reader.Completion.IsCompleted // to save remaining changes
                     || unIndexedVideos.Reader.Count == 0) // to use resources efficiently while we've got nothing queued up for indexing
                 {
-                    await Task.WhenAll(index.CommitBatchChangeAsync(), updatePlaylistVideosUploaded(uncommitted));
+                    await Task.WhenAll(index.CommitBatchChangeAsync(), updatePlaylistVideosUploaded(uncommitted)).WithAggregateException();
 
                     var indexedVideoInfos = uncommitted.ToDictionary(v => v.Id, v => v.Uploaded as DateTime?);
 
@@ -300,7 +300,7 @@ namespace SubTubular
                 finally { downloadLimiter.Release(); }
             });
 
-            await Task.WhenAll(videoTasks);
+            await Task.WhenAll(videoTasks).WithAggregateException();
 
             return videoTasks.SelectMany(t => t.Result.Keywords).GroupBy(keyword => keyword)
                 .ToDictionary(group => group.Key, group => (ushort)group.Count());

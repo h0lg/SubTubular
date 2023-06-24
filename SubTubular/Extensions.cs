@@ -120,6 +120,19 @@ namespace SubTubular
         internal static ValueTask<(T[], Exception[])> WhenAll<T>(IEnumerable<ValueTask<T>> tasks) => WhenAll(tasks?.ToArray());
     }
 
+    internal static class TaskExtensions
+    {
+        /// <summary>Use with the <paramref name="task"/> returned by <see cref="Task.WhenAll(IEnumerable{Task})"/>
+        /// to throw all exceptions as an <see cref="AggregateException"/> instead of only the first one (as is the default).
+        /// From https://github.com/dotnet/runtime/issues/47605#issuecomment-778930734</summary>
+        internal static async Task WithAggregateException(this Task task)
+        {
+            try { await task.ConfigureAwait(false); }
+            catch (OperationCanceledException) when (task.IsCanceled) { throw; }
+            catch { task.Wait(); }
+        }
+    }
+
     internal static class HttpRequestExceptionExtensions
     {
         internal static bool IsNotFound(this HttpRequestException exception)
