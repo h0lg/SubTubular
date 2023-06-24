@@ -122,7 +122,7 @@ namespace SubTubular
                 foreach (var key in deletableKeys)
                 {
                     var playlist = await dataStore.GetAsync<Playlist>(key);
-                    DeleteFilesByNames(playlist.Videos.Keys.Select(videoId => Video.StorageKeyPrefix + videoId));
+                    if (playlist != null) DeleteFilesByNames(playlist.Videos.Keys.Select(videoId => Video.StorageKeyPrefix + videoId));
                     DeleteFileByName(key);
                 }
             }
