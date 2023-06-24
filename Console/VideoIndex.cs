@@ -175,7 +175,7 @@ namespace SubTubular
                     if (withoutUploadDate.Any()) // get upload dates for videos that we don't know it of
                     {
                         var getVideos = withoutUploadDate.Select(m => getVideoAsync(m.VideoId, cancellation)).ToArray();
-                        await Task.WhenAll(getVideos);
+                        await Task.WhenAll(getVideos).WithAggregateException();
                         previouslyLoadedVideos = getVideos.Select(t => t.Result).ToArray();
                         unIndexedVideos.AddRange(previouslyLoadedVideos.Where(v => v.UnIndexed));
 
@@ -335,7 +335,7 @@ namespace SubTubular
                 var captionTrackKeyPrefix = video.Id + CaptionTrack.MultiPartKeySeparator;
 
                 await Task.WhenAll(indexedKeys.Where(key => key == video.Id || key.StartsWith(captionTrackKeyPrefix))
-                    .Select(key => Index.RemoveAsync(key)));
+                    .Select(key => Index.RemoveAsync(key))).WithAggregateException();
 
                 await AddAsync(video, cancellation);
             }

@@ -118,6 +118,14 @@ namespace SubTubular
         }
 
         internal static ValueTask<(T[], Exception[])> WhenAll<T>(IEnumerable<ValueTask<T>> tasks) => WhenAll(tasks?.ToArray());
+
+        // from https://github.com/dotnet/runtime/issues/47605#issuecomment-778930734
+        internal static async Task WithAggregateException(this Task source)
+        {
+            try { await source.ConfigureAwait(false); }
+            catch (OperationCanceledException) when (source.IsCanceled) { throw; }
+            catch { source.Wait(); }
+        }
     }
 
     internal static class HttpRequestExceptionExtensions
