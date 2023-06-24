@@ -66,7 +66,11 @@ namespace SubTubular
             }));
 
             // hook up writer completion before starting to read to ensure the reader knows when it's done
-            var searchCompletion = Task.WhenAll(searches).ContinueWith(t => videoResults.Writer.Complete());
+            var searchCompletion = Task.WhenAll(searches).ContinueWith(t =>
+            {
+                videoResults.Writer.Complete();
+                if (t.Exception != null) throw t.Exception;
+            });
 
             // start reading from result channel and return results as they are available
             await foreach (var result in videoResults.Reader.ReadAllAsync())
@@ -229,7 +233,11 @@ namespace SubTubular
             });
 
             // hook up writer completion before starting to read to ensure the reader knows when it's done
-            var searchCompletion = Task.WhenAll(searches).ContinueWith(t => videoResults.Writer.Complete());
+            var searchCompletion = Task.WhenAll(searches).ContinueWith(t =>
+            {
+                videoResults.Writer.Complete();
+                if (t.Exception != null) throw t.Exception;
+            });
 
             // start reading from result channel and return results as they are available
             await foreach (var result in videoResults.Reader.ReadAllAsync())
