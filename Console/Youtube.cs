@@ -288,9 +288,8 @@ namespace SubTubular
             var videoTasks = videoIds.Select(async id =>
             {
                 await downloadLimiter.WaitAsync();
-                var video = await GetVideoAsync(id, cancellation);
-                downloadLimiter.Release();
-                return video;
+                try { return await GetVideoAsync(id, cancellation); }
+                finally { downloadLimiter.Release(); }
             });
 
             await Task.WhenAll(videoTasks);
