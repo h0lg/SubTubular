@@ -167,9 +167,12 @@ namespace SubTubular
                     }));
                 }
 
-                // complete writing after all download tasks finished
-                await Task.WhenAll(downloads);
-                unIndexedVideos.Writer.Complete();
+                try { await Task.WhenAll(downloads).WithAggregateException(); }
+                finally
+                {
+                    // complete writing after all download tasks finished
+                    unIndexedVideos.Writer.Complete();
+                }
             });
 
             var uncommitted = new List<Video>(); // batch of loaded and indexed, but uncommited video index changes
