@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -67,6 +68,7 @@ namespace SubTubular
             {
                 var index = Build(key);
 
+                // this is where I'd expect an exception when deserializing an index in the old format
                 // see https://mikegoatly.github.io/lifti/docs/serialization/
                 using (var reader = file.OpenRead())
                     await serializer.DeserializeAsync(index.Index, reader, disposeStream: false);
@@ -137,6 +139,12 @@ namespace SubTubular
 
             try { results = Index.Search(command.Query); }
             catch (QueryParserException ex) { throw new InputException("Error parsing query from --for | -f parameter: " + ex.Message, ex); }
+            catch (Exception ex)
+            {
+                // this is where the exception occurs
+                Debugger.Break();
+                throw;
+            }
 
             var matches = results
                 .Select(result =>

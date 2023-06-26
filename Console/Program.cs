@@ -30,6 +30,23 @@ namespace SubTubular
 
         private static async Task Main(string[] args)
         {
+#if DEBUG
+            var arguments = string.Empty;
+
+            /* Loads some videos from a channel, indexes and searches them.
+             * To reproduce the error "Field id 4 has no associated field name",
+             * 1. revert the commit "installed preview of Lifti.Core 5 and trying new dynamic fields API"
+             * 2. run this project in Debug config to build an index on Lifti 4.0.1
+             * 3. re-apply the commit "installed preview of Lifti.Core 5 and trying new dynamic fields API"
+             * 4. run this project in Debug config to search the index built with Lifti 4.0.1 on the v5 pre-release */
+            arguments = @"channel BobRossIncVideos --for ( ""beat the devil out"" | ""happy little *"" ) --top 20";
+
+            //arguments = "open cache"; // opens the folder where the full-text index is stored as .idx
+            //arguments = "clear-cache channels BobRossIncVideos"; // removes cache files and full-text index to reset the test scenario
+
+            args = arguments.SplitArgs(keepQuote: true);
+#endif
+
             var originalCommand = $"> {Name}.exe " + args.Select(arg => arg.Contains('|') ? $"\"{arg.Replace("\"", "\"\"")}\"" : arg).Join(" ");
 
             //see https://github.com/commandlineparser/commandline
