@@ -35,6 +35,11 @@ namespace SubTubular
     [Serializable]
     public sealed class CaptionTrack
     {
+        private string languageKey;
+
+        /// <summary>For indexing and shorter dynamic field names without spaces.</summary>
+        internal string LanguageKey => languageKey ??= LanguageName.Replace(" (auto-generated)", "Auto");
+
         public string LanguageName { get; set; }
         public string Url { get; set; }
         public List<Caption> Captions { get; set; }

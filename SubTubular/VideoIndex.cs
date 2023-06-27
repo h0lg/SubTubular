@@ -28,7 +28,7 @@ namespace SubTubular
                     .WithField(nameof(Video.Keywords), v => v.Keywords)
                     .WithField(nameof(Video.Description), v => v.Description)
                     .WithDynamicFields(nameof(Video.CaptionTracks), v => v.CaptionTracks,
-                        ct => ct.LanguageName + VideoIndex.CaptionTrackFieldSuffix, ct => ct.GetFullText()))
+                        ct => ct.LanguageKey + VideoIndex.CaptionTrackFieldSuffix, ct => ct.GetFullText()))
                 .WithQueryParser(o => o.WithFuzzySearchDefaults(
                     maxEditDistance: termLength => (ushort)(termLength / 3),
                     // avoid returning zero here to allow for edits in the first place
@@ -83,7 +83,7 @@ namespace SubTubular
 
     internal sealed class VideoIndex
     {
-        internal const string CaptionTrackFieldSuffix = "_" + nameof(CaptionTrack.Captions);
+        internal const string CaptionTrackFieldSuffix = "Caps";
 
         internal FullTextIndex<string> Index { get; }
 
@@ -243,7 +243,7 @@ namespace SubTubular
                 result.MatchingCaptionTracks = match.FieldMatches.Where(m => m.FoundIn.EndsWith(CaptionTrackFieldSuffix)).Select(m =>
                 {
                     var language = m.FoundIn.Remove(m.FoundIn.LastIndexOf(CaptionTrackFieldSuffix));
-                    var track = video.CaptionTracks.SingleOrDefault(t => t.LanguageName == language);
+                    var track = video.CaptionTracks.SingleOrDefault(t => t.LanguageKey == language);
                     var fullText = track.GetFullText();
                     var captionAtFullTextIndex = track.GetCaptionAtFullTextIndex();
 
