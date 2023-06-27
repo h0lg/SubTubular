@@ -14,6 +14,15 @@ internal static class TimeSpanExtensions
 /// <summary>Extension methods for <see cref="string"/>s.</summary>
 internal static class StringExtensions
 {
+    private static Regex lowerCaseFirstLetters = new Regex(@"\b\p{Ll}", RegexOptions.Compiled);
+    private static Regex nonWordChars = new Regex(@"[^\w]", RegexOptions.Compiled);
+
+    /// <summary>Converts the first letters after word boundaries in <paramref name="input"/> to upper case.</summary>
+    internal static string UpperCaseFirstLetters(this string input) => lowerCaseFirstLetters.Replace(input, match => match.Value.ToUpper());
+
+    /// <summary>Replaces all non-word characters in <paramref name="input"/> with <paramref name="replacement"/>.</summary>
+    internal static string ReplaceNonWordCharacters(this string input, string replacement = "") => nonWordChars.Replace(input, replacement);
+
     /// <summary>Replaces all consecutive white space characters in
     /// <paramref name="input"/> with <paramref name="normalizeTo"/>.</summary>
     internal static string NormalizeWhiteSpace(this string input, string normalizeTo = " ")
