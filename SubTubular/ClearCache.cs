@@ -53,7 +53,7 @@ namespace SubTubular
             {
                 case Scopes.all:
                     filesDeleted.AddRange(FileHelper.DeleteFiles(cacheFolder,
-                        simulate: simulate, notAccessedForDays: NotAccessedForDays));
+                        notAccessedForDays: NotAccessedForDays, simulate: simulate));
 
                     break;
                 case Scopes.videos:
@@ -68,7 +68,7 @@ namespace SubTubular
                         DeleteFilesByNames(parsed.Values.Select(videoId => Video.StorageKeyPrefix + videoId.Value));
                     }
                     else filesDeleted.AddRange(FileHelper.DeleteFiles(cacheFolder, Video.StorageKeyPrefix + "*",
-                        simulate: simulate, notAccessedForDays: NotAccessedForDays));
+                        notAccessedForDays: NotAccessedForDays, simulate: simulate));
 
                     break;
                 case Scopes.playlists:
