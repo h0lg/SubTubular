@@ -277,7 +277,7 @@ namespace SubTubular
                     var captionAtFullTextIndex = track.GetCaptionAtFullTextIndex();
 
                     var matches = m.result.FieldMatches.First().Locations
-                        // use a temporary/transitory PaddedMatch to ensure the minumum configured padding
+                        // use a temporary/transitory PaddedMatch to ensure the minimum configured padding
                         .Select(l => new PaddedMatch(l.Start, l.Length, command.Padding, fullText))
                         .MergeOverlapping(fullText)
                         /*  map transitory padded match to captions containing it and a new padded match

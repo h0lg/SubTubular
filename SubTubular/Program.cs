@@ -165,7 +165,7 @@ namespace SubTubular
                     catch (OperationCanceledException) { Console.WriteLine("The search was cancelled."); }
                     finally // write output file even if exception occurs
                     {
-                        if (resultDisplayed) // if we displayed a result before running into the error
+                        if (resultDisplayed) // if we displayed a result before running into an error
                         {
                             // only writes an output file if command requires it
                             var path = await output.WriteOutputFile(() => Folder.GetPath(Folders.output));
