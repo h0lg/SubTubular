@@ -35,11 +35,6 @@ namespace SubTubular
     [Serializable]
     public sealed class CaptionTrack
     {
-        private string languageKey;
-
-        /// <summary>For indexing and shorter dynamic field names without spaces.</summary>
-        internal string LanguageKey => languageKey ??= LanguageName.Replace(" (auto-generated)", "Auto");
-
         public string LanguageName { get; set; }
         public string Url { get; set; }
         public List<Caption> Captions { get; set; }
@@ -81,6 +76,17 @@ namespace SubTubular
             captionAtFullTextIndex = captionsAtFullTextIndex;
             fullText = writer.ToString();
         }
+        #endregion
+
+        #region Indexing
+        /// <summary>The (constant) suffix of <see cref="FieldName"/>.</summary>
+        internal const string FieldSuffix = "Caps";
+
+        private string fieldName;
+
+        /// <summary>For indexing <see cref="CaptionTrack"/>s with a <see cref="Video"/>
+        /// as dynamic fields identifyable by <see cref="LanguageName"/>.</summary>
+        internal string FieldName => fieldName ??= LanguageName.Replace(" (auto-generated)", "Auto") + FieldSuffix;
         #endregion
     }
 
