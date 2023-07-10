@@ -23,7 +23,7 @@ namespace SubTubular
         /// <summary>Replaces all consecutive white space characters in
         /// <paramref name="input"/> with <paramref name="normalizeTo"/>.</summary>
         internal static string NormalizeWhiteSpace(this string input, string normalizeTo = " ")
-            => System.Text.RegularExpressions.Regex.Replace(input, @"\s+", normalizeTo);
+            => Regex.Replace(input, @"\s+", normalizeTo);
 
         /// <summary>Concatenates the <paramref name="pieces"/> into a single string
         /// putting <paramref name="glue"/> in between them.</summary>

@@ -51,12 +51,12 @@ namespace SubTubular
 
             switch (Scope)
             {
-                case ClearCache.Scopes.all:
+                case Scopes.all:
                     filesDeleted.AddRange(FileHelper.DeleteFiles(cacheFolder,
                         simulate: simulate, notAccessedForDays: NotAccessedForDays));
 
                     break;
-                case ClearCache.Scopes.videos:
+                case Scopes.videos:
                     if (Ids.HasAny())
                     {
                         var parsed = Ids.ToDictionary(id => id, id => VideoId.TryParse(id.Trim('"')));
@@ -71,12 +71,12 @@ namespace SubTubular
                         simulate: simulate, notAccessedForDays: NotAccessedForDays));
 
                     break;
-                case ClearCache.Scopes.playlists:
+                case Scopes.playlists:
                     await ClearPlaylists(SearchPlaylist.StorageKeyPrefix, new JsonFileDataStore(cacheFolder),
                         v => new[] { PlaylistId.TryParse(v)?.Value });
 
                     break;
-                case ClearCache.Scopes.channels:
+                case Scopes.channels:
                     var dataStore = new JsonFileDataStore(cacheFolder);
                     Func<string, string[]> parseAlias = null;
 
