@@ -261,15 +261,24 @@ namespace SubTubular
                 }
             }
 
-            var tracksWithErrors = result.Video.CaptionTracks.Where(t => t.Error != null).ToArray();
+            var searchableTracks = result.Video.CaptionTracks.Where(t => t.Error == null).ToArray();
+
+            if (searchableTracks.Any())
+            {
+                //TODO these don't really represent all searchable tracks. those would have to be determined from all searched videos
+                WriteLine("searchable caption tracks: " + searchableTracks.Select(t => t.FieldName).Join(", "));
+                WriteLine();
+            }
+
+            var tracksWithErrors = result.Video.CaptionTracks.Except(searchableTracks).ToArray();
 
             if (tracksWithErrors.Length > 0)
             {
                 foreach (var track in tracksWithErrors)
                     WriteLine($"  {track.LanguageName}: " + track.ErrorMessage);
-            }
 
-            WriteLine();
+                WriteLine();
+            }
         }
 
         internal async ValueTask<string> WriteOutputFile(Func<string> getDefaultStorageFolder)
