@@ -166,7 +166,8 @@ namespace SubTubular
                         {
                             if (searchableTracks.Count > 0)
                             {
-                                output.WriteLine("  available caption tracks: " + searchableTracks.Join(", "));
+                                //TODO these don't really represent all searchable tracks. those would have to be determined from all searched videos
+                                output.WriteLine("searchable caption tracks: " + searchableTracks.Join(", "));
                                 output.WriteLine();
                             }
 
