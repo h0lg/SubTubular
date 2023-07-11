@@ -41,7 +41,7 @@ A **full-text search** for **[YouTube](https://www.youtube.com/)** with a **comm
 - [exact](https://mikegoatly.github.io/lifti/docs/searching/lifti-query-syntax/#exact-word-matches), [fuzzy](https://mikegoatly.github.io/lifti/docs/searching/lifti-query-syntax/#fuzzy-match-) and [wild card](https://mikegoatly.github.io/lifti/docs/searching/lifti-query-syntax/#wildcard-matching) matching
 - **multi-word phrases** with words in [exact](https://mikegoatly.github.io/lifti/docs/searching/lifti-query-syntax/#sequential-text-) or [loose](https://mikegoatly.github.io/lifti/docs/searching/lifti-query-syntax/#following-) sequence or configurable [nearness](https://mikegoatly.github.io/lifti/docs/searching/lifti-query-syntax/#near--and-n) to each other
 - **multiple search terms**, phrases or complex queries combinable with [and](https://mikegoatly.github.io/lifti/docs/searching/lifti-query-syntax/#and-) and [or](https://mikegoatly.github.io/lifti/docs/searching/lifti-query-syntax/#or-) in nested [bracketed expressions](https://mikegoatly.github.io/lifti/docs/searching/lifti-query-syntax/#bracketing-expressions)
-- [field-specific queries](https://mikegoatly.github.io/lifti/docs/searching/lifti-query-syntax/#field-restrictions-field) for **title**, **description**, **keywords** and **captions**
+- [field-specific queries](https://mikegoatly.github.io/lifti/docs/searching/lifti-query-syntax/#field-restrictions-field) for **title**, **description**, **keywords** and language-specific **captions**
 
 ## returning <!-- omit in toc -->
 - a list of search results with **highlighted** matches
@@ -82,7 +82,7 @@ All search commands share the following parameters:
 
 | shorthand, name     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | :----------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `-f`, `--for`      | (Group: query) What to search for. Quote "multi-word phrases". Single words are matched exactly by default, ?fuzzy or with wild cards for s%ngle and multi* letters. Combine multiple & terms \| "phrases or queries" using AND '&' and OR '\|' and ( use \| brackets \| for ) & ( complex \| expressions ). You can restrict your search to the video `Title`, `Description`, `Keywords` and/or `Captions`; e.g. `title="click bait"`. Learn more about the query syntax at https://mikegoatly.github.io/lifti/docs/searching/lifti-query-syntax/ . |
+| `-f`, `--for`      | (Group: query) What to search for. Quote "multi-word phrases". Single words are matched exactly by default, ?fuzzy or with wild cards for s%ngle and multi* letters. Combine multiple & terms \| "phrases or queries" using AND '&' and OR '\|' and ( use \| brackets \| for ) & ( complex \| expressions ). You can restrict your search to the video `Title`, `Description`, `Keywords` and/or language-specific captions; e.g. `title="click bait"`. Learn more about the query syntax at https://mikegoatly.github.io/lifti/docs/searching/lifti-query-syntax/ . |
 | `-k`, `--keywords` | (Group: query) Lists the keywords the videos in scope are tagged with including their number of occurrences.                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `-p`, `--pad`      | (Default: 23) How much context to pad a match in; i.e. the minimum number of characters of the original description or subtitle track to display before and after it.                                                                                                                                                                                                                                                                                                                                                                                |
 | `-m`, `--html`     | If set, outputs the highlighted search result in an HTML file including hyperlinks for easy navigation. The output path can be configured in the `out` parameter. Omitting it will save the file into the default `output` folder and name it according to your search parameters. Existing files with the same name will be overwritten.                                                                                                                                                                                                            |
@@ -275,45 +275,45 @@ To prevent them from burning churches, we may have to restrict their access to h
 ### Windows CMD <!-- omit in toc -->
 <pre>
 > SubTubular.exe <b>search-channel</b> https://www.youtube.com/@<b>bobross_thejoyofpainting</b>
-<b>--for</b> "captions= ( ""beat the devil out"" | ""happy little *"" )" <b>--top</b> 500 <b>--pad</b> 30
+<b>--for</b> "EnglishAutoCaps= ( ""beat the devil out"" | ""happy little *"" )" <b>--top</b> 500 <b>--pad</b> 30
 </pre>
 
 or shorter
 
 <pre>
 > SubTubular.exe <b>channel</b> bobross_thejoyofpainting
-<b>-f</b> "captions= ( ""beat the devil out"" | ""happy little *"" )" <b>-t</b> 500 <b>-p</b> 30
+<b>-f</b> "EnglishAutoCaps= ( ""beat the devil out"" | ""happy little *"" )" <b>-t</b> 500 <b>-p</b> 30
 </pre>
 
 ### PowerShell <!-- omit in toc -->
 <pre>
 PS > .\SubTubular.exe <b>search-channel</b> https://www.youtube.com/@<b>bobross_thejoyofpainting</b>
-<b>--for</b> 'captions= ( ""beat the devil out"" | ""happy little *"" )' <b>--top</b> 500 <b>--pad</b> 30
+<b>--for</b> 'EnglishAutoCaps= ( ""beat the devil out"" | ""happy little *"" )' <b>--top</b> 500 <b>--pad</b> 30
 </pre>
 
 or shorter
 
 <pre>
 PS > .\SubTubular.exe <b>channel</b> bobross_thejoyofpainting
-<b>-f</b> 'captions= ( ""beat the devil out"" | ""happy little *"" )' <b>-t</b> 500 <b>-p</b> 30
+<b>-f</b> 'EnglishAutoCaps= ( ""beat the devil out"" | ""happy little *"" )' <b>-t</b> 500 <b>-p</b> 30
 </pre>
 
 ### Bash <!-- omit in toc -->
 <pre>
 $ ./SubTubular.exe <b>search-channel</b> https://www.youtube.com/@<b>bobross_thejoyofpainting</b>
-<b>--for</b> 'captions= ( "beat the devil out" | "happy little *" )' <b>--top</b> 500 <b>--pad</b> 30
+<b>--for</b> 'EnglishAutoCaps= ( "beat the devil out" | "happy little *" )' <b>--top</b> 500 <b>--pad</b> 30
 </pre>
 
 or shorter
 
 <pre>
 $ ./SubTubular.exe <b>channel</b> bobross_thejoyofpainting
-<b>-f</b> 'captions= ( "beat the devil out" | "happy little *" )' <b>-t</b> 500 <b>-p</b> 30
+<b>-f</b> 'EnglishAutoCaps= ( "beat the devil out" | "happy little *" )' <b>-t</b> 500 <b>-p</b> 30
 </pre>
 
 will fill their prescription with results like below.
 
-Note how the `captions=(...)` expression excludes matches in title, description or keywords - since those wouldn't help our troubled kids.
+Note how the `EnglishAutoCaps=(...)` expression excludes matches in title, description or keywords - since those wouldn't help our troubled kids.
 
 <pre>
 "Beat the devil out of it, and we're ready."
