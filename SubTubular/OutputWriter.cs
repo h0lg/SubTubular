@@ -200,6 +200,14 @@ internal sealed class OutputWriter : IDisposable
         WriteLine();
         Write($"{result.Video.Uploaded:g} ");
         WriteUrl(videoUrl);
+
+        var searchableTracks = result.Video.CaptionTracks.Where(t => t.Error == null).ToArray();
+
+        if (searchableTracks.Any())
+        {
+            Write(" | caption tracks: " + searchableTracks.Select(t => t.FieldName).Join(", "));
+        }
+
         WriteLine();
 
         if (result.DescriptionMatches.HasAny())
@@ -255,7 +263,7 @@ internal sealed class OutputWriter : IDisposable
             }
         }
 
-        var tracksWithErrors = result.Video.CaptionTracks.Where(t => t.Error != null).ToArray();
+        var tracksWithErrors = result.Video.CaptionTracks.Except(searchableTracks).ToArray();
 
         if (tracksWithErrors.Length > 0)
         {
