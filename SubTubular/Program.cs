@@ -124,7 +124,6 @@ namespace SubTubular
                 var youtube = new Youtube(new JsonFileDataStore(cacheFolder), new VideoIndexRepository(cacheFolder));
                 if (command is RemoteValidated remoteValidated) await youtube.RemoteValidateAsync(remoteValidated, search.Token);
                 var tracksWithErrors = new List<CaptionTrack>();
-                var searchableTracks = new HashSet<string>();
 
                 using (var output = new OutputWriter(command))
                 {
@@ -153,9 +152,6 @@ namespace SubTubular
                                 output.DisplayVideoResult(result);
                                 resultDisplayed = true;
                                 tracksWithErrors.AddRange(result.Video.CaptionTracks.Where(t => t.Error != null));
-
-                                foreach (var fieldName in result.Video.CaptionTracks.Where(t => t.Error == null).Select(t => t.FieldName))
-                                    searchableTracks.Add(fieldName);
                             }
                         }
                     }
@@ -164,13 +160,6 @@ namespace SubTubular
                     {
                         if (resultDisplayed) // if we displayed a result before running into an error
                         {
-                            if (searchableTracks.Count > 0)
-                            {
-                                //TODO these don't really represent all searchable tracks. those would have to be determined from all searched videos
-                                output.WriteLine("searchable caption tracks: " + searchableTracks.Join(", "));
-                                output.WriteLine();
-                            }
-
                             // only writes an output file if command requires it
                             var path = await output.WriteOutputFile(() => Folder.GetPath(Folders.output));
 

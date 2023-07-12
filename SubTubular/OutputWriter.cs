@@ -204,14 +204,6 @@ namespace SubTubular
             WriteLine();
             Write($"{result.Video.Uploaded:g} ");
             WriteUrl(videoUrl);
-
-            var searchableTracks = result.Video.CaptionTracks.Where(t => t.Error == null).ToArray();
-
-            if (searchableTracks.Any())
-            {
-                Write(" | caption tracks: " + searchableTracks.Select(t => t.FieldName).Join(", "));
-            }
-
             WriteLine();
 
             if (result.DescriptionMatches.HasAny())
@@ -245,7 +237,7 @@ namespace SubTubular
 
             foreach (var trackResult in result.MatchingCaptionTracks)
             {
-                WriteLine("  " + trackResult.Track.LanguageName);
+                WriteLine("  " + trackResult.Track.LanguageName + " | " + trackResult.Track.FieldName);
                 var displaysHour = trackResult.Matches.Any(c => c.Item2.At > 3600);
 
                 foreach (var (match, caption) in trackResult.Matches)
@@ -269,7 +261,7 @@ namespace SubTubular
                 }
             }
 
-            var tracksWithErrors = result.Video.CaptionTracks.Except(searchableTracks).ToArray();
+            var tracksWithErrors = result.Video.CaptionTracks.Where(t => t.Error != null).ToArray();
 
             if (tracksWithErrors.Length > 0)
             {
