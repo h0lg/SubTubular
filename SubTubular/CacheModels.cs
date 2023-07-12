@@ -86,7 +86,7 @@ namespace SubTubular
 
         /// <summary>For indexing <see cref="CaptionTrack"/>s with a <see cref="Video"/>
         /// as dynamic fields identifyable by <see cref="LanguageName"/>.</summary>
-        internal string FieldName => fieldName ??= LanguageName.Replace(" (auto-generated)", "Auto") + FieldSuffix;
+        internal string FieldName => fieldName ??= LanguageName.UpperCaseFirstLetters().ReplaceNonWordCharacters() + FieldSuffix;
         #endregion
     }
 
