@@ -156,7 +156,7 @@ padded with a ", multiMatched.Length, 17, 55, 70),
             internal PaddedMatch.IncludedMatch[] Included { get; set; }
 
             internal ExpectedMatch(int start, int end,
-                string value = null, int matchLength = 0, params int[] includedStarts)
+                string value = "", int matchLength = 0, params int[] includedStarts)
                 : base(start, end, endIncluded: true)
             {
                 Value = value;
