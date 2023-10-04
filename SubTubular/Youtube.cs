@@ -23,7 +23,7 @@ namespace SubTubular
             return $"https://www.youtube.com/{urlGlue}{alias}";
         }
 
-        private readonly YoutubeClient youtube = new YoutubeClient();
+        public readonly YoutubeClient Client = new YoutubeClient();
         private readonly DataStore dataStore;
         private readonly VideoIndexRepository videoIndexRepo;
 
@@ -32,10 +32,6 @@ namespace SubTubular
             this.dataStore = dataStore;
             this.videoIndexRepo = videoIndexRepo;
         }
-
-        // an adapter injecting the YoutubeClient and data store into the command
-        internal Task RemoteValidateAsync(RemoteValidated command, CancellationToken cancellation)
-            => command.RemoteValidateAsync(youtube, dataStore, cancellation); // inject YoutubeClient
 
         /// <summary>Searches videos defined by a playlist.</summary>
         /// <param name="cancellation">Passed in either explicitly or by the IAsyncEnumerable.WithCancellation() extension,
@@ -147,8 +143,8 @@ namespace SubTubular
         private IAsyncEnumerable<PlaylistVideo> GetVideosAsync(SearchPlaylistCommand command, CancellationToken cancellation)
         {
             cancellation.ThrowIfCancellationRequested();
-            if (command is SearchChannel searchChannel) return youtube.Channels.GetUploadsAsync(searchChannel.ID, cancellation);
-            if (command is SearchPlaylist searchPlaylist) return youtube.Playlists.GetVideosAsync(searchPlaylist.Playlist, cancellation);
+            if (command is SearchChannel searchChannel) return Client.Channels.GetUploadsAsync(searchChannel.ID, cancellation);
+            if (command is SearchPlaylist searchPlaylist) return Client.Playlists.GetVideosAsync(searchPlaylist.Playlist, cancellation);
             throw new NotImplementedException($"Getting videos for the {command.GetType()} is not implemented.");
         }
 
@@ -333,7 +329,7 @@ namespace SubTubular
             {
                 try
                 {
-                    var vid = await youtube.Videos.GetAsync(videoId, cancellation);
+                    var vid = await Client.Videos.GetAsync(videoId, cancellation);
                     video = MapVideo(vid);
                     video.UnIndexed = true; // to re-index it if it was already indexed
 
@@ -372,7 +368,7 @@ namespace SubTubular
             [EnumeratorCancellation] CancellationToken cancellation)
         {
             cancellation.ThrowIfCancellationRequested();
-            var trackManifest = await youtube.Videos.ClosedCaptions.GetManifestAsync(videoId);
+            var trackManifest = await Client.Videos.ClosedCaptions.GetManifestAsync(videoId);
 
             foreach (var trackInfo in trackManifest.Tracks)
             {
@@ -382,7 +378,7 @@ namespace SubTubular
                 try
                 {
                     // Get the actual closed caption track
-                    var track = await youtube.Videos.ClosedCaptions.GetAsync(trackInfo, cancellation);
+                    var track = await Client.Videos.ClosedCaptions.GetAsync(trackInfo, cancellation);
 
                     captionTrack.Captions = track.Captions
                         .Select(c => new Caption { At = Convert.ToInt32(c.Offset.TotalSeconds), Text = c.Text })

@@ -1,7 +1,4 @@
 using CommandLine;
-using YoutubeExplode;
-using YoutubeExplode.Playlists;
-using YoutubeExplode.Videos;
 
 namespace SubTubular
 {
@@ -54,27 +51,9 @@ namespace SubTubular
 
         protected abstract string FormatInternal();
         internal string Format() => FormatInternal() + " " + Query;
-
-        #region VALIDATION
-        // see Lifti.Querying.QueryTokenizer.ParseQueryTokens()
-        private static char[] controlChars = new[] { '*', '%', '|', '&', '"', '~', '>', '?', '(', ')', '=', ',' };
-
-        internal virtual void Validate()
-        {
-            // string.IsNullOrWhiteSpace(Query) is caught by validation of CommandLineParser
-            if (Query.HasAny() && Query.All(c => controlChars.Contains(c))) throw new InputException(
-                $"The '--{@for}' option contains nothing but control characters."
-                + " That'll stay unsupported unless you come up with a good reason for why it should be."
-                + $" If you can, leave it at {Program.IssuesUrl} .");
-        }
-        #endregion
+        internal string GetQueryName() => $"'--{@for}' option";
 
         public enum Shows { file, folder }
-    }
-
-    internal interface RemoteValidated
-    {
-        Task RemoteValidateAsync(YoutubeClient youtube, DataStore dataStore, CancellationToken cancellation);
     }
 
     internal abstract class SearchPlaylistCommand : SearchCommand
@@ -104,21 +83,10 @@ namespace SubTubular
             + $" Use '--{ClearCache.Command}' to clear videos associated with a playlist or channel if that's what you're after.")]
         public float CacheHours { get; set; }
 
-        protected internal string ID { get; protected set; }
+        protected internal string ID { get; set; }
         internal string StorageKey => Label + ID;
 
         protected override string FormatInternal() => StorageKey;
-
-        internal override void Validate()
-        {
-            base.Validate();
-
-            if (OrderBy.Intersect(Orders).Count() > 1) throw new InputException(
-                $"You may order by either '{nameof(OrderOptions.score)}' or '{nameof(OrderOptions.uploaded)}' (date), but not both.");
-
-            // default to ordering by highest score which is probably most useful for most purposes
-            if (!OrderBy.Any()) OrderBy = new[] { OrderOptions.score };
-        }
 
         /// <summary>Mutually exclusive <see cref="OrderOptions"/>.</summary>
         internal static OrderOptions[] Orders = new[] { OrderOptions.uploaded, OrderOptions.score };
@@ -135,16 +103,6 @@ namespace SubTubular
 
         [Value(0, MetaName = "playlist", Required = true, HelpText = "The playlist ID or URL.")]
         public string Playlist { get; set; }
-
-        internal override void Validate()
-        {
-            base.Validate();
-
-            var id = PlaylistId.TryParse(Playlist);
-            if (id == null) throw new InputException($"'{Playlist}' is not a valid playlist ID.");
-            ID = id;
-            ValidUrls = new[] { "https://www.youtube.com/playlist?list=" + ID };
-        }
     }
 
     [Verb("search-videos", aliases: new[] { "videos", "v" }, HelpText = "Searches the specified videos.")]
@@ -158,23 +116,9 @@ namespace SubTubular
         public IEnumerable<string> Videos { get; set; }
 
         internal override string Label => "videos ";
-        internal string[] ValidIds { get; private set; }
+        internal string[] ValidIds { get; set; }
 
         protected override string FormatInternal() => Label + ValidIds.Join(" ");
-
-        internal override void Validate()
-        {
-            base.Validate();
-
-            var idsToValid = Videos.ToDictionary(id => id, id => VideoId.TryParse(id.Trim('"')));
-            var invalid = idsToValid.Where(pair => pair.Value == null).ToArray();
-
-            if (invalid.Length > 0) throw new InputException("The following video IDs or URLs are invalid:"
-                + Environment.NewLine + invalid.Select(pair => pair.Key).Join(Environment.NewLine));
-
-            ValidIds = idsToValid.Except(invalid).Select(pair => pair.Value.Value.ToString()).ToArray();
-            ValidUrls = ValidIds.Select(Youtube.GetVideoUrl).ToArray();
-        }
     }
 
     [Verb("open", aliases: new[] { "o" }, HelpText = "Opens app-related folders in a file browser.")]
