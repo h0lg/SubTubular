@@ -110,7 +110,7 @@ internal static class Program
     private static async Task SearchAsync(SearchCommand command, string originalCommand,
         Func<Youtube, IAsyncEnumerable<VideoSearchResult>> getResultsAsync)
     {
-        command.Validate();
+        SearchCommandValidator.Validate(command);
 
         //inspired by https://johnthiriet.com/cancel-asynchronous-operation-in-csharp/
         using var search = new CancellationTokenSource();
@@ -130,8 +130,12 @@ internal static class Program
         });
 
         var cacheFolder = Folder.GetPath(Folders.cache);
-        var youtube = new Youtube(new JsonFileDataStore(cacheFolder), new VideoIndexRepository(cacheFolder));
-        if (command is RemoteValidated remoteValidated) await youtube.RemoteValidateAsync(remoteValidated, search.Token);
+        DataStore dataStore = new JsonFileDataStore(cacheFolder);
+        var youtube = new Youtube(dataStore, new VideoIndexRepository(cacheFolder));
+
+        if (command is SearchChannel searchChannel)
+            await SearchCommandValidator.RemoteValidateChannelAsync(searchChannel, youtube.Client, dataStore, search.Token);
+
         var tracksWithErrors = new List<CaptionTrack>();
 
         using (var output = new OutputWriter(command))

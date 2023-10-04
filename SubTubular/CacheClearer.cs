@@ -99,7 +99,7 @@ internal static class CacheClearer
 
         var aliasToChannelIds = aliases.ToDictionary(alias => alias, alias =>
         {
-            var valid = SearchChannel.ValidateAlias(alias);
+            var valid = SearchCommandValidator.ValidateChannelAlias(alias);
             var matching = valid.Select(alias => cachedMaps.ForAlias(alias)).Where(map => map != null).ToArray();
             matchedMaps.AddRange(matching);
 
