@@ -105,12 +105,11 @@ internal abstract class SearchPlaylistCommand : SearchCommand
         + $" Use '--{ClearCache.Command}' to clear videos associated with a playlist or channel if that's what you're after.")]
     public float CacheHours { get; set; }
 
-    protected string ValidId { get; set; }
+    protected internal string ValidId { get; protected set; }
     protected abstract string KeyPrefix { get; }
     internal string StorageKey => KeyPrefix + ValidId;
 
     protected override string FormatInternal() => StorageKey;
-    internal abstract IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation);
 
     internal override void Validate()
     {
@@ -147,12 +146,6 @@ internal sealed class SearchPlaylist : SearchPlaylistCommand
         if (id == null) throw new InputException($"'{Playlist}' is not a valid playlist ID.");
         ValidId = id;
         ValidUrls = new[] { "https://www.youtube.com/playlist?list=" + ValidId };
-    }
-
-    internal override IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation)
-    {
-        cancellation.ThrowIfCancellationRequested();
-        return youtube.Playlists.GetVideosAsync(Playlist, cancellation);
     }
 }
 

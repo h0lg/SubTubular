@@ -4,6 +4,7 @@ using YoutubeExplode;
 using YoutubeExplode.Channels;
 using YoutubeExplode.Common;
 using YoutubeExplode.Exceptions;
+using YoutubeExplode.Playlists;
 using Pipe = System.Threading.Channels.Channel; // to avoid conflict with YoutubeExplode.Channels.Channel
 
 namespace SubTubular;
@@ -119,7 +120,7 @@ internal sealed class Youtube
             try
             {
                 // load and update videos in playlist while keeping existing video info
-                var freshVideos = await command.GetVideosAsync(youtube, cancellation).CollectAsync(command.Top);
+                var freshVideos = await GetVideosAsync(command, cancellation).CollectAsync(command.Top);
                 playlist.Loaded = DateTime.UtcNow;
 
                 // use new order but append older entries; note that this leaves remotely deleted videos in the playlist
@@ -137,6 +138,14 @@ internal sealed class Youtube
         }
 
         return playlist;
+    }
+
+    private IAsyncEnumerable<PlaylistVideo> GetVideosAsync(SearchPlaylistCommand command, CancellationToken cancellation)
+    {
+        cancellation.ThrowIfCancellationRequested();
+        if (command is SearchChannel searchChannel) return youtube.Channels.GetUploadsAsync(searchChannel.ValidId, cancellation);
+        if (command is SearchPlaylist searchPlaylist) return youtube.Playlists.GetVideosAsync(searchPlaylist.Playlist, cancellation);
+        throw new NotImplementedException($"Getting videos for the {command.GetType()} is not implemented.");
     }
 
     private async IAsyncEnumerable<VideoSearchResult> SearchUnindexedVideos(SearchPlaylistCommand command,
