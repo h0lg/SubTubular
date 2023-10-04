@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace SubTubular
 {
     /// <summary>A non-generic base type for <see cref="Range{T}"/>.</summary>
