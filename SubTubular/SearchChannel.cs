@@ -1,7 +1,6 @@
 using CommandLine;
 using YoutubeExplode;
 using YoutubeExplode.Channels;
-using YoutubeExplode.Playlists;
 
 namespace SubTubular;
 
@@ -120,10 +119,4 @@ internal sealed class SearchChannel : SearchPlaylistCommand, RemoteValidated
         }
     }
     #endregion
-
-    internal override IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation)
-    {
-        cancellation.ThrowIfCancellationRequested();
-        return youtube.Channels.GetUploadsAsync(ValidId, cancellation);
-    }
 }
