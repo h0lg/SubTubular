@@ -46,7 +46,7 @@ internal static class Program
 
             await parserResult.WithParsedAsync<ClearCache>(async command =>
             {
-                (IEnumerable<string> cachesDeleted, IEnumerable<string> indexesDeleted) = await command.Process();
+                (IEnumerable<string> cachesDeleted, IEnumerable<string> indexesDeleted) = await CacheClearer.Process(command);
 
                 if (command.Mode != ClearCache.Modes.summary)
                 {
