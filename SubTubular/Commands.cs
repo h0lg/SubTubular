@@ -104,11 +104,10 @@ namespace SubTubular
             + $" Use '--{ClearCache.Command}' to clear videos associated with a playlist or channel if that's what you're after.")]
         public float CacheHours { get; set; }
 
-        protected string ID { get; set; }
+        protected internal string ID { get; protected set; }
         internal string StorageKey => Label + ID;
 
         protected override string FormatInternal() => StorageKey;
-        internal abstract IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation);
 
         internal override void Validate()
         {
@@ -145,12 +144,6 @@ namespace SubTubular
             if (id == null) throw new InputException($"'{Playlist}' is not a valid playlist ID.");
             ID = id;
             ValidUrls = new[] { "https://www.youtube.com/playlist?list=" + ID };
-        }
-
-        internal override IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation)
-        {
-            cancellation.ThrowIfCancellationRequested();
-            return youtube.Playlists.GetVideosAsync(Playlist, cancellation);
         }
     }
 

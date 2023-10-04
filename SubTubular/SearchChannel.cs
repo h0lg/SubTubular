@@ -1,7 +1,6 @@
 using CommandLine;
 using YoutubeExplode;
 using YoutubeExplode.Channels;
-using YoutubeExplode.Playlists;
 
 namespace SubTubular
 {
@@ -120,11 +119,5 @@ namespace SubTubular
             }
         }
         #endregion
-
-        internal override IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation)
-        {
-            cancellation.ThrowIfCancellationRequested();
-            return youtube.Channels.GetUploadsAsync(ID, cancellation);
-        }
     }
 }
