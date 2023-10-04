@@ -64,9 +64,9 @@ internal static class Program
             {
                 var dataStore = new JsonFileDataStore(Folder.GetPath(Folders.cache));
 
-                if (release.List) Console.WriteLine(await Release.ListAsync(dataStore));
-                else if (!string.IsNullOrEmpty(release.Notes)) await Release.OpenNotesAsync(release.Notes, dataStore);
-                else if (!string.IsNullOrEmpty(release.InstallVersion)) await release.InstallByTagAsync(Console.Write, dataStore);
+                if (release.List) Console.WriteLine(await ReleaseManager.ListAsync(dataStore));
+                else if (!string.IsNullOrEmpty(release.Notes)) await ReleaseManager.OpenNotesAsync(release.Notes, dataStore);
+                else if (!string.IsNullOrEmpty(release.InstallVersion)) await ReleaseManager.InstallByTagAsync(release, Console.Write, dataStore);
             });
 
             parserResult.WithParsed<Open>(open => ShellCommands.ExploreFolder(Folder.GetPath(open.Folder)));
