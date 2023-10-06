@@ -162,8 +162,6 @@ internal sealed class SearchVideos : SearchCommand
     internal const string QuoteIdsStartingWithDash = " Note that if the video ID starts with a dash, you have to quote it"
         + @" like ""-1a2b3c4d5e"" or use the entire URL to prevent it from being misinterpreted as a command option.";
 
-    internal static string GetVideoUrl(string videoId) => "https://youtu.be/" + videoId;
-
     [Value(0, MetaName = "videos", Required = true,
         HelpText = "The space-separated YouTube video IDs and/or URLs." + QuoteIdsStartingWithDash)]
     public IEnumerable<string> Videos { get; set; }
@@ -183,7 +181,7 @@ internal sealed class SearchVideos : SearchCommand
             + Environment.NewLine + invalid.Select(pair => pair.Key).Join(Environment.NewLine));
 
         ValidIds = idsToValid.Except(invalid).Select(pair => pair.Value.Value.ToString()).ToArray();
-        ValidUrls = ValidIds.Select(GetVideoUrl).ToArray();
+        ValidUrls = ValidIds.Select(Youtube.GetVideoUrl).ToArray();
     }
 }
 

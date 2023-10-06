@@ -1,13 +1,26 @@
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using YoutubeExplode;
+using YoutubeExplode.Channels;
 using YoutubeExplode.Common;
 using YoutubeExplode.Exceptions;
+using Pipe = System.Threading.Channels.Channel; // to avoid conflict with YoutubeExplode.Channels.Channel
 
 namespace SubTubular;
 
 internal sealed class Youtube
 {
+    internal static string GetVideoUrl(string videoId) => "https://youtu.be/" + videoId;
+
+    internal static string GetChannelUrl(object alias)
+    {
+        var urlGlue = alias is ChannelHandle ? "@" : alias is ChannelSlug ? "c/"
+            : alias is UserName ? "user/" : alias is ChannelId ? "channel/"
+            : throw new NotImplementedException($"Generating URL for channel alias {alias.GetType()} is not implemented.");
+
+        return $"https://www.youtube.com/{urlGlue}{alias}";
+    }
+
     private readonly YoutubeClient youtube = new YoutubeClient();
     private readonly DataStore dataStore;
     private readonly VideoIndexRepository videoIndexRepo;
@@ -34,7 +47,7 @@ internal sealed class Youtube
         if (index == null) index = videoIndexRepo.Build(storageKey);
         var playlist = await GetPlaylistAsync(command, cancellation);
         var searches = new List<Task>();
-        var videoResults = Channel.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions() { SingleReader = true });
+        var videoResults = Pipe.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions() { SingleReader = true });
         var videoIds = playlist.Videos.Keys.Take(command.Top).ToArray();
         var indexedVideoIds = index.GetIndexed(videoIds);
         var indexedVideoInfos = indexedVideoIds.ToDictionary(id => id, id => playlist.Videos[id]);
@@ -135,7 +148,7 @@ internal sealed class Youtube
 
         /* limit channel capacity to avoid holding a lot of loaded but unprocessed videos in memory
             SingleReader because we're reading from it synchronously */
-        var unIndexedVideos = Channel.CreateBounded<Video>(new BoundedChannelOptions(5) { SingleReader = true });
+        var unIndexedVideos = Pipe.CreateBounded<Video>(new BoundedChannelOptions(5) { SingleReader = true });
 
         // load videos asynchronously in the background and put them on the unIndexedVideos channel for processing
         var loadVideos = Task.Run(async () =>
@@ -211,7 +224,7 @@ internal sealed class Youtube
     internal async IAsyncEnumerable<VideoSearchResult> SearchVideosAsync(
         SearchVideos command, [EnumeratorCancellation] CancellationToken cancellation = default)
     {
-        var videoResults = Channel.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions() { SingleReader = true });
+        var videoResults = Pipe.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions() { SingleReader = true });
 
         var searches = command.ValidIds.Select(async videoId =>
         {
