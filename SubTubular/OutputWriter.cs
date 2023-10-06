@@ -194,7 +194,7 @@ namespace SubTubular
 
         internal void DisplayVideoResult(VideoSearchResult result)
         {
-            var videoUrl = SearchVideos.GetVideoUrl(result.Video.Id);
+            var videoUrl = Youtube.GetVideoUrl(result.Video.Id);
 
             if (result.TitleMatches != null)
                 using (var indent = new IndentedText())
