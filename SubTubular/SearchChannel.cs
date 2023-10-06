@@ -77,8 +77,8 @@ internal sealed class SearchChannel : SearchPlaylistCommand, RemoteValidated
         if (distinct.Count() > 1) throw new InputException($"Channel alias '{Alias}' is ambiguous:"
             + Environment.NewLine + accessibleMaps.Select(map =>
             {
-                var validUrl = GetValidUrl(validAliases.Single(id => id.GetType().Name == map.Type));
-                var channelUrl = GetValidUrl((ChannelId)map.ChannelId);
+                var validUrl = Youtube.GetChannelUrl(validAliases.Single(id => id.GetType().Name == map.Type));
+                var channelUrl = Youtube.GetChannelUrl((ChannelId)map.ChannelId);
                 return $"{validUrl} points to channel {channelUrl}";
             })
             .Join(Environment.NewLine)
@@ -87,7 +87,7 @@ internal sealed class SearchChannel : SearchPlaylistCommand, RemoteValidated
 
         var identifiedMap = distinct.Single();
         ValidId = identifiedMap.ChannelId;
-        ValidUrls = new[] { GetValidUrl((ChannelId)identifiedMap.ChannelId) };
+        ValidUrls = new[] { Youtube.GetChannelUrl((ChannelId)identifiedMap.ChannelId) };
 
         async ValueTask<ChannelAliasMap> GetChannelAliasMap(object alias)
         {
@@ -118,15 +118,6 @@ internal sealed class SearchChannel : SearchPlaylistCommand, RemoteValidated
             knownAliasMapsUpdated = true;
             return map;
         }
-    }
-
-    private static string GetValidUrl(object alias)
-    {
-        var urlGlue = alias is ChannelHandle ? "@" : alias is ChannelSlug ? "c/"
-            : alias is UserName ? "user/" : alias is ChannelId ? "channel/"
-            : throw new NotImplementedException($"Generating URL for channel alias {alias.GetType()} is not implemented.");
-
-        return $"https://www.youtube.com/{urlGlue}{alias}";
     }
     #endregion
 
