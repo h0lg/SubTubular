@@ -105,6 +105,21 @@ namespace SubTubular
         public string Playlist { get; set; }
     }
 
+    [Verb("search-channel", aliases: new[] { "channel", "c" },
+        HelpText = "Searches the videos in a channel's Uploads playlist."
+        + $" This is a glorified '{SearchPlaylist.Command}'.")]
+    internal sealed class SearchChannel : SearchPlaylistCommand
+    {
+        internal const string StorageKeyPrefix = "channel ";
+
+        [Value(0, MetaName = "channel", Required = true,
+            HelpText = "The channel ID, handle, slug, user name or a URL for either of those.")]
+        public string Alias { get; set; }
+
+        internal override string Label => StorageKeyPrefix;
+        internal object[] ValidAliases { get; set; }
+    }
+
     [Verb("search-videos", aliases: new[] { "videos", "v" }, HelpText = "Searches the specified videos.")]
     internal sealed class SearchVideos : SearchCommand
     {
@@ -119,12 +134,5 @@ namespace SubTubular
         internal string[] ValidIds { get; set; }
 
         protected override string FormatInternal() => Label + ValidIds.Join(" ");
-    }
-
-    [Verb("open", aliases: new[] { "o" }, HelpText = "Opens app-related folders in a file browser.")]
-    internal sealed class Open
-    {
-        [Value(0, MetaName = "folder", Required = true, HelpText = "The folder to open.")]
-        public Folders Folder { get; set; }
     }
 }
