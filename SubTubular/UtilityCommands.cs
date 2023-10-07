@@ -40,7 +40,7 @@ internal sealed class ClearCache
     internal enum Modes { summary, verbose, simulate }
 }
 
-[Verb("release", aliases: new[] { "r" }, HelpText = $"List, browse and install other {Program.Name} releases.")]
+[Verb("release", aliases: new[] { "r" }, HelpText = $"List, browse and install other {AssemblyInfo.Name} releases.")]
 internal sealed class Release
 {
     internal const string InstallVersionConsoleParameter = "install",
@@ -49,7 +49,7 @@ internal sealed class Release
     private const string actions = "actions";
 
     [Option('l', "list", Group = actions,
-        HelpText = $"Lists available releases from {Program.ReleasesUrl} .")]
+        HelpText = $"Lists available releases from {AssemblyInfo.ReleasesUrl} .")]
     public bool List { get; set; }
 
     [Option('n', "notes", Group = actions, HelpText = "Opens the github release notes for a single release."

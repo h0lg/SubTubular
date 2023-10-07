@@ -16,15 +16,9 @@ internal static class Program
 
 "; //from http://www.patorjk.com/software/taag/#p=display&f=Slant&t=SubTubular
 
-    internal const string Name = nameof(SubTubular),
-        RepoOwner = "h0lg", RepoName = Name, RepoUrl = $"https://github.com/{RepoOwner}/{RepoName}",
-        IssuesUrl = $"{RepoUrl}/issues", ReleasesUrl = $"{RepoUrl}/releases";
-
-    internal static string OutputSpacing = Environment.NewLine + Environment.NewLine;
-
     private static async Task Main(string[] args)
     {
-        var originalCommand = $"> {Name}.exe "
+        var originalCommand = $"> {AssemblyInfo.Name}.exe "
             // quote shell args including pipes to accurately represent the console command
             + args.Select(arg => arg.Contains('|') ? $"\"{arg.Replace("\"", "\"\"")}\"" : arg).Join(" ");
 
@@ -85,7 +79,7 @@ internal static class Program
                 h.MaximumDisplayWidth = Console.WindowWidth;
                 h.AddEnumValuesToHelpText = true;
                 h.OptionComparison = CompareOptions;
-                h.AddPostOptionsLine($"See {RepoUrl} for more info.");
+                h.AddPostOptionsLine($"See {AssemblyInfo.RepoUrl} for more info.");
                 return h;
             })));
         }
@@ -195,7 +189,7 @@ internal static class Program
 
   {t.Url}
 
-  {t.Error}").Join(OutputSpacing), command.Describe());
+  {t.Error}").Join(AssemblyInfo.OutputSpacing), command.Describe());
         }
 
         searching = false; // to let the cancel task complete if search did before it
@@ -204,12 +198,12 @@ internal static class Program
 
     private static async Task WriteErrorLogAsync(string originalCommand, string errors, string name = null)
     {
-        var productInfo = Name + " " + AssemblyInfo.GetProductVersion();
+        var productInfo = AssemblyInfo.Name + " " + AssemblyInfo.GetProductVersion();
 
         var environmentInfo = new[] { "on", Environment.OSVersion.VersionString,
             RuntimeInformation.FrameworkDescription, productInfo }.Join(" ");
 
-        var report = (new[] { originalCommand, environmentInfo, errors }).Join(OutputSpacing);
+        var report = (new[] { originalCommand, environmentInfo, errors }).Join(AssemblyInfo.OutputSpacing);
         var fileWritten = false;
 
         try
@@ -231,11 +225,11 @@ internal static class Program
 
         Console.WriteLine();
 
-        Console.WriteLine($"Try 'release --list' or check {ReleasesUrl} for a version newer than {productInfo} that may have fixed this"
-            + $" or {IssuesUrl} for existing reports of this error and maybe a solution or work-around."
+        Console.WriteLine($"Try 'release --list' or check {AssemblyInfo.ReleasesUrl} for a version newer than {productInfo} that may have fixed this"
+            + $" or {AssemblyInfo.IssuesUrl} for existing reports of this error and maybe a solution or work-around."
             + " If you can reproduce this error in the latest version, reporting it there is your best chance at getting it fixed."
             + " If you do, make sure to include the original command or parameters to reproduce it,"
-            + $" any exception details that have not already been shared and the OS/.NET/{Name} version you're on."
+            + $" any exception details that have not already been shared and the OS/.NET/{AssemblyInfo.Name} version you're on."
             + $" You'll find all that in the error {(fileWritten ? "log file" : "output above")}.");
     }
 

@@ -31,7 +31,7 @@ internal static class ReleaseManager
             // back up current app
             var appFolder = Path.GetDirectoryName(AssemblyInfo.Location);
             var archiveFolder = GetArchivePath(appFolder);
-            var productInfo = Program.Name + " " + AssemblyInfo.Version;
+            var productInfo = AssemblyInfo.Name + " " + AssemblyInfo.Version;
             var backupFolder = Path.Combine(archiveFolder, productInfo.ToFileSafe());
 
             report($"Backing up installed {productInfo} binaries{Environment.NewLine}to '{backupFolder}' ... ");
@@ -47,7 +47,7 @@ internal static class ReleaseManager
 
             /*  start STEP 2 on backed up binaries and have them replace
                 the ones in the current location with the requested version */
-            Process.Start(Path.Combine(backupFolder, Program.Name + ".exe"),
+            Process.Start(Path.Combine(backupFolder, AssemblyInfo.Name + ".exe"),
                 $"release --{Release.InstallVersionConsoleParameter} {release.Version} --{Release.InstallFolderConsoleParameter} {appFolder}");
         }
         else // STEP 2, running on backed up binaries of app to be replaced (in archive sub folder)
@@ -63,16 +63,16 @@ internal static class ReleaseManager
                 var url = release.BinariesZip.DownloadUrl;
                 report($"Downloading {release.Version} from '{url}'{Environment.NewLine}to '{zipPath}' ... ");
                 await FileHelper.DownloadAsync(url, zipPath);
-                report("DONE" + Program.OutputSpacing);
+                report("DONE" + AssemblyInfo.OutputSpacing);
             }
 
             report($"Removing installed binaries from '{command.InstallFolder}' ... ");
             foreach (var filePath in FileHelper.GetFilesExcluding(command.InstallFolder, archiveFolder)) File.Delete(filePath);
-            report("DONE" + Program.OutputSpacing);
+            report("DONE" + AssemblyInfo.OutputSpacing);
 
             report($"Unpacking '{zipPath}'{Environment.NewLine}into '{command.InstallFolder}' ... ");
             FileHelper.Unzip(zipPath, command.InstallFolder);
-            report("DONE" + Program.OutputSpacing);
+            report("DONE" + AssemblyInfo.OutputSpacing);
 
             report($"The binaries in '{command.InstallFolder}'" + Environment.NewLine
                 + $"have successfully been updated to {release.Version} - opening release notes.");
@@ -88,7 +88,7 @@ internal static class ReleaseManager
     private static string GetArchivePath(string appFolder) => Path.Combine(appFolder, "other releases");
 
     private static GitHubClient GetGithubClient()
-        => new GitHubClient(new ProductHeaderValue(Program.Name, AssemblyInfo.GetProductVersion()));
+        => new GitHubClient(new ProductHeaderValue(AssemblyInfo.Name, AssemblyInfo.GetProductVersion()));
 
     private static async Task<List<CacheModel>> GetAll(DataStore dataStore)
     {
@@ -102,7 +102,7 @@ internal static class ReleaseManager
             if (cached != null) return cached;
         }
 
-        var freshReleases = await GetGithubClient().Repository.Release.GetAll(Program.RepoOwner, Program.RepoName);
+        var freshReleases = await GetGithubClient().Repository.Release.GetAll(AssemblyInfo.RepoOwner, AssemblyInfo.RepoName);
         var releases = freshReleases.Select(release => new CacheModel(release)).ToList();
         await dataStore.SetAsync(cacheKey, releases);
         return releases;

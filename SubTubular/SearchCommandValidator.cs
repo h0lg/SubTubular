@@ -82,7 +82,7 @@ internal static class SearchCommandValidator
         if (command.Query.HasAny() && command.Query.All(c => controlChars.Contains(c))) throw new InputException(
             $"The {command.GetQueryName()} contains nothing but control characters."
             + " That'll stay unsupported unless you come up with a good reason for why it should be."
-            + $" If you can, leave it at {Program.IssuesUrl} .");
+            + $" If you can, leave it at {AssemblyInfo.IssuesUrl} .");
     }
 
     internal static async Task RemoteValidateChannelAsync(SearchChannel command, YoutubeClient youtube, DataStore dataStore, CancellationToken cancellation)
