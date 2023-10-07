@@ -162,4 +162,11 @@ namespace SubTubular
             }
         }
     }
+
+    [Serializable]
+    internal class InputException : Exception
+    {
+        public InputException(string message) : base(message) { }
+        public InputException(string message, Exception innerException) : base(message, innerException) { }
+    }
 }
