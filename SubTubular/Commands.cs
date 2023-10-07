@@ -128,10 +128,3 @@ internal sealed class Open
     [Value(0, MetaName = "folder", Required = true, HelpText = "The folder to open.")]
     public Folders Folder { get; set; }
 }
-
-[Serializable]
-internal class InputException : Exception
-{
-    public InputException(string message) : base(message) { }
-    public InputException(string message, Exception innerException) : base(message, innerException) { }
-}
