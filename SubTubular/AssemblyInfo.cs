@@ -5,6 +5,11 @@ namespace SubTubular;
 
 internal static class AssemblyInfo
 {
+    internal const string Name = nameof(SubTubular),
+        RepoOwner = "h0lg", RepoName = Name, RepoUrl = $"https://github.com/{RepoOwner}/{RepoName}",
+        IssuesUrl = $"{RepoUrl}/issues", ReleasesUrl = $"{RepoUrl}/releases";
+
+    internal static string OutputSpacing = Environment.NewLine + Environment.NewLine;
     internal static readonly string Location, Version;
 
     static AssemblyInfo()
