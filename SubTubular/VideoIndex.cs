@@ -83,7 +83,7 @@ namespace SubTubular
         private async Task SaveAsync(VideoIndex index, string key)
         {
             // see https://mikegoatly.github.io/lifti/docs/serialization/
-            using (var writer = new FileStream(GetPath(key), FileMode.OpenOrCreate, FileAccess.Write))
+            using (var writer = new FileStream(GetPath(key), FileMode.OpenOrCreate, FileAccess.Write, FileShare.None))
                 await serializer.SerializeAsync(index.Index, writer, disposeStream: false);
         }
     }
