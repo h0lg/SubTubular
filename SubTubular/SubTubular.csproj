@@ -11,6 +11,7 @@
     <Authors>Holger Schmidt</Authors>
     <Copyright>Copyright © Holger Schmidt 2020</Copyright>
     <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="CommandLineParser" Version="2.9.1" />
