@@ -3,7 +3,7 @@
 
 A **full-text search** for **[YouTube](https://www.youtube.com/)** with a **command line interface**. Searches **subtitles** and **video metadata**, returning **time-stamped video links**.
 
-<img src="./SubTubular.ico" align="left" title="best-looking tuber in the soup" />
+<img src="./SubTubular.ico" align="right" title="best-looking tuber in the soup" />
 
 - [Overview](#overview)
 - [Commands](#commands)
@@ -311,7 +311,7 @@ $ ./SubTubular.exe <b>channel</b> bobross_thejoyofpainting
 <b>-f</b> 'captions= ( "beat the devil out" | "happy little *" )' <b>-t</b> 500 <b>-p</b> 30
 </pre>
 
-will fill his prescription with results like below.
+will fill their prescription with results like below.
 
 Note how the `captions=(...)` expression excludes matches in title, description or keywords - since those wouldn't help our troubled kids.
 
