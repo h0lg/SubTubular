@@ -5,17 +5,30 @@ using YoutubeExplode.Videos;
 
 namespace SubTubular;
 
-internal static class SearchCommandValidator
+internal static class CommandValidator
 {
     // see Lifti.Querying.QueryTokenizer.ParseQueryTokens()
     private static readonly char[] controlChars = new[] { '*', '%', '|', '&', '"', '~', '>', '?', '(', ')', '=', ',' };
 
-    internal static void Validate(SearchCommand command)
+    internal static void ValidateSearchCommand(SearchCommand command)
     {
-        if (command is SearchPlaylist searchPlaylist) ValidateSearchPlaylist(searchPlaylist);
-        else if (command is SearchVideos searchVids) ValidateSearchVideos(searchVids);
-        else if (command is SearchChannel searchChannel) ValidateSearchChannel(searchChannel);
-        else throw new NotImplementedException($"Validation for {nameof(SearchCommand)} {command.GetType()} is not implemented.");
+        ValidateCommandScope(command.Scope); // as first argument
+
+        if (string.IsNullOrWhiteSpace(command.Query)) throw new InputException(
+            $"The {nameof(SearchCommand.Query).ToLower()} is empty.");
+
+        if (command.Query.HasAny() && command.Query.All(c => controlChars.Contains(c))) throw new InputException(
+            $"The {nameof(SearchCommand.Query).ToLower()} contains nothing but control characters."
+            + " That'll stay unsupported unless you come up with a good reason for why it should be."
+            + $" If you can, leave it at {AssemblyInfo.IssuesUrl} .");
+    }
+
+    internal static void ValidateCommandScope(CommandScope scope)
+    {
+        if (scope is PlaylistScope searchPlaylist) ValidateSearchPlaylist(searchPlaylist);
+        else if (scope is VideosScope searchVids) ValidateSearchVideos(searchVids);
+        else if (scope is ChannelScope searchChannel) ValidateSearchChannel(searchChannel);
+        else throw new NotImplementedException($"Validation for {nameof(CommandScope)} {scope.GetType()} is not implemented.");
     }
 
     internal static object[] ValidateChannelAlias(string alias)
@@ -32,7 +45,7 @@ internal static class SearchCommandValidator
         return valid;
     }
 
-    private static void ValidateSearchChannel(SearchChannel command)
+    private static void ValidateSearchChannel(ChannelScope command)
     {
         ValidateSearchPlayListCommand(command);
 
@@ -41,10 +54,8 @@ internal static class SearchCommandValidator
         command.ValidAliases = ValidateChannelAlias(command.Alias);
     }
 
-    private static void ValidateSearchVideos(SearchVideos command)
+    private static void ValidateSearchVideos(VideosScope command)
     {
-        ValidateSearchCommand(command);
-
         var idsToValid = command.Videos.ToDictionary(id => id, id => VideoId.TryParse(id.Trim('"')));
         var invalid = idsToValid.Where(pair => pair.Value == null).ToArray();
 
@@ -52,11 +63,12 @@ internal static class SearchCommandValidator
             + Environment.NewLine + invalid.Select(pair => pair.Key).Join(Environment.NewLine));
 
         var validIds = idsToValid.Except(invalid).Select(pair => pair.Value.Value.ToString()).ToArray();
+        if (!validIds.Any()) throw new InputException("The video IDs or URLs are required.");
         command.ValidIds = validIds;
         command.ValidUrls = validIds.Select(Youtube.GetVideoUrl).ToArray();
     }
 
-    private static void ValidateSearchPlaylist(SearchPlaylist command)
+    private static void ValidateSearchPlaylist(PlaylistScope command)
     {
         ValidateSearchPlayListCommand(command);
 
@@ -65,27 +77,16 @@ internal static class SearchCommandValidator
         command.ValidUrls = new[] { "https://www.youtube.com/playlist?list=" + id };
     }
 
-    private static void ValidateSearchPlayListCommand(SearchPlaylistCommand command)
+    private static void ValidateSearchPlayListCommand(PlaylistLikeScope command)
     {
-        ValidateSearchCommand(command);
-
         // default to ordering by highest score which is probably most useful for most purposes
-        if (!command.OrderBy.HasAny()) command.OrderBy = new[] { SearchPlaylistCommand.OrderOptions.score };
+        if (!command.OrderBy.HasAny()) command.OrderBy = new[] { PlaylistLikeScope.OrderOptions.score };
 
-        if (command.OrderBy.Intersect(SearchPlaylistCommand.Orders).Count() > 1) throw new InputException(
-            $"You may order by either '{nameof(SearchPlaylistCommand.OrderOptions.score)}' or '{nameof(SearchPlaylistCommand.OrderOptions.uploaded)}' (date), but not both.");
+        if (command.OrderBy.Intersect(PlaylistLikeScope.Orders).Count() > 1) throw new InputException(
+            $"You may order by either '{nameof(PlaylistLikeScope.OrderOptions.score)}' or '{nameof(PlaylistLikeScope.OrderOptions.uploaded)}' (date), but not both.");
     }
 
-    private static void ValidateSearchCommand(SearchCommand command)
-    {
-        // string.IsNullOrWhiteSpace(command.Query) is caught by validation of CommandLineParser
-        if (command.Query.HasAny() && command.Query.All(c => controlChars.Contains(c))) throw new InputException(
-            $"The {command.GetQueryName()} contains nothing but control characters."
-            + " That'll stay unsupported unless you come up with a good reason for why it should be."
-            + $" If you can, leave it at {AssemblyInfo.IssuesUrl} .");
-    }
-
-    internal static async Task RemoteValidateChannelAsync(SearchChannel command, YoutubeClient youtube, DataStore dataStore, CancellationToken cancellation)
+    internal static async Task RemoteValidateChannelAsync(ChannelScope command, YoutubeClient youtube, DataStore dataStore, CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
 

@@ -5,6 +5,9 @@ namespace SubTubular;
 
 internal static class ReleaseManager
 {
+    internal const string InstallVersionConsoleCommand = "install",
+        InstallFolderConsoleParameter = "--into";
+
     internal static async Task<string> ListAsync(DataStore dataStore)
     {
         var releases = await GetAll(dataStore);
@@ -16,9 +19,9 @@ internal static class ReleaseManager
             .Prepend("date       " + version.PadRight(maxVersionLength) + " name").Join(Environment.NewLine);
     }
 
-    internal static async Task InstallByTagAsync(Release command, Action<string> report, DataStore dataStore)
+    internal static async Task InstallByTagAsync(string version, string installInto, Action<string> report, DataStore dataStore)
     {
-        var release = await GetRelease(command.InstallVersion, dataStore);
+        var release = await GetRelease(version, dataStore);
 
         if (release.Version == AssemblyInfo.Version)
             throw new InputException($"Release {release.Version} is already installed.");
@@ -26,7 +29,7 @@ internal static class ReleaseManager
         if (release.BinariesZipError != null) throw new InputException(
             $"Installing release {release.Version} is not supported because it contains {release.BinariesZipError}.");
 
-        if (string.IsNullOrEmpty(command.InstallFolder)) // STEP 1, running in app to be replaced
+        if (string.IsNullOrEmpty(installInto)) // STEP 1, running in app to be replaced
         {
             // back up current app
             var appFolder = Path.GetDirectoryName(AssemblyInfo.Location);
@@ -48,11 +51,11 @@ internal static class ReleaseManager
             /*  start STEP 2 on backed up binaries and have them replace
                 the ones in the current location with the requested version */
             Process.Start(Path.Combine(backupFolder, AssemblyInfo.Name + ".exe"),
-                $"release --{Release.InstallVersionConsoleParameter} {release.Version} --{Release.InstallFolderConsoleParameter} {appFolder}");
+                $"release {InstallVersionConsoleCommand} {release.Version} {InstallFolderConsoleParameter} {appFolder}");
         }
         else // STEP 2, running on backed up binaries of app to be replaced (in archive sub folder)
         {
-            var archiveFolder = GetArchivePath(command.InstallFolder);
+            var archiveFolder = GetArchivePath(installInto);
             var zipPath = Path.Combine(archiveFolder, release.BinariesZip.Name);
             var zipFile = new FileInfo(zipPath);
             report(Environment.NewLine); // to start in a new line below the prompt
@@ -66,15 +69,15 @@ internal static class ReleaseManager
                 report("DONE" + AssemblyInfo.OutputSpacing);
             }
 
-            report($"Removing installed binaries from '{command.InstallFolder}' ... ");
-            foreach (var filePath in FileHelper.GetFilesExcluding(command.InstallFolder, archiveFolder)) File.Delete(filePath);
+            report($"Removing installed binaries from '{installInto}' ... ");
+            foreach (var filePath in FileHelper.GetFilesExcluding(installInto, archiveFolder)) File.Delete(filePath);
             report("DONE" + AssemblyInfo.OutputSpacing);
 
-            report($"Unpacking '{zipPath}'{Environment.NewLine}into '{command.InstallFolder}' ... ");
-            FileHelper.Unzip(zipPath, command.InstallFolder);
+            report($"Unpacking '{zipPath}'{Environment.NewLine}into '{installInto}' ... ");
+            FileHelper.Unzip(zipPath, installInto);
             report("DONE" + AssemblyInfo.OutputSpacing);
 
-            report($"The binaries in '{command.InstallFolder}'" + Environment.NewLine
+            report($"The binaries in '{installInto}'" + Environment.NewLine
                 + $"have successfully been updated to {release.Version} - opening release notes.");
 
             OpenNotes(release); // by default to update users about changes
