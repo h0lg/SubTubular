@@ -13,12 +13,14 @@ internal sealed class OutputWriter : IDisposable
     private readonly ConsoleColor regularForeGround;
     private readonly bool outputHtml, hasOutputPath, writeOutputFile;
     private readonly string fileOutputPath;
-    private readonly SearchCommand command;
+    private readonly OutputCommand command;
     private readonly IDocument document;
     private readonly IElement output;
     private readonly StringWriter textOut;
 
-    internal OutputWriter(SearchCommand command)
+    public bool WroteResults { get; private set; }
+
+    internal OutputWriter(OutputCommand command)
     {
         regularForeGround = Console.ForegroundColor; //using current
         this.outputHtml = command.OutputHtml;
@@ -50,7 +52,7 @@ internal sealed class OutputWriter : IDisposable
         //provide link(s) to the searched playlist or videos for debugging IDs
         Write(command.Describe() + " ");
 
-        foreach (var url in command.ValidUrls)
+        foreach (var url in command.Scope.ValidUrls)
         {
             WriteUrl(url);
             Write(" ");
@@ -263,6 +265,7 @@ internal sealed class OutputWriter : IDisposable
         }
 
         WriteLine();
+        WroteResults = true;
     }
 
     /// <summary>Displays the <paramref name="keywords"/> on the <see cref="Console"/>,
@@ -289,6 +292,8 @@ internal sealed class OutputWriter : IDisposable
                 line = keyword; // and start a new one
             }
         }
+
+        WroteResults = true;
     }
 
     internal async ValueTask<string> WriteOutputFile(Func<string> getDefaultStorageFolder)

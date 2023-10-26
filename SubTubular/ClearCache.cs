@@ -4,6 +4,17 @@ using YoutubeExplode.Videos;
 
 namespace SubTubular;
 
+internal sealed class ClearCache
+{
+    public Scopes Scope { get; set; }
+    public IEnumerable<string> Ids { get; set; }
+    public ushort? NotAccessedForDays { get; set; }
+    public Modes Mode { get; set; }
+
+    internal enum Scopes { all, videos, playlists, channels }
+    internal enum Modes { summary, verbose, simulate }
+}
+
 internal static class CacheClearer
 {
     internal static async Task<(IEnumerable<string>, IEnumerable<string>)> Process(ClearCache command)
@@ -35,7 +46,7 @@ internal static class CacheClearer
 
                 break;
             case ClearCache.Scopes.playlists:
-                await ClearPlaylists(SearchPlaylist.StorageKeyPrefix, new JsonFileDataStore(cacheFolder),
+                await ClearPlaylists(PlaylistScope.StorageKeyPrefix, new JsonFileDataStore(cacheFolder),
                     v => new[] { PlaylistId.TryParse(v)?.Value });
 
                 break;
@@ -50,7 +61,7 @@ internal static class CacheClearer
                 }
                 else DeleteFileByName(ChannelAliasMap.StorageKey);
 
-                await ClearPlaylists(SearchChannel.StorageKeyPrefix, dataStore, parseAlias);
+                await ClearPlaylists(ChannelScope.StorageKeyPrefix, dataStore, parseAlias);
                 break;
             default: throw new NotImplementedException($"Clearing {nameof(ClearCache.Scope)} {command.Scope} is not implemented.");
         }
@@ -99,7 +110,7 @@ internal static class CacheClearer
 
         var aliasToChannelIds = aliases.ToDictionary(alias => alias, alias =>
         {
-            var valid = SearchCommandValidator.ValidateChannelAlias(alias);
+            var valid = CommandValidator.ValidateChannelAlias(alias);
             var matching = valid.Select(alias => cachedMaps.ForAlias(alias)).Where(map => map != null).ToArray();
             matchedMaps.AddRange(matching);
 
