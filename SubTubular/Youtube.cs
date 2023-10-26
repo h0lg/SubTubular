@@ -33,20 +33,27 @@ internal sealed class Youtube
         this.videoIndexRepo = videoIndexRepo;
     }
 
+    internal async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command, [EnumeratorCancellation] CancellationToken cancellation = default)
+    {
+        var search = command.Scope is VideosScope ? SearchVideosAsync(command, cancellation) : SearchPlaylistAsync(command, cancellation);
+        await foreach (var result in search) yield return result;
+    }
+
     /// <summary>Searches videos defined by a playlist.</summary>
     /// <param name="cancellation">Passed in either explicitly or by the IAsyncEnumerable.WithCancellation() extension,
     /// see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables</param>
-    internal async IAsyncEnumerable<VideoSearchResult> SearchPlaylistAsync(
-        SearchPlaylistCommand command, [EnumeratorCancellation] CancellationToken cancellation = default)
+    private async IAsyncEnumerable<VideoSearchResult> SearchPlaylistAsync(
+        SearchCommand command, [EnumeratorCancellation] CancellationToken cancellation = default)
     {
         cancellation.ThrowIfCancellationRequested();
-        var storageKey = command.StorageKey;
+        var playListLike = command.Scope as PlaylistLikeScope;
+        var storageKey = playListLike.StorageKey;
         var index = await videoIndexRepo.GetAsync(storageKey);
         if (index == null) index = videoIndexRepo.Build(storageKey);
-        var playlist = await GetPlaylistAsync(command, cancellation);
+        var playlist = await GetPlaylistAsync(playListLike, cancellation);
         var searches = new List<Task>();
         var videoResults = Pipe.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions() { SingleReader = true });
-        var videoIds = playlist.Videos.Keys.Take(command.Top).ToArray();
+        var videoIds = playlist.Videos.Keys.Take(playListLike.Top).ToArray();
         var indexedVideoIds = index.GetIndexed(videoIds);
         var indexedVideoInfos = indexedVideoIds.ToDictionary(id => id, id => playlist.Videos[id]);
 
@@ -103,7 +110,7 @@ internal sealed class Youtube
         }
     }
 
-    private async Task<Playlist> GetPlaylistAsync(SearchPlaylistCommand command, CancellationToken cancellation)
+    private async Task<Playlist> GetPlaylistAsync(PlaylistLikeScope command, CancellationToken cancellation)
     {
         var storageKey = command.StorageKey;
         var playlist = await dataStore.GetAsync<Playlist>(storageKey); //get cached
@@ -137,20 +144,20 @@ internal sealed class Youtube
         return playlist;
     }
 
-    private IAsyncEnumerable<PlaylistVideo> GetVideosAsync(SearchPlaylistCommand command, CancellationToken cancellation)
+    private IAsyncEnumerable<PlaylistVideo> GetVideosAsync(PlaylistLikeScope command, CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
-        if (command is SearchChannel searchChannel) return Client.Channels.GetUploadsAsync(searchChannel.ValidId, cancellation);
-        if (command is SearchPlaylist searchPlaylist) return Client.Playlists.GetVideosAsync(searchPlaylist.Playlist, cancellation);
+        if (command is ChannelScope searchChannel) return Client.Channels.GetUploadsAsync(searchChannel.ValidId, cancellation);
+        if (command is PlaylistScope searchPlaylist) return Client.Playlists.GetVideosAsync(searchPlaylist.Playlist, cancellation);
         throw new NotImplementedException($"Getting videos for the {command.GetType()} is not implemented.");
     }
 
-    private async IAsyncEnumerable<VideoSearchResult> SearchUnindexedVideos(SearchPlaylistCommand command,
+    private async IAsyncEnumerable<VideoSearchResult> SearchUnindexedVideos(SearchCommand command,
         string[] unIndexedVideoIds, VideoIndex index, [EnumeratorCancellation] CancellationToken cancellation,
         Func<IEnumerable<Video>, Task> updatePlaylistVideosUploaded)
     {
         cancellation.ThrowIfCancellationRequested();
-        var storageKey = command.StorageKey;
+        var storageKey = (command.Scope as PlaylistLikeScope).StorageKey;
 
         /* limit channel capacity to avoid holding a lot of loaded but unprocessed videos in memory
             SingleReader because we're reading from it synchronously */
@@ -231,12 +238,12 @@ internal sealed class Youtube
     /// <summary>Searches videos scoped by the specified <paramref name="command"/>.</summary>
     /// <param name="cancellation">Passed in either explicitly or by the IAsyncEnumerable.WithCancellation() extension,
     /// see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables</param>
-    internal async IAsyncEnumerable<VideoSearchResult> SearchVideosAsync(
-        SearchVideos command, [EnumeratorCancellation] CancellationToken cancellation = default)
+    private async IAsyncEnumerable<VideoSearchResult> SearchVideosAsync(
+        SearchCommand command, [EnumeratorCancellation] CancellationToken cancellation = default)
     {
         var videoResults = Pipe.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions() { SingleReader = true });
 
-        var searches = command.ValidIds.Select(async videoId =>
+        var searches = (command.Scope as VideosScope).ValidIds.Select(async videoId =>
         {
             var result = await SearchVideoAsync(videoId, command, cancellation);
             if (result != null) await videoResults.Writer.WriteAsync(result);
@@ -260,7 +267,7 @@ internal sealed class Youtube
     }
 
     /// <summary>Searches the video with <paramref name="videoId"/> according to the <paramref name="command"/>.</summary>
-    private async Task<VideoSearchResult> SearchVideoAsync(string videoId, SearchVideos command, CancellationToken cancellation)
+    private async Task<VideoSearchResult> SearchVideoAsync(string videoId, SearchCommand command, CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
         var storageKey = Video.StorageKeyPrefix + videoId;
@@ -287,12 +294,12 @@ internal sealed class Youtube
 
     /// <summary>Returns the <see cref="Video.Keywords"/> and their corresponding number of occurrences
     /// from the videos scoped by <paramref name="command"/>.</summary>
-    internal async Task<Dictionary<string, ushort>> ListKeywordsAsync(SearchCommand command, CancellationToken cancellation)
+    internal async Task<Dictionary<string, ushort>> ListKeywordsAsync(ListKeywords command, CancellationToken cancellation)
     {
         string[] videoIds;
 
-        if (command is SearchVideos searchVideos) videoIds = searchVideos.ValidIds;
-        else if (command is SearchPlaylistCommand searchPlaylist)
+        if (command.Scope is VideosScope searchVideos) videoIds = searchVideos.ValidIds;
+        else if (command.Scope is PlaylistLikeScope searchPlaylist)
         {
             var playlist = await GetPlaylistAsync(searchPlaylist, cancellation);
             videoIds = playlist.Videos.Keys.Take(searchPlaylist.Top).ToArray();
