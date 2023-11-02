@@ -47,6 +47,32 @@ internal static class StringExtensions
     /// with <paramref name="replacement"/>.</summary>
     internal static string ToFileSafe(this string value, string replacement = "_")
         => Regex.Replace(value, "[" + Regex.Escape(new string(Path.GetInvalidFileNameChars())) + "]", replacement);
+
+    internal static IEnumerable<string> Wrap(this string input, int columnWidth)
+    {
+        if (input == null) throw new ArgumentNullException(nameof(input));
+        if (columnWidth <= 0) throw new ArgumentException("Column width must be greater than 0.", nameof(columnWidth));
+
+        // from https://stackoverflow.com/a/29689349
+        string[] words = input.Split(' ');
+
+        return words.Skip(1).Aggregate(seed: words.Take(1).ToList(), (lines, word) =>
+        {
+            // if length of last line gets up to or over columnWidth, add the word on a new line
+            if (lines.Last().Length + word.Length >= columnWidth) lines.Add(word);
+            else lines[lines.Count - 1] += " " + word; // otherwise add word to last line
+
+            return lines;
+        });
+    }
+
+    internal static IEnumerable<string> Indent(this IEnumerable<string> lines, int indentLevel)
+    {
+        if (lines == null) throw new ArgumentNullException(nameof(lines));
+        if (indentLevel < 0) throw new ArgumentException("Only positive non-zero indents are supported.", nameof(indentLevel));
+        if (indentLevel == 0) return lines;
+        return lines.Select(l => new string(' ', indentLevel) + l);
+    }
 }
 
 /// <summary>Extension methods for <see cref="IEnumerable{T}"/> types.</summary>

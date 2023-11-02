@@ -1,6 +1,5 @@
 using AngleSharp;
 using AngleSharp.Dom;
-using CommandLine.Text;
 
 namespace SubTubular;
 
@@ -367,7 +366,7 @@ internal sealed class OutputWriter : IDisposable
         /// <summary>Wraps <paramref name="text"/> into multiple lines
         /// indented by the remembered <see cref="Console.CursorLeft"/>
         /// fitting the remembered <see cref="Console.WindowWidth"/>.</summary>
-        internal string Wrap(string text) => TextWrapper.WrapAndIndentText(text, left, width - left).TrimStart();
+        internal string Wrap(string text) => text.Wrap(width - left).Indent(left).Join(Environment.NewLine).TrimStart();
 
         /// <summary>Indicates whether the number of <paramref name="characters"/> fit the current line.</summary>
         internal bool FitsCurrentLine(int characters) => characters <= width - Console.CursorLeft;
