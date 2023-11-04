@@ -23,7 +23,9 @@ internal static class Program
 
     private static async Task Main(string[] args)
     {
-        var originalCommand = $"> {Name}.exe " + args.Select(arg => arg.Contains('|') ? $"\"{arg.Replace("\"", "\"\"")}\"" : arg).Join(" ");
+        var originalCommand = $"> {Name}.exe "
+            // quote shell args including pipes to accurately represent the console command
+            + args.Select(arg => arg.Contains('|') ? $"\"{arg.Replace("\"", "\"\"")}\"" : arg).Join(" ");
 
         //see https://github.com/commandlineparser/commandline
         try
@@ -199,7 +201,8 @@ internal static class Program
         var width = Console.WindowWidth;
         var line = string.Empty;
 
-        // prevent breaking line mid-keyword on Console and breaks output into multiple lines for file
+        /*  prevent breaking line mid-keyword on Console and breaks output into multiple lines for file
+            without adding unnecessary separators at the start or end of lines */
         foreach (var tag in keywords.OrderByDescending(pair => pair.Value).ThenBy(pair => pair.Key))
         {
             var keyword = tag.Value + "x " + tag.Key;
