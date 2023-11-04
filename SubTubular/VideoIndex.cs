@@ -142,7 +142,7 @@ internal sealed class VideoIndex
                 return new { videoId, language, result };
             })
             // make sure to only return results for the requested videos if specified; index may contain more
-            .Where(m => relevantVideos == default || relevantVideos.Keys.Contains(m.videoId))
+            .Where(m => relevantVideos == default || relevantVideos.ContainsKey(m.videoId))
             .GroupBy(m => m.videoId)
             .Select(group => new
             {
@@ -153,7 +153,7 @@ internal sealed class VideoIndex
             })
             .ToList();
 
-        var previouslyLoadedVideos = new Video[0];
+        var previouslyLoadedVideos = Array.Empty<Video>();
         var unIndexedVideos = new List<Video>();
 
         if (command is SearchPlaylistCommand searchPlaylist) // order playlist matches
@@ -266,7 +266,7 @@ internal sealed class VideoIndex
 
             result.MatchingCaptionTracks = match.InCaptions.Where(m => m.language != null).Select(m =>
             {
-                var track = video.CaptionTracks.SingleOrDefault(t => t.LanguageName == m.language);
+                var track = video.CaptionTracks.Single(t => t.LanguageName == m.language);
                 var fullText = track.GetFullText();
                 var captionAtFullTextIndex = track.GetCaptionAtFullTextIndex();
 

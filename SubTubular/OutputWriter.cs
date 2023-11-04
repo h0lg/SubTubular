@@ -116,7 +116,7 @@ internal sealed class OutputWriter : IDisposable
     private void WriteHighlightingMatches(PaddedMatch paddedMatch, IndentedText indent = null)
     {
         var charsWritten = 0; // counts characters written
-        var text = new String(paddedMatch.Value);
+        var text = new string(paddedMatch.Value);
 
         if (indent != null)
         {
@@ -161,7 +161,7 @@ internal sealed class OutputWriter : IDisposable
                 var lineContainingMatchStart = lineInfos.LastOrDefault(x => x.Item2 <= match.Start);
                 if (lineContainingMatchStart != default) match.Start += lineContainingMatchStart.Item1;
 
-                var matched = text.Substring(match.Start);
+                var matched = text[match.Start..];
 
                 if (lineContainingMatchEnd != lineContainingMatchStart)
                     match.Length += lineContainingMatchEnd.Item1 - lineContainingMatchStart.Item1;

@@ -251,8 +251,7 @@ internal sealed class Youtube
         var index = await videoIndexRepo.GetAsync(storageKey);
 
         // used to get a video during search
-        Func<string, CancellationToken, Task<Video>> getVideoAsync = (videoId, cancellation)
-            => GetVideoAsync(videoId, cancellation);
+        Func<string, CancellationToken, Task<Video>> getVideoAsync = GetVideoAsync;
 
         if (index == null)
         {
@@ -336,7 +335,7 @@ internal sealed class Youtube
         return video;
     }
 
-    private static Video MapVideo(YoutubeExplode.Videos.Video video) => new Video
+    private static Video MapVideo(YoutubeExplode.Videos.Video video) => new()
     {
         Id = video.Id.Value,
         Title = video.Title,

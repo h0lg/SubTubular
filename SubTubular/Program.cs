@@ -239,7 +239,7 @@ internal static class Program
             Console.WriteLine();
             Console.Error.WriteLine(report);
             Console.WriteLine();
-            Console.Error.WriteLine("Error writing error log: " + ex.ToString());
+            Console.Error.WriteLine("Error writing error log: " + ex);
         }
 
         Console.WriteLine();
