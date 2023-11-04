@@ -199,7 +199,8 @@ namespace SubTubular
             var width = Console.WindowWidth;
             var line = string.Empty;
 
-            // prevent breaking line mid-keyword on Console and breaks output into multiple lines for file
+            /*  prevent breaking line mid-keyword on Console and breaks output into multiple lines for file
+                without adding unnecessary separators at the start or end of lines */
             foreach (var tag in keywords.OrderByDescending(pair => pair.Value).ThenBy(pair => pair.Key))
             {
                 var keyword = tag.Value + "x " + tag.Key;
