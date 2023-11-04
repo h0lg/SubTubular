@@ -51,16 +51,21 @@ internal static class StringExtensions
     internal static IEnumerable<string> Wrap(this string input, int columnWidth)
     {
         if (input == null) throw new ArgumentNullException(nameof(input));
+        return input.Split(' ').Wrap(columnWidth);
+    }
+
+    internal static IEnumerable<string> Wrap(this IEnumerable<string> phrases, int columnWidth)
+    {
+        if (phrases == null) throw new ArgumentNullException(nameof(phrases));
+        if (phrases.Count() <= 1) return phrases;
         if (columnWidth <= 0) throw new ArgumentException("Column width must be greater than 0.", nameof(columnWidth));
 
         // from https://stackoverflow.com/a/29689349
-        string[] words = input.Split(' ');
-
-        return words.Skip(1).Aggregate(seed: words.Take(1).ToList(), (lines, word) =>
+        return phrases.Skip(1).Aggregate(seed: phrases.Take(1).ToList(), (lines, phrase) =>
         {
-            // if length of last line gets up to or over columnWidth, add the word on a new line
-            if (lines.Last().Length + word.Length >= columnWidth) lines.Add(word);
-            else lines[lines.Count - 1] += " " + word; // otherwise add word to last line
+            // if length of last line gets up to or over columnWidth, add the phrase on a new line
+            if (lines.Last().Length + phrase.Length >= columnWidth) lines.Add(phrase);
+            else lines[lines.Count - 1] += " " + phrase; // otherwise add phrase to last line
 
             return lines;
         });
