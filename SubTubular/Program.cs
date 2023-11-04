@@ -227,7 +227,7 @@ internal static class Program
 
         try
         {
-            var fileSafeName = name == null ? null : " " + name.ToFileSafe();
+            var fileSafeName = name == null ? null : (" " + name.ToFileSafe());
             var path = Path.Combine(Folder.GetPath(Folders.errors), $"error {DateTime.Now:yyyy-MM-dd HHmmss}{fileSafeName}.txt");
             await OutputWriter.WriteTextToFileAsync(report, path);
             Console.WriteLine("Errors were logged to " + path);
