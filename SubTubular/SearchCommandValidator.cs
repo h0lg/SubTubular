@@ -8,7 +8,7 @@ namespace SubTubular
     internal static class SearchCommandValidator
     {
         // see Lifti.Querying.QueryTokenizer.ParseQueryTokens()
-        private static char[] controlChars = new[] { '*', '%', '|', '&', '"', '~', '>', '?', '(', ')', '=', ',' };
+        private static readonly char[] controlChars = new[] { '*', '%', '|', '&', '"', '~', '>', '?', '(', ')', '=', ',' };
 
         internal static void Validate(SearchCommand command)
         {
@@ -60,8 +60,7 @@ namespace SubTubular
         {
             ValidateSearchPlayListCommand(command);
 
-            var id = PlaylistId.TryParse(command.Playlist);
-            if (id == null) throw new InputException($"'{command.Playlist}' is not a valid playlist ID.");
+            var id = PlaylistId.TryParse(command.Playlist) ?? throw new InputException($"'{command.Playlist}' is not a valid playlist ID.");
             command.ID = id;
             command.ValidUrls = new[] { "https://www.youtube.com/playlist?list=" + id };
         }
@@ -150,11 +149,8 @@ namespace SubTubular
                     var channel = await loadChannel;
                     map.ChannelId = channel.Id;
                 }
-                catch (HttpRequestException ex)
-                {
-                    if (ex.IsNotFound()) map.ChannelId = null;
-                    else throw; // rethrow to raise assumed transient error
-                }
+                // otherwise rethrow to raise assumed transient error
+                catch (HttpRequestException ex) when (ex.IsNotFound()) { map.ChannelId = null; }
 
                 knownAliasMaps.Add(map);
                 knownAliasMapsUpdated = true;
