@@ -160,8 +160,6 @@ internal sealed class OutputWriter : IDisposable
                 var lineContainingMatchStart = lineInfos.LastOrDefault(x => x.Item2 <= match.Start);
                 if (lineContainingMatchStart != default) match.Start += lineContainingMatchStart.Item1;
 
-                var matched = text[match.Start..];
-
                 if (lineContainingMatchEnd != lineContainingMatchStart)
                     match.Length += lineContainingMatchEnd.Item1 - lineContainingMatchStart.Item1;
             }
@@ -175,7 +173,7 @@ internal sealed class OutputWriter : IDisposable
             else Write(phrase);
 
             charsWritten += length;
-        };
+        }
 
         foreach (var match in paddedMatch.Included.OrderBy(m => m.Start))
         {
