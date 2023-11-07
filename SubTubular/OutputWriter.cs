@@ -175,7 +175,7 @@ internal sealed class OutputWriter : IDisposable
             else Write(phrase);
 
             charsWritten += length;
-        };
+        }
 
         foreach (var match in paddedMatch.Included.OrderBy(m => m.Start))
         {
