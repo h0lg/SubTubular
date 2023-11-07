@@ -117,13 +117,10 @@ internal sealed class Youtube
 
                 await dataStore.SetAsync(storageKey, playlist);
             }
-            catch (PlaylistUnavailableException ex)
-            {
-                // treat playlist identified by user input not being available as input error
-                if (command is SearchPlaylist searchPlaylist) throw new InputException(
-                    $"Could not find {searchPlaylist.Describe()}'.", ex);
-                else throw; // rethrow otherwise; the uploads playlist of a channel being unavailable is unexpected
-            }
+            /*  treat playlist identified by user input not being available as input error
+                and rethrow otherwise; the uploads playlist of a channel being unavailable is unexpected */
+            catch (PlaylistUnavailableException ex) when (command is SearchPlaylist searchPlaylist)
+            { throw new InputException($"Could not find {searchPlaylist.Describe()}.", ex); }
         }
 
         return playlist;
@@ -318,11 +315,8 @@ internal sealed class Youtube
 
                 await dataStore.SetAsync(storageKey, video);
             }
-            catch (HttpRequestException ex)
-            {
-                if (ex.IsNotFound()) throw new InputException($"Video '{videoId}' could not be found.", ex);
-                else throw;
-            }
+            catch (HttpRequestException ex) when (ex.IsNotFound())
+            { throw new InputException($"Video '{videoId}' could not be found.", ex); }
         }
 
         /* Sanitize captions, making sure cached captions as well as downloaded
