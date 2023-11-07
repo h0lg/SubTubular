@@ -127,10 +127,10 @@ internal sealed class VideoIndex
 
         var matches = results
             // make sure to only return results for the requested videos if specified; index may contain more
-            .Where(m => relevantVideos == default || relevantVideos.Keys.Contains(m.Key))
+            .Where(m => relevantVideos == default || relevantVideos.ContainsKey(m.Key))
             .ToList();
 
-        var previouslyLoadedVideos = new Video[0];
+        var previouslyLoadedVideos = Array.Empty<Video>();
         var unIndexedVideos = new List<Video>();
 
         if (command is SearchPlaylistCommand searchPlaylist) // order playlist matches
