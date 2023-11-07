@@ -241,19 +241,17 @@ internal sealed class OutputWriter : IDisposable
                 var offset = TimeSpan.FromSeconds(caption.At).FormatWithOptionalHours().PadLeft(displaysHour ? 7 : 5);
                 Write($"    {offset} ");
 
-                using (var indent = new IndentedText())
-                {
-                    WriteHighlightingMatches(match, indent);
+                using var indent = new IndentedText();
+                WriteHighlightingMatches(match, indent);
 
-                    const string padding = "    ";
-                    var url = $"{videoUrl}?t={caption.At}";
+                const string padding = "    ";
+                var url = $"{videoUrl}?t={caption.At}";
 
-                    if (indent.FitsCurrentLine(padding.Length + url.Length)) Write(padding);
-                    else indent.StartNewLine(this);
+                if (indent.FitsCurrentLine(padding.Length + url.Length)) Write(padding);
+                else indent.StartNewLine(this);
 
-                    WriteUrl(url);
-                    WriteLine();
-                }
+                WriteUrl(url);
+                WriteLine();
             }
         }
 

@@ -39,34 +39,30 @@ internal static class FileHelper
     /// and saves it at <paramref name="targetPath"/>.</summary>
     internal static async Task DownloadAsync(string downloadUrl, string targetPath)
     {
-        using (var httpClient = new HttpClient())
-        {
-            var response = await httpClient.GetAsync(downloadUrl);
+        using var httpClient = new HttpClient();
+        var response = await httpClient.GetAsync(downloadUrl);
 
-            if (response.IsSuccessStatusCode) await File.WriteAllBytesAsync(targetPath,
-                await response.Content.ReadAsByteArrayAsync());
-        }
+        if (response.IsSuccessStatusCode) await File.WriteAllBytesAsync(targetPath,
+            await response.Content.ReadAsByteArrayAsync());
     }
 
     /// <summary>Unpacks the <paramref name="zipFile"/> into the <paramref name="targetFolder"/>
     /// while flattening a top-level folder that wraps all zip contents.</summary>
     internal static void Unzip(string zipFile, string targetFolder)
     {
-        using (var archive = ZipFile.OpenRead(zipFile))
+        using var archive = ZipFile.OpenRead(zipFile);
+        var topLevelFolders = archive.Entries.Where(e => string.IsNullOrEmpty(e.Name) && Path.EndsInDirectorySeparator(e.FullName)
+            && e.FullName.Count(c => c == Path.DirectorySeparatorChar || c == Path.AltDirectorySeparatorChar) == 1).ToArray();
+
+        var wrappingFolder = topLevelFolders.Length == 1 ? topLevelFolders[0].FullName : null;
+        var hasWrappingFolder = wrappingFolder != null && archive.Entries.All(e => e.FullName.StartsWith(wrappingFolder));
+
+        foreach (var entry in archive.Entries.Where(e => !string.IsNullOrEmpty(e.Name)))
         {
-            var topLevelFolders = archive.Entries.Where(e => string.IsNullOrEmpty(e.Name) && Path.EndsInDirectorySeparator(e.FullName)
-                && e.FullName.Count(c => c == Path.DirectorySeparatorChar || c == Path.AltDirectorySeparatorChar) == 1).ToArray();
-
-            var wrappingFolder = topLevelFolders.Length == 1 ? topLevelFolders[0].FullName : null;
-            var hasWrappingFolder = wrappingFolder != null && archive.Entries.All(e => e.FullName.StartsWith(wrappingFolder));
-
-            foreach (var entry in archive.Entries.Where(e => !string.IsNullOrEmpty(e.Name)))
-            {
-                var relativePath = hasWrappingFolder ? entry.FullName.Remove(0, wrappingFolder.Length) : entry.FullName;
-                var targetFilePath = Path.Combine(targetFolder, relativePath);
-                CreateFolder(targetFilePath);
-                entry.ExtractToFile(targetFilePath);
-            }
+            var relativePath = hasWrappingFolder ? entry.FullName.Remove(0, wrappingFolder.Length) : entry.FullName;
+            var targetFilePath = Path.Combine(targetFolder, relativePath);
+            CreateFolder(targetFilePath);
+            entry.ExtractToFile(targetFilePath);
         }
     }
 }

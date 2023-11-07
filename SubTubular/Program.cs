@@ -105,91 +105,89 @@ internal static class Program
         command.Validate();
 
         //inspired by https://johnthiriet.com/cancel-asynchronous-operation-in-csharp/
-        using (var search = new CancellationTokenSource())
+        using var search = new CancellationTokenSource();
+        var searching = true;
+
+        var cancel = Task.Run(async () => //start in background, don't wait for completion
         {
-            var searching = true;
+            Console.WriteLine("Press any key to cancel");
+            Console.WriteLine();
 
-            var cancel = Task.Run(async () => //start in background, don't wait for completion
+            /* wait for key or search to finish, non-blockingly; but only as long as to not cause perceivable lag
+                inspired by https://stackoverflow.com/a/5620647 and https://stackoverflow.com/a/23628232 */
+            while (searching && !Console.KeyAvailable) await Task.Delay(200, search.Token);
+
+            if (Console.KeyAvailable) Console.ReadKey(true); //consume cancel key without displaying it
+            if (searching) search.Cancel();
+        });
+
+        var cacheFolder = Folder.GetPath(Folders.cache);
+        var youtube = new Youtube(new JsonFileDataStore(cacheFolder), new VideoIndexRepository(cacheFolder));
+        if (command is RemoteValidated remoteValidated) await youtube.RemoteValidateAsync(remoteValidated, search.Token);
+        var tracksWithErrors = new List<CaptionTrack>();
+
+        using (var output = new OutputWriter(command))
+        {
+            output.WriteHeader(originalCommand);
+            var resultDisplayed = false;
+
+            try
             {
-                Console.WriteLine("Press any key to cancel");
-                Console.WriteLine();
-
-                /* wait for key or search to finish, non-blockingly; but only as long as to not cause perceivable lag
-                    inspired by https://stackoverflow.com/a/5620647 and https://stackoverflow.com/a/23628232 */
-                while (searching && !Console.KeyAvailable) await Task.Delay(200, search.Token);
-
-                if (Console.KeyAvailable) Console.ReadKey(true); //consume cancel key without displaying it
-                if (searching) search.Cancel();
-            });
-
-            var cacheFolder = Folder.GetPath(Folders.cache);
-            var youtube = new Youtube(new JsonFileDataStore(cacheFolder), new VideoIndexRepository(cacheFolder));
-            if (command is RemoteValidated remoteValidated) await youtube.RemoteValidateAsync(remoteValidated, search.Token);
-            var tracksWithErrors = new List<CaptionTrack>();
-
-            using (var output = new OutputWriter(command))
-            {
-                output.WriteHeader(originalCommand);
-                var resultDisplayed = false;
-
-                try
+                if (command.ListKeywords)
                 {
-                    if (command.ListKeywords)
-                    {
-                        var keywords = await youtube.ListKeywordsAsync(command, search.Token);
+                    var keywords = await youtube.ListKeywordsAsync(command, search.Token);
 
-                        if (keywords.Any())
-                        {
-                            ListKeywords(keywords);
-                            resultDisplayed = true;
-                        }
-                        else Console.WriteLine("Found no keywords.");
-                    }
-                    else // search videos in scope
+                    if (keywords.Any())
                     {
-                        /*  passing token into search implementations for them to react to cancellation,
-                            see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables */
-                        await foreach (var result in getResultsAsync(youtube).WithCancellation(search.Token))
-                        {
-                            output.DisplayVideoResult(result);
-                            resultDisplayed = true;
-                            tracksWithErrors.AddRange(result.Video.CaptionTracks.Where(t => t.Error != null));
-                        }
+                        ListKeywords(keywords);
+                        resultDisplayed = true;
                     }
+                    else Console.WriteLine("Found no keywords.");
                 }
-                catch (OperationCanceledException) { Console.WriteLine("The search was cancelled."); }
-                finally // write output file even if exception occurs
+                else // search videos in scope
                 {
-                    if (resultDisplayed) // if we displayed a result before running into an error
+                    /*  passing token into search implementations for them to react to cancellation,
+                        see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables */
+                    await foreach (var result in getResultsAsync(youtube).WithCancellation(search.Token))
                     {
-                        // only writes an output file if command requires it
-                        var path = await output.WriteOutputFile(() => Folder.GetPath(Folders.output));
-
-                        if (path != null)
-                        {
-                            Console.WriteLine("Search results were written to " + path);
-
-                            // spare the user some file browsing
-                            if (command.Show == SearchCommand.Shows.file) ShellCommands.OpenFile(path);
-                            if (command.Show == SearchCommand.Shows.folder) ShellCommands.ExploreFolder(path);
-                        }
+                        output.DisplayVideoResult(result);
+                        resultDisplayed = true;
+                        tracksWithErrors.AddRange(result.Video.CaptionTracks.Where(t => t.Error != null));
                     }
                 }
             }
-
-            if (tracksWithErrors.Count > 0)
+            catch (OperationCanceledException) { Console.WriteLine("The search was cancelled."); }
+            finally // write output file even if exception occurs
             {
-                await WriteErrorLogAsync(originalCommand, tracksWithErrors.Select(t =>
+                if (resultDisplayed) // if we displayed a result before running into an error
+                {
+                    // only writes an output file if command requires it
+                    var path = await output.WriteOutputFile(() => Folder.GetPath(Folders.output));
+
+                    if (path != null)
+                    {
+                        Console.WriteLine("Search results were written to " + path);
+
+                        // spare the user some file browsing
+                        if (command.Show == SearchCommand.Shows.file) ShellCommands.OpenFile(path);
+                        if (command.Show == SearchCommand.Shows.folder) ShellCommands.ExploreFolder(path);
+                    }
+                }
+            }
+        }
+
+        if (tracksWithErrors.Count > 0)
+        {
+            await WriteErrorLogAsync(originalCommand, tracksWithErrors.Select(t =>
 @$"{t.LanguageName}: {t.ErrorMessage}
 
   {t.Url}
 
   {t.Error}").Join(OutputSpacing), command.Format());
-            }
-
-            searching = false; // to let the cancel task complete if search did before it
-            await cancel; // just to rethrow possible exceptions
         }
+
+        searching = false; // to let the cancel task complete if search did before it
+        await cancel; // just to rethrow possible exceptions
     }
 
     /// <summary>Displays the <paramref name="keywords"/> on the <see cref="Console"/>,
