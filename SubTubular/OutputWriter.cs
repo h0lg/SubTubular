@@ -76,8 +76,7 @@ internal sealed class OutputWriter : IDisposable
         Console.WriteLine();
         if (!writeOutputFile) return;
 
-        if (outputHtml)
-            output.InnerHtml += Environment.NewLine;
+        if (outputHtml) output.InnerHtml += Environment.NewLine;
         else textOut.WriteLine();
     }
 
@@ -167,7 +166,6 @@ internal sealed class OutputWriter : IDisposable
                     match.Length += lineContainingMatchEnd.Item1 - lineContainingMatchStart.Item1;
             }
         }
-
 
         void writeCounting(int length, bool highlight = false)
         {
