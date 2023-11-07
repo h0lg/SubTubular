@@ -262,7 +262,7 @@ internal sealed class Youtube
             await index.CommitBatchChangeAsync();
 
             // reuse already loaded video for better performance
-            getVideoAsync = (videoId, cancellation) => Task.FromResult(video);
+            getVideoAsync = (_, __) => Task.FromResult(video);
         }
 
         var results = await index.SearchAsync(command, getVideoAsync, cancellation: cancellation).ToListAsync();
