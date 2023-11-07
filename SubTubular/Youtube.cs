@@ -140,7 +140,7 @@ internal sealed class Youtube
     private IAsyncEnumerable<PlaylistVideo> GetVideosAsync(SearchPlaylistCommand command, CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
-        if (command is SearchChannel searchChannel) return Client.Channels.GetUploadsAsync(searchChannel.ID, cancellation);
+        if (command is SearchChannel searchChannel) return Client.Channels.GetUploadsAsync(searchChannel.ValidId, cancellation);
         if (command is SearchPlaylist searchPlaylist) return Client.Playlists.GetVideosAsync(searchPlaylist.Playlist, cancellation);
         throw new NotImplementedException($"Getting videos for the {command.GetType()} is not implemented.");
     }

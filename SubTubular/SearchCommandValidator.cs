@@ -61,7 +61,7 @@ internal static class SearchCommandValidator
         ValidateSearchPlayListCommand(command);
 
         var id = PlaylistId.TryParse(command.Playlist) ?? throw new InputException($"'{command.Playlist}' is not a valid playlist ID.");
-        command.ID = id;
+        command.ValidId = id;
         command.ValidUrls = new[] { "https://www.youtube.com/playlist?list=" + id };
     }
 
@@ -127,7 +127,7 @@ internal static class SearchCommandValidator
         #endregion
 
         var identifiedMap = distinct.Single();
-        command.ID = identifiedMap.ChannelId;
+        command.ValidId = identifiedMap.ChannelId;
         command.ValidUrls = new[] { Youtube.GetChannelUrl((ChannelId)identifiedMap.ChannelId) };
 
         async ValueTask<ChannelAliasMap> GetChannelAliasMap(object alias)

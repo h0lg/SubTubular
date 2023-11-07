@@ -85,9 +85,9 @@ internal abstract class SearchPlaylistCommand : SearchCommand
         + $" Use '--{ClearCache.Command}' to clear videos associated with a playlist or channel if that's what you're after.")]
     public float CacheHours { get; set; }
 
-    protected internal string ID { get; set; }
+    protected internal string ValidId { get; set; }
     protected abstract string KeyPrefix { get; }
-    internal string StorageKey => KeyPrefix + ID;
+    internal string StorageKey => KeyPrefix + ValidId;
 
     protected override string FormatInternal() => StorageKey;
 
