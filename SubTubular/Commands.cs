@@ -49,7 +49,6 @@ internal abstract class SearchCommand
     [Option('s', "show", HelpText = "The output to open if a file was written.")]
     public Shows? Show { get; set; }
 
-    internal abstract string Label { get; }
     internal IEnumerable<string> ValidUrls { get; set; }
 
     protected abstract string FormatInternal();
@@ -107,7 +106,8 @@ internal abstract class SearchPlaylistCommand : SearchCommand
     public float CacheHours { get; set; }
 
     protected string ID { get; set; }
-    internal string StorageKey => Label + ID;
+    protected abstract string KeyPrefix { get; }
+    internal string StorageKey => KeyPrefix + ID;
 
     protected override string FormatInternal() => StorageKey;
     internal abstract IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation);
@@ -134,7 +134,7 @@ internal abstract class SearchPlaylistCommand : SearchCommand
 internal sealed class SearchPlaylist : SearchPlaylistCommand
 {
     internal const string Command = "search-playlist", StorageKeyPrefix = "playlist ";
-    internal override string Label => StorageKeyPrefix;
+    protected override string KeyPrefix => StorageKeyPrefix;
 
     [Value(0, MetaName = "playlist", Required = true, HelpText = "The playlist ID or URL.")]
     public string Playlist { get; set; }
@@ -168,10 +168,9 @@ internal sealed class SearchVideos : SearchCommand
         HelpText = "The space-separated YouTube video IDs and/or URLs." + QuoteIdsStartingWithDash)]
     public IEnumerable<string> Videos { get; set; }
 
-    internal override string Label => "videos ";
     internal string[] ValidIds { get; private set; }
 
-    protected override string FormatInternal() => Label + ValidIds.Join(" ");
+    protected override string FormatInternal() => "videos " + ValidIds.Join(" ");
 
     internal override void Validate()
     {

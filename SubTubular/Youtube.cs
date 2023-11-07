@@ -121,7 +121,7 @@ internal sealed class Youtube
             {
                 // treat playlist identified by user input not being available as input error
                 if (command is SearchPlaylist searchPlaylist) throw new InputException(
-                    $"Could not find {searchPlaylist.Label}'{searchPlaylist.Playlist}'.", ex);
+                    $"Could not find {searchPlaylist.Describe()}'.", ex);
                 else throw; // rethrow otherwise; the uploads playlist of a channel being unavailable is unexpected
             }
         }

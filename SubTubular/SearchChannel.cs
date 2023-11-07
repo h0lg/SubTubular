@@ -16,7 +16,7 @@ internal sealed class SearchChannel : SearchPlaylistCommand, RemoteValidated
         HelpText = "The channel ID, handle, slug, user name or a URL for either of those.")]
     public string Alias { get; set; }
 
-    internal override string Label => StorageKeyPrefix;
+    protected override string KeyPrefix => StorageKeyPrefix;
 
     #region VALIDATION
     private object[] validAliases; // stores validated alias between local and remote validation
