@@ -50,7 +50,10 @@ internal abstract class SearchCommand
     internal IEnumerable<string> ValidUrls { get; set; }
 
     protected abstract string FormatInternal();
-    internal string Format() => FormatInternal() + " " + Query;
+
+    internal string Describe() => ListKeywords ? ("listing keywords in " + FormatInternal())
+        : ("searching " + FormatInternal() + " for " + Query);
+
     internal string GetQueryName() => $"'--{@for}' option";
 
     public enum Shows { file, folder }
