@@ -44,7 +44,7 @@ internal sealed class Youtube
         searches.Add(Task.Run(async () =>
         {
             await foreach (var result in index.SearchAsync(command, GetVideoAsync,
-                cancellation, indexedVideoInfos, UpdatePlaylistVideosUploaded))
+                indexedVideoInfos, UpdatePlaylistVideosUploaded, cancellation))
                 await videoResults.Writer.WriteAsync(result);
         }));
 
@@ -202,7 +202,7 @@ internal sealed class Youtube
                 var indexedVideoInfos = uncommitted.ToDictionary(v => v.Id, v => v.Uploaded as DateTime?);
 
                 // search after committing index changes to output matches as we go
-                await foreach (var result in index.SearchAsync(command, getVideoAsync, cancellation, indexedVideoInfos))
+                await foreach (var result in index.SearchAsync(command, getVideoAsync, indexedVideoInfos, cancellation: cancellation))
                     yield return result;
 
                 uncommitted.Clear(); // safe to do because we're reading synchronously and no other thread could have added to it in between
@@ -265,7 +265,7 @@ internal sealed class Youtube
             getVideoAsync = (videoId, cancellation) => Task.FromResult(video);
         }
 
-        var results = await index.SearchAsync(command, getVideoAsync, cancellation).ToListAsync();
+        var results = await index.SearchAsync(command, getVideoAsync, cancellation: cancellation).ToListAsync();
         return results.SingleOrDefault(); // there can only be one
     }
 

@@ -123,9 +123,9 @@ internal sealed class VideoIndex
     /// <see cref="SearchPlaylistCommand.OrderOptions.uploaded"/>.</param>
     internal async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command,
         Func<string, CancellationToken, Task<Video>> getVideoAsync,
-        [EnumeratorCancellation] CancellationToken cancellation = default,
         IDictionary<string, DateTime?> relevantVideos = default,
-        Func<IEnumerable<Video>, Task> updatePlaylistVideosUploaded = default)
+        Func<IEnumerable<Video>, Task> updatePlaylistVideosUploaded = default,
+        [EnumeratorCancellation] CancellationToken cancellation = default)
     {
         cancellation.ThrowIfCancellationRequested();
         IEnumerable<SearchResult<string>> results;
@@ -314,8 +314,9 @@ internal sealed class VideoIndex
             Func<string, CancellationToken, Task<Video>> getReIndexedVideoAsync = async (id, cancellation)
                 => unIndexedVideos.SingleOrDefault(v => v.Id == id) ?? await getVideoAsync(id, cancellation);
 
-            await foreach (var result in SearchAsync(command, getReIndexedVideoAsync, cancellation,
-                unIndexedVideos.ToDictionary(v => v.Id, v => v.Uploaded as DateTime?), updatePlaylistVideosUploaded))
+            await foreach (var result in SearchAsync(command, getReIndexedVideoAsync,
+                unIndexedVideos.ToDictionary(v => v.Id, v => v.Uploaded as DateTime?),
+                updatePlaylistVideosUploaded, cancellation))
                 yield return result;
         }
     }
