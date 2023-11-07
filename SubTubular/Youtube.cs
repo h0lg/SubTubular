@@ -253,7 +253,7 @@ internal sealed class Youtube
         });
 
         // start reading from result channel and return results as they are available
-        await foreach (var result in videoResults.Reader.ReadAllAsync())
+        await foreach (var result in videoResults.Reader.ReadAllAsync(cancellation))
         {
             yield return result;
             cancellation.ThrowIfCancellationRequested();
@@ -367,7 +367,7 @@ internal sealed class Youtube
         [EnumeratorCancellation] CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
-        var trackManifest = await Client.Videos.ClosedCaptions.GetManifestAsync(videoId);
+        var trackManifest = await Client.Videos.ClosedCaptions.GetManifestAsync(videoId, cancellation);
 
         foreach (var trackInfo in trackManifest.Tracks)
         {
