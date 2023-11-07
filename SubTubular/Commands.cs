@@ -53,7 +53,9 @@ internal abstract class SearchCommand
     internal IEnumerable<string> ValidUrls { get; set; }
 
     protected abstract string FormatInternal();
-    internal string Format() => FormatInternal() + " " + Query;
+
+    internal string Describe() => ListKeywords ? ("listing keywords in " + FormatInternal())
+        : ("searching " + FormatInternal() + " for " + Query);
 
     #region VALIDATION
     // see Lifti.Querying.QueryTokenizer.ParseQueryTokens()

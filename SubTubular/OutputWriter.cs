@@ -49,7 +49,7 @@ internal sealed class OutputWriter : IDisposable
         if (writeOutputFile) WriteLine(originalCommand);
 
         //provide link(s) to the searched playlist or videos for debugging IDs
-        Write("searching " + command.Label);
+        Write(command.Describe() + " ");
 
         foreach (var url in command.ValidUrls)
         {
@@ -266,6 +266,32 @@ internal sealed class OutputWriter : IDisposable
         WriteLine();
     }
 
+    /// <summary>Displays the <paramref name="keywords"/> on the <see cref="Console"/>,
+    /// most often occurring keyword first.</summary>
+    /// <param name="keywords">The keywords and their corresponding number of occurrences.</param>
+    internal void ListKeywords(Dictionary<string, ushort> keywords)
+    {
+        const string separator = " | ";
+        var width = Console.WindowWidth;
+        var line = string.Empty;
+
+        /*  prevent breaking line mid-keyword on Console and breaks output into multiple lines for file
+            without adding unnecessary separators at the start or end of lines */
+        foreach (var tag in keywords.OrderByDescending(pair => pair.Value).ThenBy(pair => pair.Key))
+        {
+            var keyword = tag.Value + "x " + tag.Key;
+
+            // does keyword still fit into the current line?
+            if ((line.Length + separator.Length + keyword.Length) < width)
+                line += separator + keyword; // add it
+            else // keyword doesn't fit
+            {
+                if (line.Length > 0) WriteLine(line); // write current line
+                line = keyword; // and start a new one
+            }
+        }
+    }
+
     internal async ValueTask<string> WriteOutputFile(Func<string> getDefaultStorageFolder)
     {
         if (!writeOutputFile) return null;
@@ -275,7 +301,7 @@ internal sealed class OutputWriter : IDisposable
         if (!hasOutputPath || fileOutputPath.IsDirectoryPath())
         {
             var extension = outputHtml ? ".html" : ".txt";
-            var fileName = command.Format().ToFileSafe() + extension;
+            var fileName = command.Describe().ToFileSafe() + extension;
             var folder = hasOutputPath ? fileOutputPath : getDefaultStorageFolder();
             path = Path.Combine(folder, fileName);
         }

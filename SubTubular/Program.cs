@@ -139,7 +139,7 @@ internal static class Program
 
                     if (keywords.Any())
                     {
-                        ListKeywords(keywords);
+                        output.ListKeywords(keywords);
                         resultDisplayed = true;
                     }
                     else Console.WriteLine("Found no keywords.");
@@ -183,37 +183,11 @@ internal static class Program
 
   {t.Url}
 
-  {t.Error}").Join(OutputSpacing), command.Format());
+  {t.Error}").Join(OutputSpacing), command.Describe());
         }
 
         searching = false; // to let the cancel task complete if search did before it
         await cancel; // just to rethrow possible exceptions
-    }
-
-    /// <summary>Displays the <paramref name="keywords"/> on the <see cref="Console"/>,
-    /// most often occurring keyword first.</summary>
-    /// <param name="keywords">The keywords and their corresponding number of occurrences.</param>
-    private static void ListKeywords(Dictionary<string, ushort> keywords)
-    {
-        const string separator = " | ";
-        var width = Console.WindowWidth;
-        var line = string.Empty;
-
-        /*  prevent breaking line mid-keyword on Console and breaks output into multiple lines for file
-            without adding unnecessary separators at the start or end of lines */
-        foreach (var tag in keywords.OrderByDescending(pair => pair.Value).ThenBy(pair => pair.Key))
-        {
-            var keyword = tag.Value + "x " + tag.Key;
-
-            // does keyword still fit into the current line?
-            if ((line.Length + separator.Length + keyword.Length) < width)
-                line += separator + keyword; // add it
-            else // keyword doesn't fit
-            {
-                if (line.Length > 0) Console.WriteLine(line); // write current line
-                line = keyword; // and start a new one
-            }
-        }
     }
 
     private static async Task WriteErrorLogAsync(string originalCommand, string errors, string name = null)
