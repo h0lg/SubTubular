@@ -86,7 +86,7 @@ internal sealed class SearchChannel : SearchPlaylistCommand, RemoteValidated
         #endregion
 
         var identifiedMap = distinct.Single();
-        ID = identifiedMap.ChannelId;
+        ValidId = identifiedMap.ChannelId;
         ValidUrls = new[] { GetValidUrl((ChannelId)identifiedMap.ChannelId) };
 
         async ValueTask<ChannelAliasMap> GetChannelAliasMap(object alias)
@@ -133,6 +133,6 @@ internal sealed class SearchChannel : SearchPlaylistCommand, RemoteValidated
     internal override IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
-        return youtube.Channels.GetUploadsAsync(ID, cancellation);
+        return youtube.Channels.GetUploadsAsync(ValidId, cancellation);
     }
 }
