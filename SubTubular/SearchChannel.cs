@@ -3,137 +3,136 @@ using YoutubeExplode;
 using YoutubeExplode.Channels;
 using YoutubeExplode.Playlists;
 
-namespace SubTubular
+namespace SubTubular;
+
+[Verb("search-channel", aliases: new[] { "channel", "c" },
+    HelpText = "Searches the videos in a channel's Uploads playlist."
+    + $" This is a glorified '{SearchPlaylist.Command}'.")]
+internal sealed class SearchChannel : SearchPlaylistCommand, RemoteValidated
 {
-    [Verb("search-channel", aliases: new[] { "channel", "c" },
-        HelpText = "Searches the videos in a channel's Uploads playlist."
-        + $" This is a glorified '{SearchPlaylist.Command}'.")]
-    internal sealed class SearchChannel : SearchPlaylistCommand, RemoteValidated
+    internal const string StorageKeyPrefix = "channel ";
+
+    [Value(0, MetaName = "channel", Required = true,
+        HelpText = "The channel ID, handle, slug, user name or a URL for either of those.")]
+    public string Alias { get; set; }
+
+    internal override string Label => StorageKeyPrefix;
+
+    #region VALIDATION
+    private object[] validAliases; // stores validated alias between local and remote validation
+
+    internal override void Validate()
     {
-        internal const string StorageKeyPrefix = "channel ";
+        base.Validate();
 
-        [Value(0, MetaName = "channel", Required = true,
-            HelpText = "The channel ID, handle, slug, user name or a URL for either of those.")]
-        public string Alias { get; set; }
+        /*  validate Alias locally to throw eventual InputException,
+            but store result for RemoteValidateAsync */
+        validAliases = ValidateAlias(Alias);
+    }
 
-        internal override string Label => StorageKeyPrefix;
+    internal static object[] ValidateAlias(string alias)
+    {
+        var handle = ChannelHandle.TryParse(alias);
+        var slug = ChannelSlug.TryParse(alias);
+        var user = UserName.TryParse(alias);
+        var id = ChannelId.TryParse(alias);
+        var valid = new object[] { handle, slug, user, id }.Where(id => id != null).ToArray();
 
-        #region VALIDATION
-        private object[] validAliases; // stores validated alias between local and remote validation
+        if (valid.Length == 0) throw new InputException(
+            $"'{alias}' is not a valid channel handle, slug, user name or channel ID.");
 
-        internal override void Validate()
-        {
-            base.Validate();
+        return valid;
+    }
 
-            /*  validate Alias locally to throw eventual InputException,
-                but store result for RemoteValidateAsync */
-            validAliases = ValidateAlias(Alias);
-        }
+    public async Task RemoteValidateAsync(YoutubeClient youtube, DataStore dataStore, CancellationToken cancellation)
+    {
+        cancellation.ThrowIfCancellationRequested();
 
-        internal static object[] ValidateAlias(string alias)
-        {
-            var handle = ChannelHandle.TryParse(alias);
-            var slug = ChannelSlug.TryParse(alias);
-            var user = UserName.TryParse(alias);
-            var id = ChannelId.TryParse(alias);
-            var valid = new object[] { handle, slug, user, id }.Where(id => id != null).ToArray();
+        // load cached info about which channel aliases map to which channel IDs and which channel IDs are accessible
+        var knownAliasMaps = await ChannelAliasMap.LoadList(dataStore) ?? new List<ChannelAliasMap>();
 
-            if (valid.Length == 0) throw new InputException(
-                $"'{alias}' is not a valid channel handle, slug, user name or channel ID.");
+        // remembers whether knownAliasMaps was changed across multiple calls of GetChannelIdMap
+        var knownAliasMapsUpdated = false;
 
-            return valid;
-        }
+        /*  generate tasks checking which of the validAliases are accessible
+            (via knownAliasMaps cache or HTTP request) and execute them in parrallel */
+        var (aliasMaps, maybeExceptions) = await ValueTasks.WhenAll(validAliases.Select(GetChannelAliasMap));
 
-        public async Task RemoteValidateAsync(YoutubeClient youtube, DataStore dataStore, CancellationToken cancellation)
-        {
-            cancellation.ThrowIfCancellationRequested();
+        // cache accessibility of channel IDs and aliases locally to avoid subsequent HTTP requests
+        if (knownAliasMapsUpdated) await ChannelAliasMap.SaveList(knownAliasMaps, dataStore);
 
-            // load cached info about which channel aliases map to which channel IDs and which channel IDs are accessible
-            var knownAliasMaps = await ChannelAliasMap.LoadList(dataStore) ?? new List<ChannelAliasMap>();
+        #region rethrow unexpected exceptions
+        var exceptions = maybeExceptions.Where(ex => ex is not null).ToArray();
 
-            // remembers whether knownAliasMaps was changed across multiple calls of GetChannelIdMap
-            var knownAliasMapsUpdated = false;
-
-            /*  generate tasks checking which of the validAliases are accessible
-                (via knownAliasMaps cache or HTTP request) and execute them in parrallel */
-            var (aliasMaps, maybeExceptions) = await ValueTasks.WhenAll(validAliases.Select(GetChannelAliasMap));
-
-            // cache accessibility of channel IDs and aliases locally to avoid subsequent HTTP requests
-            if (knownAliasMapsUpdated) await ChannelAliasMap.SaveList(knownAliasMaps, dataStore);
-
-            #region rethrow unexpected exceptions
-            var exceptions = maybeExceptions.Where(ex => ex is not null).ToArray();
-
-            if (exceptions.Length > 0) throw new AggregateException(
-                $"Unexpected errors identifying channel '{Alias}'.", exceptions);
-            #endregion
-
-            #region throw input exceptions if Alias matches none or multiple accessible channels
-            var accessibleMaps = aliasMaps.Where(map => map.ChannelId != null).ToArray();
-            if (accessibleMaps.Length == 0) throw new InputException($"Channel '{Alias}' could not be found.");
-
-            var distinct = accessibleMaps.DistinctBy(map => map.ChannelId);
-
-            if (distinct.Count() > 1) throw new InputException($"Channel alias '{Alias}' is ambiguous:"
-                + Environment.NewLine + accessibleMaps.Select(map =>
-                {
-                    var validUrl = GetValidUrl(validAliases.Single(id => id.GetType().Name == map.Type));
-                    var channelUrl = GetValidUrl((ChannelId)map.ChannelId);
-                    return $"{validUrl} points to channel {channelUrl}";
-                })
-                .Join(Environment.NewLine)
-                + Environment.NewLine + "Specify the unique channel ID or full handle URL, custom/slug URL or user URL to disambiguate the channel.");
-            #endregion
-
-            var identifiedMap = distinct.Single();
-            ID = identifiedMap.ChannelId;
-            ValidUrls = new[] { GetValidUrl((ChannelId)identifiedMap.ChannelId) };
-
-            async ValueTask<ChannelAliasMap> GetChannelAliasMap(object alias)
-            {
-                var map = knownAliasMaps.ForAlias(alias);
-                if (map != null) return map; // use cached info
-
-                var loadChannel = alias is ChannelHandle handle ? youtube.Channels.GetByHandleAsync(handle, cancellation)
-                    : alias is ChannelSlug slug ? youtube.Channels.GetBySlugAsync(slug, cancellation)
-                    : alias is UserName user ? youtube.Channels.GetByUserAsync(user, cancellation)
-                    : alias is ChannelId id ? youtube.Channels.GetAsync(id, cancellation)
-                    : throw new NotImplementedException($"Getting channel for alias {alias.GetType()} is not implemented.");
-
-                var (type, value) = ChannelAliasMap.GetTypeAndValue(alias);
-                map = new ChannelAliasMap { Type = type, Value = value };
-
-                try
-                {
-                    var channel = await loadChannel;
-                    map.ChannelId = channel.Id;
-                }
-                catch (HttpRequestException ex)
-                {
-                    if (ex.IsNotFound()) map.ChannelId = null;
-                    else throw; // rethrow to raise assumed transient error
-                }
-
-                knownAliasMaps.Add(map);
-                knownAliasMapsUpdated = true;
-                return map;
-            }
-        }
-
-        private static string GetValidUrl(object alias)
-        {
-            var urlGlue = alias is ChannelHandle ? "@" : alias is ChannelSlug ? "c/"
-                : alias is UserName ? "user/" : alias is ChannelId ? "channel/"
-                : throw new NotImplementedException($"Generating URL for channel alias {alias.GetType()} is not implemented.");
-
-            return $"https://www.youtube.com/{urlGlue}{alias}";
-        }
+        if (exceptions.Length > 0) throw new AggregateException(
+            $"Unexpected errors identifying channel '{Alias}'.", exceptions);
         #endregion
 
-        internal override IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation)
+        #region throw input exceptions if Alias matches none or multiple accessible channels
+        var accessibleMaps = aliasMaps.Where(map => map.ChannelId != null).ToArray();
+        if (accessibleMaps.Length == 0) throw new InputException($"Channel '{Alias}' could not be found.");
+
+        var distinct = accessibleMaps.DistinctBy(map => map.ChannelId);
+
+        if (distinct.Count() > 1) throw new InputException($"Channel alias '{Alias}' is ambiguous:"
+            + Environment.NewLine + accessibleMaps.Select(map =>
+            {
+                var validUrl = GetValidUrl(validAliases.Single(id => id.GetType().Name == map.Type));
+                var channelUrl = GetValidUrl((ChannelId)map.ChannelId);
+                return $"{validUrl} points to channel {channelUrl}";
+            })
+            .Join(Environment.NewLine)
+            + Environment.NewLine + "Specify the unique channel ID or full handle URL, custom/slug URL or user URL to disambiguate the channel.");
+        #endregion
+
+        var identifiedMap = distinct.Single();
+        ID = identifiedMap.ChannelId;
+        ValidUrls = new[] { GetValidUrl((ChannelId)identifiedMap.ChannelId) };
+
+        async ValueTask<ChannelAliasMap> GetChannelAliasMap(object alias)
         {
-            cancellation.ThrowIfCancellationRequested();
-            return youtube.Channels.GetUploadsAsync(ID, cancellation);
+            var map = knownAliasMaps.ForAlias(alias);
+            if (map != null) return map; // use cached info
+
+            var loadChannel = alias is ChannelHandle handle ? youtube.Channels.GetByHandleAsync(handle, cancellation)
+                : alias is ChannelSlug slug ? youtube.Channels.GetBySlugAsync(slug, cancellation)
+                : alias is UserName user ? youtube.Channels.GetByUserAsync(user, cancellation)
+                : alias is ChannelId id ? youtube.Channels.GetAsync(id, cancellation)
+                : throw new NotImplementedException($"Getting channel for alias {alias.GetType()} is not implemented.");
+
+            var (type, value) = ChannelAliasMap.GetTypeAndValue(alias);
+            map = new ChannelAliasMap { Type = type, Value = value };
+
+            try
+            {
+                var channel = await loadChannel;
+                map.ChannelId = channel.Id;
+            }
+            catch (HttpRequestException ex)
+            {
+                if (ex.IsNotFound()) map.ChannelId = null;
+                else throw; // rethrow to raise assumed transient error
+            }
+
+            knownAliasMaps.Add(map);
+            knownAliasMapsUpdated = true;
+            return map;
         }
+    }
+
+    private static string GetValidUrl(object alias)
+    {
+        var urlGlue = alias is ChannelHandle ? "@" : alias is ChannelSlug ? "c/"
+            : alias is UserName ? "user/" : alias is ChannelId ? "channel/"
+            : throw new NotImplementedException($"Generating URL for channel alias {alias.GetType()} is not implemented.");
+
+        return $"https://www.youtube.com/{urlGlue}{alias}";
+    }
+    #endregion
+
+    internal override IAsyncEnumerable<PlaylistVideo> GetVideosAsync(YoutubeClient youtube, CancellationToken cancellation)
+    {
+        cancellation.ThrowIfCancellationRequested();
+        return youtube.Channels.GetUploadsAsync(ID, cancellation);
     }
 }
