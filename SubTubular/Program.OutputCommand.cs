@@ -68,7 +68,7 @@ static partial class Program
 
     static partial class CommandHandler
     {
-        private static (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows> show) AddOutputOptions(Command command)
+        private static (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) AddOutputOptions(Command command)
         {
             const string htmlName = "html", outputPathName = "out", existingFilesAreOverWritten = " Existing files with the same name will be overwritten.";
 
@@ -83,7 +83,7 @@ static partial class Program
                 + " Supply either a file or folder path. If the path doesn't contain a file name, the file will be named according to your search parameters."
                 + existingFilesAreOverWritten);
 
-            Option<OutputCommand.Shows> show = new(new[] { "show", "s" }, "The output to open if a file was written.");
+            Option<OutputCommand.Shows?> show = new(new[] { "show" }, "The output to open if a file was written.");
 
             command.AddOption(html);
             command.AddOption(fileOutputPath);
@@ -96,7 +96,7 @@ static partial class Program
 internal static partial class BindingExtensions
 {
     internal static T BindOuputOptions<T>(this T command, InvocationContext ctx,
-        Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows> show) where T : OutputCommand
+        Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) where T : OutputCommand
     {
         command.OutputHtml = ctx.Parsed(html);
         command.FileOutputPath = ctx.Parsed(fileOutputPath);

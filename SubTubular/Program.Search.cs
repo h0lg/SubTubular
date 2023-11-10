@@ -47,7 +47,7 @@ static partial class Program
             Argument<string> alias = AddChannelAlias(searchChannel);
             (Option<IEnumerable<string>> query, Option<ushort> padding) = AddSearchCommandOptions(searchChannel);
             (Option<ushort> top, Option<PlaylistLikeScope.OrderOptions> orderBy, Option<float> cacheHours) = AddPlaylistLikeCommandOptions(searchChannel);
-            (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows> show) = AddOutputOptions(searchChannel);
+            (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(searchChannel);
 
             searchChannel.SetHandler(async (ctx) => await handle(
                 new SearchCommand { Scope = CreateChannelScope(ctx, alias, top, orderBy, cacheHours) }
@@ -64,7 +64,7 @@ static partial class Program
             Argument<string> playlist = AddPlaylistArgument(searchPlaylist);
             (Option<IEnumerable<string>> query, Option<ushort> padding) = AddSearchCommandOptions(searchPlaylist);
             (Option<ushort> top, Option<PlaylistLikeScope.OrderOptions> orderBy, Option<float> cacheHours) = AddPlaylistLikeCommandOptions(searchPlaylist);
-            (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows> show) = AddOutputOptions(searchPlaylist);
+            (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(searchPlaylist);
 
             searchPlaylist.SetHandler(async (ctx) => await handle(
                 new SearchCommand { Scope = CreatePlaylistScope(ctx, playlist, top, orderBy, cacheHours) }
@@ -80,7 +80,7 @@ static partial class Program
             searchVideos.AddAlias(Actions.search[..1]);
             Argument<IEnumerable<string>> videos = AddVideosArgument(searchVideos);
             (Option<IEnumerable<string>> query, Option<ushort> padding) = AddSearchCommandOptions(searchVideos);
-            (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows> show) = AddOutputOptions(searchVideos);
+            (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(searchVideos);
 
             searchVideos.SetHandler(async (ctx) => await handle(
                 new SearchCommand { Scope = CreateVideosScope(ctx, videos) }
@@ -92,7 +92,7 @@ static partial class Program
 
         private static (Option<IEnumerable<string>> query, Option<ushort> padding) AddSearchCommandOptions(Command command)
         {
-            Option<IEnumerable<string>> query = new(new[] { "for", "f" },
+            Option<IEnumerable<string>> query = new(new[] { "--for", "-f" },
                 "What to search for."
                 + @" Quote ""multi-word phrases"". Single words are matched exactly by default,"
                 + " ?fuzzy or with wild cards for s%ngle and multi* letters."
@@ -102,7 +102,9 @@ static partial class Program
                 + $@" '{nameof(Video.Keywords)}' and/or '{nameof(CaptionTrack.Captions)}'; e.g. '{nameof(Video.Title)}=""click bait""'."
                 + " Learn more about the query syntax at https://mikegoatly.github.io/lifti/docs/searching/lifti-query-syntax/ .");
 
-            Option<ushort> padding = new(new[] { "pad", "p" }, () => 23,
+            query.AllowMultipleArgumentsPerToken = true;
+
+            Option<ushort> padding = new(new[] { "--pad", "-p" }, () => 23,
                 "How much context to pad a match in;"
                 + " i.e. the minimum number of characters of the original description or subtitle track"
                 + " to display before and after it.");

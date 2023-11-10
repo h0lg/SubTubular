@@ -35,7 +35,7 @@ static partial class Program
             listChannelKeywords.AddAlias(Actions.listKeywords[..1]);
             Argument<string> alias = AddChannelAlias(listChannelKeywords);
             (Option<ushort> top, Option<PlaylistLikeScope.OrderOptions> orderBy, Option<float> cacheHours) = AddPlaylistLikeCommandOptions(listChannelKeywords);
-            (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows> show) = AddOutputOptions(listChannelKeywords);
+            (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(listChannelKeywords);
 
             listChannelKeywords.SetHandler(async (ctx) => await listKeywords(
                 new ListKeywords { Scope = CreateChannelScope(ctx, alias, top, orderBy, cacheHours) }
@@ -50,7 +50,7 @@ static partial class Program
             listPlaylistKeywords.AddAlias(Actions.listKeywords[..1]);
             Argument<string> playlist = AddPlaylistArgument(listPlaylistKeywords);
             (Option<ushort> top, Option<PlaylistLikeScope.OrderOptions> orderBy, Option<float> cacheHours) = AddPlaylistLikeCommandOptions(listPlaylistKeywords);
-            (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows> show) = AddOutputOptions(listPlaylistKeywords);
+            (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(listPlaylistKeywords);
 
             listPlaylistKeywords.SetHandler(async (ctx) => await listKeywords(
                 new ListKeywords { Scope = CreatePlaylistScope(ctx, playlist, top, orderBy, cacheHours) }
@@ -64,7 +64,7 @@ static partial class Program
             Command listVideoKeywords = new(Actions.listKeywords, "Lists the keywords of the specified videos.");
             listVideoKeywords.AddAlias(Actions.listKeywords[..1]);
             Argument<IEnumerable<string>> videos = AddVideosArgument(listVideoKeywords);
-            (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows> show) = AddOutputOptions(listVideoKeywords);
+            (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(listVideoKeywords);
 
             listVideoKeywords.SetHandler(async (ctx) => await listKeywords(
                 new ListKeywords { Scope = CreateVideosScope(ctx, videos) }

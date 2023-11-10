@@ -12,13 +12,15 @@ internal static class CommandValidator
 
     internal static void ValidateSearchCommand(SearchCommand command)
     {
-        // string.IsNullOrWhiteSpace(command.Query) is caught by validation of CommandLineParser
+        ValidateCommandScope(command.Scope); // as first argument
+
+        if (string.IsNullOrWhiteSpace(command.Query)) throw new InputException(
+            $"The {nameof(SearchCommand.Query).ToLower()} is empty.");
+
         if (command.Query.HasAny() && command.Query.All(c => controlChars.Contains(c))) throw new InputException(
             $"The {nameof(SearchCommand.Query).ToLower()} contains nothing but control characters."
             + " That'll stay unsupported unless you come up with a good reason for why it should be."
             + $" If you can, leave it at {AssemblyInfo.IssuesUrl} .");
-
-        ValidateCommandScope(command.Scope);
     }
 
     internal static void ValidateCommandScope(CommandScope scope)
@@ -61,6 +63,7 @@ internal static class CommandValidator
             + Environment.NewLine + invalid.Select(pair => pair.Key).Join(Environment.NewLine));
 
         var validIds = idsToValid.Except(invalid).Select(pair => pair.Value.Value.ToString()).ToArray();
+        if (!validIds.Any()) throw new InputException("The video IDs or URLs are required.");
         command.ValidIds = validIds;
         command.ValidUrls = validIds.Select(Youtube.GetVideoUrl).ToArray();
     }
