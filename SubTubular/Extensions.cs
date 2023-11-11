@@ -78,7 +78,8 @@ internal static class StringExtensions
     internal static IEnumerable<string> Indent(this IEnumerable<string> lines, int indentLevel)
     {
         if (lines == null) throw new ArgumentNullException(nameof(lines));
-        if (indentLevel <= 0) throw new ArgumentException("Only positive non-zero indents are supported.", nameof(indentLevel));
+        if (indentLevel < 0) throw new ArgumentException("Only positive non-zero indents are supported.", nameof(indentLevel));
+        if (indentLevel == 0) return lines;
         return lines.Select(l => new string(' ', indentLevel) + l);
     }
 }
