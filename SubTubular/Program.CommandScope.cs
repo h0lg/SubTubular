@@ -28,23 +28,23 @@ static partial class Program
             return videos;
         }
 
-        private static ChannelScope CreateChannelScope(InvocationContext ctx, Argument<string> alias, Option<ushort> top, Option<PlaylistLikeScope.OrderOptions> orderBy, Option<float> cacheHours)
-            => new ChannelScope { Alias = ctx.Parsed(alias), Top = ctx.Parsed(top), OrderBy = new[] { ctx.Parsed(orderBy) }, CacheHours = ctx.Parsed(cacheHours) };
+        private static ChannelScope CreateChannelScope(InvocationContext ctx, Argument<string> alias, Option<ushort> top, Option<IEnumerable<PlaylistLikeScope.OrderOptions>> orderBy, Option<float> cacheHours)
+            => new ChannelScope { Alias = ctx.Parsed(alias), Top = ctx.Parsed(top), OrderBy = ctx.Parsed(orderBy), CacheHours = ctx.Parsed(cacheHours) };
 
         private static PlaylistScope CreatePlaylistScope(InvocationContext ctx, Argument<string> playlist,
-            Option<ushort> top, Option<PlaylistLikeScope.OrderOptions> orderBy, Option<float> cacheHours)
+            Option<ushort> top, Option<IEnumerable<PlaylistLikeScope.OrderOptions>> orderBy, Option<float> cacheHours)
             => new PlaylistScope
             {
                 Playlist = ctx.Parsed(playlist),
                 Top = ctx.Parsed(top),
-                OrderBy = new[] { ctx.Parsed(orderBy) },
+                OrderBy = ctx.Parsed(orderBy),
                 CacheHours = ctx.Parsed(cacheHours)
             };
 
         private static VideosScope CreateVideosScope(InvocationContext ctx, Argument<IEnumerable<string>> videos)
             => new VideosScope { Videos = ctx.Parsed(videos) };
 
-        private static (Option<ushort> top, Option<PlaylistLikeScope.OrderOptions> orderBy, Option<float> cacheHours) AddPlaylistLikeCommandOptions(Command command)
+        private static (Option<ushort> top, Option<IEnumerable<PlaylistLikeScope.OrderOptions>> orderBy, Option<float> cacheHours) AddPlaylistLikeCommandOptions(Command command)
         {
             const string topName = "--top", orderByName = "--order-by";
 
@@ -56,7 +56,7 @@ static partial class Program
                 + " but custom playlists may be sorted differently. Keep that in mind if you don't find what you're looking for"
                 + $" and when using '{orderByName}' (which is only applied to the results) with '{nameof(PlaylistLikeScope.OrderOptions.uploaded)}' on custom playlists.");
 
-            Option<PlaylistLikeScope.OrderOptions> orderBy = new(new[] { orderByName, "-r" }, () => PlaylistLikeScope.OrderOptions.score,
+            Option<IEnumerable<PlaylistLikeScope.OrderOptions>> orderBy = new(new[] { orderByName, "-r" }, () => new[] { PlaylistLikeScope.OrderOptions.score },
                 $"Order the video search results by '{nameof(PlaylistLikeScope.OrderOptions.uploaded)}'"
                 + $" or '{nameof(PlaylistLikeScope.OrderOptions.score)}' with '{nameof(PlaylistLikeScope.OrderOptions.asc)}' for ascending."
                 + $" The default is descending (i.e. latest respectively highest first) and by '{nameof(PlaylistLikeScope.OrderOptions.score)}'."

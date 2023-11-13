@@ -34,7 +34,7 @@ static partial class Program
 
             listChannelKeywords.AddAlias(Actions.listKeywords[..1]);
             Argument<string> alias = AddChannelAlias(listChannelKeywords);
-            (Option<ushort> top, Option<PlaylistLikeScope.OrderOptions> orderBy, Option<float> cacheHours) = AddPlaylistLikeCommandOptions(listChannelKeywords);
+            (Option<ushort> top, Option<IEnumerable<PlaylistLikeScope.OrderOptions>> orderBy, Option<float> cacheHours) = AddPlaylistLikeCommandOptions(listChannelKeywords);
             (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(listChannelKeywords);
 
             listChannelKeywords.SetHandler(async (ctx) => await listKeywords(
@@ -49,7 +49,7 @@ static partial class Program
             Command listPlaylistKeywords = new(Actions.listKeywords, "Lists the keywords of the videos in a playlist.");
             listPlaylistKeywords.AddAlias(Actions.listKeywords[..1]);
             Argument<string> playlist = AddPlaylistArgument(listPlaylistKeywords);
-            (Option<ushort> top, Option<PlaylistLikeScope.OrderOptions> orderBy, Option<float> cacheHours) = AddPlaylistLikeCommandOptions(listPlaylistKeywords);
+            (Option<ushort> top, Option<IEnumerable<PlaylistLikeScope.OrderOptions>> orderBy, Option<float> cacheHours) = AddPlaylistLikeCommandOptions(listPlaylistKeywords);
             (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(listPlaylistKeywords);
 
             listPlaylistKeywords.SetHandler(async (ctx) => await listKeywords(

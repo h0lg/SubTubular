@@ -46,7 +46,7 @@ static partial class Program
             searchChannel.AddAlias(Actions.search[..1]);
             Argument<string> alias = AddChannelAlias(searchChannel);
             (Option<IEnumerable<string>> query, Option<ushort> padding) = AddSearchCommandOptions(searchChannel);
-            (Option<ushort> top, Option<PlaylistLikeScope.OrderOptions> orderBy, Option<float> cacheHours) = AddPlaylistLikeCommandOptions(searchChannel);
+            (Option<ushort> top, Option<IEnumerable<PlaylistLikeScope.OrderOptions>> orderBy, Option<float> cacheHours) = AddPlaylistLikeCommandOptions(searchChannel);
             (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(searchChannel);
 
             searchChannel.SetHandler(async (ctx) => await handle(
@@ -63,7 +63,7 @@ static partial class Program
             searchPlaylist.AddAlias(Actions.search[..1]);
             Argument<string> playlist = AddPlaylistArgument(searchPlaylist);
             (Option<IEnumerable<string>> query, Option<ushort> padding) = AddSearchCommandOptions(searchPlaylist);
-            (Option<ushort> top, Option<PlaylistLikeScope.OrderOptions> orderBy, Option<float> cacheHours) = AddPlaylistLikeCommandOptions(searchPlaylist);
+            (Option<ushort> top, Option<IEnumerable<PlaylistLikeScope.OrderOptions>> orderBy, Option<float> cacheHours) = AddPlaylistLikeCommandOptions(searchPlaylist);
             (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(searchPlaylist);
 
             searchPlaylist.SetHandler(async (ctx) => await handle(
