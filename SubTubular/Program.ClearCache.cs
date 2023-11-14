@@ -48,14 +48,14 @@ static partial class Program
 
             clearCache.AddArgument(ids);
 
-            Option<ushort?> notAccessedForDays = new(new[] { "last-access", "l" },
+            Option<ushort?> notAccessedForDays = new(new[] { "--last-access", "-l" },
                 "The maximum number of days since the last access of a cache file for it to be excluded from deletion."
                 + " Effectively only deletes old caches that haven't been accessed for this number of days."
                 + $" Ignored for explicitly set '{idsName}'.");
 
             clearCache.AddOption(notAccessedForDays);
 
-            Option<ClearCache.Modes> mode = new(new[] { "mode", "m" }, () => ClearCache.Modes.summary,
+            Option<ClearCache.Modes> mode = new(new[] { "--mode", "-m" }, () => ClearCache.Modes.summary,
                 "The deletion mode;"
                 + $" '{nameof(ClearCache.Modes.summary)}' only outputs how many of what file type were deleted."
                 + $" '{nameof(ClearCache.Modes.verbose)}' outputs the deleted file names as well as the summary."
