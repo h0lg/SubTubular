@@ -13,7 +13,7 @@ static partial class Program
 
             Command list = new("list", $"Lists available releases from {AssemblyInfo.ReleasesUrl} .");
             list.AddAlias("l");
-            list.SetHandler(async () => await ReleaseManager.ListAsync(CreateDataStore()));
+            list.SetHandler(async () => Console.WriteLine(await ReleaseManager.ListAsync(CreateDataStore())));
 
             Argument<string> version = new("version", "The version number of a release or 'latest'.");
 
@@ -22,11 +22,11 @@ static partial class Program
             notes.AddArgument(version);
             notes.SetHandler(async (version) => await ReleaseManager.OpenNotesAsync(version, CreateDataStore()), version);
 
-            Command install = new(ReleaseManager.InstallVersionConsoleParameter, "Downloads a release from github"
+            Command install = new(ReleaseManager.InstallVersionConsoleCommand, "Downloads a release from github"
                 + " and unzips it to the current installation folder while backing up the running version.");
 
             Option<string> installInto = new(ReleaseManager.InstallFolderConsoleParameter) { IsHidden = true };
-            installInto.AddAlias("t");
+            installInto.AddAlias("-t");
 
             install.AddAlias("i");
             install.AddArgument(version);

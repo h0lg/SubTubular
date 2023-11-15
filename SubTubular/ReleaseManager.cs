@@ -5,8 +5,8 @@ namespace SubTubular;
 
 internal static class ReleaseManager
 {
-    internal const string InstallVersionConsoleParameter = "install",
-        InstallFolderConsoleParameter = "into";
+    internal const string InstallVersionConsoleCommand = "install",
+        InstallFolderConsoleParameter = "--into";
 
     internal static async Task<string> ListAsync(DataStore dataStore)
     {
@@ -51,7 +51,7 @@ internal static class ReleaseManager
             /*  start STEP 2 on backed up binaries and have them replace
                 the ones in the current location with the requested version */
             Process.Start(Path.Combine(backupFolder, AssemblyInfo.Name + ".exe"),
-                $"release --{InstallVersionConsoleParameter} {release.Version} --{InstallFolderConsoleParameter} {appFolder}");
+                $"release {InstallVersionConsoleCommand} {release.Version} {InstallFolderConsoleParameter} {appFolder}");
         }
         else // STEP 2, running on backed up binaries of app to be replaced (in archive sub folder)
         {
