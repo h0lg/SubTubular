@@ -60,7 +60,7 @@ internal static class StringExtensions
     internal static IEnumerable<string> Wrap(this string input, int columnWidth)
     {
         if (input == null) throw new ArgumentNullException(nameof(input));
-        return Wrap(input.Split(' '), columnWidth);
+        return input.Split(' ').Wrap(columnWidth);
     }
 
     internal static IEnumerable<string> Wrap(this IEnumerable<string> phrases, int columnWidth)
