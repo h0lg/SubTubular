@@ -2,7 +2,7 @@
 using System.CommandLine.Invocation;
 using SubTubular.Extensions;
 
-namespace SubTubular;
+namespace SubTubular.Shell;
 
 static partial class Program
 {

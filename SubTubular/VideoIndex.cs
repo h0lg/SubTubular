@@ -6,7 +6,7 @@ using SubTubular.Extensions;
 
 namespace SubTubular;
 
-internal sealed class VideoIndexRepository
+public sealed class VideoIndexRepository
 {
     internal const string FileExtension = ".idx";
 
@@ -14,7 +14,7 @@ internal sealed class VideoIndexRepository
     private readonly FullTextIndexBuilder<string> builder;
     private readonly IIndexSerializer<string> serializer;
 
-    internal VideoIndexRepository(string directory)
+    public VideoIndexRepository(string directory)
     {
         this.directory = directory;
         if (!Directory.Exists(directory)) Directory.CreateDirectory(directory);

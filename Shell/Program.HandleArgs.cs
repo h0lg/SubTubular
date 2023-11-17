@@ -4,7 +4,7 @@ using System.CommandLine.Help;
 using System.CommandLine.Invocation;
 using System.CommandLine.Parsing;
 
-namespace SubTubular;
+namespace SubTubular.Shell;
 
 static partial class Program
 {

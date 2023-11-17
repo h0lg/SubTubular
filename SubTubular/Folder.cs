@@ -2,9 +2,9 @@ using System.Reflection;
 
 namespace SubTubular;
 
-internal static class Folder
+public static class Folder
 {
-    internal static string GetPath(Folders folder)
+    public static string GetPath(Folders folder)
     {
         string path;
 
@@ -23,7 +23,7 @@ internal static class Folder
 
     private static string GetStoragePath(string subFolder = "") => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        Assembly.GetEntryAssembly().GetName().Name, subFolder);
+        Assembly.GetExecutingAssembly().GetName().Name ?? nameof(SubTubular), subFolder);
 }
 
 /// <summary>App-related folders.</summary>
