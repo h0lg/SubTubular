@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using Lifti;
 using Lifti.Querying;
 using Lifti.Serialization.Binary;
+using SubTubular.Extensions;
 
 namespace SubTubular;
 

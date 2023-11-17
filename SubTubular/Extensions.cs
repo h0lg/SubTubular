@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace SubTubular;
+namespace SubTubular.Extensions;
 
 internal static class TimeSpanExtensions
 {

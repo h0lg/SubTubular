@@ -1,3 +1,5 @@
+using SubTubular.Extensions;
+
 namespace SubTubular;
 
 /// <summary>A non-generic base type for <see cref="Range{T}"/>.</summary>
