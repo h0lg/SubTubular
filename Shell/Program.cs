@@ -2,7 +2,7 @@
 using Lifti;
 using SubTubular.Extensions;
 
-namespace SubTubular;
+namespace SubTubular.Shell;
 
 internal static partial class Program
 {

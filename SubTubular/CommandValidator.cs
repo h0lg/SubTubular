@@ -6,12 +6,12 @@ using YoutubeExplode.Videos;
 
 namespace SubTubular;
 
-internal static class CommandValidator
+public static class CommandValidator
 {
     // see Lifti.Querying.QueryTokenizer.ParseQueryTokens()
     private static readonly char[] controlChars = new[] { '*', '%', '|', '&', '"', '~', '>', '?', '(', ')', '=', ',' };
 
-    internal static void ValidateSearchCommand(SearchCommand command)
+    public static void ValidateSearchCommand(SearchCommand command)
     {
         ValidateCommandScope(command.Scope); // as first argument
 
@@ -24,7 +24,7 @@ internal static class CommandValidator
             + $" If you can, leave it at {AssemblyInfo.IssuesUrl} .");
     }
 
-    internal static void ValidateCommandScope(CommandScope scope)
+    public static void ValidateCommandScope(CommandScope scope)
     {
         if (scope is PlaylistScope searchPlaylist) ValidateSearchPlaylist(searchPlaylist);
         else if (scope is VideosScope searchVids) ValidateSearchVideos(searchVids);
@@ -87,7 +87,7 @@ internal static class CommandValidator
             $"You may order by either '{nameof(PlaylistLikeScope.OrderOptions.score)}' or '{nameof(PlaylistLikeScope.OrderOptions.uploaded)}' (date), but not both.");
     }
 
-    internal static async Task RemoteValidateChannelAsync(ChannelScope command, YoutubeClient youtube, DataStore dataStore, CancellationToken cancellation)
+    public static async Task RemoteValidateChannelAsync(ChannelScope command, YoutubeClient youtube, DataStore dataStore, CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
 
@@ -162,7 +162,7 @@ internal static class CommandValidator
 }
 
 [Serializable]
-internal class InputException : Exception
+public class InputException : Exception
 {
     public InputException(string message) : base(message) { }
     public InputException(string message, Exception innerException) : base(message, innerException) { }

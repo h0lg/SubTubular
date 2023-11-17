@@ -2,17 +2,17 @@
 
 namespace SubTubular;
 
-internal abstract class CommandScope
+public abstract class CommandScope
 {
     /// <summary>A collection of validated URLs for the entities included in the scope.
     /// It translates non-URI identifiers in the scope of YouTube into URIs for <see cref="OutputCommand"/>s.</summary>
-    internal IEnumerable<string> ValidUrls { get; set; }
+    public IEnumerable<string> ValidUrls { get; internal set; }
 
     /// <summary>Provides a description of the scope for <see cref="OutputCommand.Describe"/>.</summary>
     internal abstract string Describe();
 }
 
-internal class VideosScope : CommandScope
+public class VideosScope : CommandScope
 {
     /// <summary>Video IDs or URLs.</summary>
     public IEnumerable<string> Videos { get; set; }
@@ -24,7 +24,7 @@ internal class VideosScope : CommandScope
     internal override string Describe() => "videos " + ValidIds.Join(" ");
 }
 
-internal abstract class PlaylistLikeScope : CommandScope
+public abstract class PlaylistLikeScope : CommandScope
 {
     #region internal API
     /// <summary>The prefix for the <see cref="StorageKey"/>.</summary>
@@ -54,7 +54,7 @@ internal abstract class PlaylistLikeScope : CommandScope
     public enum OrderOptions { uploaded, score, asc }
 }
 
-internal class PlaylistScope : PlaylistLikeScope
+public class PlaylistScope : PlaylistLikeScope
 {
     internal const string StorageKeyPrefix = "playlist ";
     protected override string KeyPrefix => StorageKeyPrefix;
@@ -62,7 +62,7 @@ internal class PlaylistScope : PlaylistLikeScope
     public string Playlist { get; set; }
 }
 
-internal class ChannelScope : PlaylistLikeScope
+public class ChannelScope : PlaylistLikeScope
 {
     internal const string StorageKeyPrefix = "channel ";
 

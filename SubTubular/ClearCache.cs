@@ -5,20 +5,20 @@ using YoutubeExplode.Videos;
 
 namespace SubTubular;
 
-internal sealed class ClearCache
+public sealed class ClearCache
 {
     public Scopes Scope { get; set; }
     public IEnumerable<string> Ids { get; set; }
     public ushort? NotAccessedForDays { get; set; }
     public Modes Mode { get; set; }
 
-    internal enum Scopes { all, videos, playlists, channels }
-    internal enum Modes { summary, verbose, simulate }
+    public enum Scopes { all, videos, playlists, channels }
+    public enum Modes { summary, verbose, simulate }
 }
 
-internal static class CacheClearer
+public static class CacheClearer
 {
-    internal static async Task<(IEnumerable<string>, IEnumerable<string>)> Process(ClearCache command)
+    public static async Task<(IEnumerable<string>, IEnumerable<string>)> Process(ClearCache command)
     {
         var filesDeleted = new List<string>();
         var cacheFolder = Folder.GetPath(Folders.cache);

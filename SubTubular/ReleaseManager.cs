@@ -4,12 +4,12 @@ using SubTubular.Extensions;
 
 namespace SubTubular;
 
-internal static class ReleaseManager
+public static class ReleaseManager
 {
-    internal const string InstallVersionConsoleCommand = "install",
+    public const string InstallVersionConsoleCommand = "install",
         InstallFolderConsoleParameter = "--into";
 
-    internal static async Task<string> ListAsync(DataStore dataStore)
+    public static async Task<string> ListAsync(DataStore dataStore)
     {
         var releases = await GetAll(dataStore);
         const string version = "version";
@@ -20,7 +20,7 @@ internal static class ReleaseManager
             .Prepend("date       " + version.PadRight(maxVersionLength) + " name").Join(Environment.NewLine);
     }
 
-    internal static async Task InstallByTagAsync(string version, string installInto, Action<string> report, DataStore dataStore)
+    public static async Task InstallByTagAsync(string version, string installInto, Action<string> report, DataStore dataStore)
     {
         var release = await GetRelease(version, dataStore);
 
@@ -85,7 +85,7 @@ internal static class ReleaseManager
         }
     }
 
-    internal static async Task OpenNotesAsync(string version, DataStore dataStore)
+    public static async Task OpenNotesAsync(string version, DataStore dataStore)
         => OpenNotes(await GetRelease(version, dataStore));
 
     private static void OpenNotes(CacheModel release) => ShellCommands.OpenUri(release.HtmlUrl);

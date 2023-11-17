@@ -1,26 +1,26 @@
 namespace SubTubular;
 
-internal abstract class OutputCommand
+public abstract class OutputCommand
 {
-    internal CommandScope Scope { get; set; }
+    public CommandScope Scope { get; set; }
 
-    internal bool OutputHtml { get; set; }
-    internal string FileOutputPath { get; set; }
-    internal Shows? Show { get; set; }
+    public bool OutputHtml { get; set; }
+    public string FileOutputPath { get; set; }
+    public Shows? Show { get; set; }
 
-    internal abstract string Describe();
+    public abstract string Describe();
 
     public enum Shows { file, folder }
 }
 
-internal sealed class SearchCommand : OutputCommand
+public sealed class SearchCommand : OutputCommand
 {
-    internal string Query { get; set; }
-    internal ushort Padding { get; set; }
-    internal override string Describe() => "searching " + Scope.Describe() + " for " + Query;
+    public string Query { get; set; }
+    public ushort Padding { get; set; }
+    public override string Describe() => "searching " + Scope.Describe() + " for " + Query;
 }
 
-internal sealed class ListKeywords : OutputCommand
+public sealed class ListKeywords : OutputCommand
 {
-    internal override string Describe() => "listing keywords in " + Scope.Describe();
+    public override string Describe() => "listing keywords in " + Scope.Describe();
 }
