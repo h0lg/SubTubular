@@ -1,4 +1,5 @@
-﻿using YoutubeExplode.Channels;
+﻿using SubTubular.Extensions;
+using YoutubeExplode.Channels;
 using YoutubeExplode.Playlists;
 using YoutubeExplode.Videos;
 

@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
+using SubTubular.Extensions;
 using YoutubeExplode;
 using YoutubeExplode.Channels;
 using YoutubeExplode.Common;
