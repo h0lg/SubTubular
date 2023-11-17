@@ -2,20 +2,20 @@ using System.Text.Json;
 
 namespace SubTubular;
 
-internal interface DataStore
+public interface DataStore
 {
     DateTime? GetLastModified(string key);
     Task<T> GetAsync<T>(string key);
     Task SetAsync<T>(string key, T value);
 }
 
-internal sealed class JsonFileDataStore : DataStore
+public sealed class JsonFileDataStore : DataStore
 {
     internal const string FileExtension = ".json";
 
     private readonly string directory;
 
-    internal JsonFileDataStore(string directory)
+    public JsonFileDataStore(string directory)
     {
         this.directory = directory;
         if (!Directory.Exists(directory)) Directory.CreateDirectory(directory);

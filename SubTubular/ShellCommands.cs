@@ -4,13 +4,13 @@ using SubTubular.Extensions;
 
 namespace SubTubular;
 
-internal static class ShellCommands
+public static class ShellCommands
 {
     internal static void OpenUri(string uri) // from https://stackoverflow.com/a/61035650
         => Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true });
 
     // from https://stackoverflow.com/a/53245993
-    internal static void OpenFile(string path) => OpenUri(new Uri(path).AbsoluteUri);
+    public static void OpenFile(string path) => OpenUri(new Uri(path).AbsoluteUri);
 
     #region explore folder in file browser, from https://stackoverflow.com/a/65886646
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
@@ -43,7 +43,7 @@ internal static class ShellCommands
 
     private const int SW_SHOW = 5;
 
-    internal static bool ExploreFolder(string folder)
+    public static bool ExploreFolder(string folder)
     {
         if (!folder.IsDirectoryPath()) folder = Path.GetDirectoryName(folder);
 

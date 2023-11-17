@@ -2,7 +2,7 @@ using AngleSharp;
 using AngleSharp.Dom;
 using SubTubular.Extensions;
 
-namespace SubTubular;
+namespace SubTubular.Shell;
 
 /// <summary>
 /// Provides formatted and highlighted output for Console

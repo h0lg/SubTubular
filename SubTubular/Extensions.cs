@@ -2,17 +2,17 @@ using System.Text.RegularExpressions;
 
 namespace SubTubular.Extensions;
 
-internal static class TimeSpanExtensions
+public static class TimeSpanExtensions
 {
     private const string minSec = "mm':'ss";
 
     //inspired by https://stackoverflow.com/a/4709641
-    internal static string FormatWithOptionalHours(this TimeSpan timeSpan)
+    public static string FormatWithOptionalHours(this TimeSpan timeSpan)
         => timeSpan.ToString(timeSpan.TotalHours >= 1 ? "h':'" + minSec : minSec);
 }
 
 /// <summary>Extension methods for <see cref="string"/>s.</summary>
-internal static class StringExtensions
+public static class StringExtensions
 {
     /// <summary>Replaces all consecutive white space characters in
     /// <paramref name="input"/> with <paramref name="normalizeTo"/>.</summary>
@@ -21,11 +21,11 @@ internal static class StringExtensions
 
     /// <summary>Concatenates the <paramref name="pieces"/> into a single string
     /// putting <paramref name="glue"/> in between them.</summary>
-    internal static string Join(this IEnumerable<string> pieces, string glue) => string.Join(glue, pieces);
+    public static string Join(this IEnumerable<string> pieces, string glue) => string.Join(glue, pieces);
 
     /// <summary>Indicates whether <paramref name="path"/> points to a directory rather than a file.
     /// From https://stackoverflow.com/a/19596821 .</summary>
-    internal static bool IsDirectoryPath(this string path)
+    public static bool IsDirectoryPath(this string path)
     {
         if (path == null) throw new ArgumentNullException(nameof(path));
         path = path.Trim();
@@ -45,10 +45,10 @@ internal static class StringExtensions
 
     /// <summary>Replaces all characters unsafe for file or directory names in <paramref name="value"/>
     /// with <paramref name="replacement"/>.</summary>
-    internal static string ToFileSafe(this string value, string replacement = "_")
+    public static string ToFileSafe(this string value, string replacement = "_")
         => Regex.Replace(value, "[" + Regex.Escape(new string(Path.GetInvalidFileNameChars())) + "]", replacement);
 
-    internal static IEnumerable<string> Wrap(this string input, int columnWidth)
+    public static IEnumerable<string> Wrap(this string input, int columnWidth)
     {
         if (input == null) throw new ArgumentNullException(nameof(input));
         return input.Split(' ').Wrap(columnWidth);
@@ -71,7 +71,7 @@ internal static class StringExtensions
         });
     }
 
-    internal static IEnumerable<string> Indent(this IEnumerable<string> lines, int indentLevel)
+    public static IEnumerable<string> Indent(this IEnumerable<string> lines, int indentLevel)
     {
         if (lines == null) throw new ArgumentNullException(nameof(lines));
         if (indentLevel < 0) throw new ArgumentException("Only positive non-zero indents are supported.", nameof(indentLevel));
@@ -81,7 +81,7 @@ internal static class StringExtensions
 }
 
 /// <summary>Extension methods for <see cref="IEnumerable{T}"/> types.</summary>
-internal static class EnumerableExtensions
+public static class EnumerableExtensions
 {
     /// <summary>Indicates whether <paramref name="collection"/>
     /// contains any of the supplied <paramref name="values"/>.</summary>
@@ -89,7 +89,7 @@ internal static class EnumerableExtensions
         => values.Intersect(collection).Any();
 
     /// <summary>Indicates whether <paramref name="collection"/> is not null and contains any items.</summary>
-    internal static bool HasAny<T>(this IEnumerable<T> collection) => collection != null && collection.Any();
+    public static bool HasAny<T>(this IEnumerable<T> collection) => collection != null && collection.Any();
 }
 
 /// <summary>Extension methods for <see cref="IComparable"/> types.</summary>

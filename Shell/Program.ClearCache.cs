@@ -1,7 +1,7 @@
 ﻿using System.CommandLine;
 using SubTubular.Extensions;
 
-namespace SubTubular;
+namespace SubTubular.Shell;
 
 static partial class Program
 {

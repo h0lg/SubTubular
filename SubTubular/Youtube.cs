@@ -10,9 +10,9 @@ using Pipe = System.Threading.Channels.Channel; // to avoid conflict with Youtub
 
 namespace SubTubular;
 
-internal sealed class Youtube
+public sealed class Youtube
 {
-    internal static string GetVideoUrl(string videoId) => "https://youtu.be/" + videoId;
+    public static string GetVideoUrl(string videoId) => "https://youtu.be/" + videoId;
 
     internal static string GetChannelUrl(object alias)
     {
@@ -27,13 +27,13 @@ internal sealed class Youtube
     private readonly DataStore dataStore;
     private readonly VideoIndexRepository videoIndexRepo;
 
-    internal Youtube(DataStore dataStore, VideoIndexRepository videoIndexRepo)
+    public Youtube(DataStore dataStore, VideoIndexRepository videoIndexRepo)
     {
         this.dataStore = dataStore;
         this.videoIndexRepo = videoIndexRepo;
     }
 
-    internal async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command, [EnumeratorCancellation] CancellationToken cancellation = default)
+    public async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command, [EnumeratorCancellation] CancellationToken cancellation = default)
     {
         var search = command.Scope is VideosScope ? SearchVideosAsync(command, cancellation) : SearchPlaylistAsync(command, cancellation);
         await foreach (var result in search) yield return result;
@@ -290,7 +290,7 @@ internal sealed class Youtube
 
     /// <summary>Returns the <see cref="Video.Keywords"/> and their corresponding number of occurrences
     /// from the videos scoped by <paramref name="command"/>.</summary>
-    internal async Task<Dictionary<string, ushort>> ListKeywordsAsync(ListKeywords command, CancellationToken cancellation)
+    public async Task<Dictionary<string, ushort>> ListKeywordsAsync(ListKeywords command, CancellationToken cancellation)
     {
         string[] videoIds;
 
@@ -391,17 +391,17 @@ internal sealed class Youtube
     }
 }
 
-internal sealed class VideoSearchResult
+public sealed class VideoSearchResult
 {
-    internal Video Video { get; set; }
-    internal PaddedMatch TitleMatches { get; set; }
-    internal PaddedMatch[] DescriptionMatches { get; set; }
-    internal PaddedMatch[] KeywordMatches { get; set; }
-    internal CaptionTrackResult[] MatchingCaptionTracks { get; set; }
+    public Video Video { get; set; }
+    public PaddedMatch TitleMatches { get; set; }
+    public PaddedMatch[] DescriptionMatches { get; set; }
+    public PaddedMatch[] KeywordMatches { get; set; }
+    public CaptionTrackResult[] MatchingCaptionTracks { get; set; }
 
-    internal sealed class CaptionTrackResult
+    public sealed class CaptionTrackResult
     {
         public CaptionTrack Track { get; set; }
-        internal List<(PaddedMatch, Caption)> Matches { get; set; }
+        public List<(PaddedMatch, Caption)> Matches { get; set; }
     }
 }

@@ -3,14 +3,17 @@ using System.Reflection;
 
 namespace SubTubular;
 
-internal static class AssemblyInfo
+public static class AssemblyInfo
 {
-    internal const string Name = nameof(SubTubular),
-        RepoOwner = "h0lg", RepoName = Name, RepoUrl = $"https://github.com/{RepoOwner}/{RepoName}",
-        IssuesUrl = $"{RepoUrl}/issues", ReleasesUrl = $"{RepoUrl}/releases";
+    public const string Name = nameof(SubTubular),
+        IssuesUrl = $"{RepoUrl}/issues", ReleasesUrl = $"{RepoUrl}/releases", RepoUrl = $"https://github.com/{RepoOwner}/{RepoName}";
 
-    internal static string OutputSpacing = Environment.NewLine + Environment.NewLine;
-    internal static readonly string Location, Version, Title, Copyright, InformationalVersion;
+    internal const string RepoOwner = "h0lg", RepoName = Name;
+
+    public static string OutputSpacing = Environment.NewLine + Environment.NewLine;
+    public static readonly string Title, Copyright, InformationalVersion;
+
+    internal static readonly string Location, Version;
 
     static AssemblyInfo()
     {
@@ -23,7 +26,7 @@ internal static class AssemblyInfo
         Version = version.Remove(version.LastIndexOf('.'));
     }
 
-    internal static string GetProductVersion()
+    public static string GetProductVersion()
     {
         try { return FileVersionInfo.GetVersionInfo(Location).ProductVersion; }
         catch { return Version; }
