@@ -1,4 +1,5 @@
 ﻿using System.CommandLine;
+using SubTubular.Extensions;
 
 namespace SubTubular;
 

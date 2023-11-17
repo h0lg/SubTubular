@@ -1,5 +1,6 @@
 ﻿using System.CommandLine;
 using System.CommandLine.Invocation;
+using SubTubular.Extensions;
 
 namespace SubTubular;
 

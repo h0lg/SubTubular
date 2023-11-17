@@ -1,4 +1,6 @@
-﻿namespace SubTubular;
+﻿using SubTubular.Extensions;
+
+namespace SubTubular;
 
 internal abstract class CommandScope
 {

@@ -1,5 +1,6 @@
 using AngleSharp;
 using AngleSharp.Dom;
+using SubTubular.Extensions;
 
 namespace SubTubular;
 
