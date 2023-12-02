@@ -1,9 +1,10 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFrameworks>net7.0</TargetFrameworks>
+    <TargetFrameworks>net8.0</TargetFrameworks>
+    <!--<TargetFrameworks>net7.0;net7.0-android</TargetFrameworks>-->
     <!-- net7.0-ios is not supported on Linux, so we do not add it there. -->
-    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('linux')) == false">$(TargetFrameworks);net7.0-ios</TargetFrameworks>
+    <!--<TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('linux')) == false">$(TargetFrameworks);net7.0-ios</TargetFrameworks>-->
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
   </PropertyGroup>
   <PropertyGroup>
@@ -53,8 +54,11 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.5" />
-    <PackageReference Include="FSharp.Core" Version="7.0.0" />
+    <PackageReference Include="FSharp.Core" Version="8.0.100" />
     <PackageReference Include="Fabulous" Version="2.4.0" />
     <PackageReference Include="Fabulous.Avalonia" Version="2.0.0-pre17" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SubTubular\SubTubular.csproj" />
   </ItemGroup>
 </Project>
