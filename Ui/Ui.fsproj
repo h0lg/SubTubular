@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <OutputType>WinExe</OutputType>
     <TargetFrameworks>net8.0</TargetFrameworks>
     <!--<TargetFrameworks>net7.0;net7.0-android</TargetFrameworks>-->
     <!-- net7.0-ios is not supported on Linux, so we do not add it there. -->
