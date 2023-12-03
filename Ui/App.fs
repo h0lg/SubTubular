@@ -3,72 +3,83 @@ namespace Ui
 open Avalonia.Themes.Fluent
 open Fabulous
 open Fabulous.Avalonia
+open SubTubular
 
 open type Fabulous.Avalonia.View
 
 module App =
-    type Model =
-        { Count: int; Step: int; TimerOn: bool }
+    type Scopes =
+        | videos = 0
+        | playlist = 1
+        | channel = 2
+
+    type Model = {
+        Scope: Scopes
+        Aliases: string
+        Query: string
+        Searching: bool
+    }
 
     type Msg =
-        | Increment
-        | Decrement
+        | AliasesUpdated of string
+        | QueryChanged of string
+        | Search of bool
+        | SearchCompleted
         | Reset
-        | SetStep of float
-        | TimerToggled of bool
-        | TimedTick
 
-    let initModel = { Count = 0; Step = 1; TimerOn = false }
-
-    let timerCmd () =
+    let searchCmd model =
         async {
-            do! Async.Sleep 200
-            return TimedTick
+            let cacheFolder = Folder.GetPath Folders.cache
+            let dataStore = JsonFileDataStore cacheFolder
+            let youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
+            //Func<IAsyncEnumerable<VideoSearchResult>> getResultsAsync;
+            do! Async.Sleep 500
+
+            return SearchCompleted
         }
         |> Cmd.ofAsyncMsg
+
+    let initModel = {
+        Scope = Scopes.channel
+        Aliases = ""
+        Query = ""
+        Searching = false
+    }
 
     let init () = initModel, Cmd.none
 
     let update msg model =
         match msg with
-        | Increment ->
-            { model with
-                Count = model.Count + model.Step },
-            Cmd.none
-        | Decrement ->
-            { model with
-                Count = model.Count - model.Step },
-            Cmd.none
+        | AliasesUpdated txt -> { model with Aliases = txt }, Cmd.none
+        | QueryChanged txt -> { model with Query = txt }, Cmd.none
+        | Search on -> { model with Searching = on }, (if on then searchCmd model else Cmd.none)
+        | SearchCompleted -> { model with Searching = false }, Cmd.none
         | Reset -> initModel, Cmd.none
-        | SetStep n -> { model with Step = int(n + 0.5) }, Cmd.none
-        | TimerToggled on -> { model with TimerOn = on }, (if on then timerCmd() else Cmd.none)
-        | TimedTick ->
-            if model.TimerOn then
-                { model with
-                    Count = model.Count + model.Step },
-                timerCmd()
-            else
-                model, Cmd.none
 
+        (*  see for F#
+                https://fsharp.org/learn/
+                https://github.com/knocte/2fsharp/blob/master/csharp2fsharp.md
+                https://github.com/ChrisMarinos/FSharpKoans
+            see for app design
+                https://github.com/TimLariviere/FabulousContacts/tree/master/FabulousContacts
+                https://docs.fabulous.dev/samples-and-tutorials/samples
+                https://github.com/jimbobbennett/Awesome-Fabulous
+            see for widgets
+                https://github.com/fabulous-dev/Fabulous.Avalonia/tree/main/src/Fabulous.Avalonia/Views
+                https://play.avaloniaui.net/ *)
     let view model =
         (VStack() {
-            TextBlock($"%d{model.Count}").centerText()
-
-            Button("Increment", Increment).centerHorizontal()
-
-            Button("Decrement", Decrement).centerHorizontal()
 
             (HStack() {
-                TextBlock("Timer").centerVertical()
-
-                ToggleSwitch(model.TimerOn, TimerToggled)
+                (ComboBox(System.Enum.GetValues<Scopes>(), fun scope -> ComboBoxItem(scope.ToString())))
+                    .selectedItem(model.Scope)
+                TextBox(model.Aliases, AliasesUpdated)
+                TextBlock("for").centerVertical()
+                TextBox(model.Query, QueryChanged)
+                ToggleButton((if model.Searching then "Stop" else "Search"), model.Searching, Search)
             })
                 .margin(20.)
                 .centerHorizontal()
-
-            Slider(1., 10, float model.Step, SetStep)
-
-            TextBlock($"Step size: %d{model.Step}").centerText()
 
             Button("Reset", Reset).centerHorizontal()
 
