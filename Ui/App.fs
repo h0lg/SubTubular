@@ -1,5 +1,6 @@
 namespace Ui
 
+open System
 open Avalonia.Controls
 open Avalonia.Themes.Fluent
 open Fabulous
@@ -59,22 +60,35 @@ module App =
         | SearchCompleted -> { model with Searching = false }, Cmd.none
         | Reset -> initModel, Cmd.none
 
-        (*  see for F#
-                https://fsharp.org/learn/
-                https://github.com/knocte/2fsharp/blob/master/csharp2fsharp.md
-                https://github.com/ChrisMarinos/FSharpKoans
-            see for app design
-                https://github.com/TimLariviere/FabulousContacts/tree/master/FabulousContacts
-                https://docs.fabulous.dev/samples-and-tutorials/samples
-                https://github.com/jimbobbennett/Awesome-Fabulous
-            see for widgets
-                https://github.com/fabulous-dev/Fabulous.Avalonia/tree/main/src/Fabulous.Avalonia/Views
-                https://play.avaloniaui.net/ *)
+    let internal labeledInput (label: string) ([<ParamArray>] inputs : WidgetBuilder<_,IFabControl> array) =
+        //let children =  :: inputs
+
+        let stack = HStack() {
+            Label(label)
+            for input in inputs -> input
+        }
+
+        //for input in inputs do
+            //stack.
+
+        stack
+
+    (*  see for F#
+            https://fsharp.org/learn/
+            https://github.com/knocte/2fsharp/blob/master/csharp2fsharp.md
+            https://github.com/ChrisMarinos/FSharpKoans
+        see for app design
+            https://github.com/TimLariviere/FabulousContacts/tree/master/FabulousContacts
+            https://docs.fabulous.dev/samples-and-tutorials/samples
+            https://github.com/jimbobbennett/Awesome-Fabulous
+        see for widgets
+            https://github.com/fabulous-dev/Fabulous.Avalonia/tree/main/src/Fabulous.Avalonia/Views
+            https://play.avaloniaui.net/ *)
     let view model =
-        Grid(coldefs = [Star], rowdefs = [Auto; Auto]) {
+        Grid(coldefs = [Star], rowdefs = [Auto]) {
 
             Grid(coldefs = [Auto; Star; Auto; Star; Auto], rowdefs = [Auto]) {
-                (ComboBox(System.Enum.GetValues<Scopes>(), fun scope -> ComboBoxItem(scope.ToString())))
+                (ComboBox(Enum.GetValues<Scopes>(), fun scope -> ComboBoxItem(scope.ToString())))
                     .selectedItem(model.Scope).onSelectionChanged(ScopeChanged).gridColumn(0)
                 TextBox(model.Aliases, AliasesUpdated)
                     .watermark("by " + (if model.Scope = Scopes.videos then "space-separated IDs or URLs"
@@ -91,7 +105,15 @@ module App =
                     .gridColumn(4)
             }
 
-            Button("Reset", Reset).centerHorizontal()
+            (*(Grid(coldefs = [Auto; Star; Auto; Star; Auto], rowdefs = [Auto]) {
+                labeledInput().gridColumn(0)
+                TextBox(model.Aliases, AliasesUpdated).gridColumn(1)
+                TextBlock("for").margin(10, 0).centerVertical().gridColumn(2)
+                TextBox(model.Query, QueryChanged).gridColumn(3)
+                ToggleButton((if model.Searching then "Stop" else "Search"), model.Searching, Search)
+                    .margin(10, 0)
+                    .gridColumn(4)
+            }).gridRow(1)*)
 
         }
 
