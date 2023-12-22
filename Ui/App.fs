@@ -1,4 +1,4 @@
-namespace Ui
+﻿namespace Ui
 
 open System
 open Avalonia.Controls
@@ -11,7 +11,7 @@ open type Fabulous.Avalonia.View
 
 module App =
     type Scopes = videos = 0 | playlist = 1 | channel = 2
-    type ShowOptions = nothing = 0 | file = 1 | folder = 2
+    type OpenOutputOptions = nothing = 0 | file = 1 | folder = 2
     //type OutputOptions = html = 0 | text = 1
     //type OrderDirections = asc = 0 | desc = 1
 
@@ -29,7 +29,7 @@ module App =
         Output: bool
         OutputHtml: bool
         OutputTo: string
-        ShowOutput: ShowOptions
+        OpenOutput: OpenOutputOptions
     }
 
     type Msg =
@@ -46,11 +46,23 @@ module App =
         | OutputChanged of bool
         | OutputHtmlChanged of bool
         | OutputToChanged of string
-        | ShowOutputChanged of SelectionChangedEventArgs
+        | OpenOutputChanged of SelectionChangedEventArgs
 
         | Search of bool
         | SearchCompleted
         | Reset
+
+    let displayScope = function
+    | Scopes.videos -> "📼 videos"
+    | Scopes.playlist -> "▶️ playlist"
+    | Scopes.channel -> "📺 channel"
+    | _ -> failwith "unknown scope"
+
+    let displayOpenOutput = function
+    | OpenOutputOptions.nothing -> "nothing"
+    | OpenOutputOptions.file -> "📄 file"
+    | OpenOutputOptions.folder -> "📂 folder"
+    | _ -> failwith "unknown Show Option"
 
     let searchCmd model =
         async {
@@ -78,7 +90,7 @@ module App =
         Output = false
         OutputHtml = true
         OutputTo = Folder.GetPath Folders.output
-        ShowOutput = ShowOptions.nothing
+        OpenOutput = OpenOutputOptions.nothing
 
         Searching = false
     }
@@ -100,8 +112,8 @@ module App =
         | OutputChanged output -> { model with Output = output }, Cmd.none
         | OutputHtmlChanged value -> { model with OutputHtml = value }, Cmd.none
         | OutputToChanged path -> { model with OutputTo = path }, Cmd.none
-        | ShowOutputChanged args ->
-            { model with ShowOutput = args.AddedItems.Item 0 :?> ShowOptions },
+        | OpenOutputChanged args ->
+            { model with OpenOutput = args.AddedItems.Item 0 :?> OpenOutputOptions },
             Cmd.none
 
         | Search on -> { model with Searching = on }, (if on then searchCmd model else Cmd.none)
@@ -134,10 +146,10 @@ module App =
             https://github.com/fabulous-dev/Fabulous.Avalonia/tree/main/src/Fabulous.Avalonia/Views
             https://play.avaloniaui.net/ *)
     let view model =
-        Grid(coldefs = [Star], rowdefs = [Auto; Auto; Star; Auto]) {
+        Grid(coldefs = [Star], rowdefs = [Auto; Auto; Auto; Auto; Star]) {
 
-            Grid(coldefs = [Auto; Star; Auto; Star; Auto], rowdefs = [Auto]) {
-                (ComboBox(Enum.GetValues<Scopes>(), fun scope -> ComboBoxItem(scope.ToString())))
+            Grid(coldefs = [Auto; Star; Auto; Stars 2; Auto], rowdefs = [Auto]) {
+                ComboBox(Enum.GetValues<Scopes>(), fun scope -> ComboBoxItem(displayScope scope))
                     .selectedItem(model.Scope).onSelectionChanged(ScopeChanged).gridColumn(0)
                 TextBox(model.Aliases, AliasesUpdated)
                     .watermark("by " + (if model.Scope = Scopes.videos then "space-separated IDs or URLs"
@@ -149,37 +161,38 @@ module App =
                 TextBox(model.Query, QueryChanged)
                     .watermark("your query")
                     .gridColumn(3)
-                ToggleButton((if model.Searching then "Stop" else "Search"), model.Searching, Search)
+                ToggleButton((if model.Searching then "⏹️ Stop" else "🔍 Search"), model.Searching, Search)
                     .margin(10, 0)
                     .gridColumn(4)
             }
 
             (Grid(coldefs = [Star], rowdefs = [Auto]) {
                 (HStack(5) {
+                    Label "in playlists and channels"
                     Label "search top"
                     NumericUpDown(0, float UInt16.MaxValue, model.Top, TopChanged)
                         .tooltip("number of videos to search")
-                    Label "videos in playlists"
-                    Label "and refresh after"
+                    Label "videos"
+                    Label "and look for new ones after"
                     NumericUpDown(0, float UInt16.MaxValue, model.CacheHours, CacheHoursChanged)
-                        .tooltip("number of hours to cache playlist videos")
+                        .tooltip("The info about which videos are in a playlist or channel is cached locally to speed up future searches."
+                            + " This controls after how many hours such a cache is considered stale."
+                            + Environment.NewLine + Environment.NewLine
+                            + "Note that this doesn't concern the video data caches,"
+                            + " which are not expected to change often and are stored until you explicitly clear them.")
                     Label "hours"
                 }).gridColumn(0)
             }).gridRow(1)
 
-            (Grid(coldefs = [Auto; Star; Auto], rowdefs = [Auto]) {
+            // results
+            (Grid(coldefs = [Auto; Star; Auto; Auto], rowdefs = [Auto]) {
                 Label("Results").gridColumn(0)
 
                 (HStack(5) {
                     Label "ordered"
-                    ToggleButton((if model.OrderDesc then "desc" else "asc"), model.OrderDesc, OrderDescChanged)
-                    //ToggleSplitButton((if model.OrderByScore then "score" else "uploaded"), model.OrderByScore, OrderByScoreChanged)
+                    ToggleButton((if model.OrderDesc then "descending ↓" else "ascending ↑"), model.OrderDesc, OrderDescChanged)
                     Label "by"
-                    ToggleButton((if model.OrderByScore then "score" else "uploaded"), model.OrderByScore, OrderByScoreChanged)
-                    (*RadioButton("score", model.OrderByScore, OrderByScoreChanged).groupName(nameof(model.OrderByScore))
-                    RadioButton("uploaded", not model.OrderByScore, not >> OrderByScoreChanged).groupName(nameof(model.OrderByScore))
-                    RadioButton("asc", not model.OrderDesc, not >> OrderDescChanged).groupName(nameof(model.OrderDesc))
-                    RadioButton("desc", model.OrderDesc, OrderDescChanged).groupName(nameof(model.OrderDesc))*)
+                    ToggleButton((if model.OrderByScore then "💯 score" else "📅 uploaded"), model.OrderByScore, OrderByScoreChanged)
                 }).gridColumn(1).centerVertical()
 
                 (HStack(5) {
@@ -188,29 +201,29 @@ module App =
                         .tooltip("how much context to show a search result in")
                     Label "chars"
                 }).gridColumn(2)
+
+                ToggleButton("📄 output", model.Output, OutputChanged).gridColumn(3)
             }).gridRow(2)
 
             // output
             (Grid(coldefs = [Auto; Auto; Auto; Star; Auto; Auto], rowdefs = [Auto]) {
-                CheckBox("ouput", model.Output, OutputChanged).gridColumn(0)
-                ToggleButton((if model.OutputHtml then "html" else "text"), model.OutputHtml, OutputHtmlChanged).gridColumn(1)
+                Label("ouput").gridColumn(0)
+                //CheckBox("ouput", model.Output, OutputChanged).gridColumn(0)
+                ToggleButton((if model.OutputHtml then "🖺 html" else "🖹 text"), model.OutputHtml, OutputHtmlChanged).gridColumn(1)
                 Label("to").gridColumn(2)
                 TextBox(model.OutputTo, OutputToChanged)
                     .watermark("where to save the output file").gridColumn(3)
-                Label("and show").gridColumn(4)
-                ComboBox(Enum.GetValues<ShowOptions>(), fun show -> ComboBoxItem(show.ToString()))
-                    .selectedItem(model.ShowOutput).onSelectionChanged(ShowOutputChanged).gridColumn(5)
-            }).gridRow(3)
+                Label("and open").gridColumn(4)
+                ComboBox(Enum.GetValues<OpenOutputOptions>(), fun show -> ComboBoxItem(displayOpenOutput show))
+                    .selectedItem(model.OpenOutput).onSelectionChanged(OpenOutputChanged).gridColumn(5)
+            }).gridRow(3).isVisible(model.Output)
         }
 
-    
 #if MOBILE
     let app model = SingleViewApplication(view model)
 #else
     let app model = DesktopApplication(Window(view model))
 #endif
 
-    
     let theme = FluentTheme()
-
     let program = Program.statefulWithCmd init update app
