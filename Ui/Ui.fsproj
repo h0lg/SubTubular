@@ -54,6 +54,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.9" />
+    <PackageReference Include="FSharp.Control.TaskSeq" Version="0.3.0" />
     <PackageReference Include="FSharp.Core" Version="8.0.101" />
     <PackageReference Include="Fabulous" Version="2.4.1" />
     <PackageReference Include="Fabulous.Avalonia" Version="2.3.0" />

@@ -8,6 +8,8 @@ open Fabulous.Avalonia
 open SubTubular
 
 open type Fabulous.Avalonia.View
+open FSharp.Control
+open System.Threading
 
 module App =
     type Scopes = videos = 0 | playlist = 1 | channel = 2
@@ -19,12 +21,15 @@ module App =
         Scope: Scopes
         Aliases: string
         Query: string
-        Searching: bool
         Padding: int
+
         Top: float option
         OrderByScore: bool
         OrderDesc: bool
         CacheHours: float option
+
+        Searching: bool
+        SearchResults: VideoSearchResult list
 
         Output: bool
         OutputHtml: bool
@@ -49,6 +54,7 @@ module App =
         | OpenOutputChanged of SelectionChangedEventArgs
 
         | Search of bool
+        | SearchResult of VideoSearchResult
         | SearchCompleted
         | Reset
 
@@ -69,8 +75,43 @@ module App =
             let cacheFolder = Folder.GetPath Folders.cache
             let dataStore = JsonFileDataStore cacheFolder
             let youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
-            //Func<IAsyncEnumerable<VideoSearchResult>> getResultsAsync;
-            do! Async.Sleep 500
+
+            let order = 
+                match (model.OrderByScore, model.OrderDesc) with
+                | (true, true) -> [PlaylistLikeScope.OrderOptions.score]
+                | (true, false) -> [PlaylistLikeScope.OrderOptions.score; PlaylistLikeScope.OrderOptions.asc]
+                | (false, true) -> [PlaylistLikeScope.OrderOptions.uploaded]
+                | (false, false) -> [PlaylistLikeScope.OrderOptions.uploaded; PlaylistLikeScope.OrderOptions.asc]
+
+            let scope =
+                match model.Scope with
+                | Scopes.videos -> VideosScope(model.Aliases.Split [|' '|]) :> CommandScope
+                | Scopes.playlist -> PlaylistScope(model.Aliases, model.Top.Value |> uint16, order, model.CacheHours.Value |> float32)
+                | Scopes.channel -> ChannelScope(model.Aliases, model.Top.Value |> uint16, order, model.CacheHours.Value |> float32)
+                | _ -> failwith ("unknown scope " + model.Scope.ToString())
+
+            let command = SearchCommand()
+            command.Query <- model.Query
+            command.Padding <- model.Padding |> uint16
+            command.Scope <- scope
+            command.OutputHtml <- model.OutputHtml
+            command.FileOutputPath <- model.OutputTo
+            
+            if model.OpenOutput = OpenOutputOptions.file
+            then command.Show <- OutputCommand.Shows.file
+            elif model.OpenOutput = OpenOutputOptions.folder
+            then command.Show <- OutputCommand.Shows.folder
+            
+            (*let getResultsAsync =*)
+
+            use cts = new CancellationTokenSource
+
+            //cts.o
+            //youtube.SearchAsync(command, cts.Token)// |> TaskSeq.iter ()
+
+            //for element in TaskSeq.   do
+            // Process the current element
+            //printfn "Processing element: %A" element
 
             return SearchCompleted
         }
@@ -93,6 +134,7 @@ module App =
         OpenOutput = OpenOutputOptions.nothing
 
         Searching = false
+        SearchResults = []
     }
 
     let init () = initModel, Cmd.none
