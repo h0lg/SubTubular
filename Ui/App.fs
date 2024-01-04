@@ -104,10 +104,10 @@ module App =
             
             (*let getResultsAsync =*)
 
-            use cts = new CancellationTokenSource
+            //use cts = new CancellationTokenSource
 
             //cts.o
-            //youtube.SearchAsync(command, cts.Token)// |> TaskSeq.iter ()
+            //youtube.SearchAsync(command, cts.Token) |> TaskSeq.iter ()
 
             //for element in TaskSeq.   do
             // Process the current element
@@ -203,7 +203,7 @@ module App =
                 TextBox(model.Query, QueryChanged)
                     .watermark("your query")
                     .gridColumn(3)
-                ToggleButton((if model.Searching then "⏹️ Stop" else "🔍 Search"), model.Searching, Search)
+                ToggleButton((if model.Searching then "⏹⏹️ Stop" else "🔍 Search"), model.Searching, Search)
                     .margin(10, 0)
                     .gridColumn(4)
             }
