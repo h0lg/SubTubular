@@ -5,9 +5,9 @@ open Avalonia.Controls
 open Avalonia.Themes.Fluent
 open Fabulous
 open Fabulous.Avalonia
+open type Fabulous.Avalonia.View
 open SubTubular
 
-open type Fabulous.Avalonia.View
 open FSharp.Control
 open System.Threading
 
@@ -70,7 +70,7 @@ module App =
     | OpenOutputOptions.folder -> "📂 folder"
     | _ -> failwith "unknown Show Option"
 
-    let searchCmd model =
+    let searchCmd model dispatch =
         async {
             let cacheFolder = Folder.GetPath Folders.cache
             let dataStore = JsonFileDataStore cacheFolder
@@ -101,17 +101,32 @@ module App =
             then command.Show <- OutputCommand.Shows.file
             elif model.OpenOutput = OpenOutputOptions.folder
             then command.Show <- OutputCommand.Shows.folder
-            
-            (*let getResultsAsync =*)
 
-            //use cts = new CancellationTokenSource
+            let video = Video()
+            video.Title <- "test"
+            let result = VideoSearchResult()
+            result.Video <- video
+            dispatch (SearchResult result)
+
+            do! Async.Sleep 500
+
+            let video = Video()
+            video.Title <- "test 2"
+            let result = VideoSearchResult()
+            result.Video <- video
+            dispatch (SearchResult result)
+
+            (*let getResultsAsync =
+            use cts = new CancellationTokenSource()
 
             //cts.o
-            //youtube.SearchAsync(command, cts.Token) |> TaskSeq.iter ()
+            youtube.SearchAsync(command, cts.Token) |> TaskSeq.iter (fun result ->
+                SearchResult result |> Cmd.ofMsg |> ignore )
+                    |> ignore
 
             //for element in TaskSeq.   do
             // Process the current element
-            //printfn "Processing element: %A" element
+            //printfn "Processing element: %A" element*)
 
             return SearchCompleted
         }
@@ -139,7 +154,9 @@ module App =
 
     let init () = initModel, Cmd.none
 
-    let update msg model =
+
+    let rec update msg model =
+        let dispatchSearchResult msg = update msg model |> ignore
         match msg with
         | ScopeChanged args -> { model with Scope = args.AddedItems.Item 0 :?> Scopes }, Cmd.none
         | AliasesUpdated txt -> { model with Aliases = txt }, Cmd.none
@@ -158,7 +175,9 @@ module App =
             { model with OpenOutput = args.AddedItems.Item 0 :?> OpenOutputOptions },
             Cmd.none
 
-        | Search on -> { model with Searching = on }, (if on then searchCmd model else Cmd.none)
+        | Search on -> { model with Searching = on }, (if on then searchCmd model dispatchSearchResult else Cmd.none)
+        | SearchResult result -> 
+            { model with SearchResults = result::model.SearchResults }, Cmd.none
         | SearchCompleted -> { model with Searching = false }, Cmd.none
         | Reset -> initModel, Cmd.none
 
@@ -190,6 +209,7 @@ module App =
     let view model =
         Grid(coldefs = [Star], rowdefs = [Auto; Auto; Auto; Auto; Star]) {
 
+            // search options
             Grid(coldefs = [Auto; Star; Auto; Stars 2; Auto], rowdefs = [Auto]) {
                 ComboBox(Enum.GetValues<Scopes>(), fun scope -> ComboBoxItem(displayScope scope))
                     .selectedItem(model.Scope).onSelectionChanged(ScopeChanged).gridColumn(0)
@@ -203,11 +223,12 @@ module App =
                 TextBox(model.Query, QueryChanged)
                     .watermark("your query")
                     .gridColumn(3)
-                ToggleButton((if model.Searching then "⏹⏹️ Stop" else "🔍 Search"), model.Searching, Search)
+                ToggleButton((if model.Searching then "🛑 Stop" else "🔍 Search"), model.Searching, Search)
                     .margin(10, 0)
                     .gridColumn(4)
             }
 
+            // playlist options
             (Grid(coldefs = [Star], rowdefs = [Auto]) {
                 (HStack(5) {
                     Label "in playlists and channels"
@@ -226,7 +247,7 @@ module App =
                 }).gridColumn(0)
             }).gridRow(1)
 
-            // results
+            // result options
             (Grid(coldefs = [Auto; Star; Auto; Auto], rowdefs = [Auto]) {
                 Label("Results").gridColumn(0)
 
@@ -247,7 +268,7 @@ module App =
                 ToggleButton("📄 output", model.Output, OutputChanged).gridColumn(3)
             }).gridRow(2)
 
-            // output
+            // output options
             (Grid(coldefs = [Auto; Auto; Auto; Star; Auto; Auto], rowdefs = [Auto]) {
                 Label("ouput").gridColumn(0)
                 //CheckBox("ouput", model.Output, OutputChanged).gridColumn(0)
@@ -259,6 +280,14 @@ module App =
                 ComboBox(Enum.GetValues<OpenOutputOptions>(), fun show -> ComboBoxItem(displayOpenOutput show))
                     .selectedItem(model.OpenOutput).onSelectionChanged(OpenOutputChanged).gridColumn(5)
             }).gridRow(3).isVisible(model.Output)
+
+            View.ListBox(model.SearchResults, (fun result ->
+                Label(result.Video.Title))).gridRow(4)
+
+            (*(ItemsControl(
+                ItemsSource = model.SearchResults
+                //Template = (fun result -> Label(result.Title))
+                ))//.gridRow(4)*)
         }
 
 #if MOBILE
