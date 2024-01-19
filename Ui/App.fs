@@ -202,8 +202,9 @@ module App =
             //let inlines = InlineCollection()
             TextBlock() {
                 Run(result.Video.Title)
-                Run("uploaded " + result.Video.Uploaded.ToString()).foreground(Colors.Blue)
             }
+
+            TextBlock("uploaded " + result.Video.Uploaded.ToString())
 
             //textBlock.Yield(Run(result.Video.Title)) |> textBlock.Run
             //textBlock.Run ()
