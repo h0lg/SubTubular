@@ -110,8 +110,7 @@ module App =
                     match command.Scope with
                     | :? ChannelScope as channel ->
                         async {
-                            let! _result = CommandValidator.RemoteValidateChannelAsync(channel, youtube.Client, dataStore, cts.Token) |> Async.AwaitTask
-                            return ()
+                            return! CommandValidator.RemoteValidateChannelAsync(channel, youtube.Client, dataStore, cts.Token) |> Async.AwaitTask
                         }
                     | _ ->  async { return () }
 
