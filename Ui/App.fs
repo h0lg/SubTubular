@@ -193,13 +193,18 @@ module App =
     type SharedStyle =
         [<Extension>]
         static member inline marked(this: WidgetBuilder<'msg, #IFabRun>) =
-            this.stroke(Colors.Blue)
+            this.foreground(Colors.Blue) |> ignore
+            this
 
     let renderSearchResult (result: VideoSearchResult) =
         VStack() {
         // see https://github.com/AvaloniaUI/Avalonia/discussions/9654
             //let inlines = InlineCollection()
-            //let textBlock = TextBlock("")
+            TextBlock() {
+                Run(result.Video.Title)
+                Run("uploaded " + result.Video.Uploaded.ToString()).foreground(Colors.Blue)
+            }
+
             //textBlock.Yield(Run(result.Video.Title)) |> textBlock.Run
             //textBlock.Run ()
 
@@ -222,8 +227,7 @@ module App =
 
             // Add the TextBlock to the UI
             //textBlock
-            TextBlock(result.Video.Title)
-            TextBlock("uploaded " + result.Video.Uploaded.ToString())
+            //Avalonia.Controls.TextBlock().
         }
 
     (*  see for F#
