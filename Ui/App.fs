@@ -164,7 +164,7 @@ module App =
             { model with OpenOutput = args.AddedItems.Item 0 :?> OpenOutputOptions },
             Cmd.none
 
-        | Search on -> { model with Searching = on }, (if on then searchCmd model else Cmd.none)
+        | Search on -> { model with Searching = on; SearchResults = [] }, (if on then searchCmd model else Cmd.none)
         | SearchResult result -> 
             { model with SearchResults = result::model.SearchResults }, Cmd.none
         | SearchCompleted -> { model with Searching = false }, Cmd.none
