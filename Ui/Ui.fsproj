@@ -50,13 +50,13 @@
   </ItemGroup>
   <ItemGroup Condition="$(AvaloniaPlatform) == 'Desktop'">
     <Compile Include="$(DesktopPlatformFolder)Program.fs" />
-    <PackageReference Include="Avalonia.Desktop" Version="11.0.5" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.0.9" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.5" />
-    <PackageReference Include="FSharp.Core" Version="8.0.100" />
-    <PackageReference Include="Fabulous" Version="2.4.0" />
-    <PackageReference Include="Fabulous.Avalonia" Version="2.0.0-pre17" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.9" />
+    <PackageReference Include="FSharp.Core" Version="8.0.101" />
+    <PackageReference Include="Fabulous" Version="2.4.1" />
+    <PackageReference Include="Fabulous.Avalonia" Version="2.3.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\SubTubular\SubTubular.csproj" />
