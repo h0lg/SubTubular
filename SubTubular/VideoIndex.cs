@@ -241,7 +241,7 @@ internal sealed class VideoIndex
 
             result.MatchingCaptionTracks = match.FieldMatches.Where(m => m.FoundIn.EndsWith(CaptionTrack.FieldSuffix)).Select(m =>
             {
-                var track = video.CaptionTracks.SingleOrDefault(t => t.FieldName == m.FoundIn);
+                var track = video.CaptionTracks.Single(t => t.FieldName == m.FoundIn);
                 var fullText = track.GetFullText();
                 var captionAtFullTextIndex = track.GetCaptionAtFullTextIndex();
 
