@@ -70,67 +70,68 @@ module App =
     | OpenOutputOptions.folder -> "📂 folder"
     | _ -> failwith "unknown Show Option"
 
-    let searchCmd model dispatch =
-        async {
-            let cacheFolder = Folder.GetPath Folders.cache
-            let dataStore = JsonFileDataStore cacheFolder
-            let youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
+    let searchCmd model =
+        fun dispatch ->
+            async {
+                let cacheFolder = Folder.GetPath Folders.cache
+                let dataStore = JsonFileDataStore cacheFolder
+                let youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
 
-            let order = 
-                match (model.OrderByScore, model.OrderDesc) with
-                | (true, true) -> [PlaylistLikeScope.OrderOptions.score]
-                | (true, false) -> [PlaylistLikeScope.OrderOptions.score; PlaylistLikeScope.OrderOptions.asc]
-                | (false, true) -> [PlaylistLikeScope.OrderOptions.uploaded]
-                | (false, false) -> [PlaylistLikeScope.OrderOptions.uploaded; PlaylistLikeScope.OrderOptions.asc]
+                let order = 
+                    match (model.OrderByScore, model.OrderDesc) with
+                    | (true, true) -> [PlaylistLikeScope.OrderOptions.score]
+                    | (true, false) -> [PlaylistLikeScope.OrderOptions.score; PlaylistLikeScope.OrderOptions.asc]
+                    | (false, true) -> [PlaylistLikeScope.OrderOptions.uploaded]
+                    | (false, false) -> [PlaylistLikeScope.OrderOptions.uploaded; PlaylistLikeScope.OrderOptions.asc]
 
-            let scope =
-                match model.Scope with
-                | Scopes.videos -> VideosScope(model.Aliases.Split [|' '|]) :> CommandScope
-                | Scopes.playlist -> PlaylistScope(model.Aliases, model.Top.Value |> uint16, order, model.CacheHours.Value |> float32)
-                | Scopes.channel -> ChannelScope(model.Aliases, model.Top.Value |> uint16, order, model.CacheHours.Value |> float32)
-                | _ -> failwith ("unknown scope " + model.Scope.ToString())
+                let scope =
+                    match model.Scope with
+                    | Scopes.videos -> VideosScope(model.Aliases.Split [|' '|]) :> CommandScope
+                    | Scopes.playlist -> PlaylistScope(model.Aliases, model.Top.Value |> uint16, order, model.CacheHours.Value |> float32)
+                    | Scopes.channel -> ChannelScope(model.Aliases, model.Top.Value |> uint16, order, model.CacheHours.Value |> float32)
+                    | _ -> failwith ("unknown scope " + model.Scope.ToString())
 
-            let command = SearchCommand()
-            command.Query <- model.Query
-            command.Padding <- model.Padding |> uint16
-            command.Scope <- scope
-            command.OutputHtml <- model.OutputHtml
-            command.FileOutputPath <- model.OutputTo
+                let command = SearchCommand()
+                command.Query <- model.Query
+                command.Padding <- model.Padding |> uint16
+                command.Scope <- scope
+                command.OutputHtml <- model.OutputHtml
+                command.FileOutputPath <- model.OutputTo
             
-            if model.OpenOutput = OpenOutputOptions.file
-            then command.Show <- OutputCommand.Shows.file
-            elif model.OpenOutput = OpenOutputOptions.folder
-            then command.Show <- OutputCommand.Shows.folder
+                if model.OpenOutput = OpenOutputOptions.file
+                then command.Show <- OutputCommand.Shows.file
+                elif model.OpenOutput = OpenOutputOptions.folder
+                then command.Show <- OutputCommand.Shows.folder
 
-            let video = Video()
-            video.Title <- "test"
-            let result = VideoSearchResult()
-            result.Video <- video
-            dispatch (SearchResult result)
+                let video = Video()
+                video.Title <- "test"
+                let result = VideoSearchResult()
+                result.Video <- video
+                dispatch (SearchResult result)
 
-            do! Async.Sleep 500
+                do! Async.Sleep 500
 
-            let video = Video()
-            video.Title <- "test 2"
-            let result = VideoSearchResult()
-            result.Video <- video
-            dispatch (SearchResult result)
+                let video = Video()
+                video.Title <- "test 2"
+                let result = VideoSearchResult()
+                result.Video <- video
+                dispatch (SearchResult result)
 
-            (*let getResultsAsync =
-            use cts = new CancellationTokenSource()
+                (*let getResultsAsync =
+                use cts = new CancellationTokenSource()
 
-            //cts.o
-            youtube.SearchAsync(command, cts.Token) |> TaskSeq.iter (fun result ->
-                SearchResult result |> Cmd.ofMsg |> ignore )
-                    |> ignore
+                //cts.o
+                youtube.SearchAsync(command, cts.Token) |> TaskSeq.iter (fun result ->
+                    SearchResult result |> Cmd.ofMsg |> ignore )
+                        |> ignore
 
-            //for element in TaskSeq.   do
-            // Process the current element
-            //printfn "Processing element: %A" element*)
+                //for element in TaskSeq.   do
+                // Process the current element
+                //printfn "Processing element: %A" element*)
 
-            return SearchCompleted
-        }
-        |> Cmd.ofAsyncMsg
+                dispatch SearchCompleted
+            } |> Async.StartImmediate
+        |> Cmd.ofSub
 
     let initModel = {
         Scope = Scopes.channel
@@ -156,7 +157,7 @@ module App =
 
 
     let rec update msg model =
-        let dispatchSearchResult msg = update msg model |> ignore
+        //let dispatchSearchResult msg = update msg model |> ignore
         match msg with
         | ScopeChanged args -> { model with Scope = args.AddedItems.Item 0 :?> Scopes }, Cmd.none
         | AliasesUpdated txt -> { model with Aliases = txt }, Cmd.none
@@ -175,7 +176,7 @@ module App =
             { model with OpenOutput = args.AddedItems.Item 0 :?> OpenOutputOptions },
             Cmd.none
 
-        | Search on -> { model with Searching = on }, (if on then searchCmd model dispatchSearchResult else Cmd.none)
+        | Search on -> { model with Searching = on }, (if on then searchCmd model else Cmd.none)
         | SearchResult result -> 
             { model with SearchResults = result::model.SearchResults }, Cmd.none
         | SearchCompleted -> { model with Searching = false }, Cmd.none
