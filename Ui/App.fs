@@ -106,7 +106,7 @@ module App =
                 CommandValidator.ValidateSearchCommand command
                 use cts = new CancellationTokenSource()
 
-                let! _result =
+                do!
                     match command.Scope with
                     | :? ChannelScope as channel ->
                         async {
@@ -114,9 +114,7 @@ module App =
                         }
                     | _ ->  async { return () }
 
-                let! _ = youtube.SearchAsync(command, cts.Token) |> TaskSeq.iter (fun result -> SearchResult result |> dispatch ) |> Async.AwaitTask
-                    //|> Async.AwaitTask
-
+                do! youtube.SearchAsync(command, cts.Token) |> TaskSeq.iter (fun result -> SearchResult result |> dispatch ) |> Async.AwaitTask
                 dispatch SearchCompleted
             } |> Async.StartImmediate
         |> Cmd.ofSub
@@ -184,6 +182,13 @@ module App =
 
         stack*)
 
+
+    let renderSearchResult (result: VideoSearchResult) =
+        VStack() {
+            TextBlock(result.Video.Title)
+            TextBlock("uploaded " + result.Video.Uploaded.ToString())
+        }
+
     (*  see for F#
             https://fsharp.org/learn/
             https://github.com/knocte/2fsharp/blob/master/csharp2fsharp.md
@@ -238,7 +243,7 @@ module App =
 
             // result options
             (Grid(coldefs = [Auto; Star; Auto; Auto], rowdefs = [Auto]) {
-                Label("Results").gridColumn(0)
+                TextBlock("Results").gridColumn(0)
 
                 (HStack(5) {
                     Label "ordered"
@@ -270,13 +275,7 @@ module App =
                     .selectedItem(model.OpenOutput).onSelectionChanged(OpenOutputChanged).gridColumn(5)
             }).gridRow(3).isVisible(model.Output)
 
-            View.ListBox(model.SearchResults, (fun result ->
-                Label(result.Video.Title))).gridRow(4)
-
-            (*(ItemsControl(
-                ItemsSource = model.SearchResults
-                //Template = (fun result -> Label(result.Title))
-                ))//.gridRow(4)*)
+            View.ListBox(model.SearchResults, renderSearchResult).gridRow(4)
         }
 
 #if MOBILE
