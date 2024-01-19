@@ -97,37 +97,26 @@ module App =
                 command.Scope <- scope
                 command.OutputHtml <- model.OutputHtml
                 command.FileOutputPath <- model.OutputTo
-            
+
                 if model.OpenOutput = OpenOutputOptions.file
                 then command.Show <- OutputCommand.Shows.file
                 elif model.OpenOutput = OpenOutputOptions.folder
                 then command.Show <- OutputCommand.Shows.folder
 
-                let video = Video()
-                video.Title <- "test"
-                let result = VideoSearchResult()
-                result.Video <- video
-                dispatch (SearchResult result)
-
-                do! Async.Sleep 500
-
-                let video = Video()
-                video.Title <- "test 2"
-                let result = VideoSearchResult()
-                result.Video <- video
-                dispatch (SearchResult result)
-
-                (*let getResultsAsync =
+                CommandValidator.ValidateSearchCommand command
                 use cts = new CancellationTokenSource()
 
-                //cts.o
-                youtube.SearchAsync(command, cts.Token) |> TaskSeq.iter (fun result ->
-                    SearchResult result |> Cmd.ofMsg |> ignore )
-                        |> ignore
+                let! _result =
+                    match command.Scope with
+                    | :? ChannelScope as channel ->
+                        async {
+                            let! _result = CommandValidator.RemoteValidateChannelAsync(channel, youtube.Client, dataStore, cts.Token) |> Async.AwaitTask
+                            return ()
+                        }
+                    | _ ->  async { return () }
 
-                //for element in TaskSeq.   do
-                // Process the current element
-                //printfn "Processing element: %A" element*)
+                let! _ = youtube.SearchAsync(command, cts.Token) |> TaskSeq.iter (fun result -> SearchResult result |> dispatch ) |> Async.AwaitTask
+                    //|> Async.AwaitTask
 
                 dispatch SearchCompleted
             } |> Async.StartImmediate
