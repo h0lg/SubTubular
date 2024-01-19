@@ -89,7 +89,7 @@ namespace SubTubular
         internal VideoIndex(FullTextIndex<string> index) => Index = index;
 
         internal string[] GetIndexed(IEnumerable<string> videoIds)
-            => videoIds.Where(id => Index.Items.Contains(id)).ToArray();
+            => videoIds.Where(Index.Metadata.Contains).ToArray();
 
         internal async Task AddAsync(Video video, CancellationToken cancellation)
         {
@@ -322,7 +322,7 @@ namespace SubTubular
 
         private async Task UpdateAsync(IEnumerable<Video> videos, CancellationToken cancellation)
         {
-            var indexedKeys = Index.Items.GetIndexedItems().Select(i => i.Item).ToArray();
+            var indexedKeys = Index.Metadata.GetIndexedDocuments().Select(d => d.Key).ToArray();
             BeginBatchChange();
 
             foreach (var video in videos)
