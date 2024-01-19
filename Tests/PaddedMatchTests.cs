@@ -30,30 +30,30 @@ Range<T>.Start and Range<T>.End represent the indexes of the padded match in the
             new ExpectedMatch(23, 27, "Match", multiMatched.Length, 0),
             new ExpectedMatch(61, 65, "Match", multiMatched.Length, 0),
             new ExpectedMatch(76, 80, "match", multiMatched.Length, 0),
-            new ExpectedMatch(212, 216, "match", multiMatched.Length, 0),
-            new ExpectedMatch(242, 246, "match", multiMatched.Length, 0)
+            new ExpectedMatch(214, 218, "match", multiMatched.Length, 0),
+            new ExpectedMatch(244, 248, "match", multiMatched.Length, 0)
         });
 
         MultipleInMultiLine(multiMatched, padding: 5, new[] {
             new ExpectedMatch(18, 32, "e to Match incl", multiMatched.Length, 5),
             new ExpectedMatch(56, 85, @"addedMatch.Included matches
-pa", multiMatched.Length, 5, 20),
-            new ExpectedMatch(207, 221, "dded match in t", multiMatched.Length, 5),
-            new ExpectedMatch(237, 251, " was matched in", multiMatched.Length, 5)
+p", multiMatched.Length, 5, 20),
+            new ExpectedMatch(209, 223, "dded match in t", multiMatched.Length, 5),
+            new ExpectedMatch(239, 253, " was matched in", multiMatched.Length, 5)
         });
 
         MultipleInMultiLine(multiMatched, padding: 13, new[] {
             new ExpectedMatch(10, 40, "omparable to Match including on", multiMatched.Length, 13),
             new ExpectedMatch(48, 93, @"ltiple PaddedMatch.Included matches
-padded wit", multiMatched.Length, 13, 28),
-            new ExpectedMatch(199, multiLineText.Length - 1, "f the padded match in the full text it was matched in.",
+padded wi", multiMatched.Length, 13, 28),
+            new ExpectedMatch(201, multiLineText.Length - 1, "f the padded match in the full text it was matched in.",
                 multiMatched.Length, 13, 43)
         });
 
         MultipleInMultiLine(multiMatched, padding: 17, new[] {
             new ExpectedMatch(6, 97, @"er comparable to Match including one or multiple PaddedMatch.Included matches
-padded with a ", multiMatched.Length, 17, 55, 70),
-            new ExpectedMatch(195, multiLineText.Length - 1, "es of the padded match in the full text it was matched in.",
+padded with a", multiMatched.Length, 17, 55, 70),
+            new ExpectedMatch(197, multiLineText.Length - 1, "es of the padded match in the full text it was matched in.",
                 multiMatched.Length, 17, 47)
         });
     }
