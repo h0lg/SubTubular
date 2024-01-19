@@ -2,6 +2,7 @@
 
 open System
 open Avalonia.Controls
+open Avalonia.Controls.Documents
 open Avalonia.Themes.Fluent
 open Fabulous
 open Fabulous.Avalonia
@@ -10,6 +11,9 @@ open SubTubular
 
 open FSharp.Control
 open System.Threading
+open System.Runtime.CompilerServices
+open Avalonia.Media
+open System.Globalization
 
 module App =
     type Scopes = videos = 0 | playlist = 1 | channel = 2
@@ -184,9 +188,40 @@ module App =
 
         stack*)
 
+        // see https://docs.fabulous.dev/basics/user-interface/styling
+    [<Extension>]
+    type SharedStyle =
+        [<Extension>]
+        static member inline marked(this: WidgetBuilder<'msg, #IFabRun>) =
+            this.stroke(Colors.Blue)
 
     let renderSearchResult (result: VideoSearchResult) =
         VStack() {
+        // see https://github.com/AvaloniaUI/Avalonia/discussions/9654
+            //let inlines = InlineCollection()
+            //let textBlock = TextBlock("")
+            //textBlock.Yield(Run(result.Video.Title)) |> textBlock.Run
+            //textBlock.Run ()
+
+            // Extract the matched substring from the single PaddedMatch
+            //let paddedMatch = result.TitleMatches
+            //let matchedSubstring = paddedMatch.Value.Substring(paddedMatch.Start, paddedMatch.Length)
+
+            // Create a Run for the matched substring
+            //let run = Run()
+
+            //run.
+            // Add the Run to the TextBlock
+            //textBlock.Text <- textBlock.Text + run.Text
+
+            // If there is padding after the matched substring, add the padding as a separate Run
+            (*if paddedMatch.End < paddedMatch.Value.Length - 1 then
+                let paddingLength = paddedMatch.Value.Length - paddedMatch.End - 1
+                let padding = paddedMatch.Value.Substring(paddedMatch.End + 1, paddingLength)
+                textBlock.Spans.Add(Run(padding))*)
+
+            // Add the TextBlock to the UI
+            //textBlock
             TextBlock(result.Video.Title)
             TextBlock("uploaded " + result.Video.Uploaded.ToString())
         }
