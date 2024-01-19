@@ -1,8 +1,10 @@
 ﻿namespace Ui
 
 open System
+open System.Runtime.CompilerServices
 open System.Threading
 open Avalonia.Controls
+open Avalonia.Media
 open Avalonia.Themes.Fluent
 open Fabulous
 open Fabulous.Avalonia
@@ -200,6 +202,12 @@ module App =
 
         | Reset -> initModel, Cmd.none
 
+    // see https://docs.fabulous.dev/basics/user-interface/styling
+    [<Extension>]
+    type SharedStyle =
+
+        [<Extension>]
+        static member inline demoted(this: WidgetBuilder<'msg, IFabTextBlock>) = this.foreground(Colors.Gray)
 
     let private displayScope = function
     | Scopes.videos -> "📼 videos"
@@ -213,10 +221,28 @@ module App =
     | OpenOutputOptions.folder -> "📂 folder"
     | _ -> failwith "unknown Show Option"
 
-    let private renderSearchResult (result: VideoSearchResult) =
+    // see https://github.com/AvaloniaUI/Avalonia/discussions/9654
+    let private writeHighlightingMatches (matched: MatchedText) (matchPadding: uint32 option) =
+        let tb = TextBlock()
+        let padding = match matchPadding with Some value -> Nullable(value) | None -> Nullable()
+
+        let runs = matched.WriteHighlightingMatches(
+            (fun text -> Run(text)),
+            (fun text -> Run(text).foreground(Colors.Orange)),
+            padding)
+
+        let contents = runs |> Seq.map tb.Yield |> Seq.toList
+        let content = Seq.fold (fun agg cont -> tb.Combine(agg, cont)) contents.Head contents.Tail
+        tb.Run content
+
+    let private renderSearchResult (matchPadding: uint32) (result: VideoSearchResult) =
         VStack() {
-            TextBlock(result.Video.Title)
-            TextBlock("uploaded " + result.Video.Uploaded.ToString())
+            match result.TitleMatches with
+            | null -> TextBlock result.Video.Title
+            | matches -> writeHighlightingMatches matches None
+
+            TextBlock("📅" + result.Video.Uploaded.ToString())
+                .tip(ToolTip("uploaded"))
         }
 
     (*  see for F#
@@ -330,7 +356,7 @@ module App =
             }).gridRow(3).isVisible(model.DisplayOutputOptions)
 
             // results
-            View.ListBox(model.SearchResults, renderSearchResult).gridRow(4)
+            View.ListBox(model.SearchResults, renderSearchResult (model.Padding |> uint32)).gridRow(4)
         }
 
 #if MOBILE
