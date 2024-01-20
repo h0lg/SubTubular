@@ -66,6 +66,8 @@ module App =
         | SearchResult of VideoSearchResult
         | SearchProgress of BatchProgress
         | SearchCompleted
+
+        | OpenUrl of string
         | Reset
 
     let private mapToSearchCommand model =
@@ -200,6 +202,7 @@ module App =
 
             { model with Scopes = scopes }, Cmd.none
 
+        | OpenUrl url -> model, (fun _ -> ShellCommands.OpenUri(url); Cmd.none)()
         | Reset -> initModel, Cmd.none
 
     // see https://docs.fabulous.dev/basics/user-interface/styling
@@ -237,12 +240,19 @@ module App =
 
     let private renderSearchResult (matchPadding: uint32) (result: VideoSearchResult) =
         VStack() {
-            match result.TitleMatches with
-            | null -> TextBlock result.Video.Title
-            | matches -> writeHighlightingMatches matches None
+            Grid(coldefs = [Auto; Auto; Star], rowdefs = [Auto]){
+                (match result.TitleMatches with
+                | null -> TextBlock result.Video.Title
+                | matches -> writeHighlightingMatches matches None).gridColumn(0)
 
-            TextBlock("📅" + result.Video.Uploaded.ToString())
-                .tip(ToolTip("uploaded"))
+                Button("↗", OpenUrl (Youtube.GetVideoUrl result.Video.Id))
+                    .tip(ToolTip("Open video in browser"))
+                    .padding(5, 1).gridColumn(1)
+
+                TextBlock("📅" + result.Video.Uploaded.ToString())
+                    .tip(ToolTip("uploaded"))
+                    .textAlignment(TextAlignment.Right).gridColumn(2)
+            }
         }
 
     (*  see for F#
