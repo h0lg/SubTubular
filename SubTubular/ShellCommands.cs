@@ -6,7 +6,7 @@ namespace SubTubular;
 
 public static class ShellCommands
 {
-    internal static void OpenUri(string uri) // from https://stackoverflow.com/a/61035650
+    public static void OpenUri(string uri) // from https://stackoverflow.com/a/61035650
         => Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true });
 
     // from https://stackoverflow.com/a/53245993

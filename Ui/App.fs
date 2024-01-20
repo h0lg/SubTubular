@@ -60,6 +60,8 @@ module App =
         | Search of bool
         | SearchResult of VideoSearchResult
         | SearchCompleted
+
+        | OpenUrl of string
         | Reset
 
     let displayScope = function
@@ -165,6 +167,8 @@ module App =
         | Search on -> { model with Searching = on; SearchResults = [] }, (if on then searchCmd model else Cmd.none)
         | SearchResult result -> { model with SearchResults = result::model.SearchResults }, Cmd.none
         | SearchCompleted -> { model with Searching = false }, Cmd.none
+
+        | OpenUrl url -> model, (fun _ -> ShellCommands.OpenUri(url); Cmd.none)()
         | Reset -> initModel, Cmd.none
 
     (*TODO look at ToggleSplitButton implementation
@@ -185,7 +189,7 @@ module App =
     [<Extension>]
     type SharedStyle =
         static write = fun text -> Run(text)
-        static highlight = fun text -> Run(text).foreground(Colors.Orange)
+        static highlight = fun text -> Run(text).foreground(Colors.Blue)
 
         [<Extension>]
         static member inline marked(this: WidgetBuilder<'msg, #IFabRun>) =
@@ -208,12 +212,14 @@ module App =
 
     let renderSearchResult (result: VideoSearchResult) =
         VStack() {
-            match result.TitleMatches with
-            | null -> TextBlock result.Video.Title
-            | matches -> matches.writeHighlightingMatches()
+            Grid(coldefs = [Star; Auto; Auto], rowdefs = [Auto]){
+                (match result.TitleMatches with
+                | null -> TextBlock result.Video.Title
+                | matches -> matches.writeHighlightingMatches()).gridColumn(0)
 
-            TextBlock("📅" + result.Video.Uploaded.ToString())
-                .tip(ToolTip("uploaded"))
+                Button("link", OpenUrl (Youtube.GetVideoUrl(result.Video.Id))).gridColumn(1)
+                TextBlock("uploaded " + result.Video.Uploaded.ToString()).gridColumn(2)
+            }
         }
 
     (*  see for F#
