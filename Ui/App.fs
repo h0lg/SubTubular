@@ -2,7 +2,6 @@
 
 open System
 open Avalonia.Controls
-open Avalonia.Controls.Documents
 open Avalonia.Themes.Fluent
 open Fabulous
 open Fabulous.Avalonia
@@ -13,8 +12,6 @@ open FSharp.Control
 open System.Threading
 open System.Runtime.CompilerServices
 open Avalonia.Media
-open System.Globalization
-open System.Collections.Generic
 
 module App =
     type Scopes = videos = 0 | playlist = 1 | channel = 2
@@ -148,9 +145,7 @@ module App =
 
     let init () = initModel, Cmd.none
 
-
-    let rec update msg model =
-        //let dispatchSearchResult msg = update msg model |> ignore
+    let update msg model =
         match msg with
         | ScopeChanged args -> { model with Scope = args.AddedItems.Item 0 :?> Scopes }, Cmd.none
         | AliasesUpdated txt -> { model with Aliases = txt }, Cmd.none
@@ -165,13 +160,10 @@ module App =
         | OutputChanged output -> { model with DisplayOutputOptions = output }, Cmd.none
         | OutputHtmlChanged value -> { model with OutputHtml = value }, Cmd.none
         | OutputToChanged path -> { model with OutputTo = path }, Cmd.none
-        | OpenOutputChanged args ->
-            { model with OpenOutput = args.AddedItems.Item 0 :?> OpenOutputOptions },
-            Cmd.none
+        | OpenOutputChanged args -> { model with OpenOutput = args.AddedItems.Item 0 :?> OpenOutputOptions }, Cmd.none
 
         | Search on -> { model with Searching = on; SearchResults = [] }, (if on then searchCmd model else Cmd.none)
-        | SearchResult result -> 
-            { model with SearchResults = result::model.SearchResults }, Cmd.none
+        | SearchResult result -> { model with SearchResults = result::model.SearchResults }, Cmd.none
         | SearchCompleted -> { model with Searching = false }, Cmd.none
         | Reset -> initModel, Cmd.none
 
@@ -193,7 +185,7 @@ module App =
     [<Extension>]
     type SharedStyle =
         static write = fun text -> Run(text)
-        static highlight = fun text -> Run(text).foreground(Colors.Blue)
+        static highlight = fun text -> Run(text).foreground(Colors.Orange)
 
         [<Extension>]
         static member inline marked(this: WidgetBuilder<'msg, #IFabRun>) =
@@ -220,7 +212,8 @@ module App =
             | null -> TextBlock result.Video.Title
             | matches -> matches.writeHighlightingMatches()
 
-            TextBlock("uploaded " + result.Video.Uploaded.ToString())
+            TextBlock("📅" + result.Video.Uploaded.ToString())
+                .tip(ToolTip("uploaded"))
         }
 
     (*  see for F#
