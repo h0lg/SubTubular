@@ -200,14 +200,20 @@ module App =
         VStack() {
         // see https://github.com/AvaloniaUI/Avalonia/discussions/9654
             //let inlines = InlineCollection
-            let tb = TextBlock()
 
-            Run(result.Video.Title) |> tb.Yield |> tb.Run
+            //let _ = Run(result.Video.Title) |> tb.Yield |> tb.Run
 
-            (*result.TitleMatches.WriteHighlightingMatches(
-                (fun text -> Run(text) |> tb.Yield |> ignore),
-                (fun text -> Run(text).foreground(Colors.Blue) |> tb.Yield |> ignore),
-                None |> uint32 option)*)
+            if result.TitleMatches <> null then
+                let tb = TextBlock()
+
+                for run in result.TitleMatches.WriteHighlightingMatches(
+                    (fun text -> Run(text)),
+                    (fun text -> Run(text).foreground(Colors.Blue)),
+                    Nullable()) do 
+                    run |> tb.Yield |> tb.Run
+
+                //tb.
+            else TextBlock result.Video.Title
 
             (*TextBlock() {
                 yield! result.TitleMatches.WriteHighlightingMatches((fun text -> Run(text)), (fun text -> Run(text).foreground(Colors.Blue)), None |> uint32 option)
