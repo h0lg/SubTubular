@@ -200,13 +200,14 @@ module App =
             this.foreground(Colors.Blue) |> ignore
             this
 
+        // see https://github.com/AvaloniaUI/Avalonia/discussions/9654
+        //View.map ?
         [<Extension>]
         static member inline writeHighlightingMatches(this: MatchedText) =
             let tb = TextBlock()
             let runs = this.WriteHighlightingMatches(SharedStyle.write, SharedStyle.highlight, Nullable())
             let contents = runs |> Seq.map tb.Yield |> Seq.toList
-            let content = Seq.fold (fun agg cont -> tb.Combine(agg, cont)) contents.Head contents
-
+            let content = Seq.fold (fun agg cont -> tb.Combine(agg, cont)) contents.Head contents.Tail
             tb.Run content
 
         (*[<Extension>]
@@ -215,15 +216,9 @@ module App =
 
     let renderSearchResult (result: VideoSearchResult) =
         VStack() {
-            // see https://github.com/AvaloniaUI/Avalonia/discussions/9654
-            //View.map ?
-            
             match result.TitleMatches with
             | null -> TextBlock result.Video.Title
             | matches -> matches.writeHighlightingMatches()
-
-            (*if result.TitleMatches <> null then result.TitleMatches.writeHighlightingMatches()
-            else TextBlock result.Video.Title*)
 
             TextBlock("uploaded " + result.Video.Uploaded.ToString())
         }
