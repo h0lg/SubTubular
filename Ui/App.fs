@@ -199,10 +199,19 @@ module App =
     let renderSearchResult (result: VideoSearchResult) =
         VStack() {
         // see https://github.com/AvaloniaUI/Avalonia/discussions/9654
-            //let inlines = InlineCollection()
-            TextBlock() {
-                Run(result.Video.Title)
-            }
+            //let inlines = InlineCollection
+            let tb = TextBlock()
+
+            Run(result.Video.Title) |> tb.Yield |> tb.Run
+
+            (*result.TitleMatches.WriteHighlightingMatches(
+                (fun text -> Run(text) |> tb.Yield |> ignore),
+                (fun text -> Run(text).foreground(Colors.Blue) |> tb.Yield |> ignore),
+                None |> uint32 option)*)
+
+            (*TextBlock() {
+                yield! result.TitleMatches.WriteHighlightingMatches((fun text -> Run(text)), (fun text -> Run(text).foreground(Colors.Blue)), None |> uint32 option)
+            }*)
 
             TextBlock("uploaded " + result.Video.Uploaded.ToString())
 
