@@ -192,88 +192,40 @@ module App =
         // see https://docs.fabulous.dev/basics/user-interface/styling
     [<Extension>]
     type SharedStyle =
+        static write = fun text -> Run(text)
+        static highlight = fun text -> Run(text).foreground(Colors.Blue)
+
         [<Extension>]
         static member inline marked(this: WidgetBuilder<'msg, #IFabRun>) =
             this.foreground(Colors.Blue) |> ignore
             this
 
-        (*/// <summary>Sets the SpreadMethod property.</summary>
-        /// <param name="this">Current widget.</param>
-        /// <param name="value">The SpreadMethod value.</param>
         [<Extension>]
+        static member inline writeHighlightingMatches(this: MatchedText) =
+            let tb = TextBlock()
+            let runs = this.WriteHighlightingMatches(SharedStyle.write, SharedStyle.highlight, Nullable())
+            let contents = runs |> Seq.map tb.Yield |> Seq.toList
+            let content = Seq.fold (fun agg cont -> tb.Combine(agg, cont)) contents.Head contents
+
+            tb.Run content
+
+        (*[<Extension>]
         static member inline inlines(this: WidgetBuilder<'msg, #IFabTextBlock>, value: IEnumerable<#IFabInline>) =
             this.AddWidgetCollection(TextBlock.Inlines.WithValue(value))*)
 
     let renderSearchResult (result: VideoSearchResult) =
         VStack() {
-        // see https://github.com/AvaloniaUI/Avalonia/discussions/9654
-            //let inlines = InlineCollection
-
-            //let _ = Run(result.Video.Title) |> tb.Yield |> tb.Run
-
-            (*TextBlock(){
-                Run("test")
-                Run("blue").foreground(Colors.Blue)
-                Run("block")
-            }*)
-
+            // see https://github.com/AvaloniaUI/Avalonia/discussions/9654
             //View.map ?
             
-            (*TextBlock(){
+            match result.TitleMatches with
+            | null -> TextBlock result.Video.Title
+            | matches -> matches.writeHighlightingMatches()
 
-                //TextBlock.Inlines = []
-                TextBlock.Inlines = result.TitleMatches.WriteHighlightingMatches(
-                    (fun text -> Run(text)),
-                    (fun text -> Run(text).foreground(Colors.Blue)),
-                    Nullable())
-            }*)
-
-            let write = fun text -> Run(text)
-            let highlight = fun text -> Run(text).foreground(Colors.Blue)
-
-            if result.TitleMatches <> null then
-                let tb = TextBlock()
-                let runs = result.TitleMatches.WriteHighlightingMatches(write, highlight, Nullable())
-                let contents = runs |> Seq.map tb.Yield |> Seq.toList
-                let content = Seq.fold (fun agg cont -> tb.Combine(agg, cont)) contents.Head contents
-
-                tb.Run content
-                //TextBlock ""
-
-                    //Seq.fold tb.Combine co
-
-                //tb.
-            else TextBlock result.Video.Title
-
-            (*TextBlock() {
-                yield! result.TitleMatches.WriteHighlightingMatches((fun text -> Run(text)), (fun text -> Run(text).foreground(Colors.Blue)), None |> uint32 option)
-            }*)
+            (*if result.TitleMatches <> null then result.TitleMatches.writeHighlightingMatches()
+            else TextBlock result.Video.Title*)
 
             TextBlock("uploaded " + result.Video.Uploaded.ToString())
-
-            //textBlock.Yield(Run(result.Video.Title)) |> textBlock.Run
-            //textBlock.Run ()
-
-            // Extract the matched substring from the single PaddedMatch
-            //let paddedMatch = result.TitleMatches
-            //let matchedSubstring = paddedMatch.Value.Substring(paddedMatch.Start, paddedMatch.Length)
-
-            // Create a Run for the matched substring
-            //let run = Run()
-
-            //run.
-            // Add the Run to the TextBlock
-            //textBlock.Text <- textBlock.Text + run.Text
-
-            // If there is padding after the matched substring, add the padding as a separate Run
-            (*if paddedMatch.End < paddedMatch.Value.Length - 1 then
-                let paddingLength = paddedMatch.Value.Length - paddedMatch.End - 1
-                let padding = paddedMatch.Value.Substring(paddedMatch.End + 1, paddingLength)
-                textBlock.Spans.Add(Run(padding))*)
-
-            // Add the TextBlock to the UI
-            //textBlock
-            //Avalonia.Controls.TextBlock().
         }
 
     (*  see for F#
