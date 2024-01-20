@@ -189,7 +189,7 @@ module App =
     [<Extension>]
     type SharedStyle =
         static write = fun text -> Run(text)
-        static highlight = fun text -> Run(text).foreground(Colors.Blue)
+        static highlight = fun text -> Run(text).foreground(Colors.Orange)
 
         [<Extension>]
         static member inline marked(this: WidgetBuilder<'msg, #IFabRun>) =
@@ -212,13 +212,18 @@ module App =
 
     let renderSearchResult (result: VideoSearchResult) =
         VStack() {
-            Grid(coldefs = [Star; Auto; Auto], rowdefs = [Auto]){
+            Grid(coldefs = [Auto; Auto; Star], rowdefs = [Auto]){
                 (match result.TitleMatches with
                 | null -> TextBlock result.Video.Title
                 | matches -> matches.writeHighlightingMatches()).gridColumn(0)
 
-                Button("link", OpenUrl (Youtube.GetVideoUrl(result.Video.Id))).gridColumn(1)
-                TextBlock("uploaded " + result.Video.Uploaded.ToString()).gridColumn(2)
+                Button("↗", OpenUrl (Youtube.GetVideoUrl result.Video.Id))
+                    .tip(ToolTip("Open video in browser"))
+                    .padding(5, 1).gridColumn(1)
+
+                TextBlock("📅" + result.Video.Uploaded.ToString())
+                    .tip(ToolTip("uploaded"))
+                    .textAlignment(TextAlignment.Right).gridColumn(2)
             }
         }
 
