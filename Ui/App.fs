@@ -14,6 +14,7 @@ open System.Threading
 open System.Runtime.CompilerServices
 open Avalonia.Media
 open System.Globalization
+open System.Collections.Generic
 
 module App =
     type Scopes = videos = 0 | playlist = 1 | channel = 2
@@ -196,6 +197,13 @@ module App =
             this.foreground(Colors.Blue) |> ignore
             this
 
+        (*/// <summary>Sets the SpreadMethod property.</summary>
+        /// <param name="this">Current widget.</param>
+        /// <param name="value">The SpreadMethod value.</param>
+        [<Extension>]
+        static member inline inlines(this: WidgetBuilder<'msg, #IFabTextBlock>, value: IEnumerable<#IFabInline>) =
+            this.AddWidgetCollection(TextBlock.Inlines.WithValue(value))*)
+
     let renderSearchResult (result: VideoSearchResult) =
         VStack() {
         // see https://github.com/AvaloniaUI/Avalonia/discussions/9654
@@ -203,14 +211,36 @@ module App =
 
             //let _ = Run(result.Video.Title) |> tb.Yield |> tb.Run
 
-            if result.TitleMatches <> null then
-                let tb = TextBlock()
+            (*TextBlock(){
+                Run("test")
+                Run("blue").foreground(Colors.Blue)
+                Run("block")
+            }*)
 
-                for run in result.TitleMatches.WriteHighlightingMatches(
+            //View.map ?
+            
+            (*TextBlock(){
+
+                //TextBlock.Inlines = []
+                TextBlock.Inlines = result.TitleMatches.WriteHighlightingMatches(
                     (fun text -> Run(text)),
                     (fun text -> Run(text).foreground(Colors.Blue)),
-                    Nullable()) do 
-                    run |> tb.Yield |> tb.Run
+                    Nullable())
+            }*)
+
+            let write = fun text -> Run(text)
+            let highlight = fun text -> Run(text).foreground(Colors.Blue)
+
+            if result.TitleMatches <> null then
+                let tb = TextBlock()
+                let runs = result.TitleMatches.WriteHighlightingMatches(write, highlight, Nullable())
+                let contents = runs |> Seq.map tb.Yield |> Seq.toList
+                let content = Seq.fold (fun agg cont -> tb.Combine(agg, cont)) contents.Head contents
+
+                tb.Run content
+                //TextBlock ""
+
+                    //Seq.fold tb.Combine co
 
                 //tb.
             else TextBlock result.Video.Title
