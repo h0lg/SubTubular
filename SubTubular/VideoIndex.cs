@@ -39,10 +39,10 @@ public sealed class VideoIndexRepository
 
     internal VideoIndex Build(string key)
     {
-        VideoIndex videoIndex = null;
+        VideoIndex? videoIndex = null;
 
         // see https://mikegoatly.github.io/lifti/docs/index-construction/withindexmodificationaction/
-        FullTextIndex<string> index = CreateIndexBuilder().WithIndexModificationAction(async idx => await SaveAsync(videoIndex, key)).Build();
+        FullTextIndex<string> index = CreateIndexBuilder().WithIndexModificationAction(async _idx => await SaveAsync(videoIndex!, key)).Build();
 
         videoIndex = new VideoIndex(index);
         return videoIndex;
@@ -50,7 +50,7 @@ public sealed class VideoIndexRepository
 
     private string GetPath(string key) => Path.Combine(directory, key + FileExtension);
 
-    internal async ValueTask<VideoIndex> GetAsync(string key)
+    internal async ValueTask<VideoIndex?> GetAsync(string key)
     {
         var path = GetPath(key);
         var file = new FileInfo(path);
@@ -117,14 +117,14 @@ internal sealed class VideoIndex
     /// <see cref="PlaylistLikeScope.OrderOptions.uploaded"/>.</param>
     internal async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command,
         Func<string, CancellationToken, Task<Video>> getVideoAsync,
-        IDictionary<string, DateTime?> relevantVideos = default,
-        Func<IEnumerable<Video>, Task> updatePlaylistVideosUploaded = default,
+        IDictionary<string, DateTime?>? relevantVideos = default,
+        Func<IEnumerable<Video>, Task>? updatePlaylistVideosUploaded = default,
         [EnumeratorCancellation] CancellationToken cancellation = default)
     {
         cancellation.ThrowIfCancellationRequested();
         IEnumerable<SearchResult<string>> results;
 
-        try { results = Index.Search(command.Query); }
+        try { results = Index.Search(command.Query!); }
         catch (QueryParserException ex) { throw new InputException("Error parsing query from --for | -f parameter: " + ex.Message, ex); }
 
         var matches = results
@@ -164,8 +164,8 @@ internal sealed class VideoIndex
             if (searchPlaylist.OrderBy.ContainsAny(PlaylistLikeScope.Orders))
             {
                 var orderded = searchPlaylist.OrderBy.Contains(PlaylistLikeScope.OrderOptions.asc)
-                    ? matches.OrderBy(m => orderByUploaded ? relevantVideos[m.Key] : m.Score as object)
-                    : matches.OrderByDescending(m => orderByUploaded ? relevantVideos[m.Key] : m.Score as object);
+                    ? matches.OrderBy(m => orderByUploaded ? relevantVideos![m.Key] : m.Score as object)
+                    : matches.OrderByDescending(m => orderByUploaded ? relevantVideos![m.Key] : m.Score as object);
 
                 matches = orderded.ToList();
             }
@@ -230,6 +230,7 @@ internal sealed class VideoIndex
                         keywordInfo = keywordInfos.TakeWhile(info => info.Start <= location.Start).Last()
                     })
                     .GroupBy(x => x.keywordInfo.index) // group matches by keyword
+                    .OrderBy(g => g.Key)
                     .Select(g => new PaddedMatch(video.Keywords[g.Key],
                         g.Select(x => new PaddedMatch.IncludedMatch
                         {

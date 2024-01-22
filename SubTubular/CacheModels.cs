@@ -18,10 +18,10 @@ public sealed class Video
 {
     internal const string StorageKeyPrefix = "video ";
 
-    public string Id { get; set; }
-    public string Title { get; set; }
-    public string Description { get; set; }
-    public string[] Keywords { get; set; }
+    public required string Id { get; set; }
+    public required string Title { get; set; }
+    public required string Description { get; set; }
+    public required string[] Keywords { get; set; }
 
     /// <summary>Upload time in UTC.</summary>
     public DateTime Uploaded { get; set; }
@@ -36,32 +36,35 @@ public sealed class Video
 [Serializable]
 public sealed class CaptionTrack
 {
-    public string LanguageName { get; set; }
-    public string Url { get; set; }
-    public List<Caption> Captions { get; set; }
-    public string Error { get; set; }
-    public string ErrorMessage { get; set; }
+    public required string LanguageName { get; set; }
+    public required string Url { get; set; }
+    public List<Caption>? Captions { get; set; }
+    public string? Error { get; set; }
+    public string? ErrorMessage { get; set; }
 
     #region FullText
     internal const string FullTextSeperator = " ";
-    private string fullText;
-    private Dictionary<int, Caption> captionAtFullTextIndex;
+    private string? fullText;
+    private Dictionary<int, Caption>? captionAtFullTextIndex;
 
     // aggregates captions into fullText to enable matching phrases across caption boundaries
     internal string GetFullText()
     {
         if (fullText == null) CacheFullText();
-        return fullText;
+        return fullText!;
     }
 
     internal Dictionary<int, Caption> GetCaptionAtFullTextIndex()
     {
         if (captionAtFullTextIndex == null) CacheFullText();
-        return captionAtFullTextIndex;
+        return captionAtFullTextIndex!;
     }
 
     private void CacheFullText()
     {
+        if (Captions == null) throw new InvalidOperationException(
+            "You may only call whis method on instances with " + nameof(Captions));
+
         var writer = new StringBuilder();
         var captionsAtFullTextIndex = new Dictionary<int, Caption>();
 
@@ -86,7 +89,7 @@ public sealed class Caption
     /// <summary>The offset from the start of the video in seconds.</summary>
     public int At { get; set; }
 
-    public string Text { get; set; }
+    public required string Text { get; set; }
 
     // for comparing captions when finding them in a caption track
     public override int GetHashCode() => HashCode.Combine(At, Text);
@@ -99,14 +102,14 @@ public sealed class ChannelAliasMap
 {
     internal const string StorageKey = "known channel alias maps";
 
-    public string Type { get; set; }
-    public string Value { get; set; }
-    public string ChannelId { get; set; }
+    public required string Type { get; set; }
+    public required string Value { get; set; }
+    public string? ChannelId { get; set; }
 
-    internal static (string, string) GetTypeAndValue(object alias) => (alias.GetType().Name, alias.ToString());
+    internal static (string, string) GetTypeAndValue(object alias) => (alias.GetType().Name, alias.ToString()!);
 
-    internal static Task<List<ChannelAliasMap>> LoadList(DataStore dataStore)
-        => dataStore.GetAsync<List<ChannelAliasMap>>(StorageKey);
+    internal static async Task<List<ChannelAliasMap>> LoadList(DataStore dataStore)
+        => await dataStore.GetAsync<List<ChannelAliasMap>>(StorageKey) ?? [];
 
     internal static Task SaveList(List<ChannelAliasMap> maps, DataStore dataStore)
         => dataStore.SetAsync(StorageKey, maps);

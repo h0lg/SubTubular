@@ -46,7 +46,7 @@ public sealed class Youtube
         SearchCommand command, [EnumeratorCancellation] CancellationToken cancellation = default)
     {
         cancellation.ThrowIfCancellationRequested();
-        var playListLike = command.Scope as PlaylistLikeScope;
+        var playListLike = (PlaylistLikeScope)command.Scope;
         var storageKey = playListLike.StorageKey;
         var index = await videoIndexRepo.GetAsync(storageKey);
         if (index == null) index = videoIndexRepo.Build(storageKey);
@@ -147,7 +147,7 @@ public sealed class Youtube
     private IAsyncEnumerable<PlaylistVideo> GetVideosAsync(PlaylistLikeScope command, CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
-        if (command is ChannelScope searchChannel) return Client.Channels.GetUploadsAsync(searchChannel.ValidId, cancellation);
+        if (command is ChannelScope searchChannel) return Client.Channels.GetUploadsAsync(searchChannel.ValidId!, cancellation);
         if (command is PlaylistScope searchPlaylist) return Client.Playlists.GetVideosAsync(searchPlaylist.Playlist, cancellation);
         throw new NotImplementedException($"Getting videos for the {command.GetType()} is not implemented.");
     }
@@ -157,7 +157,7 @@ public sealed class Youtube
         Func<IEnumerable<Video>, Task> updatePlaylistVideosUploaded)
     {
         cancellation.ThrowIfCancellationRequested();
-        var storageKey = (command.Scope as PlaylistLikeScope).StorageKey;
+        var storageKey = ((PlaylistLikeScope)command.Scope).StorageKey;
 
         /* limit channel capacity to avoid holding a lot of loaded but unprocessed videos in memory
             SingleReader because we're reading from it synchronously */
@@ -239,7 +239,7 @@ public sealed class Youtube
     {
         var videoResults = Pipe.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions() { SingleReader = true });
 
-        var searches = (command.Scope as VideosScope).ValidIds.Select(async videoId =>
+        var searches = ((VideosScope)command.Scope).ValidIds!.Select(async videoId =>
         {
             var result = await SearchVideoAsync(videoId, command, cancellation);
             if (result != null) await videoResults.Writer.WriteAsync(result);
@@ -263,7 +263,7 @@ public sealed class Youtube
     }
 
     /// <summary>Searches the video with <paramref name="videoId"/> according to the <paramref name="command"/>.</summary>
-    private async Task<VideoSearchResult> SearchVideoAsync(string videoId, SearchCommand command, CancellationToken cancellation)
+    private async Task<VideoSearchResult?> SearchVideoAsync(string videoId, SearchCommand command, CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
         var storageKey = Video.StorageKeyPrefix + videoId;
@@ -294,7 +294,7 @@ public sealed class Youtube
     {
         string[] videoIds;
 
-        if (command.Scope is VideosScope searchVideos) videoIds = searchVideos.ValidIds;
+        if (command.Scope is VideosScope searchVideos) videoIds = searchVideos.ValidIds!;
         else if (command.Scope is PlaylistLikeScope searchPlaylist)
         {
             var playlist = await GetPlaylistAsync(searchPlaylist, cancellation);
@@ -345,8 +345,8 @@ public sealed class Youtube
             are cleaned of duplicates and ordered by time.
             This may be moved into DownloadCaptionTracksAsync() in a future version
             when we can be reasonably sure caches in the wild are sanitized. */
-        foreach (var track in video.CaptionTracks)
-            track.Captions = track.Captions.Distinct().OrderBy(c => c.At).ToList();
+        foreach (var track in video.CaptionTracks.Where(t => t.Captions != null))
+            track.Captions = track.Captions!.Distinct().OrderBy(c => c.At).ToList();
 
         return video;
     }
@@ -393,15 +393,15 @@ public sealed class Youtube
 
 public sealed class VideoSearchResult
 {
-    public Video Video { get; set; }
-    public PaddedMatch TitleMatches { get; set; }
-    public PaddedMatch[] DescriptionMatches { get; set; }
-    public PaddedMatch[] KeywordMatches { get; set; }
-    public CaptionTrackResult[] MatchingCaptionTracks { get; set; }
+    public required Video Video { get; set; }
+    public PaddedMatch? TitleMatches { get; set; }
+    public PaddedMatch[]? DescriptionMatches { get; set; }
+    public PaddedMatch[]? KeywordMatches { get; set; }
+    public CaptionTrackResult[]? MatchingCaptionTracks { get; set; }
 
     public sealed class CaptionTrackResult
     {
-        public CaptionTrack Track { get; set; }
-        public List<(PaddedMatch, Caption)> Matches { get; set; }
+        public required CaptionTrack Track { get; set; }
+        public required List<(PaddedMatch, Caption)> Matches { get; set; }
     }
 }

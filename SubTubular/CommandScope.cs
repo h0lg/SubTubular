@@ -6,7 +6,7 @@ public abstract class CommandScope
 {
     /// <summary>A collection of validated URLs for the entities included in the scope.
     /// It translates non-URI identifiers in the scope of YouTube into URIs for <see cref="OutputCommand"/>s.</summary>
-    public IEnumerable<string> ValidUrls { get; internal set; }
+    public IEnumerable<string>? ValidUrls { get; internal set; }
 
     /// <summary>Provides a description of the scope for <see cref="OutputCommand.Describe"/>.</summary>
     internal abstract string Describe();
@@ -18,10 +18,10 @@ public class VideosScope : CommandScope
     public IEnumerable<string> Videos { get; set; }
 
     /// <summary>Validated video IDs from <see cref="Videos"/>.</summary>
-    internal string[] ValidIds { get; set; }
+    internal string[]? ValidIds { get; set; }
 
     /// <inheritdoc />
-    internal override string Describe() => "videos " + ValidIds.Join(" ");
+    internal override string Describe() => "videos " + (ValidIds ?? Videos).Join(" ");
 }
 
 public abstract class PlaylistLikeScope : CommandScope
@@ -31,7 +31,7 @@ public abstract class PlaylistLikeScope : CommandScope
     protected abstract string KeyPrefix { get; }
 
     /// <summary>The validated ID for this <see cref="PlaylistLikeScope"/>.</summary>
-    protected internal string ValidId { get; set; }
+    protected internal string? ValidId { get; set; }
 
     /// <summary>A unique identifier for the storing this <see cref="PlaylistLikeScope"/>,
     /// capturing its type and <see cref="ValidId"/>.</summary>
@@ -68,5 +68,5 @@ public class ChannelScope : PlaylistLikeScope
 
     public string Alias { get; set; }
     protected override string KeyPrefix => StorageKeyPrefix;
-    internal object[] ValidAliases { get; set; }
+    internal object[]? ValidAliases { get; set; }
 }

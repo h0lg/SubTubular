@@ -19,16 +19,16 @@ public static class AssemblyInfo
     {
         var assembly = Assembly.GetExecutingAssembly();
         Location = assembly.Location;
-        Title = assembly.GetCustomAttribute<AssemblyTitleAttribute>()?.Title;
-        Copyright = assembly.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright;
-        InformationalVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-        var version = assembly.GetName().Version.ToString();
-        Version = version.Remove(version.LastIndexOf('.'));
+        Title = assembly.GetCustomAttribute<AssemblyTitleAttribute>()?.Title ?? string.Empty;
+        Copyright = assembly.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright ?? string.Empty;
+        InformationalVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? string.Empty;
+        var version = assembly.GetName().Version?.ToString();
+        Version = version == null ? string.Empty : version.Remove(version.LastIndexOf('.'));
     }
 
     public static string GetProductVersion()
     {
-        try { return FileVersionInfo.GetVersionInfo(Location).ProductVersion; }
+        try { return FileVersionInfo.GetVersionInfo(Location).ProductVersion ?? Version; }
         catch { return Version; }
     }
 }

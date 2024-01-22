@@ -83,7 +83,7 @@ public sealed class PaddedMatch : Range<int>
     }
 
     public override int GetHashCode() => HashCode.Combine(base.GetHashCode(), Value);
-    public override bool Equals(object obj) => obj == null ? false : obj.GetHashCode() == GetHashCode();
+    public override bool Equals(object? obj) => obj == null ? false : obj.GetHashCode() == GetHashCode();
 
     // starting at zero or index minus padding
     private static int GetPaddedStartIndex(int start, ushort padding)

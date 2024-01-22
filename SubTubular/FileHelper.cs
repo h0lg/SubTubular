@@ -32,7 +32,7 @@ internal static class FileHelper
     internal static void CreateFolder(string filePath)
     {
         var targetFolder = Path.GetDirectoryName(filePath);
-        if (!Directory.Exists(targetFolder)) Directory.CreateDirectory(targetFolder);
+        if (targetFolder != null && !Directory.Exists(targetFolder)) Directory.CreateDirectory(targetFolder);
     }
 
     /// <summary>Asynchronously downloads a file from <paramref name="downloadUrl"/>
@@ -59,7 +59,7 @@ internal static class FileHelper
 
         foreach (var entry in archive.Entries.Where(e => !string.IsNullOrEmpty(e.Name)))
         {
-            var relativePath = hasWrappingFolder ? entry.FullName.Remove(0, wrappingFolder.Length) : entry.FullName;
+            var relativePath = hasWrappingFolder ? entry.FullName.Remove(0, wrappingFolder!.Length) : entry.FullName;
             var targetFilePath = Path.Combine(targetFolder, relativePath);
             CreateFolder(targetFilePath);
             entry.ExtractToFile(targetFilePath);
