@@ -33,7 +33,7 @@ public static class ReleaseManager
         if (string.IsNullOrEmpty(installInto)) // STEP 1, running in app to be replaced
         {
             // back up current app
-            var appFolder = Path.GetDirectoryName(AssemblyInfo.Location);
+            var appFolder = Path.GetDirectoryName(AssemblyInfo.Location)!;
             var archiveFolder = GetArchivePath(appFolder);
             var productInfo = AssemblyInfo.Name + " " + AssemblyInfo.Version;
             var backupFolder = Path.Combine(archiveFolder, productInfo.ToFileSafe());
@@ -57,7 +57,7 @@ public static class ReleaseManager
         else // STEP 2, running on backed up binaries of app to be replaced (in archive sub folder)
         {
             var archiveFolder = GetArchivePath(installInto);
-            var zipPath = Path.Combine(archiveFolder, release.BinariesZip.Name);
+            var zipPath = Path.Combine(archiveFolder, release.BinariesZip!.Name);
             var zipFile = new FileInfo(zipPath);
             report(Environment.NewLine); // to start in a new line below the prompt
 
@@ -133,20 +133,20 @@ public static class ReleaseManager
     [Serializable]
     public sealed class CacheModel
     {
-        public string Name { get; set; }
-        public string Version { get; set; }
-        public string HtmlUrl { get; set; }
+        public string? Name { get; set; }
+        public string Version { get; set; } = string.Empty;
+        public string HtmlUrl { get; set; } = string.Empty;
         public DateTime PublishedAt { get; set; }
 
         /// <summary>The .zip asset containing the binaries if <see cref="BinariesZipError"/> is null.</summary>
-        public BinariesZipAsset BinariesZip { get; set; }
+        public BinariesZipAsset? BinariesZip { get; set; }
 
         /// <summary>The error identifying the <see cref="BinariesZip"/>, if any.</summary>
-        public string BinariesZipError { get; set; }
+        public string? BinariesZipError { get; set; }
 
         public CacheModel() { } // required for serialization
 
-        internal CacheModel(Octokit.Release release)
+        internal CacheModel(Release release)
         {
             Name = release.Name;
             Version = release.TagName.TrimStart('v');
@@ -177,8 +177,8 @@ public static class ReleaseManager
         [Serializable]
         public sealed class BinariesZipAsset
         {
-            public string Name { get; set; }
-            public string DownloadUrl { get; set; }
+            public required string Name { get; set; }
+            public required string DownloadUrl { get; set; }
             public int Size { get; set; }
         }
     }
