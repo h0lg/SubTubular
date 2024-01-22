@@ -4,12 +4,14 @@ open System
 open System.Runtime.CompilerServices
 open System.Threading
 open Avalonia.Controls
+open Avalonia.Layout
 open Avalonia.Media
 open Avalonia.Themes.Fluent
 open Fabulous
 open Fabulous.Avalonia
 open FSharp.Control
 open SubTubular
+open SubTubular.Extensions
 open type Fabulous.Avalonia.View
 
 module App =
@@ -239,20 +241,58 @@ module App =
         tb.Run content
 
     let private renderSearchResult (matchPadding: uint32) (result: VideoSearchResult) =
+        let videoUrl = Youtube.GetVideoUrl result.Video.Id
+
         VStack() {
             Grid(coldefs = [Auto; Auto; Star], rowdefs = [Auto]){
                 (match result.TitleMatches with
                 | null -> TextBlock result.Video.Title
                 | matches -> writeHighlightingMatches matches None).gridColumn(0)
 
-                Button("↗", OpenUrl (Youtube.GetVideoUrl result.Video.Id))
+                Button("↗", OpenUrl videoUrl)
                     .tip(ToolTip("Open video in browser"))
-                    .padding(5, 1).gridColumn(1)
+                    .padding(5, 1).margin(5, 0).gridColumn(1)
 
                 TextBlock("📅" + result.Video.Uploaded.ToString())
                     .tip(ToolTip("uploaded"))
                     .textAlignment(TextAlignment.Right).gridColumn(2)
             }
+
+            if result.DescriptionMatches <> null then
+                HStack() {
+                    (TextBlock "in description").demoted()
+
+                    for matches in result.DescriptionMatches.SplitIntoPaddedGroups(matchPadding) do
+                        writeHighlightingMatches matches (Some matchPadding)
+                }
+
+            if result.KeywordMatches.HasAny() then
+                HStack() {
+                    (TextBlock "in keywords").demoted()
+
+                    for matches in result.KeywordMatches do
+                        writeHighlightingMatches matches None
+                }
+
+            if result.MatchingCaptionTracks.HasAny() then
+                for trackResult in result.MatchingCaptionTracks do
+                    TextBlock(trackResult.Track.LanguageName).demoted()
+                    let displaysHour = trackResult.HasMatchesWithHours(matchPadding)
+                    let splitMatches = trackResult.Matches.SplitIntoPaddedGroups(matchPadding)
+
+                    for matched in splitMatches do
+                        let (synced, captionAt) = trackResult.SyncWithCaptions(matched, matchPadding).ToTuple()
+                        let offset = TimeSpan.FromSeconds(captionAt).FormatWithOptionalHours().PadLeft(if displaysHour then 7 else 5)
+
+                        Grid(coldefs = [Auto; Auto; Star], rowdefs = [Auto]) {
+                            (TextBlock offset).demoted()
+
+                            Button("↗", OpenUrl $"{videoUrl}?t={captionAt}")
+                                .tip(ToolTip($"Open video at {offset} in browser"))
+                                .padding(5, 1).margin(5, 0).verticalAlignment(VerticalAlignment.Top).gridColumn(1)
+
+                            (writeHighlightingMatches synced (Some matchPadding)).gridColumn(2)
+                        }
         }
 
     (*  see for F#
