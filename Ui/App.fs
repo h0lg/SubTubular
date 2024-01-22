@@ -7,6 +7,7 @@ open Fabulous
 open Fabulous.Avalonia
 open type Fabulous.Avalonia.View
 open SubTubular
+open SubTubular.Extensions
 
 open FSharp.Control
 open System.Threading
@@ -64,19 +65,19 @@ module App =
         | OpenUrl of string
         | Reset
 
-    let displayScope = function
+    let private displayScope = function
     | Scopes.videos -> "📼 videos"
     | Scopes.playlist -> "▶️ playlist"
     | Scopes.channel -> "📺 channel"
     | _ -> failwith "unknown scope"
 
-    let displayOpenOutput = function
+    let private displayOpenOutput = function
     | OpenOutputOptions.nothing -> "nothing"
     | OpenOutputOptions.file -> "📄 file"
     | OpenOutputOptions.folder -> "📂 folder"
     | _ -> failwith "unknown Show Option"
 
-    let searchCmd model =
+    let private searchCmd model =
         fun dispatch ->
             async {
                 let cacheFolder = Folder.GetPath Folders.cache
@@ -196,35 +197,65 @@ module App =
             this.foreground(Colors.Blue) |> ignore
             this
 
-        // see https://github.com/AvaloniaUI/Avalonia/discussions/9654
-        //View.map ?
-        [<Extension>]
-        static member inline writeHighlightingMatches(this: MatchedText) =
-            let tb = TextBlock()
-            let runs = this.WriteHighlightingMatches(SharedStyle.write, SharedStyle.highlight, Nullable())
-            let contents = runs |> Seq.map tb.Yield |> Seq.toList
-            let content = Seq.fold (fun agg cont -> tb.Combine(agg, cont)) contents.Head contents.Tail
-            tb.Run content
+    // see https://github.com/AvaloniaUI/Avalonia/discussions/9654
+    //View.map ?
+    let private writeHighlightingMatches (matched: MatchedText) (matchPadding: uint32 option) =
+        let tb = TextBlock()
+        let padding = match matchPadding with Some value -> Nullable(value) | None -> Nullable()
+        let runs = matched.WriteHighlightingMatches(SharedStyle.write, SharedStyle.highlight, padding)
+        let contents = runs |> Seq.map tb.Yield |> Seq.toList
+        let content = Seq.fold (fun agg cont -> tb.Combine(agg, cont)) contents.Head contents.Tail
+        tb.Run content
 
         (*[<Extension>]
         static member inline inlines(this: WidgetBuilder<'msg, #IFabTextBlock>, value: IEnumerable<#IFabInline>) =
             this.AddWidgetCollection(TextBlock.Inlines.WithValue(value))*)
 
-    let renderSearchResult (result: VideoSearchResult) =
+    let private renderSearchResult (matchPadding: uint32) (result: VideoSearchResult) =
+        let videoUrl = Youtube.GetVideoUrl result.Video.Id
+
         VStack() {
             Grid(coldefs = [Auto; Auto; Star], rowdefs = [Auto]){
                 (match result.TitleMatches with
                 | null -> TextBlock result.Video.Title
-                | matches -> matches.writeHighlightingMatches()).gridColumn(0)
+                | matches -> writeHighlightingMatches matches None).gridColumn(0)
 
-                Button("↗", OpenUrl (Youtube.GetVideoUrl result.Video.Id))
+                Button("↗", OpenUrl videoUrl)
                     .tip(ToolTip("Open video in browser"))
-                    .padding(5, 1).gridColumn(1)
+                    .padding(5, 1).margin(5, 0).gridColumn(1)
 
                 TextBlock("📅" + result.Video.Uploaded.ToString())
                     .tip(ToolTip("uploaded"))
                     .textAlignment(TextAlignment.Right).gridColumn(2)
             }
+
+            if result.DescriptionMatches <> null then
+                for matches in result.DescriptionMatches.SplitIntoPaddedGroups(matchPadding) do
+                    writeHighlightingMatches matches (Some matchPadding)
+
+            if result.KeywordMatches.HasAny() then
+                HStack() {
+                    for matches in result.KeywordMatches do
+                        writeHighlightingMatches matches (Some matchPadding)
+                }
+
+            for trackResult in result.MatchingCaptionTracks do
+                TextBlock (trackResult.Track.LanguageName + " | " + trackResult.Track.FieldName)
+                let displaysHour = trackResult.HasMatchesWithHours(matchPadding)
+                let splitMatches = trackResult.Matches.SplitIntoPaddedGroups(matchPadding)
+
+                for  matched in splitMatches do
+                    let captionAt = trackResult.SyncWithCaptions(matched, matchPadding)
+                    let offset = TimeSpan.FromSeconds(captionAt).FormatWithOptionalHours().PadLeft(if displaysHour then 7 else 5)
+
+                    HStack() {
+                        TextBlock offset
+                        writeHighlightingMatches matched (Some matchPadding)
+
+                        Button("↗", OpenUrl $"{videoUrl}?t={captionAt}")
+                            .tip(ToolTip($"Open video at {offset} in browser"))
+                            .padding(5, 1).margin(5, 0)
+                    }
         }
 
     (*  see for F#
@@ -297,7 +328,7 @@ module App =
                     NumericUpDown(0, float UInt16.MaxValue, Some (float model.Padding), PaddingChanged)
                         .formatString("F0")
                         .tip(ToolTip("how much context to show a search result in"))
-                    Label "chars"
+                    Label "chars for context"
                 }).gridColumn(2)
 
                 ToggleButton("📄 output", model.DisplayOutputOptions, OutputChanged).gridColumn(3)
@@ -316,7 +347,7 @@ module App =
                     .selectedItem(model.OpenOutput).onSelectionChanged(OpenOutputChanged).gridColumn(5)
             }).gridRow(3).isVisible(model.DisplayOutputOptions)
 
-            View.ListBox(model.SearchResults, renderSearchResult).gridRow(4)
+            View.ListBox(model.SearchResults, renderSearchResult (model.Padding |> uint32)).gridRow(4)
         }
 
 #if MOBILE
