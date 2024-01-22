@@ -131,7 +131,7 @@ module App =
         Aliases = ""
         Query = ""
 
-        Top = Some (float 50)
+        Top = Some (float 5)
         OrderByScore = true
         OrderDesc = true
         CacheHours = Some (float 24)
@@ -197,6 +197,10 @@ module App =
             this.foreground(Colors.Blue) |> ignore
             this
 
+        (*[<Extension>]
+        static member inline inlines(this: WidgetBuilder<'msg, #IFabTextBlock>, value: IEnumerable<#IFabInline>) =
+            this.AddWidgetCollection(TextBlock.Inlines.WithValue(value))*)
+
     // see https://github.com/AvaloniaUI/Avalonia/discussions/9654
     //View.map ?
     let private writeHighlightingMatches (matched: MatchedText) (matchPadding: uint32 option) =
@@ -206,10 +210,6 @@ module App =
         let contents = runs |> Seq.map tb.Yield |> Seq.toList
         let content = Seq.fold (fun agg cont -> tb.Combine(agg, cont)) contents.Head contents.Tail
         tb.Run content
-
-        (*[<Extension>]
-        static member inline inlines(this: WidgetBuilder<'msg, #IFabTextBlock>, value: IEnumerable<#IFabInline>) =
-            this.AddWidgetCollection(TextBlock.Inlines.WithValue(value))*)
 
     let private renderSearchResult (matchPadding: uint32) (result: VideoSearchResult) =
         let videoUrl = Youtube.GetVideoUrl result.Video.Id
@@ -239,23 +239,24 @@ module App =
                         writeHighlightingMatches matches (Some matchPadding)
                 }
 
-            for trackResult in result.MatchingCaptionTracks do
-                TextBlock (trackResult.Track.LanguageName + " | " + trackResult.Track.FieldName)
-                let displaysHour = trackResult.HasMatchesWithHours(matchPadding)
-                let splitMatches = trackResult.Matches.SplitIntoPaddedGroups(matchPadding)
+            if result.MatchingCaptionTracks.HasAny() then
+                for trackResult in result.MatchingCaptionTracks do
+                    TextBlock (trackResult.Track.LanguageName + " | " + trackResult.Track.FieldName)
+                    let displaysHour = trackResult.HasMatchesWithHours(matchPadding)
+                    let splitMatches = trackResult.Matches.SplitIntoPaddedGroups(matchPadding)
 
-                for  matched in splitMatches do
-                    let captionAt = trackResult.SyncWithCaptions(matched, matchPadding)
-                    let offset = TimeSpan.FromSeconds(captionAt).FormatWithOptionalHours().PadLeft(if displaysHour then 7 else 5)
+                    for matched in splitMatches do
+                        let captionAt = trackResult.SyncWithCaptions(matched, matchPadding)
+                        let offset = TimeSpan.FromSeconds(captionAt).FormatWithOptionalHours().PadLeft(if displaysHour then 7 else 5)
 
-                    HStack() {
-                        TextBlock offset
-                        writeHighlightingMatches matched (Some matchPadding)
+                        HStack() {
+                            TextBlock offset
+                            writeHighlightingMatches matched (Some matchPadding)
 
-                        Button("↗", OpenUrl $"{videoUrl}?t={captionAt}")
-                            .tip(ToolTip($"Open video at {offset} in browser"))
-                            .padding(5, 1).margin(5, 0)
-                    }
+                            Button("↗", OpenUrl $"{videoUrl}?t={captionAt}")
+                                .tip(ToolTip($"Open video at {offset} in browser"))
+                                .padding(5, 1).margin(5, 0)
+                        }
         }
 
     (*  see for F#
