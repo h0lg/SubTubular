@@ -5,7 +5,7 @@ namespace SubTubular;
 public interface DataStore
 {
     DateTime? GetLastModified(string key);
-    Task<T> GetAsync<T>(string key);
+    Task<T?> GetAsync<T>(string key);
     Task SetAsync<T>(string key, T value);
 }
 
@@ -30,7 +30,7 @@ public sealed class JsonFileDataStore : DataStore
         return File.Exists(path) ? File.GetLastWriteTime(path) : null;
     }
 
-    public async Task<T> GetAsync<T>(string key)
+    public async Task<T?> GetAsync<T>(string key)
     {
         var path = GetPath(key);
         if (!File.Exists(path)) return default;

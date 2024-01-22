@@ -94,7 +94,7 @@ public static class EnumerableExtensions
         => values.Intersect(collection).Any();
 
     /// <summary>Indicates whether <paramref name="collection"/> is not null and contains any items.</summary>
-    public static bool HasAny<T>(this IEnumerable<T> collection) => collection != null && collection.Any();
+    public static bool HasAny<T>(this IEnumerable<T>? collection) => collection?.Any() == true;
 }
 
 /// <summary>Extension methods for <see cref="IComparable"/> types.</summary>
@@ -147,7 +147,7 @@ internal static class ValueTasks
         return (results, exceptions);
     }
 
-    internal static ValueTask<(T[], Exception[])> WhenAll<T>(IEnumerable<ValueTask<T>> tasks) => WhenAll(tasks?.ToArray());
+    internal static ValueTask<(T[], Exception[])> WhenAll<T>(IEnumerable<ValueTask<T>> tasks) => WhenAll(tasks!.ToArray());
 }
 
 internal static class TaskExtensions
@@ -171,7 +171,7 @@ internal static class HttpRequestExceptionExtensions
 
 internal static class ChannelAliasMapExtensions
 {
-    internal static ChannelAliasMap ForAlias(this List<ChannelAliasMap> maps, object alias)
+    internal static ChannelAliasMap? ForAlias(this List<ChannelAliasMap> maps, object alias)
     {
         var (type, value) = ChannelAliasMap.GetTypeAndValue(alias);
 

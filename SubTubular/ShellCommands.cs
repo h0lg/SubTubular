@@ -45,7 +45,7 @@ public static class ShellCommands
 
     public static bool ExploreFolder(string folder)
     {
-        if (!folder.IsDirectoryPath()) folder = Path.GetDirectoryName(folder);
+        if (!folder.IsDirectoryPath()) folder = Path.GetDirectoryName(folder)!;
 
         var info = new SHELLEXECUTEINFO();
         info.cbSize = Marshal.SizeOf<SHELLEXECUTEINFO>();

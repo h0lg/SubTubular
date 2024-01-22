@@ -38,7 +38,7 @@ public static class CommandValidator
         var slug = ChannelSlug.TryParse(alias);
         var user = UserName.TryParse(alias);
         var id = ChannelId.TryParse(alias);
-        var valid = new object[] { handle, slug, user, id }.Where(id => id != null).ToArray();
+        var valid = new object?[] { handle, slug, user, id }.Where(id => id != null).Cast<object>().ToArray();
 
         if (valid.Length == 0) throw new InputException(
             $"'{alias}' is not a valid channel handle, slug, user name or channel ID.");
@@ -63,7 +63,7 @@ public static class CommandValidator
         if (invalid.Length > 0) throw new InputException("The following video IDs or URLs are invalid:"
             + Environment.NewLine + invalid.Select(pair => pair.Key).Join(Environment.NewLine));
 
-        var validIds = idsToValid.Except(invalid).Select(pair => pair.Value.Value.ToString()).ToArray();
+        var validIds = idsToValid.Except(invalid).Where(pair => pair.Value.HasValue).Select(pair => pair.Value!.Value.ToString()).ToArray();
         if (!validIds.Any()) throw new InputException("The video IDs or URLs are required.");
         command.ValidIds = validIds;
         command.ValidUrls = validIds.Select(Youtube.GetVideoUrl).ToArray();
@@ -99,7 +99,7 @@ public static class CommandValidator
 
         /*  generate tasks checking which of the validAliases are accessible
             (via knownAliasMaps cache or HTTP request) and execute them in parrallel */
-        var (aliasMaps, maybeExceptions) = await ValueTasks.WhenAll(command.ValidAliases.Select(GetChannelAliasMap));
+        var (aliasMaps, maybeExceptions) = await ValueTasks.WhenAll(command.ValidAliases!.Select(GetChannelAliasMap));
 
         // cache accessibility of channel IDs and aliases locally to avoid subsequent HTTP requests
         if (knownAliasMapsUpdated) await ChannelAliasMap.SaveList(knownAliasMaps, dataStore);
@@ -120,8 +120,8 @@ public static class CommandValidator
         if (distinct.Count() > 1) throw new InputException($"Channel alias '{command.Alias}' is ambiguous:"
             + Environment.NewLine + accessibleMaps.Select(map =>
             {
-                var validUrl = Youtube.GetChannelUrl(command.ValidAliases.Single(id => id.GetType().Name == map.Type));
-                var channelUrl = Youtube.GetChannelUrl((ChannelId)map.ChannelId);
+                var validUrl = Youtube.GetChannelUrl(command.ValidAliases!.Single(id => id.GetType().Name == map.Type));
+                var channelUrl = Youtube.GetChannelUrl((ChannelId)map.ChannelId!);
                 return $"{validUrl} points to channel {channelUrl}";
             })
             .Join(Environment.NewLine)
@@ -129,8 +129,8 @@ public static class CommandValidator
         #endregion
 
         var identifiedMap = distinct.Single();
-        command.ValidId = identifiedMap.ChannelId;
-        command.ValidUrls = new[] { Youtube.GetChannelUrl((ChannelId)identifiedMap.ChannelId) };
+        command.ValidId = identifiedMap.ChannelId!;
+        command.ValidUrls = new[] { Youtube.GetChannelUrl((ChannelId)identifiedMap.ChannelId!) };
 
         async ValueTask<ChannelAliasMap> GetChannelAliasMap(object alias)
         {
