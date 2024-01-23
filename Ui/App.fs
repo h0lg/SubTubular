@@ -1,24 +1,21 @@
 ﻿namespace Ui
 
 open System
+open System.Runtime.CompilerServices
+open System.Threading
 open Avalonia.Controls
+open Avalonia.Media
 open Avalonia.Themes.Fluent
 open Fabulous
 open Fabulous.Avalonia
 open type Fabulous.Avalonia.View
+open FSharp.Control
 open SubTubular
 open SubTubular.Extensions
-
-open FSharp.Control
-open System.Threading
-open System.Runtime.CompilerServices
-open Avalonia.Media
 
 module App =
     type Scopes = videos = 0 | playlist = 1 | channel = 2
     type OpenOutputOptions = nothing = 0 | file = 1 | folder = 2
-    //type OutputOptions = html = 0 | text = 1
-    //type OrderDirections = asc = 0 | desc = 1
 
     type Model = {
         Scope: Scopes
@@ -64,18 +61,6 @@ module App =
 
         | OpenUrl of string
         | Reset
-
-    let private displayScope = function
-    | Scopes.videos -> "📼 videos"
-    | Scopes.playlist -> "▶️ playlist"
-    | Scopes.channel -> "📺 channel"
-    | _ -> failwith "unknown scope"
-
-    let private displayOpenOutput = function
-    | OpenOutputOptions.nothing -> "nothing"
-    | OpenOutputOptions.file -> "📄 file"
-    | OpenOutputOptions.folder -> "📂 folder"
-    | _ -> failwith "unknown Show Option"
 
     let private searchCmd model =
         fun dispatch ->
@@ -186,7 +171,7 @@ module App =
 
         stack*)
 
-        // see https://docs.fabulous.dev/basics/user-interface/styling
+    // see https://docs.fabulous.dev/basics/user-interface/styling
     [<Extension>]
     type SharedStyle =
         static write = fun text -> Run(text)
@@ -200,6 +185,18 @@ module App =
         (*[<Extension>]
         static member inline inlines(this: WidgetBuilder<'msg, #IFabTextBlock>, value: IEnumerable<#IFabInline>) =
             this.AddWidgetCollection(TextBlock.Inlines.WithValue(value))*)
+
+    let private displayScope = function
+    | Scopes.videos -> "📼 videos"
+    | Scopes.playlist -> "▶️ playlist"
+    | Scopes.channel -> "📺 channel"
+    | _ -> failwith "unknown scope"
+
+    let private displayOpenOutput = function
+    | OpenOutputOptions.nothing -> "nothing"
+    | OpenOutputOptions.file -> "📄 file"
+    | OpenOutputOptions.folder -> "📂 folder"
+    | _ -> failwith "unknown Show Option"
 
     // see https://github.com/AvaloniaUI/Avalonia/discussions/9654
     //View.map ?
