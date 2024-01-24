@@ -243,12 +243,12 @@ module App =
                     let splitMatches = trackResult.Matches.SplitIntoPaddedGroups(matchPadding)
 
                     for matched in splitMatches do
-                        let captionAt = trackResult.SyncWithCaptions(matched, matchPadding)
+                        let (synced, captionAt) = trackResult.SyncWithCaptions(matched, matchPadding).ToTuple()
                         let offset = TimeSpan.FromSeconds(captionAt).FormatWithOptionalHours().PadLeft(if displaysHour then 7 else 5)
 
                         HStack() {
                             TextBlock offset
-                            writeHighlightingMatches matched None
+                            writeHighlightingMatches synced None
 
                             Button("↗", OpenUrl $"{videoUrl}?t={captionAt}")
                                 .tip(ToolTip($"Open video at {offset} in browser"))
