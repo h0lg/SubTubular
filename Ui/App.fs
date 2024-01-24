@@ -157,35 +157,6 @@ module App =
         | OpenUrl url -> model, (fun _ -> ShellCommands.OpenUri(url); Cmd.none)()
         | Reset -> initModel, Cmd.none
 
-    (*TODO look at ToggleSplitButton implementation
-    let internal labeledInput (label: string) ([<ParamArray>] inputs : WidgetBuilder<_,IFabTemplatedControl> array) =
-        //let children =  :: inputs
-
-        let stack = HStack() {
-            Label(label) |> ignore
-            for input in inputs -> input
-        }
-
-        //for input in inputs do
-            //stack.
-
-        stack*)
-
-    // see https://docs.fabulous.dev/basics/user-interface/styling
-    [<Extension>]
-    type SharedStyle =
-        static write = fun text -> Run(text)
-        static highlight = fun text -> Run(text).foreground(Colors.Orange)
-
-        [<Extension>]
-        static member inline marked(this: WidgetBuilder<'msg, #IFabRun>) =
-            this.foreground(Colors.Blue) |> ignore
-            this
-
-        (*[<Extension>]
-        static member inline inlines(this: WidgetBuilder<'msg, #IFabTextBlock>, value: IEnumerable<#IFabInline>) =
-            this.AddWidgetCollection(TextBlock.Inlines.WithValue(value))*)
-
     let private displayScope = function
     | Scopes.videos -> "📼 videos"
     | Scopes.playlist -> "▶️ playlist"
@@ -203,7 +174,12 @@ module App =
     let private writeHighlightingMatches (matched: MatchedText) (matchPadding: uint32 option) =
         let tb = TextBlock()
         let padding = match matchPadding with Some value -> Nullable(value) | None -> Nullable()
-        let runs = matched.WriteHighlightingMatches(SharedStyle.write, SharedStyle.highlight, padding)
+
+        let runs = matched.WriteHighlightingMatches(
+            (fun text -> Run(text)),
+            (fun text -> Run(text).foreground(Colors.Orange)),
+            padding)
+
         let contents = runs |> Seq.map tb.Yield |> Seq.toList
         let content = Seq.fold (fun agg cont -> tb.Combine(agg, cont)) contents.Head contents.Tail
         tb.Run content
@@ -233,7 +209,7 @@ module App =
             if result.KeywordMatches.HasAny() then
                 HStack() {
                     for matches in result.KeywordMatches do
-                        writeHighlightingMatches matches (Some matchPadding)
+                        writeHighlightingMatches matches None
                 }
 
             if result.MatchingCaptionTracks.HasAny() then
