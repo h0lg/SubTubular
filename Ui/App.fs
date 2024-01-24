@@ -248,7 +248,7 @@ module App =
 
                         HStack() {
                             TextBlock offset
-                            writeHighlightingMatches matched (Some matchPadding)
+                            writeHighlightingMatches matched None
 
                             Button("↗", OpenUrl $"{videoUrl}?t={captionAt}")
                                 .tip(ToolTip($"Open video at {offset} in browser"))
