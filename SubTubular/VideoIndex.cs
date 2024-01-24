@@ -42,7 +42,7 @@ public sealed class VideoIndexRepository
         VideoIndex? videoIndex = null;
 
         // see https://mikegoatly.github.io/lifti/docs/index-construction/withindexmodificationaction/
-        FullTextIndex<string> index = CreateIndexBuilder().WithIndexModificationAction(async _idx => await SaveAsync(videoIndex!, key)).Build();
+        FullTextIndex<string> index = CreateIndexBuilder().WithIndexModificationAction(async indexSnapshot => await SaveAsync(indexSnapshot, key)).Build();
 
         videoIndex = new VideoIndex(index);
         return videoIndex;
@@ -73,11 +73,11 @@ public sealed class VideoIndexRepository
         }
     }
 
-    private async Task SaveAsync(VideoIndex index, string key)
+    private async Task SaveAsync(IIndexSnapshot<string> indexSnapshot, string key)
     {
         // see https://mikegoatly.github.io/lifti/docs/serialization/
         using var writer = new FileStream(GetPath(key), FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
-        await serializer.SerializeAsync(index.Index, writer, disposeStream: false);
+        await serializer.SerializeAsync(indexSnapshot, writer, disposeStream: false);
     }
 
     public IEnumerable<string> Delete(string? keyPrefix = null, string? key = null, ushort? notAccessedForDays = null, bool simulate = false)
