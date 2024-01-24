@@ -271,7 +271,7 @@ module App =
                     (TextBlock "in keywords").demoted()
 
                     for matches in result.KeywordMatches do
-                        writeHighlightingMatches matches None
+                        writeHighlightingMatches matches (Some matchPadding)
                 }
 
             if result.MatchingCaptionTracks.HasAny() then
@@ -406,7 +406,10 @@ module App =
             }).gridRow(3).isVisible(model.DisplayOutputOptions)
 
             // results
-            View.ListBox(model.SearchResults, renderSearchResult (model.Padding |> uint32)).gridRow(4)
+            ScrollViewer((VStack() {
+                for result in model.SearchResults do
+                    renderSearchResult (model.Padding |> uint32) result
+            })).gridRow(4)
         }
 
 #if MOBILE
