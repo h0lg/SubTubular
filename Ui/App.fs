@@ -334,10 +334,10 @@ module App =
             }).gridRow(3).isVisible(model.DisplayOutputOptions)
 
             // results
-            (VStack() {
+            ScrollViewer((VStack() {
                 for result in model.SearchResults do
                     renderSearchResult (model.Padding |> uint32) result
-            }).gridRow(4)
+            })).gridRow(4)
         }
 
 #if MOBILE
