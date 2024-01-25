@@ -66,10 +66,6 @@ module App =
     let private searchCmd model =
         fun dispatch ->
             async {
-                let cacheFolder = Folder.GetPath Folders.cache
-                let dataStore = JsonFileDataStore cacheFolder
-                let youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
-
                 let order = 
                     match (model.OrderByScore, model.OrderDesc) with
                     | (true, true) -> [PlaylistLikeScope.OrderOptions.score]
@@ -97,6 +93,9 @@ module App =
                 then command.Show <- OutputCommand.Shows.folder
 
                 CommandValidator.ValidateSearchCommand command
+                let cacheFolder = Folder.GetPath Folders.cache
+                let dataStore = JsonFileDataStore cacheFolder
+                let youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
                 use cts = new CancellationTokenSource()
 
                 do!
@@ -329,6 +328,7 @@ module App =
                     .selectedItem(model.OpenOutput).onSelectionChanged(OpenOutputChanged).gridColumn(5)
             }).gridRow(3).isVisible(model.DisplayOutputOptions)
 
+            // results
             View.ListBox(model.SearchResults, renderSearchResult (model.Padding |> uint32)).gridRow(4)
         }
 
