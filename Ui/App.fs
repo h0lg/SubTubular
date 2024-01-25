@@ -116,12 +116,12 @@ module App =
         Aliases = ""
         Query = ""
 
-        Top = Some (float 5)
+        Top = Some (float 25)
         OrderByScore = true
         OrderDesc = true
         CacheHours = Some (float 24)
 
-        Padding = 23
+        Padding = 69
         DisplayOutputOptions = false
         OutputHtml = true
         OutputTo = Folder.GetPath Folders.output
