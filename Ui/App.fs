@@ -228,15 +228,17 @@ module App =
                     Label "in playlists and channels"
                     Label "search top"
                     NumericUpDown(0, float UInt16.MaxValue, model.Top, TopChanged)
-                        .tooltip("number of videos to search")
+                        .formatString("F0")
+                        .tip(ToolTip("number of videos to search"))
                     Label "videos"
                     Label "and look for new ones after"
                     NumericUpDown(0, float UInt16.MaxValue, model.CacheHours, CacheHoursChanged)
-                        .tooltip("The info about which videos are in a playlist or channel is cached locally to speed up future searches."
+                        .formatString("F0")
+                        .tip(ToolTip("The info about which videos are in a playlist or channel is cached locally to speed up future searches."
                             + " This controls after how many hours such a cache is considered stale."
                             + Environment.NewLine + Environment.NewLine
                             + "Note that this doesn't concern the video data caches,"
-                            + " which are not expected to change often and are stored until you explicitly clear them.")
+                            + " which are not expected to change often and are stored until you explicitly clear them."))
                     Label "hours"
                 }).gridColumn(0)
             }).gridRow(1)
@@ -255,7 +257,8 @@ module App =
                 (HStack(5) {
                     Label "padded with"
                     NumericUpDown(0, float UInt16.MaxValue, Some (float model.Padding), PaddingChanged)
-                        .tooltip("how much context to show a search result in")
+                        .formatString("F0")
+                        .tip(ToolTip("how much context to show a search result in"))
                     Label "chars"
                 }).gridColumn(2)
 
