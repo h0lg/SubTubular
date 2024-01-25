@@ -1,20 +1,24 @@
 <!-- title: SubTubular --> <!-- of the printed HTML see https://github.com/yzhang-gh/vscode-markdown#print-markdown-to-html -->
 # SubTubular <!-- omit in toc -->
 
-A **full-text search** for **[YouTube](https://www.youtube.com/)** with a **command line interface**. Searches **subtitles** and **video metadata**, returning **time-stamped video links**.
+A **full-text search** for **[YouTube](https://www.youtube.com/)** searching **subtitles** and **video metadata** and returning text results including **time-stamped video links** - allowing you to find and go directly to the relevant content in videos, playlists, even entire channels.
+Comes with both a **graphical** (GUI, `SubTubular.Gui.exe`) and **command line interface** (CLI, *Shell* , `SubTubular.Shell.exe`) wrapping the same library (`SubTubular.dll`).
 
-<img src="./SubTubular.ico" align="right" title="best-looking tuber in the soup" />
+<img src="./SubTubular.ico" align="right"
+    title="Not just a propelled sweet potato with trench binos&#13; - but the best-looking tuber in the soup." />
 
 - [Overview](#overview)
-- [Commands](#commands)
-  - [common search parameters](#common-search-parameters)
-  - [common playlist search parameters](#common-playlist-search-parameters)
-  - [search-videos, videos, v](#search-videos-videos-v)
-  - [search-playlist, playlist, p](#search-playlist-playlist-p)
-  - [search-channel, channel, c](#search-channel-channel-c)
+- [Shell Commands](#shell-commands)
+  - [Common `search` and `keywords` command options](#common-search-and-keywords-command-options)
+  - [`search`-only command options](#search-only-command-options)
+  - [Common `playlist` and `channel` scope options](#common-playlist-and-channel-scope-options)
   - [open, o](#open-o)
   - [clear-cache, clear](#clear-cache-clear)
+    - [Arguments](#arguments)
+    - [Options](#options)
   - [release, r](#release-r)
+    - [Commands](#commands)
+    - [Arguments](#arguments-1)
 - [Examples \& use cases](#examples--use-cases)
   - [Find specific parts of podcasts or other long-running videos](#find-specific-parts-of-podcasts-or-other-long-running-videos)
   - [Search a playlist for mentions of a certain topic](#search-a-playlist-for-mentions-of-a-certain-topic)
@@ -33,8 +37,8 @@ A **full-text search** for **[YouTube](https://www.youtube.com/)** with a **comm
 ## Searches <!-- omit in toc -->
 - video **title**, **description**, **keywords** and **captions** (a.k.a. *subtitles*, *closed captions*/*CC* or *transcript*)
 - **across multiple captions** and description lines
-- in the scope of one or **multiple videos**, a **playlist** or **channel**
-- while **ignoring the case** of the search terms
+- in the scope of one or **multiple videos**, **playlists** and **channels**
+- while **ignoring the case (and accent)** of the search terms
 
 ## supporting <!-- omit in toc -->
 - the full feature set of the [LIFTI query syntax](https://mikegoatly.github.io/lifti/docs/searching/lifti-query-syntax/) including
@@ -60,115 +64,131 @@ A **full-text search** for **[YouTube](https://www.youtube.com/)** with a **comm
 - until you **explicitly clear** them
 
 ## requiring <!-- omit in toc -->
-- **no installation** except for the [**.NET 7 runtime**](https://dotnet.microsoft.com/en-us/download/dotnet) (which you may have installed already)
+- **no installation** except for the [**.NET 9 runtime**](https://dotnet.microsoft.com/en-us/download/dotnet) (which you may have installed already)
 - **no YouTube login**
 
 ## thanks to <!-- omit in toc -->
 - [**YoutubeExplode**](https://github.com/Tyrrrz/YoutubeExplode) licensed under [LGPL 3](https://github.com/Tyrrrz/YoutubeExplode/blob/master/License.txt) for doing a better job at **getting the relevant data off YouTube**'s public web API than YouTube's own [Data API v3](https://developers.google.com/youtube/v3/) is able to do at the time of writing. And for not requiring a clunky app registration and user authorization for every bit of data on top of that. A real game-changer!
 - [**LIFTI**](https://github.com/mikegoatly/lifti) licensed under [MIT](https://github.com/mikegoatly/lifti/blob/master/LICENSE) for the heavy-lifting on the **full-text search** with indexing, fuzzy and wild card matching among other powerful query features. And for making them accessible through a well-designed API with awesome documentation.
 - [**AngleSharp**](https://github.com/AngleSharp/AngleSharp) licensed under [MIT](https://github.com/AngleSharp/AngleSharp/blob/master/LICENSE) for making **HTML output generation** easy and intuitive
-- [**Avalonia**](https://github.com/AvaloniaUI/Avalonia) licensed under [MIT](https://github.com/AvaloniaUI/Avalonia/blob/master/licence.md) for the multi-platform UI the Gui is built on
-- [**Fabulous for Avalonia**](https://github.com/fabulous-dev/Fabulous.Avalonia) licensed under [MIT](https://github.com/fabulous-dev/Fabulous.Avalonia/blob/main/LICENSE.md) for wrapping Avalonia into a MVU framework for F#
+- [**Avalonia**](https://github.com/AvaloniaUI/Avalonia) licensed under [MIT](https://github.com/AvaloniaUI/Avalonia/blob/master/licence.md) for the multi-platform framework the GUI is built on
+- [**Fabulous for Avalonia**](https://github.com/fabulous-dev/Fabulous.Avalonia) licensed under [Apache 2.0](https://github.com/fabulous-dev/Fabulous.Avalonia/blob/main/LICENSE.md) for wrapping Avalonia into a MVU framework for F#
 - [**Octokit**](https://github.com/octokit/octokit.net) licensed under [MIT](https://github.com/octokit/octokit.net/blob/main/LICENSE.txt) for wrapping the Github API and offering easy access to releases and their assets enabling the **download of and showing release notes for different releases**
 
 ## **not** providing <!-- omit in toc -->
 - subtitle download in any common, reusable format (although that would be an easy addition if required).
 
 
-# Commands
+# Shell Commands
 
-## common search parameters
+The CLI uses the [System.Commandline syntax](https://learn.microsoft.com/en-us/dotnet/standard/commandline/syntax) and has the following commands:
 
-All search commands share the following parameters:
-
-| shorthand, name     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| :----------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `-f`, `--for`      | (Group: query) What to search for. Quote "multi-word phrases". Single words are matched exactly by default, ?fuzzy or with wild cards for s%ngle and multi* letters. Combine multiple & terms \| "phrases or queries" using AND '&' and OR '\|' and ( use \| brackets \| for ) & ( complex \| expressions ). You can restrict your search to the video `Title`, `Description`, `Keywords` and/or language-specific captions; e.g. `title="click bait"`. Learn more about the query syntax at https://mikegoatly.github.io/lifti/docs/searching/lifti-query-syntax/ . |
-| `-k`, `--keywords` | (Group: query) Lists the keywords the videos in scope are tagged with including their number of occurrences.                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `-p`, `--pad`      | (Default: 23) How much context to pad a match in; i.e. the minimum number of characters of the original description or subtitle track to display before and after it.                                                                                                                                                                                                                                                                                                                                                                                |
-| `-m`, `--html`     | If set, outputs the highlighted search result in an HTML file including hyperlinks for easy navigation. The output path can be configured in the `out` parameter. Omitting it will save the file into the default `output` folder and name it according to your search parameters. Existing files with the same name will be overwritten.                                                                                                                                                                                                            |
-| `-o`, `--out`      | Writes the search results to a file, the format of which is either text or HTML depending on the `html` flag. Supply either a file or folder path. If the path doesn't contain a file name, the file will be named according to your search parameters. Existing files with the same name will be overwritten.                                                                                                                                                                                                                                       |
-| `-s`, `--show`     | The output to open if a file was written. Valid values: `file`, `folder`                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| shorthand, name \<arguments>                                            |                                                                                         |
+| :---------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- |
+| `s`, `search`                                                           | Search the subtitles and metadata of videos in the given scopes.                        |
+| `k`, `keywords`                                                         | List the keywords of videos in the given scopes.                                        |
+| `clear`, `clear-cache` `<all\|channels\|playlists\|videos>` `<aliases>` | Deletes cached metadata and full-text indexes for `channels`, `playlists` and `videos`. |
+| `rls`, `release`                                                        | List, browse and install other SubTubular releases.                                     |
+| `o`, `open` `<app\|cache\|errors\|output\|storage\|thumbnails>`         | Opens app-related folders in a file browser.                                            |
+| `rc`, `recent`                                                          | List, run or remove recently run commands.                                              |
 
 
-## common playlist search parameters
+## Common `search` and `keywords` command options
 
-Search commands searching a playlist containing multiple videos (including `search-playlist` and `search-channel`) support the following parameters in addition to the [common search parameters](#common-search-parameters):
+Both commands share the following options:
 
-| shorthand, name      |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| :-------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `-t`, `--top`         | (Default: 50) The number of videos to search, counted from the top of the playlist; effectively limiting the search scope to the top partition of it. You may want to gradually increase this to include all videos in the list while you're refining your query. Note that the special Uploads playlist of a channel is sorted latest `uploaded` first, but custom playlists may be sorted differently. Keep that in mind if you don't find what you're looking for and when using `order-by` (which is only applied to the results) with `uploaded` on custom playlists. |
-| `-r`, `--order-by`    | Order the video search results by `uploaded` or `score` with `asc` for ascending. The default is descending (i.e. latest respectively highest first) and by `score`. Note that the order is only applied to the results with the search scope itself being limited by the `--top` parameter. Note also that for un-cached videos, this option is ignored in favor of outputting matches as soon as they're found - but simply repeating the search will hit the cache and return them in the requested order.                                                              |
-| `-h`, `--cache-hours` | (Default: 24) The maximum age of a playlist cache in hours before it is considered stale and the list of videos in it is refreshed. Note this doesn't apply to the videos themselves because their contents rarely change after upload. Use `--clear-cache` to clear videos associated with a playlist or channel if that's what you're after.                                                                                                                                                                                                                             |
-
-
-## search-videos, videos, v
-
-Searches the specified videos. Supports the [common search parameters](#common-search-parameters).
-
-|                     |                                                                                                                                                                                                                                       |
-| :------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| videos (**pos. 0**) | Required. The space-separated YouTube video IDs and/or URLs. Note that if the video ID starts with a dash, you have to quote it like "-1a2b3c4d5e" or use the entire URL to prevent it from being misinterpreted as a command option. |
+| shorthand, name \<arguments>    |                                                                                                                                                                                                                                                                                                                                         |
+| :------------------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `channels` `<channels>`         | The space-separated channel IDs, handles, slugs, user names and/or URLs for either of those. Effectively searches the special 'Uploads' `playlists` of the given channels, which are sorted latest `uploaded` first.                                                                                                                     |
+| `playlists` `<playlists>`       | The space-separated playlist IDs and/or URLs. Note that playlists have custom sorting - i.e. new videos may appear at the top, bottom or anywhere in between.                                                                                                                                                                           |
+| `videos` `<videos>`             | The space-separated YouTube video IDs and/or URLs. Note that if the video ID starts with a dash, you have to quote it like "-1a2b3c4d5e" or use the entire URL to prevent it from being misinterpreted as a command option.                                                                                                             |
+| `-m`, `--html`                  | If set, outputs the highlighted search result in an HTML file including hyperlinks for easy navigation. The output path can be configured in the `--out` parameter. Omitting it will save the file into the default `output` folder - named according to your search parameters. Existing files with the same name will be overwritten. |
+| `-o`, `--out` `<out>`           | Writes the search results to a file, the format of which is either text or HTML depending on the `--html` flag. Supply either a file or folder path. If the path doesn't contain a file name, the file will be named according to your search parameters. Existing files with the same name will be overwritten.                        |
+| `-s`, `--show` `<file\|folder>` | The output to open if a file was written.                                                                                                                                                                                                                                                                                               |
+| `-rc`, `--recent`               | Unless set explicitly to `false`, saves this command into the recent command list to enable re-running it later. [default: True]                                                                                                                                                                                                        |
 
 
-## search-playlist, playlist, p
+## `search`-only command options
 
-Searches the videos in a playlist. Supports the [common playlist search parameters](#common-playlist-search-parameters).
+In addition to the [Common `search` and `keywords` command options](#common-search-and-keywords-command-options), the `search` command features the following options.
 
-|                       |                                   |
-| :-------------------- | :-------------------------------- |
-| playlist (**pos. 0**) | Required. The playlist ID or URL. |
+| shorthand, name \<arguments>    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| :------------------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `-f`, `--for` `<for>`           | (REQUIRED) What to search for. Quote "multi-word phrases". Single words are matched exactly by default, ?fuzzy or with wild cards for s%ngle and multi* letters. Combine multiple & terms \| "phrases or queries" using `&` as logical *and* and ` \| ` as *or*. Use ( brackets \| for ) & ( complex \| expressions ). Words can have > order, appear ~ near to each other - or both, even with configurable ~3> proximity. You can restrict your search to the video `Title`, `Description`, `Keywords` and/or language-specific captions; e.g. `Title = "click bait" \| [English (auto-generated)] = howdy`. Learn more about the query syntax at https://mikegoatly.github.io/lifti/docs/searching/lifti-query-syntax/ . |
+| `-p`, `--pad` `<pad>`           | How much context to pad a match in; i.e. the minimum number of characters of the original description or subtitle track to display before and after it. [default: 23]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `-r`, `--order-by` `<order-by>` | Order the video search results by `uploaded` or `score` with `asc` for ascending. The default is descending (i.e. latest respectively highest first) and by `score`. Note that the order is only applied to the results with the search scope itself being limited by the `--skip` and `--take` parameters for playlists. Note also that for un-cached videos, this option is ignored in favor of outputting matches as soon as they're found - but simply repeating the search will hit the cache and return them in the requested order. [default: `score`]                                                                                                                                                               |
 
 
-## search-channel, channel, c
+## Common `playlist` and `channel` scope options
 
-Searches the videos in a channel's Uploads playlist. This is a glorified `search-playlist`. Supports the [common playlist search parameters](#common-playlist-search-parameters).
+Listing `keywords` and `search` don't operate on all videos contained in a `playlist` or `channel` scope by default. That makes searches on the latest videos of a channel or the top of a playlist quicker by reducing the number of videos that are loaded initially.
+But you can change these defaults - both commands support the following options:
 
-|                      |                                                                                 |
-| :------------------- | :------------------------------------------------------------------------------ |
-| channel (**pos. 0**) | Required. The channel ID, handle, slug, user name or a URL for either of those. |
+| shorthand, name \<arguments>           |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| :------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `-sk`, `--skip` `<skip>`               | The number of videos to skip from the top of the included `channels` and `playlists`; effectively limiting the scope to the videos after it. You can specify a value for each included scope, `channels` before `playlists`, in the order they're passed. If you specify less values than scopes, the last value is used for remaining scopes. If left empty, 0 is used for all scopes.                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `-t`, `--take` `<take>`                | The number of videos to process from the top (or `--skip`-ed to part) of the included `channels` and `playlists`; effectively limiting the range. You can specify a value for each included scope, `channels` before `playlists`, in the order they're passed. If you specify less values than scopes, the last value is used for remaining scopes. If left empty, 50 is used for all scopes. You may want to gradually increase this to include all videos in the list while you're refining your query. Note that the special Uploads playlist of a channel is sorted latest `uploaded` first, but custom playlists may be sorted differently. Keep that in mind if you don't find what you're looking for and when using `--order-by` (which is only applied to the results) with `uploaded` on custom playlists. |
+| `-ch`, `--cache-hours` `<cache-hours>` | The maximum ages of the included `channels` and `playlists` caches in hours before they're considered stale and the list of contained videos is refreshed. You can specify a value for each included scope, `channels` before `playlists`, in the order they're passed. If you specify less values than scopes, the last value is used for remaining scopes. If left empty, 24 is used for all scopes. Note this doesn't apply to the videos themselves because their contents rarely change after upload. Use `--clear-cache` to clear videos associated with a playlist or channel if that's what you're after.                                                                                                                                                                                                    |
 
 
 ## open, o
 
 Opens app-related folders in a file browser.
 
-|                     |                                                                                           |
-| :------------------ | :---------------------------------------------------------------------------------------- |
-| folder (**pos. 0**) | Required. The folder to open. Valid values: `app`, `cache`, `errors`, `output`, `storage` |
+| arguments               |                                                                                               |
+| :---------------------- | :-------------------------------------------------------------------------------------------- |
+| `<folder>` (**pos. 0**) | Required. The folder to open. Valid values: `app\|cache\|errors\|output\|storage\|thumbnails` |
 
 with
 
-| folder  | being the directory                                                                          |
-| :------ | :------------------------------------------------------------------------------------------- |
-| app     | the app is running from                                                                      |
-| cache   | used for caching channel, playlist and video info                                            |
-| errors  | error logs are written to                                                                    |
-| output  | output files are written to by default unless explicitly specified using the `out` parameter |
-| storage | that hosts the `cache`, `errors` and `output` folders                                        |
+| folder     | being the directory                                                                         |
+| :--------- | :------------------------------------------------------------------------------------------ |
+| app        | the app is running from                                                                     |
+| cache      | used for caching channel, playlist and video info                                           |
+| errors     | error logs are written to                                                                   |
+| output     | output files are written to by default unless explicitly specified using the `--out` option |
+| storage    | that hosts the `cache`, `errors` and `output` folders                                       |
+| thumbnails | used for caching channel, playlist and video thumbnails downloaded by the UI                |
 
 
 ## clear-cache, clear
 
-Deletes cached info as well as the corresponding full-text indexes for channels, playlists and videos.
+Deletes cached metadata and full-text indexes for `channels`, `playlists` and `videos`.
 
-| position / shorthand, name     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| :------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| scope (**pos. 0**)         | Required. The type of caches to delete. For `playlists` and `channels` this will include the associated videos. Valid values: `all`, `videos`, `playlists`, `channels`                                                                                                                                                                                                                                                                                               |
-| ids (**pos. 1**)           | The space-separated IDs or URLs of elements in the `scope` to delete caches for. Can be used with every `scope` but `all` while supporting user names, channel handles and slugs besides IDs for `channels`. If not set, all elements in the specified `scope` are considered for deletion. Note that if the video ID starts with a dash, you have to quote it like "-1a2b3c4d5e" or use the entire URL to prevent it from being misinterpreted as a command option. |
-| `-l`, `--last-access`      | The maximum number of days since the last access of a cache file for it to be excluded from deletion. Effectively only deletes old caches that haven't been accessed for this number of days. Ignored for explicitly set `ids`.                                                                                                                                                                                                                                      |
-| `-m`, `--mode`             | (Default: `summary`) The deletion mode; `summary` only outputs how many of what file type were deleted. `verbose` outputs the deleted file names as well as the summary. `simulate` lists all file names that would be deleted by running the command instead of deleting them. You can use this to preview the files that would be deleted. Valid values: `summary`, `verbose`, `simulate`                                                                          |
+### Arguments
+
+| name, position           |                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| :----------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<scope>` (**pos. 0**)   | Required. The type of caches to delete. For `playlists` and `channels` this will include the associated `videos`. Valid values: `all\|channels\|playlists\|videos`                                                                                                                                                                                                                                                                                                            |
+| `<aliases>` (**pos. 1**) | The space-separated IDs, URLs or aliases of elements in the `scope` to delete caches for. Can be used with every `scope` but `all` while supporting user names, channel handles and slugs besides IDs for `channels`. If not set, all elements in the specified `scope` are considered for deletion. Note that if the video ID starts with a dash, you have to quote it like "-1a2b3c4d5e" or use the entire URL to prevent it from being misinterpreted as a command option. |
+
+### Options
+
+| shorthand, name \<arguments>                  |                                                                                                                                                                                                                                                                                                                                              |
+| :-------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `-l`, `--last-access`                         | The maximum number of days since the last access of a cache file for it to be excluded from deletion. Effectively only deletes old caches that haven't been accessed for this number of days. Ignored for explicitly set `aliases`.                                                                                                          |
+| `-m`, `--mode` `<simulate\|summary\|verbose>` | The deletion mode; `summary` only outputs how many of what file type were deleted. `verbose` outputs the deleted file names as well as the summary. `simulate` lists all file names that would be deleted by running the command instead of deleting them. You can use this to preview the files that would be deleted. [default: `summary`] |
 
 
 ## release, r
 
-List, browse and install other SubTubular releases. At least one option is required.
+List, browse and install other SubTubular releases.
 
-| position / shorthand, name |                                                                                                                                                                                         |
-| :------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `-l`, `--list`             | Lists available releases from https://github.com/h0lg/SubTubular/releases .                                                                                                             |
-| `-n`, `--notes`            | Opens the github release notes for a single release. Supply either the version of the release you're interested in or `latest`.                                                         |
-| `-i`, `--install`          | Downloads a release from github and unzips it to the current installation folder while backing up the running version. Supply either the version of the release to install or `latest`. |
+
+### Commands
+
+| shorthand, name \<arguments> |                                                                                                                        |
+| :--------------------------- | :--------------------------------------------------------------------------------------------------------------------- |
+| `l`, `list`                  | Lists available releases from https://github.com/h0lg/SubTubular/releases .                                            |
+| `n`, `notes` `<version>`     | Opens the github release notes for a single release.                                                                   |
+| `i`, `install` `<version>`   | Downloads a release from github and unzips it to the current installation folder while backing up the running version. |
+
+
+### Arguments
+
+| name, position           |                                                        |
+| :----------------------- | :----------------------------------------------------- |
+| `<version>` (**pos. 0**) | Required. The version number of a release or `latest`. |
 
 
 # Examples & use cases
@@ -178,14 +198,14 @@ List, browse and install other SubTubular releases. At least one option is requi
 Scott Adams mentioned a psychological phenomenon named after a physicist on [his podcast](https://www.youtube.com/c/RealCoffeewithScottAdams) one of these days. Or did he say physician? What was its name again?
 
 <pre>
-SubTubular.exe <b>search-videos</b> https://www.youtube.com/watch?v=<b>egeCYaIe21Y</b>
-https://www.youtube.com/watch?v=<b>gDrFdxWNk8c</b> <b>--for</b> "physician | physicist" <b>--pad</b> 150
+SubTubular.Shell.exe <b>search videos</b> https://www.youtube.com/watch?v=<b>egeCYaIe21Y</b>
+https://www.youtube.com/watch?v=<b>gDrFdxWNk8c</b> <b>--for</b> "physician | physicist" <b>--pad</b> 177
 </pre>
 
 or short
 
 <pre>
-SubTubular.exe <b>videos</b> egeCYaIe21Y gDrFdxWNk8c <b>-f</b> "physician | physicist" <b>-p</b> 150
+SubTubular.Shell.exe <b>s videos</b> egeCYaIe21Y gDrFdxWNk8c <b>-f</b> "physician | physicist" <b>-p</b> 177
 </pre>
 
 gives you below result.
@@ -193,13 +213,12 @@ gives you below result.
 Note how the `--for|-f` argument is quoted [because it contains a `|` pipe](#writing-queries).
 
 <pre>
-14/08/2020 22:00 https://youtu.be/egeCYaIe21Y
+15/08/2020 15:46 https://youtu.be/egeCYaIe21Y
   English (auto-generated)
-    17:22 this aclu story because it seems they've turned bad now this is an example of a gel man
-          amnesia i talk about this all the time gail mann was the name of a <b>physicist</b> who
-          whenever he saw a story about physics he knew the story was wrong but then if he saw a
-          story about some other topic he would say that's probably right
-          https://youtu.be/egeCYaIe21Y?t=1042
+    17:18  an eye on this aclu story because it seems they've turned bad now this
+          is an example of a gel man amnesia i talk about this all the time gail mann was the name of a physicist who
+          whenever he saw a story about physics he knew the story was wrong but then if he saw a story about some other
+          topic he would say that's probably right    https://youtu.be/egeCYaIe21Y?t=1038
 </pre>
 <small>(turns out, it was the [Gell-Mann Amnesia effect](https://www.epsilontheory.com/gell-mann-amnesia/))</small>
 
@@ -211,14 +230,14 @@ The other day Styx mentioned some old book that describes the calcification of t
 Can we find it in his [occult literature playlist](https://www.youtube.com/playlist?list=PLe6Bc4vsmzwLiFQv1eh8oZe4uCkw-yYl7)? And would there be other mentions of fluoride in his reviews of old books?
 
 <pre>
-SubTubular.exe <b>search-playlist</b> https://www.youtube.com/playlist?list=<b>PLe6Bc4vsmzwLiFQv1eh8oZe4uCkw-yYl7</b>
-<b>--for</b> "( pineal ~ gland* & calcifi* ) | fluorid*" <b>--top</b> 500 <b>--pad</b> 90
+SubTubular.Shell.exe <b>search playlists</b> https://www.youtube.com/playlist?list=<b>PLe6Bc4vsmzwLiFQv1eh8oZe4uCkw-yYl7</b>
+<b>--for</b> "( pineal ~ gland* & calcifi* ) | fluorid*" <b>--take</b> 500 <b>--pad</b> 90
 </pre>
 
 or shorter
 
 <pre>
-SubTubular.exe <b>playlist</b> PLe6Bc4vsmzwLiFQv1eh8oZe4uCkw-yYl7
+SubTubular.Shell.exe <b>s playlists</b> PLe6Bc4vsmzwLiFQv1eh8oZe4uCkw-yYl7
 <b>-f</b> "( pineal ~ gland* & calcifi* ) | fluorid*" <b>-t</b> 500 <b>-p</b> 90
 </pre>
 
@@ -253,17 +272,17 @@ Since searching the occult playlist above, Little Jimmy listens to Heavy Metal (
 
 ### Windows CMD <!-- omit in toc -->
 <pre>
-> SubTubular.exe search-channel Styxhexenhammer666 --for """little <b>?</b>jimmy"" | ""little sally""" --top 500 --pad 66
+> SubTubular.Shell.exe search channels Styxhexenhammer666 --for """little <b>?</b>jimmy"" | ""little sally""" --take 500 --pad 66
 </pre>
 
 ### PowerShell <!-- omit in toc -->
 <pre>
-PS > .\SubTubular.exe search-channel Styxhexenhammer666 --for '""little <b>?</b>jimmy"" | ""little sally""' --top 500 --pad 66
+PS > .\SubTubular.Shell.exe search channels Styxhexenhammer666 --for '""little <b>?</b>jimmy"" | ""little sally""' --take 500 --pad 66
 </pre>
 
 ### Bash <!-- omit in toc -->
 <pre>
-$ ./SubTubular.exe search-channel Styxhexenhammer666 --for '"little ?jimmy" | "little sally"' --top 500 --pad 66
+$ ./SubTubular.Shell.exe search channels Styxhexenhammer666 --for '"little ?jimmy" | "little sally"' --take 500 --pad 66
 </pre>
 
 Note how
@@ -275,40 +294,40 @@ To prevent them from burning churches, we may have to restrict their access to h
 
 ### Windows CMD <!-- omit in toc -->
 <pre>
-> SubTubular.exe <b>search-channel</b> https://www.youtube.com/@<b>bobross_thejoyofpainting</b>
-<b>--for</b> "[English (auto-generated)]= ( ""beat the devil out"" | ""happy little *"" )" <b>--top</b> 500 <b>--pad</b> 30
+> SubTubular.Shell.exe <b>search channels</b> https://www.youtube.com/@<b>bobross_thejoyofpainting</b>
+<b>--for</b> "[English (auto-generated)]= ( ""beat the devil out"" | ""happy little *"" )" <b>--take</b> 500 <b>--pad</b> 30
 </pre>
 
 or shorter
 
 <pre>
-> SubTubular.exe <b>channel</b> bobross_thejoyofpainting
+> SubTubular.Shell.exe <b>s channels</b> bobross_thejoyofpainting
 <b>-f</b> "[English (auto-generated)]= ( ""beat the devil out"" | ""happy little *"" )" <b>-t</b> 500 <b>-p</b> 30
 </pre>
 
 ### PowerShell <!-- omit in toc -->
 <pre>
-PS > .\SubTubular.exe <b>search-channel</b> https://www.youtube.com/@<b>bobross_thejoyofpainting</b>
-<b>--for</b> '[English (auto-generated)]= ( ""beat the devil out"" | ""happy little *"" )' <b>--top</b> 500 <b>--pad</b> 30
+PS > .\SubTubular.Shell.exe <b>search channels</b> https://www.youtube.com/@<b>bobross_thejoyofpainting</b>
+<b>--for</b> '[English (auto-generated)]= ( ""beat the devil out"" | ""happy little *"" )' <b>--take</b> 500 <b>--pad</b> 30
 </pre>
 
 or shorter
 
 <pre>
-PS > .\SubTubular.exe <b>channel</b> bobross_thejoyofpainting
+PS > .\SubTubular.Shell.exe <b>s channels</b> bobross_thejoyofpainting
 <b>-f</b> '[English (auto-generated)]= ( ""beat the devil out"" | ""happy little *"" )' <b>-t</b> 500 <b>-p</b> 30
 </pre>
 
 ### Bash <!-- omit in toc -->
 <pre>
-$ ./SubTubular.exe <b>search-channel</b> https://www.youtube.com/@<b>bobross_thejoyofpainting</b>
-<b>--for</b> '[English (auto-generated)]= ( "beat the devil out" | "happy little *" )' <b>--top</b> 500 <b>--pad</b> 30
+$ ./SubTubular.Shell.exe <b>search channels</b> https://www.youtube.com/@<b>bobross_thejoyofpainting</b>
+<b>--for</b> '[English (auto-generated)]= ( "beat the devil out" | "happy little *" )' <b>--take</b> 500 <b>--pad</b> 30
 </pre>
 
 or shorter
 
 <pre>
-$ ./SubTubular.exe <b>channel</b> bobross_thejoyofpainting
+$ ./SubTubular.Shell.exe <b>s channels</b> bobross_thejoyofpainting
 <b>-f</b> '[English (auto-generated)]= ( "beat the devil out" | "happy little *" )' <b>-t</b> 500 <b>-p</b> 30
 </pre>
 
@@ -346,45 +365,45 @@ I might have gazed into the abyss for a little too long and now I need a deep br
 
 ### Windows CMD <!-- omit in toc -->
 <pre>
-> SubTubular.exe <b>search-channel</b> https://www.youtube.com/@<b>RussellBrand</b>
+> SubTubular.Shell.exe <b>search channels</b> https://www.youtube.com/@<b>RussellBrand</b>
 <b>--for</b> """freedom of speech"" | ""free speech"" | censorship | ""cancel culture"""
-<b>--top</b> 500 <b>--pad</b> 40
+<b>--take</b> 500 <b>--pad</b> 40
 </pre>
 
 or short
 
 <pre>
-> SubTubular.exe <b>channel</b> RussellBrand
+> SubTubular.Shell.exe <b>s channels</b> RussellBrand
 <b>-f</b> """freedom of speech"" | ""free speech"" | censorship | ""cancel culture"""
 <b>-t</b> 500 <b>-p</b> 40
 </pre>
 
 ### PowerShell <!-- omit in toc -->
 <pre>
-PS > .\SubTubular.exe <b>search-channel</b> https://www.youtube.com/@<b>RussellBrand</b>
+PS > .\SubTubular.Shell.exe <b>search channels</b> https://www.youtube.com/@<b>RussellBrand</b>
 <b>--for</b> '""freedom of speech"" | ""free speech"" | censorship | ""cancel culture""'
-<b>--top</b> 500 <b>--pad</b> 40
+<b>--take</b> 500 <b>--pad</b> 40
 </pre>
 
 or short
 
 <pre>
-PS > .\SubTubular.exe <b>channel</b> RussellBrand
+PS > .\SubTubular.Shell.exe <b>s channels</b> RussellBrand
 <b>-f</b> '""freedom of speech"" | ""free speech"" | censorship | ""cancel culture""'
 <b>-t</b> 500 <b>-p</b> 40
 </pre>
 
 ### Bash <!-- omit in toc -->
 <pre>
-$ ./SubTubular.exe <b>search-channel</b> https://www.youtube.com/@<b>RussellBrand</b>
+$ ./SubTubular.Shell.exe <b>search channels</b> https://www.youtube.com/@<b>RussellBrand</b>
 <b>--for</b> '"freedom of speech" | "free speech" | censorship | "cancel culture"'
-<b>--top</b> 500 <b>--pad</b> 40
+<b>--take</b> 500 <b>--pad</b> 40
 </pre>
 
 or short
 
 <pre>
-$ ./SubTubular.exe <b>channel</b> RussellBrand
+$ ./SubTubular.Shell.exe <b>s channels</b> RussellBrand
 <b>-f</b> '"freedom of speech" | "free speech" | censorship | "cancel culture"'
 <b>-t</b> 500 <b>-p</b> 40
 </pre>
@@ -420,14 +439,14 @@ Who Benefits From Online <b>Censorship</b>?
 What else has Russell Brand been talking about recently on his channel?
 
 <pre>
-SubTubular.exe <b>search-channel</b> https://www.youtube.com/@<b>RussellBrand</b>
-<b>--keywords</b> <b>--top</b> 100
+SubTubular.Shell.exe <b>search channels</b> https://www.youtube.com/@<b>RussellBrand</b>
+<b>--keywords</b> <b>--take</b> 100
 </pre>
 
 or short
 
 <pre>
-SubTubular.exe <b>channel</b> RussellBrand <b>-k</b> <b>-t</b> 100
+SubTubular.Shell.exe <b>s channels</b> RussellBrand <b>-k</b> <b>-t</b> 100
 </pre>
 
 will look at the keywords the top 100 videos of the searched playlist are tagged with and list them with their number of occurrences, most used first.
@@ -455,51 +474,51 @@ I have here a pile of rocks that needs grinding. Let's make a supercut of Jörg 
 
 ### Windows CMD <!-- omit in toc -->
 <pre>
-> SubTubular.exe <b>search-channel</b> https://www.youtube.com/user/<b>JoergSprave</b>
-<b>--for</b> "haha | laugh* | ""let me show you its features""" <b>--top</b> 100 <b>--cache-hours</b> 0
+> SubTubular.Shell.exe <b>search channels</b> https://www.youtube.com/user/<b>JoergSprave</b>
+<b>--for</b> "haha | laugh* | ""let me show you its features""" <b>--take</b> 100 <b>--cache-hours</b> 0
 <b>--order-by</b> uploaded asc <b>--html</b> <b>--out</b> "path/to/my output file.html" <b>--show</b> file
 </pre>
 
 or short
 
 <pre>
-> SubTubular.exe <b>channel</b> JoergSprave <b>-f</b> "haha | laugh* | ""let me show you its features"""
-<b>-t</b> 100 <b>-h</b> 0 <b>-r</b> uploaded asc <b>-m</b> <b>-o</b> "path/to/my output file.html" <b>-s</b> file
+> SubTubular.Shell.exe <b>s channels</b> JoergSprave <b>-f</b> "haha | laugh* | ""let me show you its features"""
+<b>-t</b> 100 <b>-ch</b> 0 <b>-r</b> uploaded asc <b>-m</b> <b>-o</b> "path/to/my output file.html" <b>-s</b> file
 </pre>
 
 ### PowerShell <!-- omit in toc -->
 <pre>
-PS > .\SubTubular.exe <b>search-channel</b> https://www.youtube.com/user/<b>JoergSprave</b>
-<b>--for</b> 'haha | laugh* | ""let me show you its features""' <b>--top</b> 100 <b>--cache-hours</b> 0
+PS > .\SubTubular.Shell.exe <b>search channels</b> https://www.youtube.com/user/<b>JoergSprave</b>
+<b>--for</b> 'haha | laugh* | ""let me show you its features""' <b>--take</b> 100 <b>--cache-hours</b> 0
 <b>--order-by</b> uploaded asc <b>--html</b> <b>--out</b> "path/to/my output file.html" <b>--show</b> file
 </pre>
 
 or short
 
 <pre>
-PS > .\SubTubular.exe <b>channel</b> JoergSprave <b>-f</b> 'haha | laugh* | ""let me show you its features""'
-<b>-t</b> 100 <b>-h</b> 0 <b>-r</b> uploaded asc <b>-m</b> <b>-o</b> "path/to/my output file.html" <b>-s</b> file
+PS > .\SubTubular.Shell.exe <b>s channels</b> JoergSprave <b>-f</b> 'haha | laugh* | ""let me show you its features""'
+<b>-t</b> 100 <b>-ch</b> 0 <b>-r</b> uploaded asc <b>-m</b> <b>-o</b> "path/to/my output file.html" <b>-s</b> file
 </pre>
 
 ### Bash <!-- omit in toc -->
 <pre>
-$ ./SubTubular.exe <b>search-channel</b> https://www.youtube.com/user/<b>JoergSprave</b>
-<b>--for</b> 'haha | laugh* | "let me show you its features"' <b>--top</b> 100 <b>--cache-hours</b> 0
+$ ./SubTubular.Shell.exe <b>search channels</b> https://www.youtube.com/user/<b>JoergSprave</b>
+<b>--for</b> 'haha | laugh* | "let me show you its features"' <b>--take</b> 100 <b>--cache-hours</b> 0
 <b>--order-by</b> uploaded asc <b>--html</b> <b>--out</b> "path/to/my output file.html" <b>--show</b> file
 </pre>
 
 or short
 
 <pre>
-$ ./SubTubular.exe <b>channel</b> JoergSprave <b>-f</b> 'haha | laugh* | "let me show you its features"'
-<b>-t</b> 100 <b>-h</b> 0 <b>-r</b> uploaded asc <b>-m</b> <b>-o</b> "path/to/my output file.html" <b>-s</b> file
+$ ./SubTubular.Shell.exe <b>s channels</b> JoergSprave <b>-f</b> 'haha | laugh* | "let me show you its features"'
+<b>-t</b> 100 <b>-ch</b> 0 <b>-r</b> uploaded asc <b>-m</b> <b>-o</b> "path/to/my output file.html" <b>-s</b> file
 </pre>
 
 thankfully at any given time will yield results like you find below.
 
 Note how
-- `--top|-t 100` only searches the top 100 videos in the Uploads playlist of the channel
-- `--cache-hours|-h 0` disables playlist caching to make sure we get the freshest laughs
+- `--take|-t 100` only searches the top 100 videos in the Uploads playlist of the channel
+- `--cache-hours|-ch 0` disables playlist caching to make sure we get the freshest laughs
 - `--order-by|-r uploaded asc` will sort the results by `uploaded` date instead of score and `asc`ending (latest last) instead of descending (latest first)
 - `--html|-m` will generate a HTML output file including time-stamped hyperlinks to the found results
 - `--out|-o "path/to/my output file.html"` will save the output file to a custom path instead of the default output folder; the path being quoted because it contains spaces
@@ -531,7 +550,7 @@ Since we don't want that, we'll have to quote any query that contains an OR pipe
 Next, learn the features of the [LIFTI **query syntax**](https://mikegoatly.github.io/lifti/docs/searching/lifti-query-syntax/) and try them out one by one until you understand them. It helps to do that with a channel, playlist or videos you know a bit of the content of - so you know what you *should* find.
 
 You'll probably want to use an iterative process for designing your full-text queries. Start with a simple one and see what it matches, then progressively tweak it until you're happy with the results.
-Keep in mind that not immediately finding what your looking for in a playlist could also just mean you have to increase the `--top` number of videos to search.
+Keep in mind that not immediately finding what your looking for in a playlist could also just mean you have to increase the `--take`n number of videos to search.
 
 
 ## Searching auto-generated subtitles
@@ -544,8 +563,8 @@ If you can't seem to find what you're looking for, here are some things to keep 
 - Omit punctuation in the original text (dots, commas, question marks and double quotes around citations). Those will be regarded as punctuation, not searchable content.
 - Note that auto-generated subtitles may not always make sense, semantically speaking. Similar sounding words may be misunderstood, especially for speakers with poor pronunciation, high throughput, an accent or simply due to background noise. A statement about *defense* could for example easily be misinterpreted as being about *the fence*.
 - You'll find that the speech recognition algorithm will replace
-  - `[Music]` `[Laughter]` and `[Applause]` with those placeholders, see https://research.google/blog/adding-sound-effect-information-to-youtube-captions/
-  - words YouTube considers inappropriate with `[ __ ]` depending on the channel setting https://support.google.com/youtube/answer/6373554?hl=en#zippy=%2Cpotentially-inappropriate-words-in-automatic-captions.
+  - `[Music]` `[Laughter]` and `[Applause]` with [these placeholders](https://research.google/blog/adding-sound-effect-information-to-youtube-captions/) - translated into the caption track language. Escape e.g. like `\[Laughter\]`.
+  - words YouTube considers inappropriate with `[ __ ]` depending on [the channel setting](https://support.google.com/youtube/answer/6373554?hl=en#zippy=%2Cpotentially-inappropriate-words-in-automatic-captions).
 
 Feel free to contribute your own best practices in the [issues](https://github.com/h0lg/SubTubular/issues).
 
