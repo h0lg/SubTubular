@@ -4,6 +4,7 @@ open System
 open System.Runtime.CompilerServices
 open System.Threading
 open Avalonia.Controls
+open Avalonia.Interactivity
 open Avalonia.Layout
 open Avalonia.Media
 open Avalonia.Themes.Fluent
@@ -60,6 +61,7 @@ module App =
         | SearchResult of VideoSearchResult
         | SearchCompleted
 
+        | CopyingToClipboard of RoutedEventArgs
         | OpenUrl of string
         | Reset
 
@@ -155,6 +157,7 @@ module App =
         | SearchCompleted -> { model with Searching = false }, Cmd.none
 
         | OpenUrl url -> model, (fun _ -> ShellCommands.OpenUri(url); Cmd.none)()
+        | CopyingToClipboard _args -> model, Cmd.none
         | Reset -> initModel, Cmd.none
 
     // see https://docs.fabulous.dev/basics/user-interface/styling
@@ -178,7 +181,7 @@ module App =
 
     // see https://github.com/AvaloniaUI/Avalonia/discussions/9654
     let private writeHighlightingMatches (matched: MatchedText) (matchPadding: uint32 option) =
-        let tb = TextBlock()
+        let tb = SelectableTextBlock(CopyingToClipboard)
         let padding = match matchPadding with Some value -> Nullable(value) | None -> Nullable()
 
         let runs = matched.WriteHighlightingMatches(
@@ -188,16 +191,16 @@ module App =
 
         let contents = runs |> Seq.map tb.Yield |> Seq.toList
         let content = Seq.fold (fun agg cont -> tb.Combine(agg, cont)) contents.Head contents.Tail
-        tb.Run content
+        (tb.Run content).textWrapping(TextWrapping.WrapWithOverflow)
 
     let private renderSearchResult (matchPadding: uint32) (result: VideoSearchResult) =
         let videoUrl = Youtube.GetVideoUrl result.Video.Id
 
         VStack() {
-            Grid(coldefs = [Auto; Auto; Star], rowdefs = [Auto]){
+            Grid(coldefs = [Auto; Auto; Star], rowdefs = [Auto]) {
                 (match result.TitleMatches with
-                | null -> TextBlock result.Video.Title
-                | matches -> writeHighlightingMatches matches None).gridColumn(0)
+                | null -> SelectableTextBlock(result.Video.Title, CopyingToClipboard)
+                | matches -> writeHighlightingMatches matches None).gridColumn(0).fontSize(18)
 
                 Button("↗", OpenUrl videoUrl)
                     .tip(ToolTip("Open video in browser"))
