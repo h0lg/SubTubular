@@ -203,11 +203,17 @@ module App =
             }
 
             if result.DescriptionMatches <> null then
-                for matches in result.DescriptionMatches.SplitIntoPaddedGroups(matchPadding) do
-                    writeHighlightingMatches matches (Some matchPadding)
+                HStack() {
+                    TextBlock "in description"
+
+                    for matches in result.DescriptionMatches.SplitIntoPaddedGroups(matchPadding) do
+                        writeHighlightingMatches matches (Some matchPadding)
+                }
 
             if result.KeywordMatches.HasAny() then
                 HStack() {
+                    TextBlock "in keywords"
+
                     for matches in result.KeywordMatches do
                         writeHighlightingMatches matches None
                 }
@@ -222,13 +228,14 @@ module App =
                         let (synced, captionAt) = trackResult.SyncWithCaptions(matched, matchPadding).ToTuple()
                         let offset = TimeSpan.FromSeconds(captionAt).FormatWithOptionalHours().PadLeft(if displaysHour then 7 else 5)
 
-                        HStack() {
+                        Grid(coldefs = [Auto; Auto; Star], rowdefs = [Auto]) {
                             TextBlock offset
-                            writeHighlightingMatches synced None
 
                             Button("↗", OpenUrl $"{videoUrl}?t={captionAt}")
                                 .tip(ToolTip($"Open video at {offset} in browser"))
-                                .padding(5, 1).margin(5, 0)
+                                .padding(5, 1).margin(5, 0).gridColumn(1)
+
+                            (writeHighlightingMatches synced (Some matchPadding)).gridColumn(2)
                         }
         }
 
