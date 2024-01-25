@@ -4,6 +4,7 @@ open System
 open System.Runtime.CompilerServices
 open System.Threading
 open Avalonia.Controls
+open Avalonia.Layout
 open Avalonia.Media
 open Avalonia.Themes.Fluent
 open Fabulous
@@ -204,7 +205,7 @@ module App =
 
             if result.DescriptionMatches <> null then
                 HStack() {
-                    TextBlock "in description"
+                    (TextBlock "in description").foreground(Colors.Gray)
 
                     for matches in result.DescriptionMatches.SplitIntoPaddedGroups(matchPadding) do
                         writeHighlightingMatches matches (Some matchPadding)
@@ -212,7 +213,7 @@ module App =
 
             if result.KeywordMatches.HasAny() then
                 HStack() {
-                    TextBlock "in keywords"
+                    (TextBlock "in keywords").foreground(Colors.Gray)
 
                     for matches in result.KeywordMatches do
                         writeHighlightingMatches matches None
@@ -229,11 +230,11 @@ module App =
                         let offset = TimeSpan.FromSeconds(captionAt).FormatWithOptionalHours().PadLeft(if displaysHour then 7 else 5)
 
                         Grid(coldefs = [Auto; Auto; Star], rowdefs = [Auto]) {
-                            TextBlock offset
+                            (TextBlock offset).foreground(Colors.Gray)
 
                             Button("↗", OpenUrl $"{videoUrl}?t={captionAt}")
                                 .tip(ToolTip($"Open video at {offset} in browser"))
-                                .padding(5, 1).margin(5, 0).gridColumn(1)
+                                .padding(5, 1).margin(5, 0).verticalAlignment(VerticalAlignment.Top).gridColumn(1)
 
                             (writeHighlightingMatches synced (Some matchPadding)).gridColumn(2)
                         }
