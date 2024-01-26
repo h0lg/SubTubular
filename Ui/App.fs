@@ -60,7 +60,7 @@ module App =
         | OrderDescChanged of bool
         | PaddingChanged of float option
 
-        | OutputChanged of bool
+        | DisplayOutputOptionsChanged of bool
         | OutputHtmlChanged of bool
         | OutputToChanged of string
         | OpenOutputChanged of SelectionChangedEventArgs
@@ -182,8 +182,8 @@ module App =
         | OrderByScoreChanged value -> { model with OrderByScore = value }, Cmd.none
         | OrderDescChanged value -> { model with OrderDesc = value }, Cmd.none
         | PaddingChanged padding -> { model with Padding = int padding.Value }, Cmd.none
-
-        | OutputChanged output -> { model with DisplayOutputOptions = output }, Cmd.none
+        
+        | DisplayOutputOptionsChanged output -> { model with DisplayOutputOptions = output }, Cmd.none
         | OutputHtmlChanged value -> { model with OutputHtml = value }, Cmd.none
         | OutputToChanged path -> { model with OutputTo = path }, Cmd.none
         | OpenOutputChanged args -> { model with OpenOutput = args.AddedItems.Item 0 :?> OpenOutputOptions }, Cmd.none
@@ -213,6 +213,9 @@ module App =
     // see https://docs.fabulous.dev/basics/user-interface/styling
     [<Extension>]
     type SharedStyle =
+
+        [<Extension>]
+        static member inline trailingMargin(this: WidgetBuilder<'msg, #IFabLayoutable>) = this.margin(0 ,0, 0, 5)
 
         [<Extension>]
         static member inline demoted(this: WidgetBuilder<'msg, IFabTextBlock>) = this.foreground(Colors.Gray)
@@ -246,11 +249,11 @@ module App =
     let private renderSearchResult (matchPadding: uint32) (result: VideoSearchResult) =
         let videoUrl = Youtube.GetVideoUrl result.Video.Id
 
-        VStack() {
+        (VStack() {
             Grid(coldefs = [Auto; Auto; Star], rowdefs = [Auto]) {
                 (match result.TitleMatches with
                 | null -> SelectableTextBlock(result.Video.Title, CopyingToClipboard)
-                | matches -> writeHighlightingMatches matches None).gridColumn(0).fontSize(18)
+                | matches -> writeHighlightingMatches matches None).fontSize(18)
 
                 Button("↗", OpenUrl videoUrl)
                     .tip(ToolTip("Open video in browser"))
@@ -296,7 +299,7 @@ module App =
 
                             (writeHighlightingMatches synced (Some matchPadding)).gridColumn(2)
                         }
-        }
+        }).trailingMargin()
 
     (*  see for F#
             https://fsharp.org/learn/
@@ -310,12 +313,12 @@ module App =
             https://github.com/fabulous-dev/Fabulous.Avalonia/tree/main/src/Fabulous.Avalonia/Views
             https://play.avaloniaui.net/ *)
     let view model =
-        Grid(coldefs = [Star], rowdefs = [Auto; Auto; Auto; Auto; Star]) {
+        (Grid(coldefs = [Star], rowdefs = [Auto; Auto; Auto; Auto; Star]) {
 
             // see https://usecasepod.github.io/posts/mvu-composition.html
             // and https://github.com/TimLariviere/FabulousContacts/blob/0d5024c4bfc7a84f02c0788a03f63ff946084c0b/FabulousContacts/ContactsListPage.fs#L89C17-L89C31
             // search options
-            Grid(coldefs = [Auto; Star; Auto; Stars 2; Auto], rowdefs = [Auto]) {
+            (Grid(coldefs = [Auto; Star; Auto; Stars 2; Auto], rowdefs = [Auto]) {
                 TextBlock("for")
                     .margin(10, 0).centerVertical().gridColumn(2)
                 TextBox(model.Query, QueryChanged)
@@ -324,7 +327,7 @@ module App =
                 ToggleButton((if model.Searching then "🛑 Stop" else "🔍 Search"), model.Searching, Search)
                     .margin(10, 0)
                     .gridColumn(4)
-            }
+            }).trailingMargin()
 
             // scopes
             ScrollViewer((VStack() {
@@ -345,6 +348,9 @@ module App =
                                 .formatString("F0")
                                 .tip(ToolTip("number of videos to search"))
                             Label "videos"
+                        }).centerHorizontal().isVisible(scope.DisplaysSettings)
+
+                        (HStack(5) {
                             Label "and look for new ones after"
                             NumericUpDown(0, float UInt16.MaxValue, scope.CacheHours, fun value -> CacheHoursChanged(scope, value))
                                 .formatString("F0")
@@ -372,18 +378,18 @@ module App =
                     for scope in addable do
                         Button(displayScope scope, AddScope scope)
                 }
-            })).gridRow(1)
+            })).gridRow(1).trailingMargin()
 
             // result options
-            (Grid(coldefs = [Auto; Star; Auto; Auto], rowdefs = [Auto]) {
-                TextBlock("Results").gridColumn(0)
+            (Grid(coldefs = [Auto; Star; Star; Auto], rowdefs = [Auto]) {
+                TextBlock("Results")
 
                 (HStack(5) {
                     Label "ordered"
                     ToggleButton((if model.OrderDesc then "descending ↓" else "ascending ↑"), model.OrderDesc, OrderDescChanged)
                     Label "by"
                     ToggleButton((if model.OrderByScore then "💯 score" else "📅 uploaded"), model.OrderByScore, OrderByScoreChanged)
-                }).gridColumn(1).centerVertical()
+                }).gridColumn(1).centerVertical().centerHorizontal()
 
                 (HStack(5) {
                     Label "padded with"
@@ -391,14 +397,14 @@ module App =
                         .formatString("F0")
                         .tip(ToolTip("how much context to show a search result in"))
                     Label "chars for context"
-                }).gridColumn(2)
+                }).gridColumn(2).centerHorizontal()
 
-                ToggleButton("📄 output", model.DisplayOutputOptions, OutputChanged).gridColumn(3)
-            }).gridRow(2).isVisible(not model.SearchResults.IsEmpty)
+                ToggleButton("as file 📄", model.DisplayOutputOptions, DisplayOutputOptionsChanged).gridColumn(3)
+            }).gridRow(2).trailingMargin().isVisible(not model.SearchResults.IsEmpty)
 
             // output options
             (Grid(coldefs = [Auto; Auto; Auto; Star; Auto; Auto], rowdefs = [Auto]) {
-                Label("ouput").gridColumn(0)
+                Label("ouput")
                 ToggleButton((if model.OutputHtml then "🖺 html" else "🖹 text"), model.OutputHtml, OutputHtmlChanged).gridColumn(1)
                 Label("to").gridColumn(2)
                 TextBox(model.OutputTo, OutputToChanged)
@@ -406,14 +412,14 @@ module App =
                 Label("and open").gridColumn(4)
                 ComboBox(Enum.GetValues<OpenOutputOptions>(), fun show -> ComboBoxItem(displayOpenOutput show))
                     .selectedItem(model.OpenOutput).onSelectionChanged(OpenOutputChanged).gridColumn(5)
-            }).gridRow(3).isVisible(model.DisplayOutputOptions)
+            }).isVisible(model.DisplayOutputOptions).gridRow(3).trailingMargin()
 
             // results
             ScrollViewer((VStack() {
                 for result in model.SearchResults do
                     renderSearchResult (model.Padding |> uint32) result
             })).gridRow(4)
-        }
+        }).margin(5, 5 , 5, 0)
 
 #if MOBILE
     let app model = SingleViewApplication(view model)
