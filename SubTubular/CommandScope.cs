@@ -45,23 +45,13 @@ public abstract class PlaylistLikeScope : CommandScope
 
     // public options
     public ushort Top { get; }
-    public IEnumerable<OrderOptions> OrderBy { get; }
     public float CacheHours { get; }
 
-    public PlaylistLikeScope(ushort top, IEnumerable<OrderOptions> orderBy, float cacheHours)
+    public PlaylistLikeScope(ushort top, float cacheHours)
     {
         Top = top;
         CacheHours = cacheHours;
-
-        // default to ordering by highest score which is probably most useful for most purposes
-        OrderBy = orderBy.HasAny() ? orderBy : new[] { OrderOptions.score };
     }
-
-    /// <summary>Mutually exclusive <see cref="OrderOptions"/>.</summary>
-    internal static OrderOptions[] Orders = [OrderOptions.uploaded, OrderOptions.score];
-
-    /// <summary><see cref="Orders"/> and modifiers.</summary>
-    public enum OrderOptions { uploaded, score, asc }
 }
 
 public class PlaylistScope : PlaylistLikeScope
@@ -71,8 +61,8 @@ public class PlaylistScope : PlaylistLikeScope
 
     public string Playlist { get; }
 
-    public PlaylistScope(string playlist, ushort top, IEnumerable<OrderOptions> orderBy, float cacheHours)
-        : base(top, orderBy, cacheHours) => Playlist = playlist;
+    public PlaylistScope(string playlist, ushort top, float cacheHours)
+        : base(top, cacheHours) => Playlist = playlist;
 }
 
 public class ChannelScope : PlaylistLikeScope
@@ -83,6 +73,6 @@ public class ChannelScope : PlaylistLikeScope
     protected override string KeyPrefix => StorageKeyPrefix;
     internal object[]? ValidAliases { get; set; }
 
-    public ChannelScope(string alias, ushort top, IEnumerable<OrderOptions> orderBy, float cacheHours)
-        : base(top, orderBy, cacheHours) => Alias = alias;
+    public ChannelScope(string alias, ushort top, float cacheHours)
+        : base(top, cacheHours) => Alias = alias;
 }

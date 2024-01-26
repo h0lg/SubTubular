@@ -28,36 +28,26 @@ static partial class Program
             return videos;
         }
 
-        private static ChannelScope CreateChannelScope(InvocationContext ctx, Argument<string> alias, Option<ushort> top, Option<IEnumerable<PlaylistLikeScope.OrderOptions>> orderBy, Option<float> cacheHours)
-            => new ChannelScope(ctx.Parsed(alias), ctx.Parsed(top), ctx.Parsed(orderBy), ctx.Parsed(cacheHours));
+        private static ChannelScope CreateChannelScope(InvocationContext ctx, Argument<string> alias,
+            Option<ushort> top, Option<float> cacheHours)
+            => new ChannelScope(ctx.Parsed(alias), ctx.Parsed(top), ctx.Parsed(cacheHours));
 
         private static PlaylistScope CreatePlaylistScope(InvocationContext ctx, Argument<string> playlist,
-            Option<ushort> top, Option<IEnumerable<PlaylistLikeScope.OrderOptions>> orderBy, Option<float> cacheHours)
-            => new PlaylistScope(ctx.Parsed(playlist), ctx.Parsed(top), ctx.Parsed(orderBy), ctx.Parsed(cacheHours));
+            Option<ushort> top, Option<float> cacheHours)
+            => new PlaylistScope(ctx.Parsed(playlist), ctx.Parsed(top), ctx.Parsed(cacheHours));
 
         private static VideosScope CreateVideosScope(InvocationContext ctx, Argument<IEnumerable<string>> videos)
             => new VideosScope(ctx.Parsed(videos));
 
-        private static (Option<ushort> top, Option<IEnumerable<PlaylistLikeScope.OrderOptions>> orderBy, Option<float> cacheHours) AddPlaylistLikeCommandOptions(Command command)
+        private static (Option<ushort> top, Option<float> cacheHours) AddPlaylistLikeCommandOptions(Command command)
         {
-            const string topName = "--top", orderByName = "--order-by";
-
             Option<ushort> top = new(new[] { topName, "-t" }, () => 50,
                 "The number of videos to search, counted from the top of the playlist;"
                 + " effectively limiting the search scope to the top partition of it."
                 + " You may want to gradually increase this to include all videos in the list while you're refining your query."
-                + $" Note that the special Uploads playlist of a channel is sorted latest '{nameof(PlaylistLikeScope.OrderOptions.uploaded)}' first,"
+                + $" Note that the special Uploads playlist of a channel is sorted latest '{nameof(SearchCommand.OrderOptions.uploaded)}' first,"
                 + " but custom playlists may be sorted differently. Keep that in mind if you don't find what you're looking for"
-                + $" and when using '{orderByName}' (which is only applied to the results) with '{nameof(PlaylistLikeScope.OrderOptions.uploaded)}' on custom playlists.");
-
-            Option<IEnumerable<PlaylistLikeScope.OrderOptions>> orderBy = new(new[] { orderByName, "-r" }, () => new[] { PlaylistLikeScope.OrderOptions.score },
-                $"Order the video search results by '{nameof(PlaylistLikeScope.OrderOptions.uploaded)}'"
-                + $" or '{nameof(PlaylistLikeScope.OrderOptions.score)}' with '{nameof(PlaylistLikeScope.OrderOptions.asc)}' for ascending."
-                + $" The default is descending (i.e. latest respectively highest first) and by '{nameof(PlaylistLikeScope.OrderOptions.score)}'."
-                + $" Note that the order is only applied to the results with the search scope itself being limited by the '{topName}' parameter."
-                + " Note also that for un-cached videos, this option is ignored in favor of outputting matches as soon as they're found"
-                + " - but simply repeating the search will hit the cache and return them in the requested order.")
-            { AllowMultipleArgumentsPerToken = true };
+                + $" and when using '{orderByName}' (which is only applied to the results) with '{nameof(SearchCommand.OrderOptions.uploaded)}' on custom playlists.");
 
             Option<float> cacheHours = new(new[] { "--cache-hours", "-ch" }, () => 24,
                 "The maximum age of a playlist cache in hours"
@@ -66,9 +56,8 @@ static partial class Program
                 + $" Use '--{clearCacheCommand}' to clear videos associated with a playlist or channel if that's what you're after.");
 
             command.AddOption(top);
-            command.AddOption(orderBy);
             command.AddOption(cacheHours);
-            return (top, orderBy, cacheHours);
+            return (top, cacheHours);
         }
     }
 }

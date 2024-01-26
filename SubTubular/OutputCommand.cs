@@ -17,7 +17,17 @@ public sealed class SearchCommand : OutputCommand
 {
     public string? Query { get; set; }
     public ushort Padding { get; set; }
+
+    // default to ordering by highest score which is probably most useful for most purposes
+    public IEnumerable<OrderOptions> OrderBy { get; set; } = new[] { OrderOptions.score };
+
     public override string Describe() => "searching " + Scope.Describe() + " for " + Query;
+
+    /// <summary>Mutually exclusive <see cref="OrderOptions"/>.</summary>
+    internal static OrderOptions[] Orders = [OrderOptions.uploaded, OrderOptions.score];
+
+    /// <summary><see cref="Orders"/> and modifiers.</summary>
+    public enum OrderOptions { uploaded, score, asc }
 }
 
 public sealed class ListKeywords : OutputCommand
