@@ -157,6 +157,13 @@ module App =
         | OpenUrl url -> model, (fun _ -> ShellCommands.OpenUri(url); Cmd.none)()
         | Reset -> initModel, Cmd.none
 
+    // see https://docs.fabulous.dev/basics/user-interface/styling
+    [<Extension>]
+    type SharedStyle =
+
+        [<Extension>]
+        static member inline demoted(this: WidgetBuilder<'msg, IFabTextBlock>) = this.foreground(Colors.Gray)
+
     let private displayScope = function
     | Scopes.videos -> "📼 videos"
     | Scopes.playlist -> "▶️ playlist"
@@ -170,7 +177,6 @@ module App =
     | _ -> failwith "unknown Show Option"
 
     // see https://github.com/AvaloniaUI/Avalonia/discussions/9654
-    //View.map ?
     let private writeHighlightingMatches (matched: MatchedText) (matchPadding: uint32 option) =
         let tb = TextBlock()
         let padding = match matchPadding with Some value -> Nullable(value) | None -> Nullable()
@@ -204,7 +210,7 @@ module App =
 
             if result.DescriptionMatches <> null then
                 HStack() {
-                    (TextBlock "in description").foreground(Colors.Gray)
+                    (TextBlock "in description").demoted()
 
                     for matches in result.DescriptionMatches.SplitIntoPaddedGroups(matchPadding) do
                         writeHighlightingMatches matches (Some matchPadding)
@@ -212,7 +218,7 @@ module App =
 
             if result.KeywordMatches.HasAny() then
                 HStack() {
-                    (TextBlock "in keywords").foreground(Colors.Gray)
+                    (TextBlock "in keywords").demoted()
 
                     for matches in result.KeywordMatches do
                         writeHighlightingMatches matches None
@@ -220,7 +226,7 @@ module App =
 
             if result.MatchingCaptionTracks.HasAny() then
                 for trackResult in result.MatchingCaptionTracks do
-                    TextBlock (trackResult.Track.LanguageName + " | " + trackResult.Track.FieldName)
+                    TextBlock(trackResult.Track.LanguageName + " | " + trackResult.Track.FieldName).demoted()
                     let displaysHour = trackResult.HasMatchesWithHours(matchPadding)
                     let splitMatches = trackResult.Matches.SplitIntoPaddedGroups(matchPadding)
 
@@ -229,7 +235,7 @@ module App =
                         let offset = TimeSpan.FromSeconds(captionAt).FormatWithOptionalHours().PadLeft(if displaysHour then 7 else 5)
 
                         Grid(coldefs = [Auto; Auto; Star], rowdefs = [Auto]) {
-                            (TextBlock offset).foreground(Colors.Gray)
+                            (TextBlock offset).demoted()
 
                             Button("↗", OpenUrl $"{videoUrl}?t={captionAt}")
                                 .tip(ToolTip($"Open video at {offset} in browser"))
@@ -318,7 +324,6 @@ module App =
             // output options
             (Grid(coldefs = [Auto; Auto; Auto; Star; Auto; Auto], rowdefs = [Auto]) {
                 Label("ouput").gridColumn(0)
-                //CheckBox("ouput", model.Output, OutputChanged).gridColumn(0)
                 ToggleButton((if model.OutputHtml then "🖺 html" else "🖹 text"), model.OutputHtml, OutputHtmlChanged).gridColumn(1)
                 Label("to").gridColumn(2)
                 TextBox(model.OutputTo, OutputToChanged)
