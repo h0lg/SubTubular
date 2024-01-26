@@ -398,6 +398,7 @@ public sealed class VideoSearchResult
     public MatchedText? DescriptionMatches { get; set; }
     public MatchedText[]? KeywordMatches { get; set; }
     public CaptionTrackResult[]? MatchingCaptionTracks { get; set; }
+    public double Score { get; internal set; }
 
     public sealed class CaptionTrackResult
     {

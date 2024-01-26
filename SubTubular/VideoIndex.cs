@@ -110,11 +110,11 @@ internal sealed class VideoIndex
     /// and the <see cref="PlaylistLikeScope.OrderBy"/> and <see cref="SearchCommand.Padding"/> of the results.</param>
     /// <param name="relevantVideos"><see cref="Video.Id"/>s the search is limited to
     /// accompanied by their corresponding <see cref="Video.Uploaded"/> dates, if known.
-    /// The latter are only used for <see cref="PlaylistLikeScope.OrderOptions.uploaded"/>
+    /// The latter are only used for <see cref="SearchCommand.OrderOptions.uploaded"/>
     /// and missing dates are determined by loading the videos using <paramref name="getVideoAsync"/>.</param>
     /// <param name="updatePlaylistVideosUploaded">A callback for updating the <see cref="Playlist.Videos"/>
     /// with the <see cref="Video.Uploaded"/> dates after loading them for
-    /// <see cref="PlaylistLikeScope.OrderOptions.uploaded"/>.</param>
+    /// <see cref="SearchCommand.OrderOptions.uploaded"/>.</param>
     internal async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command,
         Func<string, CancellationToken, Task<Video>> getVideoAsync,
         IDictionary<string, DateTime?>? relevantVideos = default,
@@ -135,9 +135,10 @@ internal sealed class VideoIndex
         var previouslyLoadedVideos = Array.Empty<Video>();
         var unIndexedVideos = new List<Video>();
 
-        if (command.Scope is PlaylistScope searchPlaylist) // order playlist matches
+        // order matches
+        if (matches.Count > 1)
         {
-            var orderByUploaded = searchPlaylist.OrderBy.Contains(PlaylistLikeScope.OrderOptions.uploaded);
+            var orderByUploaded = command.OrderBy.Contains(SearchCommand.OrderOptions.uploaded);
 
             if (orderByUploaded)
             {
@@ -161,9 +162,9 @@ internal sealed class VideoIndex
                 }
             }
 
-            if (searchPlaylist.OrderBy.ContainsAny(PlaylistLikeScope.Orders))
+            if (command.OrderBy.ContainsAny(SearchCommand.Orders))
             {
-                var orderded = searchPlaylist.OrderBy.Contains(PlaylistLikeScope.OrderOptions.asc)
+                var orderded = command.OrderBy.Contains(SearchCommand.OrderOptions.asc)
                     ? matches.OrderBy(m => orderByUploaded ? relevantVideos![m.Key] : m.Score as object)
                     : matches.OrderByDescending(m => orderByUploaded ? relevantVideos![m.Key] : m.Score as object);
 
@@ -191,7 +192,7 @@ internal sealed class VideoIndex
                 }
             }
 
-            var result = new VideoSearchResult { Video = video };
+            var result = new VideoSearchResult { Video = video, Score = match.Score };
 
             var titleMatches = match.FieldMatches.Where(m => m.FoundIn == nameof(Video.Title));
 

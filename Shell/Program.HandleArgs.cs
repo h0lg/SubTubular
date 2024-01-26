@@ -10,7 +10,7 @@ static partial class Program
 {
     static partial class CommandHandler
     {
-        private const string clearCacheCommand = "clear-cache",
+        private const string clearCacheCommand = "clear-cache", topName = "--top", orderByName = "--order-by",
             quoteIdsStartingWithDash = " Note that if the video ID starts with a dash, you have to quote it"
                 + @" like ""-1a2b3c4d5e"" or use the entire URL to prevent it from being misinterpreted as a command option.";
 
