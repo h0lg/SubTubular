@@ -21,17 +21,18 @@ module App =
         Scope: Scopes
         Aliases: string
         Query: string
-        Padding: int
 
         Top: float option
+        CacheHours: float option
+
         OrderByScore: bool
         OrderDesc: bool
-        CacheHours: float option
+        Padding: int
 
         Searching: bool
         SearchResults: VideoSearchResult list
 
-        Output: bool
+        DisplayOutputOptions: bool
         OutputHtml: bool
         OutputTo: string
         OpenOutput: OpenOutputOptions
@@ -43,11 +44,12 @@ module App =
         | QueryChanged of string
 
         | TopChanged of float option
-        | OrderByScoreChanged of bool
-        | OrderDescChanged of bool
         | CacheHoursChanged of float option
 
+        | OrderByScoreChanged of bool
+        | OrderDescChanged of bool
         | PaddingChanged of float option
+
         | OutputChanged of bool
         | OutputHtmlChanged of bool
         | OutputToChanged of string
@@ -130,7 +132,7 @@ module App =
         CacheHours = Some (float 24)
 
         Padding = 23
-        Output = false
+        DisplayOutputOptions = false
         OutputHtml = true
         OutputTo = Folder.GetPath Folders.output
         OpenOutput = OpenOutputOptions.nothing
@@ -155,7 +157,7 @@ module App =
         | CacheHoursChanged hours -> { model with CacheHours = hours }, Cmd.none
 
         | PaddingChanged padding -> { model with Padding = int padding.Value }, Cmd.none
-        | OutputChanged output -> { model with Output = output }, Cmd.none
+        | OutputChanged output -> { model with DisplayOutputOptions = output }, Cmd.none
         | OutputHtmlChanged value -> { model with OutputHtml = value }, Cmd.none
         | OutputToChanged path -> { model with OutputTo = path }, Cmd.none
         | OpenOutputChanged args ->
@@ -262,7 +264,7 @@ module App =
                     Label "chars"
                 }).gridColumn(2)
 
-                ToggleButton("📄 output", model.Output, OutputChanged).gridColumn(3)
+                ToggleButton("📄 output", model.DisplayOutputOptions, OutputChanged).gridColumn(3)
             }).gridRow(2)
 
             // output options
@@ -276,7 +278,7 @@ module App =
                 Label("and open").gridColumn(4)
                 ComboBox(Enum.GetValues<OpenOutputOptions>(), fun show -> ComboBoxItem(displayOpenOutput show))
                     .selectedItem(model.OpenOutput).onSelectionChanged(OpenOutputChanged).gridColumn(5)
-            }).gridRow(3).isVisible(model.Output)
+            }).gridRow(3).isVisible(model.DisplayOutputOptions)
 
             View.ListBox(model.SearchResults, renderSearchResult).gridRow(4)
         }
