@@ -134,9 +134,10 @@ internal sealed class VideoIndex
         var previouslyLoadedVideos = Array.Empty<Video>();
         var unIndexedVideos = new List<Video>();
 
-        if (command.Scope is PlaylistScope searchPlaylist) // order playlist matches
+        // order matches
+        if (matches.Count > 1)
         {
-            var orderByUploaded = searchPlaylist.OrderBy.Contains(PlaylistLikeScope.OrderOptions.uploaded);
+            var orderByUploaded = command.OrderBy.Contains(SearchCommand.OrderOptions.uploaded);
 
             if (orderByUploaded)
             {
@@ -160,9 +161,9 @@ internal sealed class VideoIndex
                 }
             }
 
-            if (searchPlaylist.OrderBy.ContainsAny(PlaylistLikeScope.Orders))
+            if (command.OrderBy.ContainsAny(SearchCommand.Orders))
             {
-                var orderded = searchPlaylist.OrderBy.Contains(PlaylistLikeScope.OrderOptions.asc)
+                var orderded = command.OrderBy.Contains(SearchCommand.OrderOptions.asc)
                     ? matches.OrderBy(m => orderByUploaded ? relevantVideos![m.Key] : m.Score as object)
                     : matches.OrderByDescending(m => orderByUploaded ? relevantVideos![m.Key] : m.Score as object);
 
@@ -190,7 +191,7 @@ internal sealed class VideoIndex
                 }
             }
 
-            var result = new VideoSearchResult { Video = video };
+            var result = new VideoSearchResult { Video = video, Score = match.Score };
 
             var titleMatches = match.FieldMatches.Where(m => m.FoundIn == nameof(Video.Title));
 

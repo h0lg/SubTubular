@@ -9,7 +9,7 @@ namespace SubTubular;
 public static class CommandValidator
 {
     // see Lifti.Querying.QueryTokenizer.ParseQueryTokens()
-    private static readonly char[] controlChars = new[] { '*', '%', '|', '&', '"', '~', '>', '?', '(', ')', '=', ',' };
+    private static readonly char[] controlChars = ['*', '%', '|', '&', '"', '~', '>', '?', '(', ')', '=', ','];
 
     public static void ValidateSearchCommand(SearchCommand command)
     {
@@ -22,13 +22,16 @@ public static class CommandValidator
             $"The {nameof(SearchCommand.Query).ToLower()} contains nothing but control characters."
             + " That'll stay unsupported unless you come up with a good reason for why it should be."
             + $" If you can, leave it at {AssemblyInfo.IssuesUrl} .");
+
+        if (command.OrderBy.Intersect(SearchCommand.Orders).Count() > 1) throw new InputException(
+            $"You may order by either '{nameof(SearchCommand.OrderOptions.score)}' or '{nameof(SearchCommand.OrderOptions.uploaded)}' (date), but not both.");
     }
 
     public static void ValidateCommandScope(CommandScope scope)
     {
-        if (scope is PlaylistScope searchPlaylist) ValidateSearchPlaylist(searchPlaylist);
+        if (scope is PlaylistScope searchPlaylist) ValidatePlaylistScope(searchPlaylist);
         else if (scope is VideosScope searchVids) ValidateSearchVideos(searchVids);
-        else if (scope is ChannelScope searchChannel) ValidateSearchChannel(searchChannel);
+        else if (scope is ChannelScope searchChannel) ValidateChannelScope(searchChannel);
         else throw new NotImplementedException($"Validation for {nameof(CommandScope)} {scope.GetType()} is not implemented.");
     }
 
@@ -46,13 +49,11 @@ public static class CommandValidator
         return valid;
     }
 
-    private static void ValidateSearchChannel(ChannelScope command)
+    private static void ValidateChannelScope(ChannelScope scope)
     {
-        ValidateSearchPlayListCommand(command);
-
         /*  validate Alias locally to throw eventual InputException,
             but store result for RemoteValidateChannelAsync */
-        command.ValidAliases = ValidateChannelAlias(command.Alias);
+        scope.ValidAliases = ValidateChannelAlias(scope.Alias);
     }
 
     private static void ValidateSearchVideos(VideosScope command)
@@ -69,19 +70,11 @@ public static class CommandValidator
         command.ValidUrls = validIds.Select(Youtube.GetVideoUrl).ToArray();
     }
 
-    private static void ValidateSearchPlaylist(PlaylistScope command)
+    private static void ValidatePlaylistScope(PlaylistScope scope)
     {
-        ValidateSearchPlayListCommand(command);
-
-        var id = PlaylistId.TryParse(command.Playlist) ?? throw new InputException($"'{command.Playlist}' is not a valid playlist ID.");
-        command.ValidId = id;
-        command.ValidUrls = new[] { "https://www.youtube.com/playlist?list=" + id };
-    }
-
-    private static void ValidateSearchPlayListCommand(PlaylistLikeScope command)
-    {
-        if (command.OrderBy.Intersect(PlaylistLikeScope.Orders).Count() > 1) throw new InputException(
-            $"You may order by either '{nameof(PlaylistLikeScope.OrderOptions.score)}' or '{nameof(PlaylistLikeScope.OrderOptions.uploaded)}' (date), but not both.");
+        var id = PlaylistId.TryParse(scope.Playlist) ?? throw new InputException($"'{scope.Playlist}' is not a valid playlist ID.");
+        scope.ValidId = id;
+        scope.ValidUrls = new[] { "https://www.youtube.com/playlist?list=" + id };
     }
 
     public static async Task RemoteValidateChannelAsync(ChannelScope command, YoutubeClient youtube, DataStore dataStore, CancellationToken cancellation)
