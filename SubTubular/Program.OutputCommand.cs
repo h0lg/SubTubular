@@ -5,7 +5,8 @@ namespace SubTubular;
 
 static partial class Program
 {
-    private static async Task OutputAsync(OutputCommand command, string originalCommand, Func<Youtube, CancellationToken, OutputWriter, Task<bool>> runCommand)
+    private static async Task OutputAsync(OutputCommand command, string originalCommand,
+        Func<Youtube, CancellationToken, OutputWriter, Task<bool>> runCommand)
     {
         //inspired by https://johnthiriet.com/cancel-asynchronous-operation-in-csharp/
         using var cancellation = new CancellationTokenSource();
