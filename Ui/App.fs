@@ -385,10 +385,17 @@ module App =
                 TextBlock("Results")
 
                 (HStack(5) {
-                    Label "ordered"
-                    ToggleButton((if model.OrderDesc then "descending ↓" else "ascending ↑"), model.OrderDesc, OrderDescChanged)
-                    Label "by"
+                    let direction =
+                        match (model.OrderByScore, model.OrderDesc) with
+                        | (true ,true) -> "⋱ highest"
+                        | (true ,false) -> "⋰ lowest"
+                        | (false, true) -> "⋱ latest"
+                        | (false, false) -> "⋰ earliest"
+
+                    Label "ordered by"
+                    ToggleButton(direction, model.OrderDesc, OrderDescChanged)
                     ToggleButton((if model.OrderByScore then "💯 score" else "📅 uploaded"), model.OrderByScore, OrderByScoreChanged)
+                    Label "first"
                 }).gridColumn(1).centerVertical().centerHorizontal()
 
                 (HStack(5) {
