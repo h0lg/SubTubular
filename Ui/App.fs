@@ -165,6 +165,9 @@ module App =
     type SharedStyle =
 
         [<Extension>]
+        static member inline trailingMargin(this: WidgetBuilder<'msg, #IFabLayoutable>) = this.margin(0 ,0, 0, 5)
+
+        [<Extension>]
         static member inline demoted(this: WidgetBuilder<'msg, IFabTextBlock>) = this.foreground(Colors.Gray)
 
     let private displayScope = function
@@ -196,7 +199,7 @@ module App =
     let private renderSearchResult (matchPadding: uint32) (result: VideoSearchResult) =
         let videoUrl = Youtube.GetVideoUrl result.Video.Id
 
-        VStack() {
+        (VStack() {
             Grid(coldefs = [Auto; Auto; Star], rowdefs = [Auto]) {
                 (match result.TitleMatches with
                 | null -> SelectableTextBlock(result.Video.Title, CopyingToClipboard)
@@ -246,7 +249,7 @@ module App =
 
                             (writeHighlightingMatches synced (Some matchPadding)).gridColumn(2)
                         }
-        }
+        }).trailingMargin()
 
     (*  see for F#
             https://fsharp.org/learn/
@@ -260,10 +263,10 @@ module App =
             https://github.com/fabulous-dev/Fabulous.Avalonia/tree/main/src/Fabulous.Avalonia/Views
             https://play.avaloniaui.net/ *)
     let view model =
-        Grid(coldefs = [Star], rowdefs = [Auto; Auto; Auto; Auto; Star]) {
+        (Grid(coldefs = [Star], rowdefs = [Auto; Auto; Auto; Auto; Star]) {
 
             // search options
-            Grid(coldefs = [Auto; Star; Auto; Stars 2; Auto], rowdefs = [Auto]) {
+            (Grid(coldefs = [Auto; Star; Auto; Stars 2; Auto], rowdefs = [Auto]) {
                 ComboBox(Enum.GetValues<Scopes>(), fun scope -> ComboBoxItem(displayScope scope))
                     .selectedItem(model.Scope).onSelectionChanged(ScopeChanged).gridColumn(0)
                 TextBox(model.Aliases, AliasesUpdated)
@@ -279,7 +282,7 @@ module App =
                 ToggleButton((if model.Searching then "🛑 Stop" else "🔍 Search"), model.Searching, Search)
                     .margin(10, 0)
                     .gridColumn(4)
-            }
+            }).trailingMargin()
 
             // playlist options
             (Grid(coldefs = [Star], rowdefs = [Auto]) {
@@ -300,7 +303,7 @@ module App =
                             + " which are not expected to change often and are stored until you explicitly clear them."))
                     Label "hours"
                 }).gridColumn(0)
-            }).gridRow(1)
+            }).gridRow(1).trailingMargin()
 
             // result options
             (Grid(coldefs = [Auto; Star; Auto; Auto], rowdefs = [Auto]) {
@@ -322,7 +325,7 @@ module App =
                 }).gridColumn(2)
 
                 ToggleButton("📄 output", model.DisplayOutputOptions, OutputChanged).gridColumn(3)
-            }).gridRow(2)
+            }).gridRow(2).trailingMargin()
 
             // output options
             (Grid(coldefs = [Auto; Auto; Auto; Star; Auto; Auto], rowdefs = [Auto]) {
@@ -334,14 +337,14 @@ module App =
                 Label("and open").gridColumn(4)
                 ComboBox(Enum.GetValues<OpenOutputOptions>(), fun show -> ComboBoxItem(displayOpenOutput show))
                     .selectedItem(model.OpenOutput).onSelectionChanged(OpenOutputChanged).gridColumn(5)
-            }).gridRow(3).isVisible(model.DisplayOutputOptions)
+            }).isVisible(model.DisplayOutputOptions).gridRow(3).trailingMargin()
 
             // results
             ScrollViewer((VStack() {
                 for result in model.SearchResults do
                     renderSearchResult (model.Padding |> uint32) result
             })).gridRow(4)
-        }
+        }).margin(5, 5 , 5, 0)
 
 #if MOBILE
     let app model = SingleViewApplication(view model)
