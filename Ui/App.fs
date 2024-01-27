@@ -1,7 +1,9 @@
 ﻿namespace Ui
 
 open System
+open System.IO
 open System.Runtime.CompilerServices
+open System.Text.Json
 open System.Threading
 open Avalonia.Controls
 open Avalonia.Interactivity
@@ -18,6 +20,19 @@ open SubTubular.Extensions
 module App =
     type Scopes = videos = 0 | playlist = 1 | channel = 2
     type OpenOutputOptions = nothing = 0 | file = 1 | folder = 2
+
+    type SavedSettings = {
+        Top: float option
+        CacheHours: float option
+
+        OrderByScore: bool
+        OrderDesc: bool
+        Padding: int
+
+        OutputHtml: bool
+        OutputTo: string
+        OpenOutput: OpenOutputOptions
+    }
 
     type Model = {
         Scope: Scopes
@@ -63,6 +78,7 @@ module App =
 
         | CopyingToClipboard of RoutedEventArgs
         | OpenUrl of string
+        | SettingsSaved
         | Reset
 
     let private searchCmd model =
@@ -113,6 +129,28 @@ module App =
             } |> Async.StartImmediate
         |> Cmd.ofSub
 
+    let private saveSettings model =
+        async {
+            let settings = {
+                Top = model.Top
+                CacheHours = model.CacheHours
+
+                OrderByScore = model.OrderByScore
+                OrderDesc = model.OrderDesc
+                Padding = model.Padding
+
+                OutputHtml = model.OutputHtml
+                OutputTo = model.OutputTo
+                OpenOutput = model.OpenOutput
+            }
+
+            let json = JsonSerializer.Serialize settings
+            let path = Path.Combine(Folder.GetPath Folders.cache, "ui-settings.json")
+            do! File.WriteAllTextAsync(path, json) |> Async.AwaitTask
+            return SettingsSaved // Cmd.none?
+        }
+        |> Cmd.ofAsyncMsg
+
     let initModel = {
         Scope = Scopes.channel
         Aliases = ""
@@ -141,16 +179,17 @@ module App =
         | AliasesUpdated txt -> { model with Aliases = txt }, Cmd.none
         | QueryChanged txt -> { model with Query = txt }, Cmd.none
 
-        | TopChanged top -> { model with Top = top }, Cmd.none
-        | OrderByScoreChanged value -> { model with OrderByScore = value }, Cmd.none
-        | OrderDescChanged value -> { model with OrderDesc = value }, Cmd.none
-        | CacheHoursChanged hours -> { model with CacheHours = hours }, Cmd.none
+        | TopChanged top -> { model with Top = top }, saveSettings model
+        | CacheHoursChanged hours -> { model with CacheHours = hours }, saveSettings model
 
-        | PaddingChanged padding -> { model with Padding = int padding.Value }, Cmd.none
+        | OrderByScoreChanged value -> { model with OrderByScore = value }, saveSettings model
+        | OrderDescChanged value -> { model with OrderDesc = value }, saveSettings model
+        | PaddingChanged padding -> { model with Padding = int padding.Value }, saveSettings model
+
         | DisplayOutputOptionsChanged output -> { model with DisplayOutputOptions = output }, Cmd.none
-        | OutputHtmlChanged value -> { model with OutputHtml = value }, Cmd.none
-        | OutputToChanged path -> { model with OutputTo = path }, Cmd.none
-        | OpenOutputChanged args -> { model with OpenOutput = args.AddedItems.Item 0 :?> OpenOutputOptions }, Cmd.none
+        | OutputHtmlChanged value -> { model with OutputHtml = value }, saveSettings model
+        | OutputToChanged path -> { model with OutputTo = path }, saveSettings model
+        | OpenOutputChanged args -> { model with OpenOutput = args.AddedItems.Item 0 :?> OpenOutputOptions }, saveSettings model
 
         | Search on -> { model with Searching = on; SearchResults = [] }, (if on then searchCmd model else Cmd.none)
         | SearchResult result -> { model with SearchResults = result::model.SearchResults }, Cmd.none
@@ -158,6 +197,7 @@ module App =
 
         | OpenUrl url -> model, (fun _ -> ShellCommands.OpenUri(url); Cmd.none)()
         | CopyingToClipboard _args -> model, Cmd.none
+        | SettingsSaved -> model, Cmd.none
         | Reset -> initModel, Cmd.none
 
     // see https://docs.fabulous.dev/basics/user-interface/styling
