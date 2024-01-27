@@ -1,7 +1,9 @@
 ﻿namespace Ui
 
 open System
+open System.IO
 open System.Runtime.CompilerServices
+open System.Text.Json
 open System.Threading
 open Avalonia.Controls
 open Avalonia.Interactivity
@@ -18,6 +20,16 @@ open type Fabulous.Avalonia.View
 module App =
     type Scopes = videos = 0 | playlist = 1 | channel = 2
     type OpenOutputOptions = nothing = 0 | file = 1 | folder = 2
+
+    type SavedSettings = {
+        OrderByScore: bool
+        OrderDesc: bool
+        Padding: int
+
+        OutputHtml: bool
+        OutputTo: string
+        OpenOutput: OpenOutputOptions
+    }
 
     type Scope = {
         Type: Scopes
@@ -72,7 +84,45 @@ module App =
 
         | CopyingToClipboard of RoutedEventArgs
         | OpenUrl of string
+        | SaveSettings
+        | SettingsSaved
+        | SettingsLoaded of SavedSettings
         | Reset
+
+    //TODO see instead https://docs.fabulous.dev/advanced/saving-and-restoring-app-state
+    module Settings =
+        let private getPath = Path.Combine(Folder.GetPath Folders.cache, "ui-settings.json")
+        let requestSave = Cmd.debounce 1000 (fun () -> SaveSettings)
+
+        let load = 
+            async {
+                let path = getPath
+
+                if File.Exists path then
+                    let! json = File.ReadAllTextAsync(getPath) |> Async.AwaitTask
+                    let settings = JsonSerializer.Deserialize json
+                    return SettingsLoaded settings
+                else return Reset
+            }
+            |> Cmd.ofAsyncMsg
+
+        let save model =
+            async {
+                let settings = {
+                    OrderByScore = model.OrderByScore
+                    OrderDesc = model.OrderDesc
+                    Padding = model.Padding
+
+                    OutputHtml = model.OutputHtml
+                    OutputTo = model.OutputTo
+                    OpenOutput = model.OpenOutput
+                }
+
+                let json = JsonSerializer.Serialize settings
+                do! File.WriteAllTextAsync(getPath, json) |> Async.AwaitTask
+                return SettingsSaved // Cmd.none?
+            }
+            |> Cmd.ofAsyncMsg
 
     let private mapToSearchCommand model =
         let order = 
@@ -155,7 +205,8 @@ module App =
         SearchResults = []
     }
 
-    let init () = initModel, Cmd.none
+    // load settings on init, see https://docs.fabulous.dev/basics/application-state/commands#triggering-commands-on-initialization
+    let init () = initModel, Settings.load
 
     let update msg model =
         match msg with
@@ -179,14 +230,14 @@ module App =
             let scopes = model.Scopes |> List.map(fun s -> if s = scope then { s with CacheHours = hours } else s)
             { model with Scopes = scopes }, Cmd.none
 
-        | OrderByScoreChanged value -> { model with OrderByScore = value }, Cmd.none
-        | OrderDescChanged value -> { model with OrderDesc = value }, Cmd.none
-        | PaddingChanged padding -> { model with Padding = int padding.Value }, Cmd.none
-        
+        | OrderByScoreChanged value -> { model with OrderByScore = value }, Settings.requestSave()
+        | OrderDescChanged value -> { model with OrderDesc = value }, Settings.requestSave()
+        | PaddingChanged padding -> { model with Padding = int padding.Value }, Settings.requestSave()
+
         | DisplayOutputOptionsChanged output -> { model with DisplayOutputOptions = output }, Cmd.none
-        | OutputHtmlChanged value -> { model with OutputHtml = value }, Cmd.none
-        | OutputToChanged path -> { model with OutputTo = path }, Cmd.none
-        | OpenOutputChanged args -> { model with OpenOutput = args.AddedItems.Item 0 :?> OpenOutputOptions }, Cmd.none
+        | OutputHtmlChanged value -> { model with OutputHtml = value }, Settings.requestSave()
+        | OutputToChanged path -> { model with OutputTo = path }, Settings.requestSave()
+        | OpenOutputChanged args -> { model with OpenOutput = args.AddedItems.Item 0 :?> OpenOutputOptions }, Settings.requestSave()
 
         | Search on -> { model with Searching = on; SearchResults = [] }, (if on then searchCmd model else Cmd.none)
         | SearchResult result -> { model with SearchResults = result::model.SearchResults }, Cmd.none
@@ -208,6 +259,19 @@ module App =
 
         | OpenUrl url -> model, (fun _ -> ShellCommands.OpenUri(url); Cmd.none)()
         | CopyingToClipboard _args -> model, Cmd.none
+        | SaveSettings -> model, Settings.save model
+        | SettingsSaved -> model, Cmd.none
+
+        | SettingsLoaded s -> ({
+            model with
+                OrderByScore = s.OrderByScore
+                OrderDesc = s.OrderDesc
+                Padding = s.Padding
+                OutputHtml = s.OutputHtml
+                OutputTo = s.OutputTo
+                OpenOutput = s.OpenOutput
+        }, Cmd.none)
+
         | Reset -> initModel, Cmd.none
 
     // see https://docs.fabulous.dev/basics/user-interface/styling
