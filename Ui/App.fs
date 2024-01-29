@@ -82,6 +82,34 @@ module App =
         | SettingsSaved
         | Reset
 
+    //TODO see instead https://docs.fabulous.dev/advanced/saving-and-restoring-app-state
+    type Settings =
+        static member private getPath = Path.Combine(Folder.GetPath Folders.cache, "ui-settings.json")
+        static member requestSave = Cmd.debounce 300 (fun () -> SaveSettings)
+
+        //static member load = 
+
+        static member save model =
+            async {
+                let settings = {
+                    Top = model.Top
+                    CacheHours = model.CacheHours
+
+                    OrderByScore = model.OrderByScore
+                    OrderDesc = model.OrderDesc
+                    Padding = model.Padding
+
+                    OutputHtml = model.OutputHtml
+                    OutputTo = model.OutputTo
+                    OpenOutput = model.OpenOutput
+                }
+
+                let json = JsonSerializer.Serialize settings
+                do! File.WriteAllTextAsync(Settings.getPath, json) |> Async.AwaitTask
+                return SettingsSaved // Cmd.none?
+            }
+            |> Cmd.ofAsyncMsg
+
     let private searchCmd model =
         fun dispatch ->
             async {
@@ -125,34 +153,14 @@ module App =
                         }
                     | _ ->  async { return () }
 
-                do! youtube.SearchAsync(command, cts.Token) |> TaskSeq.iter (fun result -> SearchResult result |> dispatch ) |> Async.AwaitTask
+                do! youtube.SearchAsync(command, cts.Token)
+                    // see https://github.com/fsprojects/FSharp.Control.TaskSeq
+                    |> TaskSeq.iter (fun result -> SearchResult result |> dispatch )
+                    |> Async.AwaitTask
+
                 dispatch SearchCompleted
             } |> Async.StartImmediate
         |> Cmd.ofSub
-
-    let requestSaveSettings = Cmd.debounce 300 (fun () -> SaveSettings)
-
-    let private saveSettings model =
-        async {
-            let settings = {
-                Top = model.Top
-                CacheHours = model.CacheHours
-
-                OrderByScore = model.OrderByScore
-                OrderDesc = model.OrderDesc
-                Padding = model.Padding
-
-                OutputHtml = model.OutputHtml
-                OutputTo = model.OutputTo
-                OpenOutput = model.OpenOutput
-            }
-
-            let json = JsonSerializer.Serialize settings
-            let path = Path.Combine(Folder.GetPath Folders.cache, "ui-settings.json")
-            do! File.WriteAllTextAsync(path, json) |> Async.AwaitTask
-            return SettingsSaved // Cmd.none?
-        }
-        |> Cmd.ofAsyncMsg
 
     let initModel = {
         Scope = Scopes.channel
@@ -182,17 +190,17 @@ module App =
         | AliasesUpdated txt -> { model with Aliases = txt }, Cmd.none
         | QueryChanged txt -> { model with Query = txt }, Cmd.none
 
-        | TopChanged top -> { model with Top = top }, requestSaveSettings()
-        | CacheHoursChanged hours -> { model with CacheHours = hours }, requestSaveSettings()
+        | TopChanged top -> { model with Top = top }, Settings.requestSave()
+        | CacheHoursChanged hours -> { model with CacheHours = hours }, Settings.requestSave()
 
-        | OrderByScoreChanged value -> { model with OrderByScore = value }, requestSaveSettings()
-        | OrderDescChanged value -> { model with OrderDesc = value }, requestSaveSettings()
-        | PaddingChanged padding -> { model with Padding = int padding.Value }, requestSaveSettings()
+        | OrderByScoreChanged value -> { model with OrderByScore = value }, Settings.requestSave()
+        | OrderDescChanged value -> { model with OrderDesc = value }, Settings.requestSave()
+        | PaddingChanged padding -> { model with Padding = int padding.Value }, Settings.requestSave()
 
         | DisplayOutputOptionsChanged output -> { model with DisplayOutputOptions = output }, Cmd.none
-        | OutputHtmlChanged value -> { model with OutputHtml = value }, requestSaveSettings()
-        | OutputToChanged path -> { model with OutputTo = path }, requestSaveSettings()
-        | OpenOutputChanged args -> { model with OpenOutput = args.AddedItems.Item 0 :?> OpenOutputOptions }, requestSaveSettings()
+        | OutputHtmlChanged value -> { model with OutputHtml = value }, Settings.requestSave()
+        | OutputToChanged path -> { model with OutputTo = path }, Settings.requestSave()
+        | OpenOutputChanged args -> { model with OpenOutput = args.AddedItems.Item 0 :?> OpenOutputOptions }, Settings.requestSave()
 
         | Search on -> { model with Searching = on; SearchResults = [] }, (if on then searchCmd model else Cmd.none)
         | SearchResult result -> { model with SearchResults = result::model.SearchResults }, Cmd.none
@@ -200,7 +208,7 @@ module App =
 
         | OpenUrl url -> model, (fun _ -> ShellCommands.OpenUri(url); Cmd.none)()
         | CopyingToClipboard _args -> model, Cmd.none
-        | SaveSettings -> model, saveSettings model
+        | SaveSettings -> model, Settings.save model
         | SettingsSaved -> model, Cmd.none
         | Reset -> initModel, Cmd.none
 
