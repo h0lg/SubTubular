@@ -78,6 +78,7 @@ module App =
 
         | CopyingToClipboard of RoutedEventArgs
         | OpenUrl of string
+        | SaveSettings
         | SettingsSaved
         | Reset
 
@@ -129,6 +130,8 @@ module App =
             } |> Async.StartImmediate
         |> Cmd.ofSub
 
+    let requestSaveSettings = Cmd.debounce 300 (fun () -> SaveSettings)
+
     let private saveSettings model =
         async {
             let settings = {
@@ -179,17 +182,17 @@ module App =
         | AliasesUpdated txt -> { model with Aliases = txt }, Cmd.none
         | QueryChanged txt -> { model with Query = txt }, Cmd.none
 
-        | TopChanged top -> { model with Top = top }, saveSettings model
-        | CacheHoursChanged hours -> { model with CacheHours = hours }, saveSettings model
+        | TopChanged top -> { model with Top = top }, requestSaveSettings()
+        | CacheHoursChanged hours -> { model with CacheHours = hours }, requestSaveSettings()
 
-        | OrderByScoreChanged value -> { model with OrderByScore = value }, saveSettings model
-        | OrderDescChanged value -> { model with OrderDesc = value }, saveSettings model
-        | PaddingChanged padding -> { model with Padding = int padding.Value }, saveSettings model
+        | OrderByScoreChanged value -> { model with OrderByScore = value }, requestSaveSettings()
+        | OrderDescChanged value -> { model with OrderDesc = value }, requestSaveSettings()
+        | PaddingChanged padding -> { model with Padding = int padding.Value }, requestSaveSettings()
 
         | DisplayOutputOptionsChanged output -> { model with DisplayOutputOptions = output }, Cmd.none
-        | OutputHtmlChanged value -> { model with OutputHtml = value }, saveSettings model
-        | OutputToChanged path -> { model with OutputTo = path }, saveSettings model
-        | OpenOutputChanged args -> { model with OpenOutput = args.AddedItems.Item 0 :?> OpenOutputOptions }, saveSettings model
+        | OutputHtmlChanged value -> { model with OutputHtml = value }, requestSaveSettings()
+        | OutputToChanged path -> { model with OutputTo = path }, requestSaveSettings()
+        | OpenOutputChanged args -> { model with OpenOutput = args.AddedItems.Item 0 :?> OpenOutputOptions }, requestSaveSettings()
 
         | Search on -> { model with Searching = on; SearchResults = [] }, (if on then searchCmd model else Cmd.none)
         | SearchResult result -> { model with SearchResults = result::model.SearchResults }, Cmd.none
@@ -197,6 +200,7 @@ module App =
 
         | OpenUrl url -> model, (fun _ -> ShellCommands.OpenUri(url); Cmd.none)()
         | CopyingToClipboard _args -> model, Cmd.none
+        | SaveSettings -> model, saveSettings model
         | SettingsSaved -> model, Cmd.none
         | Reset -> initModel, Cmd.none
 
