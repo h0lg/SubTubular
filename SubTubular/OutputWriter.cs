@@ -128,7 +128,7 @@ internal sealed class OutputWriter : IDisposable
                     (index diff between wrapped and unwrapped text)
                 2 first index of line in unwrapped text
                 3 last index of line in unwrapped text */
-            var lineInfos = new List<(int, int, int)>();
+            var lineInfos = new List<(int charOffset, int firstIndex, int lastIndex)>();
 
             foreach (var line in text.Split(Environment.NewLine).Select(line => line.Trim()))
             {
@@ -138,8 +138,8 @@ internal sealed class OutputWriter : IDisposable
                 else
                 {
                     // start search from previous line's end index to avoid accidental matches in duplicate lines
-                    var previousLineEnd = previousLine.Item3; // in unwrapped text
-                    var startInWrappedText = text.IndexOf(line, startIndex: previousLine.Item1 + previousLineEnd);
+                    var previousLineEnd = previousLine.lastIndex; // in unwrapped text
+                    var startInWrappedText = text.IndexOf(line, startIndex: previousLine.charOffset + previousLineEnd);
                     var startInUnwrappedText = paddedMatch.Value.IndexOf(line, startIndex: previousLineEnd);
 
                     lineInfos.Add((startInWrappedText - startInUnwrappedText,
@@ -154,14 +154,14 @@ internal sealed class OutputWriter : IDisposable
                     line containing Start and line containing end of match
                     and do so before modifying match Start */
                 var end = match.Start + match.Length;
-                var lineContainingMatchEnd = lineInfos.LastOrDefault(x => x.Item2 <= end);
+                var lineContainingMatchEnd = lineInfos.LastOrDefault(x => x.firstIndex <= end);
 
                 // shift match Start the number of characters inserted in wrapped text before line
-                var lineContainingMatchStart = lineInfos.LastOrDefault(x => x.Item2 <= match.Start);
-                if (lineContainingMatchStart != default) match.Start += lineContainingMatchStart.Item1;
+                var lineContainingMatchStart = lineInfos.LastOrDefault(x => x.firstIndex <= match.Start);
+                if (lineContainingMatchStart != default) match.Start += lineContainingMatchStart.charOffset;
 
                 if (lineContainingMatchEnd != lineContainingMatchStart)
-                    match.Length += lineContainingMatchEnd.Item1 - lineContainingMatchStart.Item1;
+                    match.Length += lineContainingMatchEnd.charOffset - lineContainingMatchStart.charOffset;
             }
         }
 
