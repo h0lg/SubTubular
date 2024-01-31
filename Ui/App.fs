@@ -401,7 +401,7 @@ module App =
                 (HStack(5) {
                     Label "padded with"
                     NumericUpDown(0, float UInt16.MaxValue, Some (float model.Padding), PaddingChanged)
-                        .formatString("F0")
+                        .increment(5).formatString("F0")
                         .tip(ToolTip("how much context to show a search result in"))
                     Label "chars for context"
                 }).gridColumn(2).centerHorizontal()
