@@ -80,14 +80,21 @@ module App =
         | OpenUrl of string
         | SaveSettings
         | SettingsSaved
+        | SettingsLoaded of SavedSettings
         | Reset
 
     //TODO see instead https://docs.fabulous.dev/advanced/saving-and-restoring-app-state
     type Settings =
         static member private getPath = Path.Combine(Folder.GetPath Folders.cache, "ui-settings.json")
-        static member requestSave = Cmd.debounce 300 (fun () -> SaveSettings)
+        static member requestSave = Cmd.debounce 1000 (fun () -> SaveSettings)
 
-        //static member load = 
+        static member load = 
+            async {
+                let! json = File.ReadAllTextAsync(Settings.getPath) |> Async.AwaitTask
+                let settings = JsonSerializer.Deserialize json
+                return SettingsLoaded settings
+            }
+            |> Cmd.ofAsyncMsg
 
         static member save model =
             async {
@@ -182,7 +189,8 @@ module App =
         SearchResults = []
     }
 
-    let init () = initModel, Cmd.none
+    // load settings on init, see https://docs.fabulous.dev/basics/application-state/commands#triggering-commands-on-initialization
+    let init () = initModel, Settings.load
 
     let update msg model =
         match msg with
@@ -210,6 +218,17 @@ module App =
         | CopyingToClipboard _args -> model, Cmd.none
         | SaveSettings -> model, Settings.save model
         | SettingsSaved -> model, Cmd.none
+        | SettingsLoaded s -> ({
+            model with
+                Top = s.Top
+                CacheHours = s.CacheHours
+                OrderByScore = s.OrderByScore
+                OrderDesc = s.OrderDesc
+                Padding = s.Padding
+                OutputHtml = s.OutputHtml
+                OutputTo = s.OutputTo
+                OpenOutput = s.OpenOutput
+        }, Cmd.none)
         | Reset -> initModel, Cmd.none
 
     // see https://docs.fabulous.dev/basics/user-interface/styling
