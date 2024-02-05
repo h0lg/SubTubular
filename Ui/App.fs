@@ -84,19 +84,23 @@ module App =
         | Reset
 
     //TODO see instead https://docs.fabulous.dev/advanced/saving-and-restoring-app-state
-    type Settings =
-        static member private getPath = Path.Combine(Folder.GetPath Folders.cache, "ui-settings.json")
-        static member requestSave = Cmd.debounce 1000 (fun () -> SaveSettings)
+    module Settings =
+        let private getPath = Path.Combine(Folder.GetPath Folders.cache, "ui-settings.json")
+        let requestSave = Cmd.debounce 1000 (fun () -> SaveSettings)
 
-        static member load = 
+        let load = 
             async {
-                let! json = File.ReadAllTextAsync(Settings.getPath) |> Async.AwaitTask
-                let settings = JsonSerializer.Deserialize json
-                return SettingsLoaded settings
+                let path = getPath
+
+                if File.Exists path then
+                    let! json = File.ReadAllTextAsync(getPath) |> Async.AwaitTask
+                    let settings = JsonSerializer.Deserialize json
+                    return SettingsLoaded settings
+                else return Reset
             }
             |> Cmd.ofAsyncMsg
 
-        static member save model =
+        let save model =
             async {
                 let settings = {
                     Top = model.Top
@@ -112,7 +116,7 @@ module App =
                 }
 
                 let json = JsonSerializer.Serialize settings
-                do! File.WriteAllTextAsync(Settings.getPath, json) |> Async.AwaitTask
+                do! File.WriteAllTextAsync(getPath, json) |> Async.AwaitTask
                 return SettingsSaved // Cmd.none?
             }
             |> Cmd.ofAsyncMsg
