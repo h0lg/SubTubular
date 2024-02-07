@@ -7,6 +7,7 @@ open System.Text.Json
 open System.Threading
 open Avalonia
 open Avalonia.Controls
+open Avalonia.Controls.Notifications
 open Avalonia.Interactivity
 open Avalonia.Layout
 open Avalonia.Media
@@ -43,6 +44,8 @@ module App =
     }
 
     type Model = {
+        NotificationManager: WindowNotificationManager
+
         Scopes: Scope list
         Query: string
 
@@ -83,6 +86,8 @@ module App =
         | SearchProgress of BatchProgress
         | SearchCompleted
 
+        | AttachedToVisualTreeChanged of VisualTreeAttachmentEventArgs
+        | Notify of string
         | CopyingToClipboard of RoutedEventArgs
         | OpenUrl of string
         | SaveSettings
@@ -180,6 +185,19 @@ module App =
             } |> Async.StartImmediate
         |> Cmd.ofEffect
 
+    let notificationManager = ViewRef<WindowNotificationManager>()
+
+    let private dispatch (action: unit -> unit) =
+        // Check if the current thread is the UI thread
+        if not(Avalonia.Threading.Dispatcher.UIThread.CheckAccess()) then
+            // If not on the UI thread, invoke the code on the UI thread
+            Avalonia.Threading.Dispatcher.UIThread.Invoke(action)
+        else action() // run action on current thread
+
+    let private notify message =
+        dispatch(fun () -> FabApplication.Current.WindowNotificationManager.Show(Notification(message, message, NotificationType.Information, TimeSpan.FromSeconds 3)))
+        Cmd.none
+
     let private createScope scope aliases =
         let isVideos = scope = Scopes.videos
         let top = if isVideos then None else Some (float 50)
@@ -187,6 +205,7 @@ module App =
         { Type = scope; Aliases = aliases; Top = top; CacheHours = cacheHours; DisplaysSettings = false; Progress = None }
 
     let initModel = {
+        NotificationManager = null
         Query = ""
 
         Scopes = [
@@ -242,7 +261,7 @@ module App =
 
         | Search on -> { model with Searching = on; SearchResults = [] }, (if on then searchCmd model else Cmd.none)
         | SearchResult result -> { model with SearchResults = result::model.SearchResults }, Cmd.none
-        | SearchCompleted -> { model with Searching = false }, Cmd.none
+        | SearchCompleted -> { model with Searching = false }, Notify "search completed" |> Cmd.ofMsg
 
         | SearchProgress progress ->
             let scopes = model.Scopes |> List.map(fun s ->
@@ -258,10 +277,15 @@ module App =
 
             { model with Scopes = scopes }, Cmd.none
 
+        | Notify message ->
+            notificationManager.Value.Show(Notification(message, message, NotificationType.Information, TimeSpan.FromSeconds 3))
+            model, Cmd.none
+
+        | AttachedToVisualTreeChanged args -> { model with NotificationManager = FabApplication.Current.WindowNotificationManager }, []
         | OpenUrl url -> model, (fun _ -> ShellCommands.OpenUri(url); Cmd.none)()
         | CopyingToClipboard _args -> model, Cmd.none
         | SaveSettings -> model, Settings.save model
-        | SettingsSaved -> model, Cmd.none
+        | SettingsSaved -> model, Cmd.none //Notify "settings saved" |> Cmd.ofMsg
 
         | SettingsLoaded s -> ({
             model with
@@ -491,7 +515,11 @@ module App =
                 for result in model.SearchResults do
                     renderSearchResult (model.Padding |> uint32) result
             })).gridRow(4)
-        }).margin(5, 5 , 5, 0)
+
+            View.WindowNotificationManager(notificationManager)
+                .position(NotificationPosition.BottomRight)
+                .maxItems(3)
+        }).margin(5, 5 , 5, 0).onAttachedToVisualTree(AttachedToVisualTreeChanged)
 
 #if MOBILE
     let app model = SingleViewApplication(view model)
