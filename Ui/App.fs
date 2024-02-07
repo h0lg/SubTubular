@@ -77,6 +77,7 @@ module App =
         | SearchResult of VideoSearchResult
         | SearchCompleted
 
+        | Notify of string
         | CopyingToClipboard of RoutedEventArgs
         | OpenUrl of string
         | SaveSettings
@@ -181,6 +182,13 @@ module App =
         }
         |> Cmd.ofAsyncMsgOption
 
+    let private notify message = 
+        async {
+            //let writer = 
+            return None
+        }
+        |> Cmd.ofAsyncMsgOption
+
     let initModel = {
         Scope = Scopes.channel
         Aliases = ""
@@ -227,6 +235,7 @@ module App =
         | SearchResult result -> { model with SearchResults = result::model.SearchResults }, Cmd.none
         | SearchCompleted -> { model with Searching = false }, Cmd.none
 
+        | Notify message -> model, notify message
         | OpenUrl url -> model, (fun _ -> ShellCommands.OpenUri(url); Cmd.none)()
         | CopyingToClipboard _args -> model, Cmd.none
         | SaveSettings -> model, Settings.save model
