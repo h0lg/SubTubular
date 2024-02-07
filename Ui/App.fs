@@ -71,6 +71,7 @@ module App =
         | OutputHtmlChanged of bool
         | OutputToChanged of string
         | OpenOutputChanged of SelectionChangedEventArgs
+        | SaveOutput
 
         | Search of bool
         | SearchResult of VideoSearchResult
@@ -173,6 +174,13 @@ module App =
             } |> Async.StartImmediate
         |> Cmd.ofSub
 
+    let private saveOutput model = 
+        async {
+            //let writer = 
+            return None
+        }
+        |> Cmd.ofAsyncMsgOption
+
     let initModel = {
         Scope = Scopes.channel
         Aliases = ""
@@ -213,6 +221,7 @@ module App =
         | OutputHtmlChanged value -> { model with OutputHtml = value }, Settings.requestSave()
         | OutputToChanged path -> { model with OutputTo = path }, Settings.requestSave()
         | OpenOutputChanged args -> { model with OpenOutput = args.AddedItems.Item 0 :?> OpenOutputOptions }, Settings.requestSave()
+        | SaveOutput -> model, saveOutput model
 
         | Search on -> { model with Searching = on; SearchResults = [] }, (if on then searchCmd model else Cmd.none)
         | SearchResult result -> { model with SearchResults = result::model.SearchResults }, Cmd.none
@@ -410,11 +419,11 @@ module App =
                     Label "chars for context"
                 }).gridColumn(2).centerHorizontal()
 
-                ToggleButton("as file 📄", model.DisplayOutputOptions, DisplayOutputOptionsChanged).gridColumn(3)
+                ToggleButton("to file 📄", model.DisplayOutputOptions, DisplayOutputOptionsChanged).gridColumn(3)
             }).gridRow(2).trailingMargin()
 
             // output options
-            (Grid(coldefs = [Auto; Auto; Auto; Star; Auto; Auto], rowdefs = [Auto]) {
+            (Grid(coldefs = [Auto; Auto; Auto; Star; Auto; Auto; Auto], rowdefs = [Auto]) {
                 Label("ouput")
                 ToggleButton((if model.OutputHtml then "🖺 html" else "🖹 text"), model.OutputHtml, OutputHtmlChanged).gridColumn(1)
                 Label("to").gridColumn(2)
@@ -423,6 +432,7 @@ module App =
                 Label("and open").gridColumn(4)
                 ComboBox(Enum.GetValues<OpenOutputOptions>(), fun show -> ComboBoxItem(displayOpenOutput show))
                     .selectedItem(model.OpenOutput).onSelectionChanged(OpenOutputChanged).gridColumn(5)
+                Button("💾 Save", SaveOutput).gridColumn(6)
             }).isVisible(model.DisplayOutputOptions).gridRow(3).trailingMargin()
 
             // results
