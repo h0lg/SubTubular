@@ -80,6 +80,8 @@ module App =
         | OutputHtmlChanged of bool
         | OutputToChanged of string
         | OpenOutputChanged of SelectionChangedEventArgs
+        | SaveOutput
+        | SavedOutput of string
 
         | Search of bool
         | SearchResult of VideoSearchResult
@@ -185,6 +187,50 @@ module App =
             } |> Async.StartImmediate
         |> Cmd.ofEffect
 
+    let private orderResults byScore desc results =
+        let sortBy = if desc then List.sortByDescending else List.sortBy
+
+        let comparable: (VideoSearchResult -> IComparable) =
+            if byScore then (fun r -> r.Score)
+            else (fun r -> r.Video.Uploaded)
+
+        results |> sortBy comparable
+
+    let private saveOutput model =
+        async {
+            let command = mapToSearchCommand model
+            CommandValidator.PrevalidateSearchCommand command
+            let cacheFolder = Folder.GetPath Folders.cache
+            let dataStore = JsonFileDataStore cacheFolder
+            let youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
+            use cts = new CancellationTokenSource()
+            do! CommandValidator.ValidateScopesAsync(command, youtube, dataStore, cts.Token) |> Async.AwaitTask
+
+            let writer = if model.OutputHtml then new HtmlOutputWriter(command) :> FileOutputWriter else new TextOutputWriter(command)
+            writer.WriteHeader()
+
+            for result in orderResults model.OrderDesc model.OrderByScore model.SearchResults do
+                writer.WriteVideoResult(result, model.Padding |> uint32)
+
+            // turn ValueTask into Task while native ValueTask handling is in RFC, see https://stackoverflow.com/a/52398452
+            let! path = writer.SaveFile().AsTask() |> Async.AwaitTask
+
+            match writer with
+            | :? HtmlOutputWriter as htmlWriter -> htmlWriter.Dispose()
+            | :? TextOutputWriter as textWriter -> textWriter.Dispose()
+            | _ -> failwith "Unknown output writer type."
+
+            // spare the user some file browsing
+            if command.Show.HasValue then
+                match command.Show.Value with
+                | OutputCommand.Shows.file -> ShellCommands.OpenFile path
+                | OutputCommand.Shows.folder -> ShellCommands.ExploreFolder path |> ignore
+                | _ -> failwith $"Unknown {nameof OutputCommand.Shows} value"
+
+            return SavedOutput path
+        }
+        |> Cmd.OfAsync.msg
+
     let private dispatchToUiThread (action: unit -> unit) =
         // Check if the current thread is the UI thread
         if Avalonia.Threading.Dispatcher.UIThread.CheckAccess() then
@@ -259,6 +305,8 @@ module App =
         | OutputHtmlChanged value -> { model with OutputHtml = value }, Settings.requestSave()
         | OutputToChanged path -> { model with OutputTo = path }, Settings.requestSave()
         | OpenOutputChanged args -> { model with OpenOutput = args.AddedItems.Item 0 :?> OpenOutputOptions }, Settings.requestSave()
+        | SaveOutput -> model, saveOutput model
+        | SavedOutput path -> model, Notify ("Saved results to " + path) |> Cmd.ofMsg
 
         | Search on -> { model with Searching = on; SearchResults = [] }, (if on then searchCmd model else Cmd.none)
         | SearchResult result -> { model with SearchResults = result::model.SearchResults }, Cmd.none
@@ -497,11 +545,11 @@ module App =
                     Label "chars for context"
                 }).gridColumn(2).centerHorizontal()
 
-                ToggleButton("as file 📄", model.DisplayOutputOptions, DisplayOutputOptionsChanged).gridColumn(3)
+                ToggleButton("to file 📄", model.DisplayOutputOptions, DisplayOutputOptionsChanged).gridColumn(3)
             }).gridRow(2).trailingMargin().isVisible(not model.SearchResults.IsEmpty)
 
             // output options
-            (Grid(coldefs = [Auto; Auto; Auto; Star; Auto; Auto], rowdefs = [Auto]) {
+            (Grid(coldefs = [Auto; Auto; Auto; Star; Auto; Auto; Auto], rowdefs = [Auto]) {
                 Label("ouput")
                 ToggleButton((if model.OutputHtml then "🖺 html" else "🖹 text"), model.OutputHtml, OutputHtmlChanged).gridColumn(1)
                 Label("to").gridColumn(2)
@@ -510,11 +558,12 @@ module App =
                 Label("and open").gridColumn(4)
                 ComboBox(Enum.GetValues<OpenOutputOptions>(), fun show -> ComboBoxItem(displayOpenOutput show))
                     .selectedItem(model.OpenOutput).onSelectionChanged(OpenOutputChanged).gridColumn(5)
+                Button("💾 Save", SaveOutput).gridColumn(6)
             }).isVisible(model.DisplayOutputOptions).gridRow(3).trailingMargin()
 
             // results
             ScrollViewer((VStack() {
-                for result in model.SearchResults do
+                for result in orderResults model.OrderDesc model.OrderByScore model.SearchResults do
                     renderSearchResult (model.Padding |> uint32) result
             })).gridRow(4)
         }).margin(5, 5 , 5, 0).onAttachedToVisualTree(AttachedToVisualTreeChanged)
