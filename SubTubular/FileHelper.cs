@@ -2,7 +2,7 @@ using System.IO.Compression;
 
 namespace SubTubular;
 
-internal static class FileHelper
+public static class FileHelper
 {
     internal static IEnumerable<string> DeleteFiles(string directory, string searchPattern = "*",
         ushort? notAccessedForDays = null, bool simulate = false)
@@ -64,5 +64,11 @@ internal static class FileHelper
             CreateFolder(targetFilePath);
             entry.ExtractToFile(targetFilePath);
         }
+    }
+
+    public static Task WriteTextAsync(string text, string path)
+    {
+        CreateFolder(path);
+        return File.WriteAllTextAsync(path, text);
     }
 }

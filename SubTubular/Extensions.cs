@@ -25,7 +25,7 @@ public static class StringExtensions
 
     /// <summary>Indicates whether <paramref name="path"/> points to a directory rather than a file.
     /// From https://stackoverflow.com/a/19596821 .</summary>
-    public static bool IsDirectoryPath(this string path)
+    internal static bool IsDirectoryPath(this string path)
     {
         if (path == null) throw new ArgumentNullException(nameof(path));
         path = path.Trim();
@@ -48,7 +48,7 @@ public static class StringExtensions
     public static string ToFileSafe(this string value, string replacement = "_")
         => Regex.Replace(value, "[" + Regex.Escape(new string(Path.GetInvalidFileNameChars())) + "]", replacement);
 
-    public static IEnumerable<string> Wrap(this string input, int columnWidth)
+    internal static IEnumerable<string> Wrap(this string input, int columnWidth)
     {
         if (input == null) throw new ArgumentNullException(nameof(input));
         return input.Split(' ').Wrap(columnWidth);
@@ -71,7 +71,7 @@ public static class StringExtensions
         });
     }
 
-    public static IEnumerable<string> Indent(this IEnumerable<string> lines, int indentLevel)
+    internal static IEnumerable<string> Indent(this IEnumerable<string> lines, int indentLevel)
     {
         if (lines == null) throw new ArgumentNullException(nameof(lines));
         if (indentLevel < 0) throw new ArgumentException("Only positive non-zero indents are supported.", nameof(indentLevel));
