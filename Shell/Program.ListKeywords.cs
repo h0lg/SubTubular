@@ -8,12 +8,12 @@ static partial class Program
     {
         CommandValidator.ValidateCommandScope(command.Scope);
 
-        await OutputAsync(command, originalCommand, async (youtube, cancellation, output) =>
+        await OutputAsync(command, originalCommand, async (youtube, outputs, cancellation) =>
         {
             var keywords = await youtube.ListKeywordsAsync(command, cancellation);
 
-            if (keywords.Any()) output.ListKeywords(keywords);
-            else Console.WriteLine("Found no keywords.");
+            if (keywords.Any()) outputs.ForEach(o => o.ListKeywords(keywords));
+            else Console.WriteLine("Found no keywords."); // any file output wouldn't be saved without results anyway
         });
     }
 

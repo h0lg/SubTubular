@@ -10,13 +10,13 @@ static partial class Program
     {
         CommandValidator.ValidateSearchCommand(command);
 
-        await OutputAsync(command, originalCommand, async (youtube, cancellation, output) =>
+        await OutputAsync(command, originalCommand, async (youtube, outputs, cancellation) =>
         {
             var tracksWithErrors = new List<CaptionTrack>();
 
             await foreach (var result in youtube.SearchAsync(command, cancellation))
             {
-                output.DisplayVideoResult(result, command.Padding);
+                outputs.ForEach(o => o.WriteVideoResult(result, command.Padding));
                 tracksWithErrors.AddRange(result.Video.CaptionTracks.Where(t => t.Error != null));
             }
 

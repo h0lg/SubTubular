@@ -4,9 +4,27 @@ public abstract class OutputCommand
 {
     public required CommandScope Scope { get; set; }
 
+    public short OutputWidth { get; set; } = 80;
     public bool OutputHtml { get; set; }
     public string? FileOutputPath { get; set; }
     public Shows? Show { get; set; }
+
+    public bool HasOutputPath(out string? outputPath)
+    {
+        var fileOutputPath = FileOutputPath?.Trim('"');
+        var hasOutputPath = fileOutputPath != null && !string.IsNullOrEmpty(fileOutputPath);
+
+        if (hasOutputPath)
+        {
+            outputPath = fileOutputPath;
+            return true;
+        }
+        else
+        {
+            outputPath = null;
+            return false;
+        }
+    }
 
     public abstract string Describe();
 
