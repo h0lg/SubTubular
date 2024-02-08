@@ -1,57 +1,28 @@
-using AngleSharp;
-using AngleSharp.Dom;
-using SubTubular.Extensions;
+﻿using SubTubular.Extensions;
 
-namespace SubTubular.Shell;
+namespace SubTubular;
 
-/// <summary>
-/// Provides formatted and highlighted output for Console
-/// as well as either plain text or HTML.
-/// </summary>
-internal sealed class OutputWriter : IDisposable
+public abstract class OutputWriter
 {
-    private const ConsoleColor highlightColor = ConsoleColor.Yellow;
-    private readonly ConsoleColor regularForeGround;
-    private readonly bool outputHtml, hasOutputPath, writeOutputFile;
-    private readonly string fileOutputPath;
-    private readonly OutputCommand command;
-    private readonly IDocument document;
-    private readonly IElement output;
-    private readonly StringWriter textOut;
+    protected readonly OutputCommand command;
 
-    internal OutputWriter(OutputCommand command)
+    public OutputWriter(OutputCommand command) => this.command = command;
+
+    public virtual short GetWidth() => command.OutputWidth;
+    public abstract short GetWrittenInCurrentLine();
+    private IndentedText CreateIndent() => new IndentedText(GetWrittenInCurrentLine(), GetWidth());
+
+    public abstract void Write(string text);
+    public abstract void WriteHighlighted(string text);
+    public abstract void WriteLine(string? text = null);
+    public abstract void WriteUrl(string url);
+
+    public virtual void WriteHeader()
     {
-        regularForeGround = Console.ForegroundColor; //using current
-        this.outputHtml = command.OutputHtml;
-        this.fileOutputPath = command.FileOutputPath?.Trim('"');
-        this.command = command;
-        hasOutputPath = !string.IsNullOrEmpty(fileOutputPath);
-        writeOutputFile = outputHtml || hasOutputPath;
-
-        if (outputHtml) //prepare empty document
-        {
-            var context = BrowsingContext.New(Configuration.Default);
-            document = context.OpenNewAsync().Result;
-
-            var style = document.CreateElement("style");
-            style.TextContent = "pre > em { background-color: yellow }";
-            document.Head.Append(style);
-
-            output = document.CreateElement("pre");
-            document.Body.Append(output);
-        }
-        else textOut = new StringWriter();
-    }
-
-    internal void WriteHeader(string originalCommand)
-    {
-        //write original search into file header for reference and repeating
-        if (writeOutputFile) WriteLine(originalCommand);
-
         //provide link(s) to the searched playlist or videos for debugging IDs
         Write(command.Describe() + " ");
 
-        foreach (var url in command.Scope.ValidUrls)
+        foreach (var url in command.Scope.ValidUrls!)
         {
             WriteUrl(url);
             Write(" ");
@@ -61,58 +32,7 @@ internal sealed class OutputWriter : IDisposable
         WriteLine();
     }
 
-    private void Write(string text)
-    {
-        Console.Write(text);
-        if (!writeOutputFile) return;
-
-        if (outputHtml) output.InnerHtml += text;
-        else textOut.Write(text);
-    }
-
-    private void WriteLine(string text = null)
-    {
-        if (text != null) Write(text);
-        Console.WriteLine();
-        if (!writeOutputFile) return;
-
-        if (outputHtml) output.InnerHtml += Environment.NewLine;
-        else textOut.WriteLine();
-    }
-
-    private void WriteHighlighted(string text)
-    {
-        Console.ForegroundColor = highlightColor;
-        Console.Write(text);
-        ResetConsoleColor();
-        if (!writeOutputFile) return;
-
-        if (outputHtml)
-        {
-            var em = document.CreateElement("em");
-            em.TextContent = text;
-            output.Append(em);
-        }
-        else textOut.Write($"*{text}*");
-    }
-
-    private void WriteUrl(string url)
-    {
-        Console.Write(url);
-        if (!writeOutputFile) return;
-
-        if (outputHtml)
-        {
-            var hlink = document.CreateElement("a");
-            hlink.SetAttribute("href", url);
-            hlink.SetAttribute("target", "_blank");
-            hlink.TextContent = url;
-            output.Append(hlink);
-        }
-        else textOut.Write(url);
-    }
-
-    private void WriteHighlightingMatches(MatchedText matched, IndentedText indent = null, uint? padding = null)
+    private void WriteHighlightingMatches(MatchedText matched, IndentedText? indent = null, uint? padding = null)
     {
         if (indent == null)
         {
@@ -174,13 +94,11 @@ internal sealed class OutputWriter : IDisposable
         indented.WriteHighlightingMatches(Write, WriteHighlighted, padding);
     }
 
-    internal void DisplayVideoResult(VideoSearchResult result, uint matchPadding)
+    public void WriteVideoResult(VideoSearchResult result, uint matchPadding)
     {
         var videoUrl = Youtube.GetVideoUrl(result.Video.Id);
 
-        if (result.TitleMatches != null)
-            using (var indent = new IndentedText())
-                WriteHighlightingMatches(result.TitleMatches, indent);
+        if (result.TitleMatches != null) WriteHighlightingMatches(result.TitleMatches, CreateIndent());
         else Write(result.Video.Title);
 
         WriteLine();
@@ -198,9 +116,7 @@ internal sealed class OutputWriter : IDisposable
             {
                 if (i > 0) Write("    ");
 
-                using (var indent = new IndentedText())
-                    WriteHighlightingMatches(splitMatches[i], indent, matchPadding);
-
+                WriteHighlightingMatches(splitMatches[i], CreateIndent(), matchPadding);
                 WriteLine();
             }
         }
@@ -208,9 +124,9 @@ internal sealed class OutputWriter : IDisposable
         if (result.KeywordMatches.HasAny())
         {
             Write("  in keywords: ");
-            var lastKeyword = result.KeywordMatches.Last();
+            var lastKeyword = result.KeywordMatches!.Last();
 
-            foreach (var match in result.KeywordMatches)
+            foreach (var match in result.KeywordMatches!)
             {
                 WriteHighlightingMatches(match);
 
@@ -221,7 +137,7 @@ internal sealed class OutputWriter : IDisposable
 
         if (result.MatchingCaptionTracks.HasAny())
         {
-            foreach (var trackResult in result.MatchingCaptionTracks)
+            foreach (var trackResult in result.MatchingCaptionTracks!)
             {
                 WriteLine("  " + trackResult.Track.LanguageName + " | " + trackResult.Track.FieldName);
 
@@ -234,13 +150,14 @@ internal sealed class OutputWriter : IDisposable
                     var offset = TimeSpan.FromSeconds(captionAt).FormatWithOptionalHours().PadLeft(displaysHour ? 7 : 5);
                     Write($"    {offset} ");
 
-                    using var indent = new IndentedText();
+                    var indent = CreateIndent();
                     WriteHighlightingMatches(synced, indent, matchPadding);
 
                     const string urlPadding = "    ";
                     var url = $"{videoUrl}?t={captionAt}";
 
-                    if (indent.FitsCurrentLine(urlPadding.Length + url.Length)) Write(urlPadding);
+                    if (indent == null) WriteLine();
+                    else if (indent.FitsCurrentLine(urlPadding.Length + url.Length)) Write(urlPadding);
                     else indent.StartNewLine(this);
 
                     WriteUrl(url);
@@ -263,10 +180,10 @@ internal sealed class OutputWriter : IDisposable
     /// <summary>Displays the <paramref name="keywords"/> on the <see cref="Console"/>,
     /// most often occurring keyword first.</summary>
     /// <param name="keywords">The keywords and their corresponding number of occurrences.</param>
-    internal void ListKeywords(Dictionary<string, ushort> keywords)
+    public void ListKeywords(Dictionary<string, ushort> keywords)
     {
         const string separator = " | ";
-        var width = Console.WindowWidth;
+        var width = GetWidth();
         var line = string.Empty;
 
         /*  prevent breaking line mid-keyword on Console and breaks output into multiple lines for file
@@ -286,65 +203,9 @@ internal sealed class OutputWriter : IDisposable
         }
     }
 
-    internal async ValueTask<string> WriteOutputFile(Func<string> getDefaultStorageFolder)
-    {
-        if (!writeOutputFile) return null;
-
-        string path;
-
-        if (!hasOutputPath || fileOutputPath.IsDirectoryPath())
-        {
-            var extension = outputHtml ? ".html" : ".txt";
-            var fileName = command.Describe().ToFileSafe() + extension;
-            var folder = hasOutputPath ? fileOutputPath : getDefaultStorageFolder();
-            path = Path.Combine(folder, fileName);
-        }
-        else path = fileOutputPath; // treat as full file path
-
-        await WriteTextToFileAsync(outputHtml ? document.DocumentElement.OuterHtml : textOut.ToString(), path);
-        return path;
-    }
-
-    private void ResetConsoleColor() => Console.ForegroundColor = regularForeGround;
-
-    internal static Task WriteTextToFileAsync(string text, string path)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(path));
-        return File.WriteAllTextAsync(path, text);
-    }
-
-    #region IDisposable implementation
-    private bool disposedValue;
-
-    private void Dispose(bool disposing)
-    {
-        if (!disposedValue)
-        {
-            if (disposing)
-            {
-                // dispose managed state (managed objects)
-                textOut?.Dispose();
-                document?.Dispose();
-                ResetConsoleColor(); //just to make sure we revert changes to the global Console state if an error occurs while writing sth. highlighted
-            }
-
-            // free unmanaged resources (unmanaged objects) and override finalizer
-            // set large fields to null
-            disposedValue = true;
-        }
-    }
-
-    public void Dispose()
-    {
-        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-        Dispose(disposing: true);
-        GC.SuppressFinalize(this);
-    }
-    #endregion
-
     /// <summary>A helper for writing multiple lines of text at the same indent
     /// in the <see cref="Console"/>. This is not quite block format, but almost.</summary>
-    internal sealed class IndentedText : IDisposable
+    public sealed class IndentedText
     {
         private readonly int left, width;
 
@@ -352,10 +213,10 @@ internal sealed class OutputWriter : IDisposable
         /// Creates a new indented text block remembering the <see cref="Console.CursorLeft"/> position
         /// and the <see cref="Console.WindowWidth"/> available for output.
         /// </summary>
-        internal IndentedText()
+        public IndentedText(int left, int width)
         {
-            left = Console.CursorLeft;
-            width = Console.WindowWidth - 1; // allowing for a buffer to avoid irregular text wrapping
+            this.left = left;
+            this.width = width;
         }
 
         /// <summary>Wraps <paramref name="text"/> into multiple lines
@@ -372,7 +233,5 @@ internal sealed class OutputWriter : IDisposable
             outputWriter.WriteLine(); // start a new one
             outputWriter.Write(string.Empty.PadLeft(left)); //and output the correct padding
         }
-
-        public void Dispose() { } // implementing IDisposable just to enable usage with using() block
     }
 }

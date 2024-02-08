@@ -8,14 +8,14 @@ static partial class Program
     {
         CommandValidator.ValidateCommandScope(command.Scope);
 
-        await OutputAsync(command, originalCommand, async (youtube, cancellation, output) =>
+        await OutputAsync(command, originalCommand, async (youtube, cancellation, outputs) =>
         {
             var resultDisplayed = false;
             var keywords = await youtube.ListKeywordsAsync(command, cancellation);
 
             if (keywords.Any())
             {
-                output.ListKeywords(keywords);
+                foreach (var output in outputs) output.ListKeywords(keywords);
                 resultDisplayed = true;
             }
             else Console.WriteLine("Found no keywords.");
