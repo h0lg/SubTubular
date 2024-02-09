@@ -17,6 +17,18 @@ public static class StringExtensions
     private static Regex lowerCaseFirstLetters = new Regex(@"\b\p{Ll}", RegexOptions.Compiled);
     private static Regex nonWordChars = new Regex(@"[^\w]", RegexOptions.Compiled);
 
+    /// <summary>Determines whether <paramref name="input"/> <see cref="string.IsNullOrEmpty(string?)"/>.</summary>
+    internal static bool IsNullOrEmpty(this string? input) => string.IsNullOrEmpty(input);
+
+    /// <summary>Determines whether <paramref name="input"/> NOT <see cref="string.IsNullOrEmpty(string?)"/>.</summary>
+    internal static bool IsNonEmpty(this string? input) => !string.IsNullOrEmpty(input);
+
+    /// <summary>Determines whether <paramref name="input"/> <see cref="string.IsNullOrWhiteSpace(string?)"/>.</summary>
+    internal static bool IsNullOrWhiteSpace(this string? input) => string.IsNullOrWhiteSpace(input);
+
+    /// <summary>Determines whether <paramref name="input"/> NOT <see cref="string.IsNullOrWhiteSpace(string?)"/>.</summary>
+    internal static bool IsNonWhiteSpace(this string? input) => !string.IsNullOrWhiteSpace(input);
+
     /// <summary>Converts the first letters after word boundaries in <paramref name="input"/> to upper case.</summary>
     internal static string UpperCaseFirstLetters(this string input) => lowerCaseFirstLetters.Replace(input, match => match.Value.ToUpper());
 
@@ -49,7 +61,7 @@ public static class StringExtensions
             return true;
 
         // if has extension then its a file; directory otherwise
-        return string.IsNullOrWhiteSpace(Path.GetExtension(path));
+        return Path.GetExtension(path).IsNullOrWhiteSpace();
     }
 
     /// <summary>Replaces all characters unsafe for file or directory names in <paramref name="value"/>

@@ -30,7 +30,7 @@ public static class ReleaseManager
         if (release.BinariesZipError != null) throw new InputException(
             $"Installing release {release.Version} is not supported because it contains {release.BinariesZipError}.");
 
-        if (string.IsNullOrEmpty(installInto)) // STEP 1, running in app to be replaced
+        if (installInto.IsNullOrEmpty()) // STEP 1, running in app to be replaced
         {
             // back up current app
             var appFolder = Path.GetDirectoryName(AssemblyInfo.Location)!;
