@@ -228,36 +228,19 @@ module App =
         }
         |> Cmd.OfAsync.msg
 
-    //let notificationManager = ViewRef<WindowNotificationManager>()
+    let notificationManager = ViewRef<WindowNotificationManager>()
 
-    // Function to access WindowNotificationManager
-    let getWindowNotificationManagerAsync =
-        async {
-            let mutable windowNotificationManager = Unchecked.defaultof<_>  // Define a mutable variable to store the result
-
-            // Check if the current thread is the UI thread
-            if not(Avalonia.Threading.Dispatcher.UIThread.CheckAccess()) then
-                // If not on the UI thread, invoke the code on the UI thread
-                do! (Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(fun () ->
-                    // Access the WindowNotificationManager within the invoked action
-                    windowNotificationManager <- FabApplication.Current.WindowNotificationManager
-                ).GetTask() |> Async.AwaitTask)
-            else
-                // If already on the UI thread, directly access the WindowNotificationManager
-                windowNotificationManager <- FabApplication.Current.WindowNotificationManager
-        
-            return windowNotificationManager  // Return the result
-        }
+    (*let private dispatch (action: unit -> unit) =
+        // Check if the current thread is the UI thread
+        if not(Avalonia.Threading.Dispatcher.UIThread.CheckAccess()) then
+            // If not on the UI thread, invoke the code on the UI thread
+            Avalonia.Threading.Dispatcher.UIThread.Invoke(action)
+        else action() // run action on current thread*)
 
 
     let private notify message =
-        async {
-            (*Avalonia.Threading.Dispatcher.UIThread.Invoke(fun () -> {
-            })*)
-            let! notificationManager = getWindowNotificationManagerAsync
-            notificationManager.Show(Notification(message, "", NotificationType.Information, TimeSpan.FromSeconds 3))
-            ()
-        } |> Async.StartImmediate
+        notificationManager.Value.Show(Notification(message, message, NotificationType.Information, TimeSpan.FromSeconds 3))
+        //dispatch(fun () -> FabApplication.Current.WindowNotificationManager.Show(Notification(message, message, NotificationType.Information, TimeSpan.FromSeconds 3)))
         Cmd.none
 
     let initModel = {
@@ -522,15 +505,20 @@ module App =
                     renderSearchResult (model.Padding |> uint32) result
             })).gridRow(4)
 
-            (*View.WindowNotificationManager(notificationManager)
+            View.WindowNotificationManager(notificationManager)
                 .position(NotificationPosition.BottomRight)
-                .maxItems(3)*)
+                .maxItems(3)
         }).margin(5, 5 , 5, 0)
 
 #if MOBILE
     let app model = SingleViewApplication(view model)
 #else
-    let app model = DesktopApplication(Window(view model))
+    let app model =
+        let window = Window(view model)
+        //let notificationManager = WindowNotificationManager(FabApplication.Current.MainWindow)
+        //notificationManager.Position <- NotificationPosition.BottomRight
+        //notificationManager.MaxItems <- 3
+        DesktopApplication(window)
 #endif
 
     let create () =
