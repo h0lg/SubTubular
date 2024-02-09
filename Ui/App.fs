@@ -16,6 +16,7 @@ open type Fabulous.Avalonia.View
 open FSharp.Control
 open SubTubular
 open SubTubular.Extensions
+open Avalonia.Controls.Notifications
 
 module App =
     type Scopes = videos = 0 | playlist = 1 | channel = 2
@@ -72,6 +73,7 @@ module App =
         | OutputToChanged of string
         | OpenOutputChanged of SelectionChangedEventArgs
         | SaveOutput
+        | SavedOutput of string
 
         | Search of bool
         | SearchResult of VideoSearchResult
@@ -123,48 +125,54 @@ module App =
             }
             |> Cmd.ofAsyncMsg
 
+    let private mapToSearchCommand model =
+        let order = 
+            match (model.OrderByScore, model.OrderDesc) with
+            | (true, true) -> [SearchCommand.OrderOptions.score]
+            | (true, false) -> [SearchCommand.OrderOptions.score; SearchCommand.OrderOptions.asc]
+            | (false, true) -> [SearchCommand.OrderOptions.uploaded]
+            | (false, false) -> [SearchCommand.OrderOptions.uploaded; SearchCommand.OrderOptions.asc]
+
+        let scope =
+            match model.Scope with
+            | Scopes.videos -> VideosScope(model.Aliases.Split [|' '|]) :> CommandScope
+            | Scopes.playlist -> PlaylistScope(model.Aliases, model.Top.Value |> uint16, model.CacheHours.Value |> float32)
+            | Scopes.channel -> ChannelScope(model.Aliases, model.Top.Value |> uint16, model.CacheHours.Value |> float32)
+            | _ -> failwith ("unknown scope " + model.Scope.ToString())
+
+        let command = SearchCommand()
+        command.Query <- model.Query
+        command.Padding <- model.Padding |> uint16
+        command.OrderBy <- order
+        command.Scope <- scope
+        command.OutputHtml <- model.OutputHtml
+        command.FileOutputPath <- model.OutputTo
+
+        if model.OpenOutput = OpenOutputOptions.file
+        then command.Show <- OutputCommand.Shows.file
+        elif model.OpenOutput = OpenOutputOptions.folder
+        then command.Show <- OutputCommand.Shows.folder
+
+        command
+
+    let private validateChannelScope (scope: CommandScope) youTube dataStore cancellation =
+        match scope with
+        | :? ChannelScope as channel ->
+            async {
+                return! CommandValidator.RemoteValidateChannelAsync(channel, youTube, dataStore, cancellation) |> Async.AwaitTask
+            }
+        | _ ->  async { return () }
+
     let private searchCmd model =
         fun dispatch ->
             async {
-                let order = 
-                    match (model.OrderByScore, model.OrderDesc) with
-                    | (true, true) -> [PlaylistLikeScope.OrderOptions.score]
-                    | (true, false) -> [PlaylistLikeScope.OrderOptions.score; PlaylistLikeScope.OrderOptions.asc]
-                    | (false, true) -> [PlaylistLikeScope.OrderOptions.uploaded]
-                    | (false, false) -> [PlaylistLikeScope.OrderOptions.uploaded; PlaylistLikeScope.OrderOptions.asc]
-
-                let scope =
-                    match model.Scope with
-                    | Scopes.videos -> VideosScope(model.Aliases.Split [|' '|]) :> CommandScope
-                    | Scopes.playlist -> PlaylistScope(model.Aliases, model.Top.Value |> uint16, order, model.CacheHours.Value |> float32)
-                    | Scopes.channel -> ChannelScope(model.Aliases, model.Top.Value |> uint16, order, model.CacheHours.Value |> float32)
-                    | _ -> failwith ("unknown scope " + model.Scope.ToString())
-
-                let command = SearchCommand()
-                command.Query <- model.Query
-                command.Padding <- model.Padding |> uint16
-                command.Scope <- scope
-                command.OutputHtml <- model.OutputHtml
-                command.FileOutputPath <- model.OutputTo
-
-                if model.OpenOutput = OpenOutputOptions.file
-                then command.Show <- OutputCommand.Shows.file
-                elif model.OpenOutput = OpenOutputOptions.folder
-                then command.Show <- OutputCommand.Shows.folder
-
+                let command = mapToSearchCommand model
                 CommandValidator.ValidateSearchCommand command
                 let cacheFolder = Folder.GetPath Folders.cache
                 let dataStore = JsonFileDataStore cacheFolder
                 let youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
                 use cts = new CancellationTokenSource()
-
-                do!
-                    match command.Scope with
-                    | :? ChannelScope as channel ->
-                        async {
-                            return! CommandValidator.RemoteValidateChannelAsync(channel, youtube.Client, dataStore, cts.Token) |> Async.AwaitTask
-                        }
-                    | _ ->  async { return () }
+                do! validateChannelScope command.Scope youtube.Client dataStore cts.Token
 
                 do! youtube.SearchAsync(command, cts.Token)
                     // see https://github.com/fsprojects/FSharp.Control.TaskSeq
@@ -175,19 +183,49 @@ module App =
             } |> Async.StartImmediate
         |> Cmd.ofSub
 
-    let private saveOutput model = 
-        async {
-            //let writer = 
-            return None
-        }
-        |> Cmd.ofAsyncMsgOption
+    let private orderResults byScore desc results =
+        let sortBy = if desc then List.sortByDescending else List.sortBy
 
-    let private notify message = 
+        let comparable: (VideoSearchResult -> IComparable) =
+            if byScore then (fun r -> r.Score)
+            else (fun r -> r.Video.Uploaded)
+
+        results |> sortBy comparable
+
+    let private saveOutput model =
         async {
-            //let writer = 
-            return None
+            let command = mapToSearchCommand model
+            CommandValidator.ValidateSearchCommand command
+            let cacheFolder = Folder.GetPath Folders.cache
+            let dataStore = JsonFileDataStore cacheFolder
+            let youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
+            use cts = new CancellationTokenSource()
+            do! validateChannelScope command.Scope youtube.Client dataStore cts.Token
+
+            let writer = if model.OutputHtml then new HtmlOutputWriter(command) :> FileOutputWriter else new TextOutputWriter(command)
+            writer.WriteHeader()
+
+            for result in orderResults model.OrderDesc model.OrderByScore model.SearchResults do
+                writer.WriteVideoResult(result, model.Padding |> uint32)
+
+            // turn ValueTask into Task while native ValueTask handling is in RFC, see https://stackoverflow.com/a/52398452
+            let! path = writer.SaveFile().AsTask() |> Async.AwaitTask
+
+            match writer with
+            | :? HtmlOutputWriter as htmlWriter -> htmlWriter.Dispose()
+            | :? TextOutputWriter as textWriter -> textWriter.Dispose()
+            | _ -> failwith "Unknown output writer type."
+
+            return SavedOutput path
         }
-        |> Cmd.ofAsyncMsgOption
+        |> Cmd.ofAsyncMsg
+
+    //let notificationManager = ViewRef<WindowNotificationManager>()
+
+    let private notify message =
+        let notificationManager = FabApplication.Current.WindowNotificationManager
+        notificationManager.Show(Notification(message, "", NotificationType.Information))
+        Cmd.none
 
     let initModel = {
         Scope = Scopes.channel
@@ -230,6 +268,7 @@ module App =
         | OutputToChanged path -> { model with OutputTo = path }, Settings.requestSave()
         | OpenOutputChanged args -> { model with OpenOutput = args.AddedItems.Item 0 :?> OpenOutputOptions }, Settings.requestSave()
         | SaveOutput -> model, saveOutput model
+        | SavedOutput path -> model, notify("Saved results to " + path)
 
         | Search on -> { model with Searching = on; SearchResults = [] }, (if on then searchCmd model else Cmd.none)
         | SearchResult result -> { model with SearchResults = result::model.SearchResults }, Cmd.none
@@ -446,9 +485,13 @@ module App =
 
             // results
             ScrollViewer((VStack() {
-                for result in model.SearchResults do
+                for result in orderResults model.OrderDesc model.OrderByScore model.SearchResults do
                     renderSearchResult (model.Padding |> uint32) result
             })).gridRow(4)
+
+            (*View.WindowNotificationManager(notificationManager)
+                .position(NotificationPosition.BottomRight)
+                .maxItems(3)*)
         }).margin(5, 5 , 5, 0)
 
 #if MOBILE
