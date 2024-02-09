@@ -15,10 +15,10 @@ public static class CommandValidator
     {
         ValidateCommandScope(command.Scope); // as first argument
 
-        if (string.IsNullOrWhiteSpace(command.Query)) throw new InputException(
+        if (command.Query.IsNullOrWhiteSpace()) throw new InputException(
             $"The {nameof(SearchCommand.Query).ToLower()} is empty.");
 
-        if (command.Query.HasAny() && command.Query.All(c => controlChars.Contains(c))) throw new InputException(
+        if (command.Query.HasAny() && command.Query!.All(c => controlChars.Contains(c))) throw new InputException(
             $"The {nameof(SearchCommand.Query).ToLower()} contains nothing but control characters."
             + " That'll stay unsupported unless you come up with a good reason for why it should be."
             + $" If you can, leave it at {AssemblyInfo.IssuesUrl} .");
