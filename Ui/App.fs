@@ -5,6 +5,7 @@ open System.IO
 open System.Runtime.CompilerServices
 open System.Text.Json
 open System.Threading
+open Avalonia
 open Avalonia.Controls
 open Avalonia.Interactivity
 open Avalonia.Layout
@@ -104,7 +105,7 @@ module App =
                     return SettingsLoaded settings
                 else return Reset
             }
-            |> Cmd.ofAsyncMsg
+            |> Cmd.OfAsync.msg
 
         let save model =
             async {
@@ -122,7 +123,7 @@ module App =
                 do! File.WriteAllTextAsync(getPath, json) |> Async.AwaitTask
                 return SettingsSaved // Cmd.none?
             }
-            |> Cmd.ofAsyncMsg
+            |> Cmd.OfAsync.msg
 
     let private mapToSearchCommand model =
         let order = 
@@ -177,7 +178,7 @@ module App =
 
                 dispatch SearchCompleted
             } |> Async.StartImmediate
-        |> Cmd.ofSub
+        |> Cmd.ofEffect
 
     let private createScope scope aliases =
         let isVideos = scope = Scopes.videos
@@ -498,5 +499,20 @@ module App =
     let app model = DesktopApplication(Window(view model))
 #endif
 
-    let theme = FluentTheme()
-    let program = Program.statefulWithCmd init update app
+    let create () =
+        let theme () = FluentTheme()
+
+        let program =
+            Program.statefulWithCmd init update
+            |> Program.withTrace(fun (format, args) -> System.Diagnostics.Debug.WriteLine(format, box args))
+            |> Program.withExceptionHandler(fun ex ->
+#if DEBUG
+                printfn $"Exception: %s{ex.ToString()}"
+                false
+#else
+                true
+#endif
+            )
+            |> Program.withView app
+
+        FabulousAppBuilder.Configure(theme, program)
