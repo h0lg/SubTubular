@@ -216,6 +216,13 @@ module App =
             | :? TextOutputWriter as textWriter -> textWriter.Dispose()
             | _ -> failwith "Unknown output writer type."
 
+            // spare the user some file browsing
+            if command.Show.HasValue then
+                match command.Show.Value with
+                | OutputCommand.Shows.file -> ShellCommands.OpenFile path
+                | OutputCommand.Shows.folder -> ShellCommands.ExploreFolder path |> ignore
+                | _ -> failwith $"Unknown {nameof OutputCommand.Shows} value"
+
             return SavedOutput path
         }
         |> Cmd.ofAsyncMsg
