@@ -103,11 +103,16 @@ public static class ReleaseManager
         if (lastModified.HasValue && DateTime.Now.Subtract(lastModified.Value).TotalHours < 1)
         {
             var cached = await dataStore.GetAsync<List<CacheModel>>(cacheKey);
-            if (cached != null) return cached;
+
+            if (cached != null)
+            {
+                var valid = cached.Valid().ToList();
+                if (valid.Any()) return valid;
+            }
         }
 
         var freshReleases = await GetGithubClient().Repository.Release.GetAll(AssemblyInfo.RepoOwner, AssemblyInfo.RepoName);
-        var releases = freshReleases.Select(release => new CacheModel(release)).ToList();
+        var releases = freshReleases.Select(release => new CacheModel(release)).Valid().ToList();
         await dataStore.SetAsync(cacheKey, releases);
         return releases;
     }
@@ -129,6 +134,9 @@ public static class ReleaseManager
         throw new InputException($"'{version}' matches multiple release versions."
             + " Specify a unique value: " + containing.Select(r => r.Version).Join(" | "));
     }
+
+    private static IEnumerable<CacheModel> Valid(this IEnumerable<CacheModel> releases)
+        => releases.Where(r => r != null && r.Version.IsNonWhiteSpace() && r.HtmlUrl.IsNonWhiteSpace());
 
     [Serializable]
     public sealed class CacheModel
