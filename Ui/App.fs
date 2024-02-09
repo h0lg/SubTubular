@@ -94,14 +94,13 @@ module App =
 
         let load = 
             async {
-                return Notify "settings loading"
-                (*let path = getPath
+                let path = getPath
 
                 if File.Exists path then
                     let! json = File.ReadAllTextAsync(getPath) |> Async.AwaitTask
                     let settings = JsonSerializer.Deserialize json
                     return SettingsLoaded settings
-                else return Reset*)
+                else return Reset
             }
             |> Cmd.ofAsyncMsg
 
@@ -230,9 +229,34 @@ module App =
 
     //let notificationManager = ViewRef<WindowNotificationManager>()
 
+    // Function to access WindowNotificationManager
+    let getWindowNotificationManagerAsync =
+        async {
+            let mutable windowNotificationManager = Unchecked.defaultof<_>  // Define a mutable variable to store the result
+
+            // Check if the current thread is the UI thread
+            if not(Avalonia.Threading.Dispatcher.UIThread.CheckAccess()) then
+                // If not on the UI thread, invoke the code on the UI thread
+                do! (Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(fun () ->
+                    // Access the WindowNotificationManager within the invoked action
+                    windowNotificationManager <- FabApplication.Current.WindowNotificationManager
+                ).GetTask() |> Async.AwaitTask)
+            else
+                // If already on the UI thread, directly access the WindowNotificationManager
+                windowNotificationManager <- FabApplication.Current.WindowNotificationManager
+        
+            return windowNotificationManager  // Return the result
+        }
+
+
     let private notify message =
-        let notificationManager = FabApplication.Current.WindowNotificationManager
-        notificationManager.Show(Notification(message, "", NotificationType.Information, TimeSpan.FromSeconds 3))
+        async {
+            (*Avalonia.Threading.Dispatcher.UIThread.Invoke(fun () -> {
+            })*)
+            let! notificationManager = getWindowNotificationManagerAsync
+            notificationManager.Show(Notification(message, "", NotificationType.Information, TimeSpan.FromSeconds 3))
+            ()
+        } |> Async.StartImmediate
         Cmd.none
 
     let initModel = {
@@ -286,7 +310,7 @@ module App =
         | OpenUrl url -> model, (fun _ -> ShellCommands.OpenUri(url); Cmd.none)()
         | CopyingToClipboard _args -> model, Cmd.none
         | SaveSettings -> model, Settings.save model
-        | SettingsSaved -> model, Cmd.none
+        | SettingsSaved -> model, Notify "settings saved" |> Cmd.ofMsg
         | SettingsLoaded s -> ({
             model with
                 Top = s.Top
