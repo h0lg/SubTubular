@@ -1,3 +1,5 @@
+using SubTubular.Extensions;
+
 namespace SubTubular;
 
 public abstract class OutputCommand
@@ -12,7 +14,7 @@ public abstract class OutputCommand
     public bool HasOutputPath(out string? outputPath)
     {
         var fileOutputPath = FileOutputPath?.Trim('"');
-        var hasOutputPath = fileOutputPath != null && !string.IsNullOrEmpty(fileOutputPath);
+        var hasOutputPath = fileOutputPath.IsNonEmpty();
 
         if (hasOutputPath)
         {

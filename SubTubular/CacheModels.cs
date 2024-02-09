@@ -70,7 +70,7 @@ public sealed class CaptionTrack
 
         foreach (var caption in Captions)
         {
-            if (string.IsNullOrWhiteSpace(caption.Text)) continue; // skip included line breaks
+            if (caption.Text.IsNullOrWhiteSpace()) continue; // skip included line breaks
             var isFirst = writer.Length == 0;
             captionsAtFullTextIndex[isFirst ? 0 : writer.Length + FullTextSeperator.Length] = caption;
             var normalized = caption.Text.NormalizeWhiteSpace(FullTextSeperator); // replace included line breaks

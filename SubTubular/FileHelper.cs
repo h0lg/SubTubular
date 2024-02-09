@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using SubTubular.Extensions;
 
 namespace SubTubular;
 
@@ -51,13 +52,13 @@ public static class FileHelper
     internal static void Unzip(string zipFile, string targetFolder)
     {
         using var archive = ZipFile.OpenRead(zipFile);
-        var topLevelFolders = archive.Entries.Where(e => string.IsNullOrEmpty(e.Name) && Path.EndsInDirectorySeparator(e.FullName)
+        var topLevelFolders = archive.Entries.Where(e => e.Name.IsNullOrEmpty() && Path.EndsInDirectorySeparator(e.FullName)
             && e.FullName.Count(c => c == Path.DirectorySeparatorChar || c == Path.AltDirectorySeparatorChar) == 1).ToArray();
 
         var wrappingFolder = topLevelFolders.Length == 1 ? topLevelFolders[0].FullName : null;
         var hasWrappingFolder = wrappingFolder != null && archive.Entries.All(e => e.FullName.StartsWith(wrappingFolder));
 
-        foreach (var entry in archive.Entries.Where(e => !string.IsNullOrEmpty(e.Name)))
+        foreach (var entry in archive.Entries.Where(e => e.Name.IsNonEmpty()))
         {
             var relativePath = hasWrappingFolder ? entry.FullName.Remove(0, wrappingFolder!.Length) : entry.FullName;
             var targetFilePath = Path.Combine(targetFolder, relativePath);

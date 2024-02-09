@@ -14,6 +14,18 @@ public static class TimeSpanExtensions
 /// <summary>Extension methods for <see cref="string"/>s.</summary>
 public static class StringExtensions
 {
+    /// <summary>Determines whether <paramref name="input"/> <see cref="string.IsNullOrEmpty(string?)"/>.</summary>
+    internal static bool IsNullOrEmpty(this string? input) => string.IsNullOrEmpty(input);
+
+    /// <summary>Determines whether <paramref name="input"/> NOT <see cref="string.IsNullOrEmpty(string?)"/>.</summary>
+    internal static bool IsNonEmpty(this string? input) => !string.IsNullOrEmpty(input);
+
+    /// <summary>Determines whether <paramref name="input"/> <see cref="string.IsNullOrWhiteSpace(string?)"/>.</summary>
+    internal static bool IsNullOrWhiteSpace(this string? input) => string.IsNullOrWhiteSpace(input);
+
+    /// <summary>Determines whether <paramref name="input"/> NOT <see cref="string.IsNullOrWhiteSpace(string?)"/>.</summary>
+    internal static bool IsNonWhiteSpace(this string? input) => !string.IsNullOrWhiteSpace(input);
+
     /// <summary>Replaces all consecutive white space characters in
     /// <paramref name="input"/> with <paramref name="normalizeTo"/>.</summary>
     internal static string NormalizeWhiteSpace(this string input, string normalizeTo = " ")
@@ -40,7 +52,7 @@ public static class StringExtensions
             return true;
 
         // if has extension then its a file; directory otherwise
-        return string.IsNullOrWhiteSpace(Path.GetExtension(path));
+        return Path.GetExtension(path).IsNullOrWhiteSpace();
     }
 
     /// <summary>Replaces all characters unsafe for file or directory names in <paramref name="value"/>

@@ -423,7 +423,7 @@ public sealed class VideoSearchResult
             {
                 At = first.Value.At,
                 Text = captions.Select(x => x.Value.Text)
-                    .Where(text => !string.IsNullOrWhiteSpace(text)) // skip included line breaks
+                    .Where(text => text.IsNonWhiteSpace()) // skip included line breaks
                     .Select(text => text.NormalizeWhiteSpace(CaptionTrack.FullTextSeperator)) // replace included line breaks
                     .Join(CaptionTrack.FullTextSeperator)
             };
@@ -444,7 +444,7 @@ public sealed class VideoSearchResult
                 .Where(x => first.Key <= x.Key && x.Key <= last.Key).ToArray();
 
             var text = captions.Select(x => x.Value.Text)
-                .Where(text => !string.IsNullOrWhiteSpace(text)) // skip included line breaks
+                .Where(text => text.IsNonWhiteSpace()) // skip included line breaks
                 .Select(text => text.NormalizeWhiteSpace(CaptionTrack.FullTextSeperator)) // replace included line breaks
                 .Join(CaptionTrack.FullTextSeperator);
 
