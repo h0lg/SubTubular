@@ -94,13 +94,14 @@ module App =
 
         let load = 
             async {
-                let path = getPath
+                return Notify "settings loading"
+                (*let path = getPath
 
                 if File.Exists path then
                     let! json = File.ReadAllTextAsync(getPath) |> Async.AwaitTask
                     let settings = JsonSerializer.Deserialize json
                     return SettingsLoaded settings
-                else return Reset
+                else return Reset*)
             }
             |> Cmd.ofAsyncMsg
 
@@ -231,7 +232,7 @@ module App =
 
     let private notify message =
         let notificationManager = FabApplication.Current.WindowNotificationManager
-        notificationManager.Show(Notification(message, "", NotificationType.Information))
+        notificationManager.Show(Notification(message, "", NotificationType.Information, TimeSpan.FromSeconds 3))
         Cmd.none
 
     let initModel = {
