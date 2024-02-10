@@ -7,6 +7,7 @@ open System.Text.Json
 open System.Threading
 open Avalonia
 open Avalonia.Controls
+open Avalonia.Controls.Notifications
 open Avalonia.Interactivity
 open Avalonia.Layout
 open Avalonia.Media
@@ -17,7 +18,6 @@ open type Fabulous.Avalonia.View
 open FSharp.Control
 open SubTubular
 open SubTubular.Extensions
-open Avalonia.Controls.Notifications
 
 module App =
     type Scopes = videos = 0 | playlist = 1 | channel = 2
@@ -37,6 +37,8 @@ module App =
     }
 
     type Model = {
+        NotificationManager: WindowNotificationManager
+
         Scope: Scopes
         Aliases: string
         Query: string
@@ -80,6 +82,7 @@ module App =
         | SearchResult of VideoSearchResult
         | SearchCompleted
 
+        | AttachedToVisualTreeChanged of VisualTreeAttachmentEventArgs
         | Notify of string
         | CopyingToClipboard of RoutedEventArgs
         | OpenUrl of string
@@ -230,20 +233,22 @@ module App =
 
     let notificationManager = ViewRef<WindowNotificationManager>()
 
-    (*let private dispatch (action: unit -> unit) =
+    let private dispatch (action: unit -> unit) =
         // Check if the current thread is the UI thread
         if not(Avalonia.Threading.Dispatcher.UIThread.CheckAccess()) then
             // If not on the UI thread, invoke the code on the UI thread
             Avalonia.Threading.Dispatcher.UIThread.Invoke(action)
-        else action() // run action on current thread*)
+        else action() // run action on current thread
 
 
     let private notify message =
-        notificationManager.Value.Show(Notification(message, message, NotificationType.Information, TimeSpan.FromSeconds 3))
-        //dispatch(fun () -> FabApplication.Current.WindowNotificationManager.Show(Notification(message, message, NotificationType.Information, TimeSpan.FromSeconds 3)))
+        //notificationManager.Value.Show(Notification(message, message, NotificationType.Information, TimeSpan.FromSeconds 3))
+        dispatch(fun () -> FabApplication.Current.WindowNotificationManager.Show(Notification(message, message, NotificationType.Information, TimeSpan.FromSeconds 3)))
         Cmd.none
 
     let initModel = {
+        NotificationManager = null
+
         Scope = Scopes.channel
         Aliases = ""
         Query = ""
@@ -284,17 +289,24 @@ module App =
         | OutputToChanged path -> { model with OutputTo = path }, Settings.requestSave()
         | OpenOutputChanged args -> { model with OpenOutput = args.AddedItems.Item 0 :?> OpenOutputOptions }, Settings.requestSave()
         | SaveOutput -> model, saveOutput model
-        | SavedOutput path -> model, notify("Saved results to " + path)
+        | SavedOutput path -> model, Notify ("Saved results to " + path) |> Cmd.ofMsg
 
         | Search on -> { model with Searching = on; SearchResults = [] }, (if on then searchCmd model else Cmd.none)
         | SearchResult result -> { model with SearchResults = result::model.SearchResults }, Cmd.none
-        | SearchCompleted -> { model with Searching = false }, Cmd.none
+        | SearchCompleted ->
+            
+            { model with Searching = false }, Notify "search completed" |> Cmd.ofMsg
 
-        | Notify message -> model, notify message
+        | AttachedToVisualTreeChanged args -> { model with NotificationManager = FabApplication.Current.WindowNotificationManager }, []
+        | Notify message ->
+            notificationManager.Value.Show(Notification(message, message, NotificationType.Information, TimeSpan.FromSeconds 3))
+            //model.NotificationManager.Show(Notification(message, message, NotificationType.Information, TimeSpan.FromSeconds 3))
+            //notify message
+            model, []
         | OpenUrl url -> model, (fun _ -> ShellCommands.OpenUri(url); Cmd.none)()
         | CopyingToClipboard _args -> model, Cmd.none
         | SaveSettings -> model, Settings.save model
-        | SettingsSaved -> model, Notify "settings saved" |> Cmd.ofMsg
+        | SettingsSaved -> model, [] //Notify "settings saved" |> Cmd.ofMsg
         | SettingsLoaded s -> ({
             model with
                 Top = s.Top
@@ -508,7 +520,7 @@ module App =
             View.WindowNotificationManager(notificationManager)
                 .position(NotificationPosition.BottomRight)
                 .maxItems(3)
-        }).margin(5, 5 , 5, 0)
+        }).margin(5, 5 , 5, 0).onAttachedToVisualTree(AttachedToVisualTreeChanged)
 
 #if MOBILE
     let app model = SingleViewApplication(view model)
