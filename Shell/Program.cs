@@ -40,7 +40,8 @@ internal static partial class Program
         }
     }
 
-    private static JsonFileDataStore CreateDataStore() => new JsonFileDataStore(Folder.GetPath(Folders.cache));
+    internal static DataStore CreateDataStore(string folder = null)
+        => new JsonFileDataStore(folder ?? Folder.GetPath(Folders.cache));
 
     private static async Task WriteErrorLogAsync(string originalCommand, string errors, string name = null)
     {

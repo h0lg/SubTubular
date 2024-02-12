@@ -18,7 +18,7 @@ public sealed class ClearCache
 
 public static class CacheClearer
 {
-    public static async Task<(IEnumerable<string>, IEnumerable<string>)> Process(ClearCache command)
+    public static async Task<(IEnumerable<string> cachesDeleted, IEnumerable<string> indexesDeleted)> Process(ClearCache command, DataStore cacheDataStore)
     {
         var filesDeleted = new List<string>();
         var cacheFolder = Folder.GetPath(Folders.cache);
@@ -27,8 +27,7 @@ public static class CacheClearer
         switch (command.Scope)
         {
             case ClearCache.Scopes.all:
-                filesDeleted.AddRange(FileHelper.DeleteFiles(cacheFolder,
-                    notAccessedForDays: command.NotAccessedForDays, simulate: simulate));
+                filesDeleted.AddRange(cacheDataStore.DeleteFiles(notAccessedForDays: command.NotAccessedForDays, simulate: simulate));
 
                 break;
             case ClearCache.Scopes.videos:
@@ -42,12 +41,12 @@ public static class CacheClearer
 
                     DeleteFilesByNames(parsed.Values.Select(videoId => Video.StorageKeyPrefix + videoId!.Value));
                 }
-                else filesDeleted.AddRange(FileHelper.DeleteFiles(cacheFolder, Video.StorageKeyPrefix + "*",
+                else filesDeleted.AddRange(cacheDataStore.DeleteFiles(Video.StorageKeyPrefix + "*",
                     notAccessedForDays: command.NotAccessedForDays, simulate: simulate));
 
                 break;
             case ClearCache.Scopes.playlists:
-                await ClearPlaylists(PlaylistScope.StorageKeyPrefix, new JsonFileDataStore(cacheFolder),
+                await ClearPlaylists(PlaylistScope.StorageKeyPrefix, cacheDataStore,
                     v =>
                     {
                         var id = PlaylistId.TryParse(v);
@@ -56,30 +55,29 @@ public static class CacheClearer
 
                 break;
             case ClearCache.Scopes.channels:
-                var dataStore = new JsonFileDataStore(cacheFolder);
                 Func<string, string[]?>? parseAlias = null;
 
                 if (command.Ids.HasAny())
                 {
-                    var aliasToChannelIds = await ClearChannelAliases(command.Ids!, dataStore, simulate);
+                    var aliasToChannelIds = await ClearChannelAliases(command.Ids!, cacheDataStore, simulate);
                     parseAlias = alias => aliasToChannelIds.TryGetValue(alias, out var channelIds) ? channelIds : null;
                 }
                 else DeleteFileByName(ChannelAliasMap.StorageKey);
 
-                await ClearPlaylists(ChannelScope.StorageKeyPrefix, dataStore, parseAlias!);
+                await ClearPlaylists(ChannelScope.StorageKeyPrefix, cacheDataStore, parseAlias!);
                 break;
             default: throw new NotImplementedException($"Clearing {nameof(ClearCache.Scope)} {command.Scope} is not implemented.");
         }
 
-        return (filesDeleted.Where(fileName => fileName.EndsWith(JsonFileDataStore.FileExtension)),
+        return (filesDeleted.Where(fileName => fileName.EndsWith(cacheDataStore.FileExtension)),
             filesDeleted.Where(fileName => fileName.EndsWith(VideoIndexRepository.FileExtension)));
 
         void DeleteFileByName(string name) => filesDeleted.AddRange(
-            FileHelper.DeleteFiles(cacheFolder, name + ".*", simulate: simulate));
+            cacheDataStore.DeleteFiles(name + ".*", simulate: simulate));
 
         void DeleteFilesByNames(IEnumerable<string> names) { foreach (var name in names) DeleteFileByName(name); }
 
-        async Task ClearPlaylists(string keyPrefix, JsonFileDataStore dataStore, Func<string, string[]?> parseId)
+        async Task ClearPlaylists(string keyPrefix, DataStore dataStore, Func<string, string[]?> parseId)
         {
             string[] deletableKeys;
 
@@ -108,7 +106,7 @@ public static class CacheClearer
     }
 
     private static async Task<Dictionary<string, string[]>> ClearChannelAliases(
-        IEnumerable<string> aliases, JsonFileDataStore dataStore, bool simulate)
+        IEnumerable<string> aliases, DataStore dataStore, bool simulate)
     {
         var cachedMaps = await ChannelAliasMap.LoadList(dataStore);
         var matchedMaps = new List<ChannelAliasMap>();

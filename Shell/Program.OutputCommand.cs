@@ -26,7 +26,7 @@ static partial class Program
         });
 
         var cacheFolder = Folder.GetPath(Folders.cache);
-        DataStore dataStore = new JsonFileDataStore(cacheFolder);
+        DataStore dataStore = CreateDataStore(cacheFolder);
         var youtube = new Youtube(dataStore, new VideoIndexRepository(cacheFolder));
 
         if (command.Scope is ChannelScope channel)
