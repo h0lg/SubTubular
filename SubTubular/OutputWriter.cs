@@ -2,11 +2,9 @@
 
 namespace SubTubular;
 
-public abstract class OutputWriter
+public abstract class OutputWriter(OutputCommand command)
 {
-    protected readonly OutputCommand command;
-
-    public OutputWriter(OutputCommand command) => this.command = command;
+    protected readonly OutputCommand command = command;
 
     public virtual short GetWidth() => command.OutputWidth;
     public abstract short GetWrittenInCurrentLine();

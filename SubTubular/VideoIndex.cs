@@ -94,8 +94,7 @@ internal sealed class VideoIndex
 
     internal async Task AddAsync(Video video, CancellationToken cancellation)
     {
-        cancellation.ThrowIfCancellationRequested();
-        await Index.AddAsync(video);
+        await Index.AddAsync(video, cancellation);
         video.UnIndexed = false; // to reset the flag
     }
 
@@ -127,10 +126,8 @@ internal sealed class VideoIndex
         try { results = Index.Search(command.Query!); }
         catch (QueryParserException ex) { throw new InputException("Error parsing query from --for | -f parameter: " + ex.Message, ex); }
 
-        var matches = results
-            // make sure to only return results for the requested videos if specified; index may contain more
-            .Where(m => relevantVideos == default || relevantVideos.ContainsKey(m.Key))
-            .ToList();
+        // make sure to only return results for the requested videos if specified; index may contain more
+        var matches = results.Where(m => relevantVideos?.ContainsKey(m.Key) != false).ToList();
 
         var previouslyLoadedVideos = Array.Empty<Video>();
         var unIndexedVideos = new List<Video>();

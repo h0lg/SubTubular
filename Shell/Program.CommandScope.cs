@@ -37,11 +37,11 @@ static partial class Program
             => new PlaylistScope(ctx.Parsed(playlist), ctx.Parsed(top), ctx.Parsed(cacheHours));
 
         private static VideosScope CreateVideosScope(InvocationContext ctx, Argument<IEnumerable<string>> videos)
-            => new VideosScope(ctx.Parsed(videos));
+            => new(ctx.Parsed(videos));
 
         private static (Option<ushort> top, Option<float> cacheHours) AddPlaylistLikeCommandOptions(Command command)
         {
-            Option<ushort> top = new(new[] { topName, "-t" }, () => 50,
+            Option<ushort> top = new([topName, "-t"], () => 50,
                 "The number of videos to search, counted from the top of the playlist;"
                 + " effectively limiting the search scope to the top partition of it."
                 + " You may want to gradually increase this to include all videos in the list while you're refining your query."
@@ -49,7 +49,7 @@ static partial class Program
                 + " but custom playlists may be sorted differently. Keep that in mind if you don't find what you're looking for"
                 + $" and when using '{orderByName}' (which is only applied to the results) with '{nameof(SearchCommand.OrderOptions.uploaded)}' on custom playlists.");
 
-            Option<float> cacheHours = new(new[] { "--cache-hours", "-ch" }, () => 24,
+            Option<float> cacheHours = new(["--cache-hours", "-ch"], () => 24,
                 "The maximum age of a playlist cache in hours"
                 + " before it is considered stale and the list of videos in it is refreshed."
                 + " Note this doesn't apply to the videos themselves because their contents rarely change after upload."

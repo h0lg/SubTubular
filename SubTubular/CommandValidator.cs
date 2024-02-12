@@ -58,13 +58,13 @@ public static class CommandValidator
 
     private static void ValidateSearchVideos(VideosScope command)
     {
-        var idsToValid = command.Videos.ToDictionary(id => id, id => VideoId.TryParse(id.Trim('"')));
+        var idsToValid = command.Videos.ToDictionary(id => id, id => VideoId.TryParse(id.Trim('"'))?.ToString());
         var invalid = idsToValid.Where(pair => pair.Value == null).ToArray();
 
         if (invalid.Length > 0) throw new InputException("The following video IDs or URLs are invalid:"
             + Environment.NewLine + invalid.Select(pair => pair.Key).Join(Environment.NewLine));
 
-        var validIds = idsToValid.Except(invalid).Where(pair => pair.Value.HasValue).Select(pair => pair.Value!.Value.ToString()).ToArray();
+        var validIds = idsToValid.Select(pair => pair.Value!).ToArray();
         if (!validIds.Any()) throw new InputException("The video IDs or URLs are required.");
         command.ValidIds = validIds;
         command.ValidUrls = validIds.Select(Youtube.GetVideoUrl).ToArray();
@@ -119,7 +119,7 @@ public static class CommandValidator
         #endregion
 
         var identifiedMap = distinct.Single();
-        command.ValidId = identifiedMap.ChannelId!;
+        command.ValidId = identifiedMap.ChannelId;
         command.ValidUrls = new[] { Youtube.GetChannelUrl((ChannelId)identifiedMap.ChannelId!) };
 
         async ValueTask<ChannelAliasMap> GetChannelAliasMap(object alias)

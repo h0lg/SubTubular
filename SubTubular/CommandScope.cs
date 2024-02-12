@@ -26,7 +26,7 @@ public class VideosScope : CommandScope
     internal override string Describe() => "videos " + (ValidIds ?? Videos).Join(" ");
 }
 
-public abstract class PlaylistLikeScope : CommandScope
+public abstract class PlaylistLikeScope(ushort top, float cacheHours) : CommandScope
 {
     #region internal API
     /// <summary>The prefix for the <see cref="StorageKey"/>.</summary>
@@ -44,35 +44,22 @@ public abstract class PlaylistLikeScope : CommandScope
     #endregion
 
     // public options
-    public ushort Top { get; }
-    public float CacheHours { get; }
-
-    public PlaylistLikeScope(ushort top, float cacheHours)
-    {
-        Top = top;
-        CacheHours = cacheHours;
-    }
+    public ushort Top { get; } = top;
+    public float CacheHours { get; } = cacheHours;
 }
 
-public class PlaylistScope : PlaylistLikeScope
+public class PlaylistScope(string playlist, ushort top, float cacheHours) : PlaylistLikeScope(top, cacheHours)
 {
     internal const string StorageKeyPrefix = "playlist ";
     protected override string KeyPrefix => StorageKeyPrefix;
-
-    public string Playlist { get; }
-
-    public PlaylistScope(string playlist, ushort top, float cacheHours)
-        : base(top, cacheHours) => Playlist = playlist;
+    public string Playlist { get; } = playlist;
 }
 
-public class ChannelScope : PlaylistLikeScope
+public class ChannelScope(string alias, ushort top, float cacheHours) : PlaylistLikeScope(top, cacheHours)
 {
     internal const string StorageKeyPrefix = "channel ";
 
-    public string Alias { get; }
+    public string Alias { get; } = alias;
     protected override string KeyPrefix => StorageKeyPrefix;
     internal object[]? ValidAliases { get; set; }
-
-    public ChannelScope(string alias, ushort top, float cacheHours)
-        : base(top, cacheHours) => Alias = alias;
 }
