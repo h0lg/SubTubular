@@ -202,12 +202,7 @@ public sealed class Youtube
         await foreach (var video in unIndexedVideos.Reader.ReadAllAsync())
         {
             cancellation.ThrowIfCancellationRequested();
-
-            if (uncommitted.Count == 0)
-            {
-                index.BeginBatchChange();
-            }
-
+            if (uncommitted.Count == 0) index.BeginBatchChange();
             await index.AddAsync(video, cancellation);
             uncommitted.Add(video);
 
