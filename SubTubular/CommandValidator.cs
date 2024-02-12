@@ -141,8 +141,8 @@ public static class CommandValidator
                 var channel = await loadChannel;
                 map.ChannelId = channel.Id;
             }
-            // otherwise rethrow to raise assumed transient error
             catch (HttpRequestException ex) when (ex.IsNotFound()) { map.ChannelId = null; }
+            // otherwise rethrow to raise assumed transient error
 
             knownAliasMaps.Add(map);
             knownAliasMapsUpdated = true;
