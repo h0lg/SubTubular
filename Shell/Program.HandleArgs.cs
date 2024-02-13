@@ -22,24 +22,8 @@ static partial class Program
             RootCommand root = new(AssemblyInfo.Title);
 
             // see https://learn.microsoft.com/en-us/dotnet/standard/commandline/define-commands#define-subcommands
-            Command channel = new(CommandGroups.channel, "search a channel or list its keywords");
-            channel.AddAlias("c");
-            root.AddCommand(channel);
-            channel.AddCommand(ConfigureSearchChannel(search));
-            channel.AddCommand(ConfigureListChannelKeywords(listKeywords));
-
-            Command playlist = new(CommandGroups.playlist, "search a playlist or list its keywords");
-            playlist.AddAlias("p");
-            root.AddCommand(playlist);
-            playlist.AddCommand(ConfigureSearchPlaylist(search));
-            playlist.AddCommand(ConfigureListPlaylistKeywords(listKeywords));
-
-            Command videos = new(CommandGroups.videos, "search videos or list their keywords");
-            videos.AddAlias("v");
-            root.AddCommand(videos);
-            videos.AddCommand(ConfigureSearchVideos(search));
-            videos.AddCommand(ConfigureListVideoKeywords(listKeywords));
-
+            root.AddCommand(ConfigureSearch(search));
+            root.AddCommand(ConfigureListKeywords(listKeywords));
             root.AddCommand(ConfigureClearCache(ApplyClearCacheAsync));
             root.AddCommand(ConfigureRelease());
             root.AddCommand(ConfigureOpen());
@@ -98,6 +82,6 @@ internal static partial class BindingExtensions
     internal static T Parsed<T>(this InvocationContext context, Argument<T> arg)
         => context.ParseResult.GetValueForArgument(arg);
 
-    internal static T Parsed<T>(this InvocationContext context, Option<T> option)
+    internal static T? Parsed<T>(this InvocationContext context, Option<T> option)
         => context.ParseResult.GetValueForOption(option);
 }

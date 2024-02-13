@@ -28,7 +28,7 @@ static partial class Program
         DataStore dataStore = CreateDataStore();
         var youtube = new Youtube(dataStore, CreateVideoIndexRepo());
 
-        if (command.Scope is ChannelScope channel)
+        foreach (var channel in command.Channels)
             await CommandValidator.RemoteValidateChannelAsync(channel, youtube.Client, dataStore, cancellation.Token);
 
         List<OutputWriter> outputs = [new ConsoleOutputWriter(command)];
