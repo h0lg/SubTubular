@@ -4,7 +4,9 @@ namespace SubTubular;
 
 public abstract class OutputCommand
 {
-    public required CommandScope Scope { get; set; }
+    public VideosScope? Videos { get; set; }
+    public PlaylistScope[]? Playlists { get; set; }
+    public ChannelScope[]? Channels { get; set; }
 
     public short OutputWidth { get; set; } = 80;
     public bool OutputHtml { get; set; }
@@ -28,6 +30,23 @@ public abstract class OutputCommand
         }
     }
 
+    internal bool HasPreValidatedScopes() => Videos?.ValidIds.HasAny() == true
+        || Playlists?.Any(pl => pl.ValidId != null) == true
+        || Channels?.Any(ch => ch.ValidAliases.HasAny()) == true;
+
+    internal IEnumerable<PlaylistLikeScope> GetPlaylistLikeScopes()
+    {
+        if (Channels.HasAny()) foreach (var channel in Channels!) yield return channel;
+        if (Playlists.HasAny()) foreach (var playlist in Playlists!) yield return playlist;
+    }
+
+    private IEnumerable<CommandScope> GetScopes()
+    {
+        foreach (var playlist in GetPlaylistLikeScopes()) yield return playlist;
+        if (Videos != null) yield return Videos;
+    }
+
+    protected string DescribeValidScopes() => GetScopes().GetValid().Select(p => p.Describe()).Join(" ");
     public abstract string Describe();
 
     public enum Shows { file, folder }
@@ -41,7 +60,7 @@ public sealed class SearchCommand : OutputCommand
     // default to ordering by highest score which is probably most useful for most purposes
     public IEnumerable<OrderOptions> OrderBy { get; set; } = [OrderOptions.score];
 
-    public override string Describe() => "searching " + Scope.Describe() + " for " + Query;
+    public override string Describe() => "searching " + DescribeValidScopes() + " for " + Query;
 
     /// <summary>Mutually exclusive <see cref="OrderOptions"/>.</summary>
     internal static OrderOptions[] Orders = [OrderOptions.uploaded, OrderOptions.score];
@@ -52,5 +71,5 @@ public sealed class SearchCommand : OutputCommand
 
 public sealed class ListKeywords : OutputCommand
 {
-    public override string Describe() => "listing keywords in " + Scope.Describe();
+    public override string Describe() => "listing keywords in " + DescribeValidScopes();
 }

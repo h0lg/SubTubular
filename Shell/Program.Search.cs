@@ -22,69 +22,40 @@ static partial class Program
 
             if (tracksWithErrors.Count > 0)
             {
-                await WriteErrorLogAsync(originalCommand, tracksWithErrors.Select(t =>
+                await WriteErrorLogAsync(originalCommand, name: command.Describe(),
+                    errors: tracksWithErrors.Select(t =>
 @$"{t.LanguageName}: {t.ErrorMessage}
 
   {t.Url}
 
-  {t.Error}").Join(AssemblyInfo.OutputSpacing), command.Describe());
+  {t.Error}").Join(AssemblyInfo.OutputSpacing));
             }
         });
     }
 
     static partial class CommandHandler
     {
-        private static Command ConfigureSearchChannel(Func<SearchCommand, Task> handle)
+        private static Command ConfigureSearch(Func<SearchCommand, Task> search)
         {
-            Command searchChannel = new(Actions.search,
-                "Searches the videos in a channel's Uploads playlist."
-                + $" This is a glorified '{CommandGroups.playlist} {Actions.search}'.");
+            Command command = new(Actions.search, "Searches the videos in the specified scopes.");
 
-            searchChannel.AddAlias(Actions.search[..1]);
-            Argument<string> alias = AddChannelAlias(searchChannel);
-            (Option<IEnumerable<string>> query, Option<ushort> padding, Option<IEnumerable<SearchCommand.OrderOptions>> orderBy) = AddSearchCommandOptions(searchChannel);
-            (Option<ushort> top, Option<float> cacheHours) = AddPlaylistLikeCommandOptions(searchChannel);
-            (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(searchChannel);
+            command.AddAlias(Actions.search[..1]); // first character
+            var (channels, playlists, videos) = AddScopes(command);
+            (Option<IEnumerable<string>> query, Option<ushort> padding, Option<IEnumerable<SearchCommand.OrderOptions>> orderBy) = AddSearchCommandOptions(command);
+            (Option<ushort> top, Option<float> cacheHours) = AddPlaylistLikeCommandOptions(command);
+            (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(command);
 
-            searchChannel.SetHandler(async (ctx) => await handle(
-                new SearchCommand { Scope = CreateChannelScope(ctx, alias, top, cacheHours) }
-                    .BindSearchOptions(ctx, query, padding, orderBy)
-                    .BindOuputOptions(ctx, html, fileOutputPath, show)));
+            command.SetHandler(async (ctx) => await search(
+                new SearchCommand
+                {
+                    Channels = CreateChannelScopes(ctx, channels, top, cacheHours),
+                    Playlists = CreatePlaylistScopes(ctx, playlists, top, cacheHours),
+                    Videos = CreateVideosScope(ctx, videos)
+                }
+                .BindSearchOptions(ctx, query, padding, orderBy)
+                .BindOuputOptions(ctx, html, fileOutputPath, show)));
 
-            return searchChannel;
-        }
-
-        private static Command ConfigureSearchPlaylist(Func<SearchCommand, Task> handle)
-        {
-            Command searchPlaylist = new(Actions.search, "Searches the videos in a playlist.");
-            searchPlaylist.AddAlias(Actions.search[..1]);
-            Argument<string> playlist = AddPlaylistArgument(searchPlaylist);
-            (Option<IEnumerable<string>> query, Option<ushort> padding, Option<IEnumerable<SearchCommand.OrderOptions>> orderBy) = AddSearchCommandOptions(searchPlaylist);
-            (Option<ushort> top, Option<float> cacheHours) = AddPlaylistLikeCommandOptions(searchPlaylist);
-            (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(searchPlaylist);
-
-            searchPlaylist.SetHandler(async (ctx) => await handle(
-                new SearchCommand { Scope = CreatePlaylistScope(ctx, playlist, top, cacheHours) }
-                    .BindSearchOptions(ctx, query, padding, orderBy)
-                    .BindOuputOptions(ctx, html, fileOutputPath, show)));
-
-            return searchPlaylist;
-        }
-
-        private static Command ConfigureSearchVideos(Func<SearchCommand, Task> handle)
-        {
-            Command searchVideos = new(Actions.search, "Searches the specified videos.");
-            searchVideos.AddAlias(Actions.search[..1]);
-            Argument<IEnumerable<string>> videos = AddVideosArgument(searchVideos);
-            (Option<IEnumerable<string>> query, Option<ushort> padding, Option<IEnumerable<SearchCommand.OrderOptions>> orderBy) = AddSearchCommandOptions(searchVideos);
-            (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(searchVideos);
-
-            searchVideos.SetHandler(async (ctx) => await handle(
-                new SearchCommand { Scope = CreateVideosScope(ctx, videos) }
-                    .BindSearchOptions(ctx, query, padding, orderBy)
-                    .BindOuputOptions(ctx, html, fileOutputPath, show)));
-
-            return searchVideos;
+            return command;
         }
 
         private static (Option<IEnumerable<string>> query, Option<ushort> padding, Option<IEnumerable<SearchCommand.OrderOptions>> orderBy) AddSearchCommandOptions(Command command)
@@ -132,7 +103,7 @@ internal static partial class BindingExtensions
     internal static SearchCommand BindSearchOptions(this SearchCommand search, InvocationContext ctx,
         Option<IEnumerable<string>> queryWords, Option<ushort> padding, Option<IEnumerable<SearchCommand.OrderOptions>> orderBy)
     {
-        search.Query = ctx.Parsed(queryWords).Join(" ");
+        search.Query = ctx.Parsed(queryWords)?.Join(" ");
         search.Padding = ctx.Parsed(padding);
         search.OrderBy = ctx.Parsed(orderBy);
         return search;
