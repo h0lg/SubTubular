@@ -4,12 +4,30 @@ namespace SubTubular;
 
 public abstract class CommandScope
 {
+    private IEnumerable<string>? validUrls;
+
     /// <summary>A collection of validated URLs for the entities included in the scope.
     /// It translates non-URI identifiers in the scope of YouTube into URIs for <see cref="OutputCommand"/>s.</summary>
-    public IEnumerable<string>? ValidUrls { get; internal set; }
+    public IEnumerable<string>? ValidUrls
+    {
+        get { return validUrls; }
+        internal set
+        {
+            validUrls = value;
+            IsValid = validUrls.HasAny();
+        }
+    }
+
+    public bool IsValid { get; private set; }
 
     /// <summary>Provides a description of the scope for <see cref="OutputCommand.Describe"/>.</summary>
     internal abstract string Describe();
+}
+
+internal static class ScopeExtensions
+{
+    internal static IEnumerable<T> GetValid<T>(this IEnumerable<T> scopes) where T : CommandScope
+        => scopes.Where(s => s.IsValid);
 }
 
 public class VideosScope : CommandScope

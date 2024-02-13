@@ -35,23 +35,31 @@ public sealed class Youtube
 
     public async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command, [EnumeratorCancellation] CancellationToken cancellation = default)
     {
-        var search = command.Scope is VideosScope ? SearchVideosAsync(command, cancellation) : SearchPlaylistAsync(command, cancellation);
-        await foreach (var result in search) yield return result;
+        List<IAsyncEnumerable<VideoSearchResult>> searches = [];
+
+        if (command.Channels.HasAny()) searches.AddRange(command.Channels!.GetValid()
+            .Select(channel => SearchPlaylistAsync(command, channel, cancellation)));
+
+        if (command.Playlists.HasAny()) searches.AddRange(command.Playlists!.GetValid()
+            .Select(playlist => SearchPlaylistAsync(command, playlist, cancellation)));
+
+        if (command.Videos?.IsValid == true) searches.Add(SearchVideosAsync(command, cancellation));
+
+        await foreach (var result in searches.Parallelize(cancellation)) yield return result;
     }
 
     /// <summary>Searches videos defined by a playlist.</summary>
     /// <param name="cancellation">Passed in either explicitly or by the IAsyncEnumerable.WithCancellation() extension,
     /// see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables</param>
-    private async IAsyncEnumerable<VideoSearchResult> SearchPlaylistAsync(
-        SearchCommand command, [EnumeratorCancellation] CancellationToken cancellation = default)
+    private async IAsyncEnumerable<VideoSearchResult> SearchPlaylistAsync(SearchCommand command, PlaylistLikeScope scope,
+        [EnumeratorCancellation] CancellationToken cancellation = default)
     {
         cancellation.ThrowIfCancellationRequested();
-        var playListLike = (PlaylistLikeScope)command.Scope;
-        var storageKey = playListLike.StorageKey;
+        var storageKey = scope.StorageKey;
         var index = await videoIndexRepo.GetAsync(storageKey);
         if (index == null) index = videoIndexRepo.Build(storageKey);
-        var playlist = await GetPlaylistAsync(playListLike, cancellation);
-        var videoIds = playlist.Videos.Keys.Take(playListLike.Top).ToArray();
+        var playlist = await GetPlaylistAsync(scope, cancellation);
+        var videoIds = playlist.Videos.Keys.Take(scope.Top).ToArray();
         var indexedVideoIds = index.GetIndexed(videoIds);
         var indexedVideoInfos = indexedVideoIds.ToDictionary(id => id, id => playlist.Videos[id]);
 
@@ -209,7 +217,7 @@ public sealed class Youtube
         SearchCommand command, [EnumeratorCancellation] CancellationToken cancellation = default)
     {
         cancellation.ThrowIfCancellationRequested();
-        var videoIds = ((VideosScope)command.Scope).ValidIds!;
+        var videoIds = command.Videos!.ValidIds!;
         var storageKey = Video.StorageKeyPrefix + videoIds.Order().Join(" ");
         var index = await videoIndexRepo.GetAsync(storageKey);
 
@@ -227,32 +235,46 @@ public sealed class Youtube
 
     /// <summary>Returns the <see cref="Video.Keywords"/> and their corresponding number of occurrences
     /// from the videos scoped by <paramref name="command"/>.</summary>
-    public async Task<Dictionary<string, ushort>> ListKeywordsAsync(ListKeywords command, CancellationToken cancellation)
+    public async IAsyncEnumerable<(string keyword, string videoId, CommandScope scope)> ListKeywordsAsync(
+        ListKeywords command, [EnumeratorCancellation] CancellationToken cancellation = default)
     {
-        string[] videoIds;
+        var channel = Pipe.CreateBounded<(string keyword, string videoId, CommandScope scope)>(
+            new BoundedChannelOptions(5) { SingleReader = true });
 
-        if (command.Scope is VideosScope searchVideos) videoIds = searchVideos.ValidIds!;
-        else if (command.Scope is PlaylistLikeScope searchPlaylist)
+        async Task GetKeywords(string videoId, CommandScope scope)
         {
-            var playlist = await GetPlaylistAsync(searchPlaylist, cancellation);
-            videoIds = playlist.Videos.Keys.Take(searchPlaylist.Top).ToArray();
+            var video = await GetVideoAsync(videoId, cancellation);
+
+            foreach (var keyword in video.Keywords)
+                await channel.Writer.WriteAsync((keyword, videoId, scope));
         }
-        else throw new NotImplementedException(
-            $"Listing keywords for search command {command.GetType().Name} is not implemented.");
 
-        var downloadLimiter = new SemaphoreSlim(5, 5);
+        var lookupTasks = command.GetPlaylistLikeScopes().GetValid()
+            .Select(scope => Task.Run(async () =>
+            {
+                var playlist = await GetPlaylistAsync(scope, cancellation);
 
-        var videoTasks = videoIds.Select(async id =>
+                foreach (var videoId in playlist.Videos.Keys.Take(scope.Top))
+                    await GetKeywords(videoId, scope);
+            })).ToList();
+
+        if (command.Videos?.IsValid == true) lookupTasks.Add(Task.Run(async () =>
         {
-            await downloadLimiter.WaitAsync();
-            try { return await GetVideoAsync(id, cancellation); }
-            finally { downloadLimiter.Release(); }
-        });
+            foreach (var videoId in command.Videos.ValidIds!)
+                await GetKeywords(videoId, command.Videos);
+        }, cancellation));
 
-        await Task.WhenAll(videoTasks).WithAggregateException();
+        // hook up writer completion before starting to read to ensure the reader knows when it's done
+        var lookups = Task.WhenAll(lookupTasks).ContinueWith(t =>
+        {
+            channel.Writer.Complete();
+            //if (t.Exception != null) throw t.Exception;
+        }).WithAggregateException();
 
-        return videoTasks.SelectMany(t => t.Result.Keywords).GroupBy(keyword => keyword)
-            .ToDictionary(group => group.Key, group => (ushort)group.Count());
+        // start reading
+        await foreach (var keyword in channel.Reader.ReadAllAsync(cancellation)) yield return keyword;
+
+        await lookups; // to propagate exceptions
     }
 
     private async Task<Video> GetVideoAsync(string videoId, CancellationToken cancellation)

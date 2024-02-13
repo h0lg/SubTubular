@@ -13,7 +13,7 @@ public static class CommandValidator
 
     public static void ValidateSearchCommand(SearchCommand command)
     {
-        ValidateCommandScope(command.Scope); // as first argument
+        ValidateCommandScope(command);
 
         if (command.Query.IsNullOrWhiteSpace()) throw new InputException(
             $"The {nameof(SearchCommand.Query).ToLower()} is empty.");
@@ -27,12 +27,17 @@ public static class CommandValidator
             $"You may order by either '{nameof(SearchCommand.OrderOptions.score)}' or '{nameof(SearchCommand.OrderOptions.uploaded)}' (date), but not both.");
     }
 
-    public static void ValidateCommandScope(CommandScope scope)
+    public static void ValidateCommandScope(OutputCommand command)
     {
-        if (scope is PlaylistScope searchPlaylist) ValidatePlaylistScope(searchPlaylist);
-        else if (scope is VideosScope searchVids) ValidateSearchVideos(searchVids);
-        else if (scope is ChannelScope searchChannel) ValidateChannelScope(searchChannel);
-        else throw new NotImplementedException($"Validation for {nameof(CommandScope)} {scope.GetType()} is not implemented.");
+        var errors = (new[]
+        {
+            TryGetScopeError(command.Playlists?.Select(Validate), "{0} are not valid playlist IDs or URLs."),
+            TryGetScopeError(command.Channels?.Select(Validate), "{0} are not valid channel handles, slugs, user names or IDs."),
+            TryGetScopeError(Validate(command.Videos), "{0} are not valid video IDs or URLs.")
+        }).WithValue().ToArray();
+
+        if (errors.Length != 0) throw new InputException(errors.Join(Environment.NewLine));
+        if (!command.HasPreValidatedScopes()) throw new InputException("No valid scope.");
     }
 
     internal static object[] ValidateChannelAlias(string alias)
@@ -41,40 +46,41 @@ public static class CommandValidator
         var slug = ChannelSlug.TryParse(alias);
         var user = UserName.TryParse(alias);
         var id = ChannelId.TryParse(alias);
-        var valid = new object?[] { handle, slug, user, id }.Where(id => id != null).Cast<object>().ToArray();
-
-        if (valid.Length == 0) throw new InputException(
-            $"'{alias}' is not a valid channel handle, slug, user name or channel ID.");
-
-        return valid;
+        return new object?[] { handle, slug, user, id }.WithValue().ToArray();
     }
 
-    private static void ValidateChannelScope(ChannelScope scope)
+    private static string? TryGetScopeError(IEnumerable<string?>? invalidIdentifiers, string format)
+    {
+        if (!invalidIdentifiers.HasAny()) return null;
+        var withValue = invalidIdentifiers!.WithValue().ToArray();
+        return withValue.Length == 0 ? null : string.Format(format, withValue.Join(", "));
+    }
+
+    private static string? Validate(ChannelScope scope)
     {
         /*  validate Alias locally to throw eventual InputException,
             but store result for RemoteValidateChannelAsync */
         scope.ValidAliases = ValidateChannelAlias(scope.Alias);
+
+        return scope.ValidAliases.HasAny() ? null : scope.Alias; // return invalid
     }
 
-    private static void ValidateSearchVideos(VideosScope command)
+    private static string? Validate(PlaylistScope scope)
     {
-        var idsToValid = command.Videos.ToDictionary(id => id, id => VideoId.TryParse(id.Trim('"'))?.ToString());
-        var invalid = idsToValid.Where(pair => pair.Value == null).ToArray();
-
-        if (invalid.Length > 0) throw new InputException("The following video IDs or URLs are invalid:"
-            + Environment.NewLine + invalid.Select(pair => pair.Key).Join(Environment.NewLine));
-
-        var validIds = idsToValid.Select(pair => pair.Value!).ToArray();
-        if (!validIds.Any()) throw new InputException("The video IDs or URLs are required.");
-        command.ValidIds = validIds;
-        command.ValidUrls = validIds.Select(Youtube.GetVideoUrl).ToArray();
-    }
-
-    private static void ValidatePlaylistScope(PlaylistScope scope)
-    {
-        var id = PlaylistId.TryParse(scope.Playlist) ?? throw new InputException($"'{scope.Playlist}' is not a valid playlist ID.");
+        var id = PlaylistId.TryParse(scope.Playlist);
         scope.ValidId = id;
-        scope.ValidUrls = new[] { "https://www.youtube.com/playlist?list=" + id };
+        scope.ValidUrls = ["https://www.youtube.com/playlist?list=" + id];
+        return id == null ? scope.Playlist : null; // return invalid
+    }
+
+    private static IEnumerable<string> Validate(VideosScope? scope)
+    {
+        if (scope == null) return [];
+        var idsToValid = scope.Videos.ToDictionary(id => id, id => VideoId.TryParse(id.Trim('"'))?.ToString());
+        var validIds = idsToValid.Where(pair => pair.Value != null).Select(pair => pair.Value!).ToArray();
+        scope.ValidIds = validIds;
+        scope.ValidUrls = validIds.Select(Youtube.GetVideoUrl).ToArray();
+        return scope.Videos.Except(validIds); // return invalid
     }
 
     public static async Task RemoteValidateChannelAsync(ChannelScope command, YoutubeClient youtube, DataStore dataStore, CancellationToken cancellation)

@@ -7,37 +7,30 @@ static partial class Program
 {
     static partial class CommandHandler
     {
-        private static Argument<string> AddChannelAlias(Command channelCommand)
+        private static (Option<IEnumerable<string>> channels, Option<IEnumerable<string>> playlists, Option<IEnumerable<string>> videos) AddScopes(Command outputCommand)
         {
-            Argument<string> alias = new("channel", "The channel ID, handle, slug, user name or a URL for either of those.");
-            channelCommand.AddArgument(alias);
-            return alias;
+            Option<IEnumerable<string>> channels = new("channels", "The channel IDs, handles, slugs, user names or URLs for either of those.") { AllowMultipleArgumentsPerToken = true };
+            Option<IEnumerable<string>> playlists = new("playlists", "The playlist IDs or URLs.") { AllowMultipleArgumentsPerToken = true };
+            Option<IEnumerable<string>> videos = new("videos", "The space-separated YouTube video IDs and/or URLs." + quoteIdsStartingWithDash) { AllowMultipleArgumentsPerToken = true };
+            outputCommand.AddOption(channels);
+            outputCommand.AddOption(playlists);
+            outputCommand.AddOption(videos);
+            return (channels, playlists, videos);
         }
 
-        private static Argument<string> AddPlaylistArgument(Command searchPlaylist)
-        {
-            Argument<string> playlist = new("playlist", "The playlist ID or URL.");
-            searchPlaylist.AddArgument(playlist);
-            return playlist;
-        }
-
-        private static Argument<IEnumerable<string>> AddVideosArgument(Command searchVideos)
-        {
-            Argument<IEnumerable<string>> videos = new("videos", "The space-separated YouTube video IDs and/or URLs." + quoteIdsStartingWithDash);
-            searchVideos.AddArgument(videos);
-            return videos;
-        }
-
-        private static ChannelScope CreateChannelScope(InvocationContext ctx, Argument<string> alias,
+        private static ChannelScope[]? CreateChannelScopes(InvocationContext ctx, Option<IEnumerable<string>> aliases,
             Option<ushort> top, Option<float> cacheHours)
-            => new ChannelScope(ctx.Parsed(alias), ctx.Parsed(top), ctx.Parsed(cacheHours));
+            => ctx.Parsed(aliases)?.Select(alias => new ChannelScope(alias, ctx.Parsed(top), ctx.Parsed(cacheHours))).ToArray();
 
-        private static PlaylistScope CreatePlaylistScope(InvocationContext ctx, Argument<string> playlist,
+        private static PlaylistScope[]? CreatePlaylistScopes(InvocationContext ctx, Option<IEnumerable<string>> playlists,
             Option<ushort> top, Option<float> cacheHours)
-            => new PlaylistScope(ctx.Parsed(playlist), ctx.Parsed(top), ctx.Parsed(cacheHours));
+            => ctx.Parsed(playlists)?.Select(playlist => new PlaylistScope(playlist, ctx.Parsed(top), ctx.Parsed(cacheHours))).ToArray();
 
-        private static VideosScope CreateVideosScope(InvocationContext ctx, Argument<IEnumerable<string>> videos)
-            => new(ctx.Parsed(videos));
+        private static VideosScope? CreateVideosScope(InvocationContext ctx, Option<IEnumerable<string>> videos)
+        {
+            var ids = ctx.Parsed(videos);
+            return ids == null ? null : new(ids);
+        }
 
         private static (Option<ushort> top, Option<float> cacheHours) AddPlaylistLikeCommandOptions(Command command)
         {
