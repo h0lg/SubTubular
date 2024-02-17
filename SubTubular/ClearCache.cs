@@ -85,7 +85,7 @@ public static class CacheClearer
             {
                 var parsed = command.Ids!.ToDictionary(id => id, id => parseId(id));
 
-                var invalid = parsed.Where(pair => pair.Value == null || !pair.Value.HasAny() || pair.Value.All(id => id == null))
+                var invalid = parsed.Where(pair => !pair.Value.HasAny() || pair.Value!.All(id => id == null))
                     .Select(pair => pair.Key).ToArray();
 
                 if (invalid.Length > 0) throw new InputException(
@@ -114,15 +114,14 @@ public static class CacheClearer
         var aliasToChannelIds = aliases.ToDictionary(alias => alias, alias =>
         {
             var valid = CommandValidator.ValidateChannelAlias(alias);
-            var matching = valid.Select(alias => cachedMaps.ForAlias(alias))
-                .Where(map => map != null).Cast<ChannelAliasMap>().ToArray();
+            var matching = valid.Select(alias => cachedMaps.ForAlias(alias)).WithValue().ToArray();
 
             matchedMaps.AddRange(matching);
 
             return matching.Select(map => map.ChannelId)
                 // append incoming ChannelId even if it isn't included in cached idMaps
                 .Append(valid.SingleOrDefault(alias => alias is ChannelId)?.ToString())
-                .Distinct().Where(id => id != null).Cast<string>().ToArray();
+                .Distinct().WithValue().ToArray();
         });
 
         if (!simulate)

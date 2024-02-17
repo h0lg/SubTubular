@@ -244,7 +244,7 @@ internal sealed class VideoIndex
                     .Select(match => new MatchedText.Match(match.Start, match.Length)).ToArray());
 
                 return new VideoSearchResult.CaptionTrackResult { Track = track, Matches = matches };
-            }).Where(t => t != null).Cast<VideoSearchResult.CaptionTrackResult>().ToArray();
+            }).WithValue().ToArray();
 
             yield return result;
         }

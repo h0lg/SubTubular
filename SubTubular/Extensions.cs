@@ -102,6 +102,9 @@ public static class EnumerableExtensions
 
     /// <summary>Indicates whether <paramref name="collection"/> is not null and contains any items.</summary>
     public static bool HasAny<T>(this IEnumerable<T>? collection) => collection?.Any() == true;
+
+    public static IEnumerable<T> WithValue<T>(this IEnumerable<T?> nullables)
+        => nullables.Where(v => v != null).Select(v => v!);
 }
 
 internal static class AsyncEnumerableExtensions
