@@ -30,8 +30,9 @@ internal static partial class Program
         catch (Exception ex) { await WriteErrorLogAsync(originalCommand, ex.ToString()); }
     }
 
-    internal static DataStore CreateDataStore(string folder = null)
-        => new JsonFileDataStore(folder ?? Folder.GetPath(Folders.cache));
+    private static string cacheFolder = Folder.GetPath(Folders.cache);
+    private static DataStore CreateDataStore() => new JsonFileDataStore(cacheFolder);
+    private static VideoIndexRepository CreateVideoIndexRepo() => new VideoIndexRepository(cacheFolder);
 
     private static async Task WriteErrorLogAsync(string originalCommand, string errors, string name = null)
     {

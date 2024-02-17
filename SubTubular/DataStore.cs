@@ -5,20 +5,17 @@ namespace SubTubular;
 
 public interface DataStore
 {
-    string FileExtension { get; }
     DateTime? GetLastModified(string key);
-    Task<T?> GetAsync<T>(string key);
+    ValueTask<T?> GetAsync<T>(string key);
     Task SetAsync<T>(string key, T value);
     IEnumerable<string> GetKeysByPrefix(string keyPrefix, ushort? notAccessedForDays);
-    IEnumerable<string> DeleteFiles(string searchPattern = "*", ushort? notAccessedForDays = null, bool simulate = false);
+    IEnumerable<string> Delete(string? keyPrefix = null, string? key = null, ushort? notAccessedForDays = null, bool simulate = false);
 }
 
 public abstract class FileDataStore : DataStore
 {
     private readonly string fileExtension;
     private readonly string directory;
-
-    public string FileExtension => fileExtension;
 
     protected FileDataStore(string directory, string fileExtension)
     {
@@ -33,15 +30,12 @@ public abstract class FileDataStore : DataStore
     protected abstract Task<T?> DeserializeFrom<T>(string path);
     protected abstract Task SerializeToPath<T>(T value, string path);
 
-    public async Task<T?> GetAsync<T>(string key)
+    public async ValueTask<T?> GetAsync<T>(string key)
     {
         var path = GetPath(key);
         if (!File.Exists(path)) return default;
 
-        try
-        {
-            return await DeserializeFrom<T>(path);
-        }
+        try { return await DeserializeFrom<T>(path); }
         catch
         {
             File.Delete(path); // delete corrupted or incorrectly formatted cache
@@ -67,9 +61,11 @@ public abstract class FileDataStore : DataStore
         => FileHelper.GetFiles(directory, GetFileName(keyPrefix + "*"), notAccessedForDays)
             .Select(file => Path.GetFileNameWithoutExtension(file.Name));
 
-    public IEnumerable<string> DeleteFiles(string searchPattern = "*",
-        ushort? notAccessedForDays = null, bool simulate = false)
-        => FileHelper.DeleteFiles(directory, searchPattern, notAccessedForDays, simulate);
+    public IEnumerable<string> Delete(string? keyPrefix = null, string? key = null, ushort? notAccessedForDays = null, bool simulate = false)
+        => Delete(directory, fileExtension, keyPrefix, key, notAccessedForDays, simulate);
+
+    internal static IEnumerable<string> Delete(string directory, string keySuffix, string? keyPrefix, string? key, ushort? notAccessedForDays, bool simulate)
+        => FileHelper.DeleteFiles(directory, (key ?? keyPrefix + "*") + keySuffix, notAccessedForDays, simulate);
 }
 
 public class JsonFileDataStore : FileDataStore
