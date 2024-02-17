@@ -79,6 +79,9 @@ public sealed class VideoIndexRepository
         using var writer = new FileStream(GetPath(key), FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
         await serializer.SerializeAsync(index.Index, writer, disposeStream: false);
     }
+
+    public IEnumerable<string> Delete(string? keyPrefix = null, string? key = null, ushort? notAccessedForDays = null, bool simulate = false)
+        => FileDataStore.Delete(directory, FileExtension, keyPrefix, key, notAccessedForDays, simulate);
 }
 
 internal sealed class VideoIndex
