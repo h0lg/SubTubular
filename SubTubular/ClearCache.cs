@@ -18,16 +18,17 @@ public sealed class ClearCache
 
 public static class CacheClearer
 {
-    public static async Task<(IEnumerable<string> cachesDeleted, IEnumerable<string> indexesDeleted)> Process(ClearCache command, DataStore cacheDataStore)
+    public static async Task<(IEnumerable<string> cachesDeleted, IEnumerable<string> indexesDeleted)> Process(
+        ClearCache command, DataStore cacheDataStore, VideoIndexRepository videoIndexRepo)
     {
-        var filesDeleted = new List<string>();
-        var cacheFolder = Folder.GetPath(Folders.cache);
+        List<string> cachesDeleted = new(), indexesDeleted = new();
         var simulate = command.Mode == ClearCache.Modes.simulate;
 
         switch (command.Scope)
         {
             case ClearCache.Scopes.all:
-                filesDeleted.AddRange(cacheDataStore.DeleteFiles(notAccessedForDays: command.NotAccessedForDays, simulate: simulate));
+                indexesDeleted.AddRange(videoIndexRepo.Delete(notAccessedForDays: command.NotAccessedForDays, simulate: simulate));
+                cachesDeleted.AddRange(cacheDataStore.Delete(notAccessedForDays: command.NotAccessedForDays, simulate: simulate));
 
                 break;
             case ClearCache.Scopes.videos:
@@ -39,11 +40,16 @@ public static class CacheClearer
                     if (invalid.Length > 0) throw new InputException(
                         "The following inputs are not valid video IDs or URLs: " + invalid.Join(" "));
 
-                    DeleteFilesByNames(parsed.Values.Select(videoId => Video.StorageKeyPrefix + videoId!.Value));
+                    DeleteByNames(parsed.Values.Select(videoId => Video.StorageKeyPrefix + videoId!.Value));
                 }
-                else filesDeleted.AddRange(cacheDataStore.DeleteFiles(Video.StorageKeyPrefix + "*",
-                    notAccessedForDays: command.NotAccessedForDays, simulate: simulate));
+                else
+                {
+                    cachesDeleted.AddRange(cacheDataStore.Delete(keyPrefix: Video.StorageKeyPrefix,
+                       notAccessedForDays: command.NotAccessedForDays, simulate: simulate));
 
+                    indexesDeleted.AddRange(videoIndexRepo.Delete(Video.StorageKeyPrefix,
+                       notAccessedForDays: command.NotAccessedForDays, simulate: simulate));
+                }
                 break;
             case ClearCache.Scopes.playlists:
                 await ClearPlaylists(PlaylistScope.StorageKeyPrefix, cacheDataStore,
@@ -62,22 +68,24 @@ public static class CacheClearer
                     var aliasToChannelIds = await ClearChannelAliases(command.Ids!, cacheDataStore, simulate);
                     parseAlias = alias => aliasToChannelIds.TryGetValue(alias, out var channelIds) ? channelIds : null;
                 }
-                else DeleteFileByName(ChannelAliasMap.StorageKey);
+                else DeleteByName(ChannelAliasMap.StorageKey);
 
                 await ClearPlaylists(ChannelScope.StorageKeyPrefix, cacheDataStore, parseAlias!);
                 break;
             default: throw new NotImplementedException($"Clearing {nameof(ClearCache.Scope)} {command.Scope} is not implemented.");
         }
 
-        return (filesDeleted.Where(fileName => fileName.EndsWith(cacheDataStore.FileExtension)),
-            filesDeleted.Where(fileName => fileName.EndsWith(VideoIndexRepository.FileExtension)));
+        return (cachesDeleted, indexesDeleted);
 
-        void DeleteFileByName(string name) => filesDeleted.AddRange(
-            cacheDataStore.DeleteFiles(name + ".*", simulate: simulate));
+        void DeleteByName(string name)
+        {
+            cachesDeleted.AddRange(cacheDataStore.Delete(key: name, simulate: simulate));
+            indexesDeleted.AddRange(videoIndexRepo.Delete(key: name, simulate: simulate));
+        }
 
-        void DeleteFilesByNames(IEnumerable<string> names) { foreach (var name in names) DeleteFileByName(name); }
+        void DeleteByNames(IEnumerable<string> names) { foreach (var name in names) DeleteByName(name); }
 
-        async Task ClearPlaylists(string keyPrefix, DataStore dataStore, Func<string, string[]?> parseId)
+        async Task ClearPlaylists(string keyPrefix, DataStore playListLikeDataStore, Func<string, string[]?> parseId)
         {
             string[] deletableKeys;
 
@@ -94,13 +102,13 @@ public static class CacheClearer
                 deletableKeys = parsed.Values.SelectMany(ids => ids!).Where(id => id != null)
                     .Distinct().Select(id => keyPrefix + id).ToArray();
             }
-            else deletableKeys = dataStore.GetKeysByPrefix(keyPrefix, command.NotAccessedForDays).ToArray();
+            else deletableKeys = playListLikeDataStore.GetKeysByPrefix(keyPrefix, command.NotAccessedForDays).ToArray();
 
             foreach (var key in deletableKeys)
             {
-                var playlist = await dataStore.GetAsync<Playlist>(key);
-                if (playlist != null) DeleteFilesByNames(playlist.Videos.Keys.Select(videoId => Video.StorageKeyPrefix + videoId));
-                DeleteFileByName(key);
+                var playlist = await playListLikeDataStore.GetAsync<Playlist>(key);
+                if (playlist != null) DeleteByNames(playlist.Videos.Keys.Select(videoId => Video.StorageKeyPrefix + videoId));
+                DeleteByName(key);
             }
         }
     }

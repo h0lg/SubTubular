@@ -25,9 +25,8 @@ static partial class Program
             if (running) cancellation.Cancel();
         });
 
-        var cacheFolder = Folder.GetPath(Folders.cache);
-        DataStore dataStore = CreateDataStore(cacheFolder);
-        var youtube = new Youtube(dataStore, new VideoIndexRepository(cacheFolder));
+        DataStore dataStore = CreateDataStore();
+        var youtube = new Youtube(dataStore, CreateVideoIndexRepo());
 
         if (command.Scope is ChannelScope channel)
             await CommandValidator.RemoteValidateChannelAsync(channel, youtube.Client, dataStore, cancellation.Token);
