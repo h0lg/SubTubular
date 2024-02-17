@@ -51,47 +51,22 @@ public sealed class Youtube
         var index = await videoIndexRepo.GetAsync(storageKey);
         if (index == null) index = videoIndexRepo.Build(storageKey);
         var playlist = await GetPlaylistAsync(playListLike, cancellation);
-        var searches = new List<Task>();
-        var videoResults = Pipe.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions() { SingleReader = true });
         var videoIds = playlist.Videos.Keys.Take(playListLike.Top).ToArray();
         var indexedVideoIds = index.GetIndexed(videoIds);
         var indexedVideoInfos = indexedVideoIds.ToDictionary(id => id, id => playlist.Videos[id]);
 
-        /*  search already indexed videos in one go - but on background task
-            to start downloading and indexing videos in parallel */
-        searches.Add(Task.Run(async () =>
-        {
-            await foreach (var result in index.SearchAsync(command, GetVideoAsync,
-                indexedVideoInfos, UpdatePlaylistVideosUploaded, cancellation))
-                await videoResults.Writer.WriteAsync(result);
-        }));
+        List<IAsyncEnumerable<VideoSearchResult>> searches = [
+            /*  search already indexed videos in one go - but on background task
+                to start downloading and indexing videos in parallel */
+           index.SearchAsync(command, GetVideoAsync, indexedVideoInfos, UpdatePlaylistVideosUploaded, cancellation)];
 
         var unIndexedVideoIds = videoIds.Except(indexedVideoIds).ToArray();
 
         // load, index and search not yet indexed videos
-        if (unIndexedVideoIds.Length > 0) searches.Add(Task.Run(async () =>
-        {
-            // search already indexed videos in one go
-            await foreach (var result in SearchUnindexedVideos(command,
-                unIndexedVideoIds, index, cancellation, UpdatePlaylistVideosUploaded))
-                await videoResults.Writer.WriteAsync(result);
-        }));
+        if (unIndexedVideoIds.Length > 0) searches.Add(SearchUnindexedVideos(command,
+            unIndexedVideoIds, index, cancellation, UpdatePlaylistVideosUploaded));
 
-        // hook up writer completion before starting to read to ensure the reader knows when it's done
-        var searchCompletion = Task.WhenAll(searches).ContinueWith(t =>
-        {
-            videoResults.Writer.Complete();
-            if (t.Exception != null) throw t.Exception;
-        });
-
-        // start reading from result channel and return results as they are available
-        await foreach (var result in videoResults.Reader.ReadAllAsync())
-        {
-            yield return result;
-            cancellation.ThrowIfCancellationRequested();
-        }
-
-        await searchCompletion; // just to rethrow possible exceptions; should have completed at this point
+        await foreach (var result in searches.Parallelize(cancellation)) yield return result;
 
         async Task UpdatePlaylistVideosUploaded(IEnumerable<Video> videos)
         {

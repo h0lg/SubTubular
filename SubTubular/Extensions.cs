@@ -1,4 +1,6 @@
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
+using System.Threading.Channels;
 
 namespace SubTubular.Extensions;
 
@@ -107,7 +109,7 @@ public static class EnumerableExtensions
         => nullables.Where(v => v != null).Select(v => v!);
 }
 
-internal static class AsyncEnumerableExtensions
+public static class AsyncEnumerableExtensions
 {
     /// <summary>Enumerates the <paramref name="asyncEnumerable"/> and returns a list with all results.
     /// Inspired by https://stackoverflow.com/a/58915390 .</summary>
@@ -117,6 +119,30 @@ internal static class AsyncEnumerableExtensions
         var list = new List<T>();
         await foreach (var t in asyncEnumerable) list.Add(t);
         return list;
+    }
+
+    public static async IAsyncEnumerable<T> Parallelize<T>(this IEnumerable<IAsyncEnumerable<T>> asyncProducers,
+        [EnumeratorCancellation] CancellationToken cancellation)
+    {
+        var products = Channel.CreateUnbounded<T>(new UnboundedChannelOptions() { SingleReader = true });
+
+        var productionLines = asyncProducers.Select(async asyncProducer =>
+        {
+            try
+            {
+                await foreach (var product in asyncProducer.WithCancellation(cancellation))
+                    await products.Writer.WriteAsync(product, cancellation);
+            }
+            catch (OperationCanceledException) { } // Catch cancellation from outer loop
+        }).ToList();
+
+        // hook up writer completion before starting to read to ensure the reader knows when it's done
+        var completion = Task.WhenAll(productionLines).ContinueWith(_ => products.Writer.Complete()).WithAggregateException();
+
+        // Read from product channel and yield each product
+        await foreach (var product in products.Reader.ReadAllAsync(cancellation)) yield return product;
+
+        await completion; // to ensure any exceptions are propagated
     }
 }
 
