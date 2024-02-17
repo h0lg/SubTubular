@@ -119,12 +119,12 @@ public sealed class Youtube
         return playlist;
     }
 
-    private IAsyncEnumerable<PlaylistVideo> GetVideosAsync(PlaylistLikeScope command, CancellationToken cancellation)
+    private IAsyncEnumerable<PlaylistVideo> GetVideosAsync(PlaylistLikeScope scope, CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
-        if (command is ChannelScope searchChannel) return Client.Channels.GetUploadsAsync(searchChannel.ValidId!, cancellation);
-        if (command is PlaylistScope searchPlaylist) return Client.Playlists.GetVideosAsync(searchPlaylist.Playlist, cancellation);
-        throw new NotImplementedException($"Getting videos for the {command.GetType()} is not implemented.");
+        if (scope is ChannelScope searchChannel) return Client.Channels.GetUploadsAsync(searchChannel.ValidId!, cancellation);
+        if (scope is PlaylistScope searchPlaylist) return Client.Playlists.GetVideosAsync(searchPlaylist.Playlist, cancellation);
+        throw new NotImplementedException($"Getting videos for the {scope.GetType()} is not implemented.");
     }
 
     private async IAsyncEnumerable<VideoSearchResult> SearchUnindexedVideos(SearchCommand command,
