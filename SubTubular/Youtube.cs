@@ -129,10 +129,9 @@ public sealed class Youtube
 
     private async IAsyncEnumerable<VideoSearchResult> SearchUnindexedVideos(SearchCommand command,
         string[] unIndexedVideoIds, VideoIndex index, [EnumeratorCancellation] CancellationToken cancellation,
-        Func<IEnumerable<Video>, Task> updatePlaylistVideosUploaded)
+        Func<IEnumerable<Video>, Task>? updatePlaylistVideosUploaded = null)
     {
         cancellation.ThrowIfCancellationRequested();
-        var storageKey = ((PlaylistLikeScope)command.Scope).StorageKey;
 
         /* limit channel capacity to avoid holding a lot of loaded but unprocessed videos in memory
             SingleReader because we're reading from it synchronously */
@@ -186,7 +185,9 @@ public sealed class Youtube
                 || unIndexedVideos.Reader.Completion.IsCompleted // to save remaining changes
                 || unIndexedVideos.Reader.Count == 0) // to use resources efficiently while we've got nothing queued up for indexing
             {
-                await Task.WhenAll(index.CommitBatchChangeAsync(), updatePlaylistVideosUploaded(uncommitted)).WithAggregateException();
+                List<Task> saveJobs = [index.CommitBatchChangeAsync()];
+                if (updatePlaylistVideosUploaded != null) saveJobs.Add(updatePlaylistVideosUploaded(uncommitted));
+                await Task.WhenAll(saveJobs).WithAggregateException();
 
                 var indexedVideoInfos = uncommitted.ToDictionary(v => v.Id, v => v.Uploaded as DateTime?);
 
@@ -207,55 +208,21 @@ public sealed class Youtube
     private async IAsyncEnumerable<VideoSearchResult> SearchVideosAsync(
         SearchCommand command, [EnumeratorCancellation] CancellationToken cancellation = default)
     {
-        var videoResults = Pipe.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions() { SingleReader = true });
-
-        var searches = ((VideosScope)command.Scope).ValidIds!.Select(async videoId =>
-        {
-            var result = await SearchVideoAsync(videoId, command, cancellation);
-            if (result != null) await videoResults.Writer.WriteAsync(result);
-        });
-
-        // hook up writer completion before starting to read to ensure the reader knows when it's done
-        var searchCompletion = Task.WhenAll(searches).ContinueWith(t =>
-        {
-            videoResults.Writer.Complete();
-            if (t.Exception != null) throw t.Exception;
-        });
-
-        // start reading from result channel and return results as they are available
-        await foreach (var result in videoResults.Reader.ReadAllAsync(cancellation))
-        {
-            yield return result;
-            cancellation.ThrowIfCancellationRequested();
-        }
-
-        await searchCompletion; // just to rethrow possible exceptions; should have completed at this point
-    }
-
-    /// <summary>Searches the video with <paramref name="videoId"/> according to the <paramref name="command"/>.</summary>
-    private async Task<VideoSearchResult?> SearchVideoAsync(string videoId, SearchCommand command, CancellationToken cancellation)
-    {
         cancellation.ThrowIfCancellationRequested();
-        var storageKey = Video.StorageKeyPrefix + videoId;
+        var videoIds = ((VideosScope)command.Scope).ValidIds!;
+        var storageKey = Video.StorageKeyPrefix + videoIds.Order().Join(" ");
         var index = await videoIndexRepo.GetAsync(storageKey);
-
-        // used to get a video during search
-        Func<string, CancellationToken, Task<Video>> getVideoAsync = GetVideoAsync;
 
         if (index == null)
         {
             index = videoIndexRepo.Build(storageKey);
-            var video = await GetVideoAsync(videoId, cancellation);
-            index.BeginBatchChange();
-            await index.AddAsync(video, cancellation);
-            await index.CommitBatchChangeAsync();
 
-            // reuse already loaded video for better performance
-            getVideoAsync = (_, __) => Task.FromResult(video);
+            await foreach (var result in SearchUnindexedVideos(command, videoIds, index, cancellation))
+                yield return result;
         }
-
-        var results = await index.SearchAsync(command, getVideoAsync, cancellation: cancellation).ToListAsync();
-        return results.SingleOrDefault(); // there can only be one
+        else
+            await foreach (var result in index.SearchAsync(command, GetVideoAsync, cancellation: cancellation))
+                yield return result;
     }
 
     /// <summary>Returns the <see cref="Video.Keywords"/> and their corresponding number of occurrences
