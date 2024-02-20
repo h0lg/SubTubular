@@ -111,16 +111,6 @@ public static class EnumerableExtensions
 
 public static class AsyncEnumerableExtensions
 {
-    /// <summary>Enumerates the <paramref name="asyncEnumerable"/> and returns a list with all results.
-    /// Inspired by https://stackoverflow.com/a/58915390 .</summary>
-    internal static async Task<List<T>> ToListAsync<T>(this IAsyncEnumerable<T> asyncEnumerable)
-    {
-        if (null == asyncEnumerable) throw new ArgumentNullException(nameof(asyncEnumerable));
-        var list = new List<T>();
-        await foreach (var t in asyncEnumerable) list.Add(t);
-        return list;
-    }
-
     public static async IAsyncEnumerable<T> Parallelize<T>(this IEnumerable<IAsyncEnumerable<T>> asyncProducers,
         [EnumeratorCancellation] CancellationToken cancellation)
     {
