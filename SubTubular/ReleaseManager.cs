@@ -92,7 +92,7 @@ public static class ReleaseManager
     private static string GetArchivePath(string appFolder) => Path.Combine(appFolder, "other releases");
 
     private static GitHubClient GetGithubClient()
-        => new GitHubClient(new ProductHeaderValue(AssemblyInfo.Name, AssemblyInfo.GetProductVersion()));
+        => new(new ProductHeaderValue(AssemblyInfo.Name, AssemblyInfo.GetProductVersion()));
 
     private static async Task<List<CacheModel>> GetAll(DataStore dataStore)
     {
@@ -136,7 +136,7 @@ public static class ReleaseManager
     }
 
     private static IEnumerable<CacheModel> Valid(this IEnumerable<CacheModel> releases)
-        => releases.Where(r => r != null && r.Version.IsNonWhiteSpace() && r.HtmlUrl.IsNonWhiteSpace());
+        => releases.Where(r => r?.Version.IsNonWhiteSpace() == true && r.HtmlUrl.IsNonWhiteSpace());
 
     [Serializable]
     public sealed class CacheModel

@@ -39,7 +39,7 @@ public sealed class SearchCommand : OutputCommand
     public ushort Padding { get; set; }
 
     // default to ordering by highest score which is probably most useful for most purposes
-    public IEnumerable<OrderOptions> OrderBy { get; set; } = new[] { OrderOptions.score };
+    public IEnumerable<OrderOptions> OrderBy { get; set; } = [OrderOptions.score];
 
     public override string Describe() => "searching " + Scope.Describe() + " for " + Query;
 
