@@ -14,7 +14,7 @@ static partial class Program
         {
             var tracksWithErrors = new List<CaptionTrack>();
 
-            await foreach (var result in youtube.SearchAsync(command, cancellation))
+            await foreach (var result in youtube.SearchAsync(command, cancellation: cancellation))
             {
                 outputs.ForEach(o => o.WriteVideoResult(result, command.Padding));
                 tracksWithErrors.AddRange(result.Video.CaptionTracks.Where(t => t.Error != null));
