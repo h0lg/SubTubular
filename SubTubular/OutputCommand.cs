@@ -46,7 +46,8 @@ public abstract class OutputCommand
         if (Videos != null) yield return Videos;
     }
 
-    protected string DescribeValidScopes() => GetScopes().GetValid().Select(p => p.Describe()).Join(" ");
+    internal IEnumerable<CommandScope> GetValidScopes() => GetScopes().GetValid();
+    protected string DescribeValidScopes() => GetValidScopes().Select(p => p.Describe()).Join(" ");
     public abstract string Describe();
 
     public enum Shows { file, folder }
