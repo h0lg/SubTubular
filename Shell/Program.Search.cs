@@ -15,7 +15,7 @@ static partial class Program
             var resultDisplayed = false;
             var tracksWithErrors = new List<CaptionTrack>();
 
-            await foreach (var result in youtube.SearchAsync(command, cancellation))
+            await foreach (var result in youtube.SearchAsync(command).WithCancellation(cancellation))
             {
                 foreach (var output in outputs) output.WriteVideoResult(result, command.Padding);
                 resultDisplayed = true;
