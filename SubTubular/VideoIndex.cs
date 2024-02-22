@@ -132,7 +132,7 @@ internal sealed class VideoIndex
         // make sure to only return results for the requested videos if specified; index may contain more
         var matches = results.Where(m => relevantVideos?.ContainsKey(m.Key) != false).ToList();
 
-        var previouslyLoadedVideos = Array.Empty<Video>();
+        Video[]? videosWithoutUploadDate = null;
         var unIndexedVideos = new List<Video>();
 
         // order matches
@@ -144,21 +144,22 @@ internal sealed class VideoIndex
             {
                 if (relevantVideos == default) relevantVideos = new Dictionary<string, DateTime?>();
 
-                var withoutUploadDate = matches.Where(m => !relevantVideos.ContainsKey(m.Key)
-                    || relevantVideos[m.Key] == null).ToArray();
+                var matchesForVideosWithoutUploadDate = matches.Where(m =>
+                    !relevantVideos.ContainsKey(m.Key) || relevantVideos[m.Key] == null).ToArray();
 
-                if (withoutUploadDate.Any()) // get upload dates for videos that we don't know it of
+                // get upload dates for videos that we don't know it of
+                if (matchesForVideosWithoutUploadDate.Length != 0)
                 {
-                    var getVideos = withoutUploadDate.Select(m => getVideoAsync(m.Key, cancellation)).ToArray();
+                    var getVideos = matchesForVideosWithoutUploadDate.Select(m => getVideoAsync(m.Key, cancellation)).ToArray();
                     await Task.WhenAll(getVideos).WithAggregateException();
-                    previouslyLoadedVideos = getVideos.Select(t => t.Result).ToArray();
-                    unIndexedVideos.AddRange(previouslyLoadedVideos.Where(v => v.UnIndexed));
+                    videosWithoutUploadDate = getVideos.Select(t => t.Result).ToArray();
+                    unIndexedVideos.AddRange(videosWithoutUploadDate.Where(v => v.UnIndexed));
 
-                    foreach (var match in withoutUploadDate)
-                        relevantVideos[match.Key] = previouslyLoadedVideos.Single(v => v.Id == match.Key).Uploaded;
+                    foreach (var match in matchesForVideosWithoutUploadDate)
+                        relevantVideos[match.Key] = videosWithoutUploadDate.Single(v => v.Id == match.Key).Uploaded;
 
                     if (updatePlaylistVideosUploaded != default)
-                        await updatePlaylistVideosUploaded(previouslyLoadedVideos);
+                        await updatePlaylistVideosUploaded(videosWithoutUploadDate);
                 }
             }
 
@@ -179,7 +180,7 @@ internal sealed class VideoIndex
             // consider results for un-cached videos stale
             if (unIndexedVideos.Any(video => video.Id == match.Key)) continue;
 
-            var video = previouslyLoadedVideos.SingleOrDefault(v => v.Id == match.Key);
+            var video = videosWithoutUploadDate?.SingleOrDefault(v => v.Id == match.Key);
 
             if (video == null)
             {
