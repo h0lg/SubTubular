@@ -19,7 +19,7 @@ public abstract class OutputWriter(OutputCommand command)
 
     public virtual void WriteHeader()
     {
-        Write(command.Describe());
+        Write(command.Describe(withScopes: false));
         WriteLine();
         WriteScopes("channels", command.Channels);
         WriteScopes("playlists", command.Playlists);
@@ -36,8 +36,11 @@ public abstract class OutputWriter(OutputCommand command)
 
             foreach (var scope in validScopes)
             {
-                Write(scope.Describe());
-                indent.StartNewLine(this);
+                foreach (var line in scope.Describe())
+                {
+                    Write(line);
+                    indent.StartNewLine(this);
+                }
             }
         }
     }

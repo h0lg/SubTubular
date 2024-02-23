@@ -100,18 +100,18 @@ public sealed class Youtube
     }
 
     internal Task<Playlist?> GetPlaylistAsync(PlaylistScope scope, CancellationToken cancellation, BatchProgressReporter.VideoListProgress? progress) =>
-        GetPlaylistAsync(scope, progress);
+        GetPlaylistAsync(scope, progress, async () => (await Client.Playlists.GetAsync(scope.SingleValidated.Id, cancellation)).Title);
 
     internal Task<Playlist?> GetPlaylistAsync(ChannelScope scope, CancellationToken cancellation, BatchProgressReporter.VideoListProgress? progress) =>
-        GetPlaylistAsync(scope, progress);
+        GetPlaylistAsync(scope, progress, async () => (await Client.Channels.GetAsync(scope.SingleValidated.Id, cancellation)).Title);
 
-    private async Task<Playlist?> GetPlaylistAsync(PlaylistLikeScope scope, BatchProgressReporter.VideoListProgress? progress)
+    private async Task<Playlist?> GetPlaylistAsync(PlaylistLikeScope scope, BatchProgressReporter.VideoListProgress? progress, Func<Task<string>> downloadTitle)
     {
         var playlist = await dataStore.GetAsync<Playlist>(scope.StorageKey); // get cached
         if (playlist != null) return playlist;
 
         progress?.Report(BatchProgress.Status.downloading);
-        playlist = new Playlist();
+        playlist = new Playlist { Title = await downloadTitle() };
         await dataStore.SetAsync(scope.StorageKey, playlist);
         return playlist;
     }
@@ -145,7 +145,7 @@ public sealed class Youtube
         /*  treat playlist identified by user input not being available as input error
             and re-throw otherwise; the uploads playlist of a channel being unavailable is unexpected */
         catch (PlaylistUnavailableException ex) when (scope is PlaylistScope playlistScope)
-        { throw new InputException($"Could not find {playlistScope.Describe()}.", ex); }
+        { throw new InputException($"Could not find {playlistScope.Describe().Join(" ")}.", ex); }
 
         return playlist;
 

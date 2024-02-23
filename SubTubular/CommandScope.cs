@@ -4,8 +4,9 @@ namespace SubTubular;
 
 public abstract class CommandScope
 {
-    /// <summary>Provides a description of the scope for <see cref="OutputCommand.Describe"/>.</summary>
-    internal abstract string Describe();
+    /// <summary>Provides a description of the scope for <see cref="OutputCommand.Describe"/>.
+    /// May yield multiple lines.</summary>
+    internal abstract IEnumerable<string> Describe();
 
     /// <summary>A collection of validated URLs for the entities included in the scope.
     /// It translates non-URI identifiers in the scope of YouTube into URIs for <see cref="OutputCommand"/>s.</summary>
@@ -40,6 +41,7 @@ public abstract class CommandScope
         internal object[]? WellStructuredAliases { get; set; }
 
         // proper validation, including loading from YouTube if required.
+        internal string? Title => Playlist?.Title ?? Video?.Title;
         internal bool IsRemoteValidated => Playlist != null || Video != null;
 
         /// <summary>For <see cref="VideosScope"/>s only.</summary>
@@ -56,19 +58,22 @@ internal static class ScopeExtensions
         => scopes.Where(s => s.IsValid);
 }
 
-public class VideosScope : CommandScope
+public class VideosScope(IEnumerable<string> videos) : CommandScope
 {
     /// <summary>Input video IDs or URLs.</summary>
-    public IEnumerable<string> Videos { get; set; }
+    public IEnumerable<string> Videos { get; } = videos;
 
-    public VideosScope(IEnumerable<string> videos) => Videos = videos;
-
-    /// <inheritdoc />
-    internal override string Describe()
+    internal override IEnumerable<string> Describe()
     {
-        IEnumerable<string> ids = GetValidatedIds(); // pre-validated IDs
-        if (!ids.Any()) ids = Videos; // or the unvalidated inputs
-        return "videos " + ids.Join(" "); // and join them
+        if (IsValid) // if validated, use titles - one per line
+            foreach (var validated in Validated)
+                yield return validated.Title!;
+        else // otherwise fall back to
+        {
+            IEnumerable<string> ids = GetValidatedIds(); // pre-validated IDs
+            if (!ids.Any()) ids = Videos; // or the unvalidated inputs
+            yield return "videos " + ids.Join(" "); // and join them
+        }
     }
 }
 
@@ -77,9 +82,6 @@ public abstract class PlaylistLikeScope(string alias, ushort top, float cacheHou
     #region internal API
     /// <summary>The prefix for the <see cref="StorageKey"/>.</summary>
     protected abstract string KeyPrefix { get; }
-
-    /// <inheritdoc />
-    internal override string Describe() => StorageKey;
 
     /// <summary>A unique identifier for the storing this <see cref="PlaylistLikeScope"/>,
     /// capturing its type and <see cref="CommandScope.GetValidatedIds"/>.</summary>
@@ -90,6 +92,11 @@ public abstract class PlaylistLikeScope(string alias, ushort top, float cacheHou
     public ushort Top { get; } = top;
     public string Alias { get; set; } = alias;
     public float CacheHours { get; } = cacheHours;
+
+    internal override IEnumerable<string> Describe()
+    {
+        yield return IsValid ? SingleValidated.Playlist!.Title : Alias;
+    }
 }
 
 public class PlaylistScope(string alias, ushort top, float cacheHours) : PlaylistLikeScope(alias, top, cacheHours)
