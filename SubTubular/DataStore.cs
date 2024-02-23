@@ -82,17 +82,10 @@ public abstract class FileDataStore<T> : FileDataStore where T : class
 
     protected abstract Task<T> Deserialize(string key, string path);
 
-    protected override async Task<Ts> DeserializeFrom<Ts>(string key, string path) where Ts : class
+    protected override async ValueTask<Ts> DeserializeFrom<Ts>(string key, string path)// where Ts : class
     {
         T t = await Deserialize(key, path);
-        if (t == null)
-        {
-            return null as Ts;
-        }
-        else
-        {
-            return t as Ts;
-        }
+        return (Ts)Convert.ChangeType(t, typeof(Ts));
     }
 
     //protected override Task<Ts?> DeserializeFrom<Ts>(string key, string path) where T : class
