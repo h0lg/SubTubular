@@ -6,6 +6,7 @@ namespace SubTubular;
 [Serializable]
 public sealed class Playlist
 {
+    public required string Title { get; set; }
     public DateTime Loaded { get; set; }
 
     /// <summary>The <see cref="Video.Id"/>s and (optional) upload dates
