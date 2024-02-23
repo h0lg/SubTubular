@@ -4,7 +4,7 @@ public abstract class OutputCommand
 {
     public required CommandScope Scope { get; set; }
 
-    public short OutputWidth { get; set; }
+    public short OutputWidth { get; set; } = 80;
     public bool OutputHtml { get; set; }
     public string? FileOutputPath { get; set; }
     public Shows? Show { get; set; }

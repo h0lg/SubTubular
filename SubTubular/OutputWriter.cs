@@ -10,7 +10,7 @@ public abstract class OutputWriter
 
     public virtual short GetWidth() => command.OutputWidth;
     public abstract short GetWrittenInCurrentLine();
-    private IndentedText CreateIndent() => new IndentedText(GetWrittenInCurrentLine(), GetWidth());
+    private IndentedText CreateIndent() => new(GetWrittenInCurrentLine(), GetWidth(), () => GetWrittenInCurrentLine());
 
     public abstract void Write(string text);
     public abstract void WriteHighlighted(string text);
@@ -203,29 +203,19 @@ public abstract class OutputWriter
         }
     }
 
-    /// <summary>A helper for writing multiple lines of text at the same indent
-    /// in the <see cref="Console"/>. This is not quite block format, but almost.</summary>
-    public sealed class IndentedText
+    /// <summary>A helper for writing multiple lines of text at the same indent.
+    /// This is not quite block format, but almost.</summary>
+    /// <remarks>Creates a new indented text block remembering the <paramref name="left"/> position
+    /// and the <see cref="width"/> available for output.</remarks>
+    public sealed class IndentedText(int left, int width, Func<int> getLeft)
     {
-        private readonly int left, width;
-
-        /// <summary>
-        /// Creates a new indented text block remembering the <see cref="Console.CursorLeft"/> position
-        /// and the <see cref="Console.WindowWidth"/> available for output.
-        /// </summary>
-        public IndentedText(int left, int width)
-        {
-            this.left = left;
-            this.width = width;
-        }
-
         /// <summary>Wraps <paramref name="text"/> into multiple lines
-        /// indented by the remembered <see cref="Console.CursorLeft"/>
-        /// fitting the remembered <see cref="Console.WindowWidth"/>.</summary>
+        /// indented by the remembered <see cref="left"/>
+        /// fitting the remembered <see cref="width"/>.</summary>
         internal string Wrap(string text) => text.Wrap(width - left).Indent(left).Join(Environment.NewLine).TrimStart();
 
         /// <summary>Indicates whether the number of <paramref name="characters"/> fit the current line.</summary>
-        internal bool FitsCurrentLine(int characters) => characters <= width - Console.CursorLeft;
+        internal bool FitsCurrentLine(int characters) => characters <= width - getLeft();
 
         /// <summary>Starts a new indented line using the supplied <paramref name="outputWriter"/>.</summary>
         internal void StartNewLine(OutputWriter outputWriter)
