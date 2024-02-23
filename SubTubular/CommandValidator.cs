@@ -80,9 +80,6 @@ public static class CommandValidator
 
     private static void ValidateSearchPlayListCommand(PlaylistLikeScope command)
     {
-        // default to ordering by highest score which is probably most useful for most purposes
-        if (!command.OrderBy.HasAny()) command.OrderBy = new[] { PlaylistLikeScope.OrderOptions.score };
-
         if (command.OrderBy.Intersect(PlaylistLikeScope.Orders).Count() > 1) throw new InputException(
             $"You may order by either '{nameof(PlaylistLikeScope.OrderOptions.score)}' or '{nameof(PlaylistLikeScope.OrderOptions.uploaded)}' (date), but not both.");
     }

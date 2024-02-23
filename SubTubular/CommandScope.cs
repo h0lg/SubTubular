@@ -20,6 +20,8 @@ public class VideosScope : CommandScope
     /// <summary>Validated video IDs from <see cref="Videos"/>.</summary>
     internal string[]? ValidIds { get; set; }
 
+    public VideosScope(IEnumerable<string> videos) => Videos = videos;
+
     /// <inheritdoc />
     internal override string Describe() => "videos " + (ValidIds ?? Videos).Join(" ");
 }
@@ -42,13 +44,21 @@ public abstract class PlaylistLikeScope : CommandScope
     #endregion
 
     // public options
-    public ushort Top { get; set; }
-    public IEnumerable<OrderOptions> OrderBy { get; set; }
-    public float CacheHours { get; set; }
+    public ushort Top { get; }
+    public IEnumerable<OrderOptions> OrderBy { get; }
+    public float CacheHours { get; }
 
+    public PlaylistLikeScope(ushort top, IEnumerable<OrderOptions> orderBy, float cacheHours)
+    {
+        Top = top;
+        CacheHours = cacheHours;
+
+        // default to ordering by highest score which is probably most useful for most purposes
+        OrderBy = orderBy.HasAny() ? orderBy : new[] { OrderOptions.score };
+    }
 
     /// <summary>Mutually exclusive <see cref="OrderOptions"/>.</summary>
-    internal static OrderOptions[] Orders = new[] { OrderOptions.uploaded, OrderOptions.score };
+    internal static OrderOptions[] Orders = [OrderOptions.uploaded, OrderOptions.score];
 
     /// <summary><see cref="Orders"/> and modifiers.</summary>
     public enum OrderOptions { uploaded, score, asc }
@@ -59,14 +69,20 @@ public class PlaylistScope : PlaylistLikeScope
     internal const string StorageKeyPrefix = "playlist ";
     protected override string KeyPrefix => StorageKeyPrefix;
 
-    public string Playlist { get; set; }
+    public string Playlist { get; }
+
+    public PlaylistScope(string playlist, ushort top, IEnumerable<OrderOptions> orderBy, float cacheHours)
+        : base(top, orderBy, cacheHours) => Playlist = playlist;
 }
 
 public class ChannelScope : PlaylistLikeScope
 {
     internal const string StorageKeyPrefix = "channel ";
 
-    public string Alias { get; set; }
+    public string Alias { get; }
     protected override string KeyPrefix => StorageKeyPrefix;
     internal object[]? ValidAliases { get; set; }
+
+    public ChannelScope(string alias, ushort top, IEnumerable<OrderOptions> orderBy, float cacheHours)
+        : base(top, orderBy, cacheHours) => Alias = alias;
 }
