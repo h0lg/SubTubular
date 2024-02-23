@@ -26,9 +26,10 @@ public abstract class OutputWriter(OutputCommand command)
         WriteScopes("videos", command.Videos);
         WriteLine();
 
-        void WriteScopes(string label, params CommandScope[] scopes)
+        void WriteScopes(string label, params CommandScope?[]? scopes)
         {
-            var validScopes = scopes.GetValid();
+            if (scopes == null) return;
+            var validScopes = scopes.WithValue().GetValid();
             if (!validScopes.Any()) return;
             Write(label + " ");
             var indent = CreateIndent();

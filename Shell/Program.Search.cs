@@ -105,7 +105,8 @@ internal static partial class BindingExtensions
     {
         search.Query = ctx.Parsed(queryWords)?.Join(" ");
         search.Padding = ctx.Parsed(padding);
-        search.OrderBy = ctx.Parsed(orderBy);
+        IEnumerable<SearchCommand.OrderOptions>? orders = ctx.Parsed(orderBy);
+        if (orders != null) search.OrderBy = orders; // only override default if supplied
         return search;
     }
 }

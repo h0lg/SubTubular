@@ -44,7 +44,7 @@ internal static partial class Program
     private static DataStore CreateDataStore() => new JsonFileDataStore(cacheFolder);
     private static VideoIndexRepository CreateVideoIndexRepo() => new(cacheFolder);
 
-    private static async Task WriteErrorLogAsync(string originalCommand, string errors, string name = null)
+    private static async Task WriteErrorLogAsync(string originalCommand, string errors, string? name = null)
     {
         var productInfo = AssemblyInfo.Name + " " + AssemblyInfo.GetProductVersion();
 
