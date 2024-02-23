@@ -29,20 +29,14 @@ static partial class Program
         }
 
         private static ChannelScope CreateChannelScope(InvocationContext ctx, Argument<string> alias, Option<ushort> top, Option<IEnumerable<PlaylistLikeScope.OrderOptions>> orderBy, Option<float> cacheHours)
-            => new ChannelScope { Alias = ctx.Parsed(alias), Top = ctx.Parsed(top), OrderBy = ctx.Parsed(orderBy), CacheHours = ctx.Parsed(cacheHours) };
+            => new ChannelScope(ctx.Parsed(alias), ctx.Parsed(top), ctx.Parsed(orderBy), ctx.Parsed(cacheHours));
 
         private static PlaylistScope CreatePlaylistScope(InvocationContext ctx, Argument<string> playlist,
             Option<ushort> top, Option<IEnumerable<PlaylistLikeScope.OrderOptions>> orderBy, Option<float> cacheHours)
-            => new PlaylistScope
-            {
-                Playlist = ctx.Parsed(playlist),
-                Top = ctx.Parsed(top),
-                OrderBy = ctx.Parsed(orderBy),
-                CacheHours = ctx.Parsed(cacheHours)
-            };
+            => new PlaylistScope(ctx.Parsed(playlist), ctx.Parsed(top), ctx.Parsed(orderBy), ctx.Parsed(cacheHours));
 
         private static VideosScope CreateVideosScope(InvocationContext ctx, Argument<IEnumerable<string>> videos)
-            => new VideosScope { Videos = ctx.Parsed(videos) };
+            => new VideosScope(ctx.Parsed(videos));
 
         private static (Option<ushort> top, Option<IEnumerable<PlaylistLikeScope.OrderOptions>> orderBy, Option<float> cacheHours) AddPlaylistLikeCommandOptions(Command command)
         {
