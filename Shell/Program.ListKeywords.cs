@@ -6,7 +6,7 @@ static partial class Program
 {
     private static async Task ListKeywordsAsync(ListKeywords command, string originalCommand)
     {
-        CommandValidator.ValidateCommandScope(command);
+        CommandValidator.PrevalidateScopes(command);
 
         await OutputAsync(command, originalCommand, async (youtube, outputs, cancellation) =>
         {

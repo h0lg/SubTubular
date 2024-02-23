@@ -11,9 +11,9 @@ public static class CommandValidator
     // see Lifti.Querying.QueryTokenizer.ParseQueryTokens()
     private static readonly char[] controlChars = ['*', '%', '|', '&', '"', '~', '>', '?', '(', ')', '=', ','];
 
-    public static void ValidateSearchCommand(SearchCommand command)
+    public static void PrevalidateSearchCommand(SearchCommand command)
     {
-        ValidateCommandScope(command);
+        PrevalidateScopes(command);
 
         if (command.Query.IsNullOrWhiteSpace()) throw new InputException(
             $"The {nameof(SearchCommand.Query).ToLower()} is empty.");
@@ -27,20 +27,20 @@ public static class CommandValidator
             $"You may order by either '{nameof(SearchCommand.OrderOptions.score)}' or '{nameof(SearchCommand.OrderOptions.uploaded)}' (date), but not both.");
     }
 
-    public static void ValidateCommandScope(OutputCommand command)
+    public static void PrevalidateScopes(OutputCommand command)
     {
         var errors = (new[]
         {
-            TryGetScopeError(command.Playlists?.Select(Validate), "{0} are not valid playlist IDs or URLs."),
-            TryGetScopeError(command.Channels?.Select(Validate), "{0} are not valid channel handles, slugs, user names or IDs."),
-            TryGetScopeError(Validate(command.Videos), "{0} are not valid video IDs or URLs.")
+            TryGetScopeError(command.Playlists?.Select(Prevalidate), "{0} are not valid playlist IDs or URLs."),
+            TryGetScopeError(command.Channels?.Select(Prevalidate), "{0} are not valid channel handles, slugs, user names or IDs."),
+            TryGetScopeError(Prevalidate(command.Videos), "{0} are not valid video IDs or URLs.")
         }).WithValue().ToArray();
 
         if (errors.Length != 0) throw new InputException(errors.Join(Environment.NewLine));
         if (!command.HasPreValidatedScopes()) throw new InputException("No valid scope.");
     }
 
-    internal static object[] ValidateChannelAlias(string alias)
+    internal static object[] PrevalidateChannelAlias(string alias)
     {
         var handle = ChannelHandle.TryParse(alias);
         var slug = ChannelSlug.TryParse(alias);
@@ -56,24 +56,24 @@ public static class CommandValidator
         return withValue.Length == 0 ? null : string.Format(format, withValue.Join(", "));
     }
 
-    private static string? Validate(ChannelScope scope)
+    private static string? Prevalidate(ChannelScope scope)
     {
         /*  validate Alias locally to throw eventual InputException,
             but store result for RemoteValidateChannelAsync */
-        scope.ValidAliases = ValidateChannelAlias(scope.Alias);
+        scope.ValidAliases = PrevalidateChannelAlias(scope.Alias);
 
         return scope.ValidAliases.HasAny() ? null : scope.Alias; // return invalid
     }
 
-    private static string? Validate(PlaylistScope scope)
+    private static string? Prevalidate(PlaylistScope scope)
     {
-        var id = PlaylistId.TryParse(scope.Playlist);
+        var id = PlaylistId.TryParse(scope.IdOrUrl);
         scope.ValidId = id;
         scope.ValidUrls = ["https://www.youtube.com/playlist?list=" + id];
-        return id == null ? scope.Playlist : null; // return invalid
+        return id == null ? scope.IdOrUrl : null; // return invalid
     }
 
-    private static IEnumerable<string> Validate(VideosScope? scope)
+    private static IEnumerable<string> Prevalidate(VideosScope? scope)
     {
         if (scope == null) return [];
         var idsToValid = scope.Videos.ToDictionary(id => id, id => VideoId.TryParse(id.Trim('"'))?.ToString());
@@ -83,7 +83,7 @@ public static class CommandValidator
         return scope.Videos.Except(validIds); // return invalid
     }
 
-    public static async Task RemoteValidateChannelAsync(ChannelScope command, YoutubeClient youtube, DataStore dataStore, CancellationToken cancellation)
+    public static async Task RemoteValidateChannelAsync(ChannelScope channel, YoutubeClient youtube, DataStore dataStore, CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
 
@@ -95,7 +95,7 @@ public static class CommandValidator
 
         /*  generate tasks checking which of the validAliases are accessible
             (via knownAliasMaps cache or HTTP request) and execute them in parrallel */
-        var (aliasMaps, maybeExceptions) = await ValueTasks.WhenAll(command.ValidAliases!.Select(GetChannelAliasMap));
+        var (matchingChannels, maybeExceptions) = await ValueTasks.WhenAll(channel.ValidAliases!.Select(GetChannelAliasMap));
 
         // cache accessibility of channel IDs and aliases locally to avoid subsequent HTTP requests
         if (knownAliasMapsUpdated) await ChannelAliasMap.SaveList(knownAliasMaps, dataStore);
@@ -104,19 +104,19 @@ public static class CommandValidator
         var exceptions = maybeExceptions.Where(ex => ex is not null).ToArray();
 
         if (exceptions.Length > 0) throw new AggregateException(
-            $"Unexpected errors identifying channel '{command.Alias}'.", exceptions);
+            $"Unexpected errors identifying channel '{channel.Alias}'.", exceptions);
         #endregion
 
         #region throw input exceptions if Alias matches none or multiple accessible channels
-        var accessibleMaps = aliasMaps.Where(map => map.ChannelId != null).ToArray();
-        if (accessibleMaps.Length == 0) throw new InputException($"Channel '{command.Alias}' could not be found.");
+        var indentifiedChannels = matchingChannels.Where(map => map.ChannelId != null).ToArray();
+        if (indentifiedChannels.Length == 0) throw new InputException($"Channel '{channel.Alias}' could not be found.");
 
-        var distinct = accessibleMaps.DistinctBy(map => map.ChannelId);
+        var distinctChannels = indentifiedChannels.DistinctBy(map => map.ChannelId);
 
-        if (distinct.Count() > 1) throw new InputException($"Channel alias '{command.Alias}' is ambiguous:"
-            + Environment.NewLine + accessibleMaps.Select(map =>
+        if (distinctChannels.Count() > 1) throw new InputException($"Channel alias '{channel.Alias}' is ambiguous:"
+            + Environment.NewLine + indentifiedChannels.Select(map =>
             {
-                var validUrl = Youtube.GetChannelUrl(command.ValidAliases!.Single(id => id.GetType().Name == map.Type));
+                var validUrl = Youtube.GetChannelUrl(channel.ValidAliases!.Single(id => id.GetType().Name == map.Type));
                 var channelUrl = Youtube.GetChannelUrl((ChannelId)map.ChannelId!);
                 return $"{validUrl} points to channel {channelUrl}";
             })
@@ -124,9 +124,9 @@ public static class CommandValidator
             + Environment.NewLine + "Specify the unique channel ID or full handle URL, custom/slug URL or user URL to disambiguate the channel.");
         #endregion
 
-        var identifiedMap = distinct.Single();
-        command.ValidId = identifiedMap.ChannelId;
-        command.ValidUrls = new[] { Youtube.GetChannelUrl((ChannelId)identifiedMap.ChannelId!) };
+        var identifiedMap = distinctChannels.Single();
+        channel.ValidId = identifiedMap.ChannelId;
+        channel.ValidUrls = new[] { Youtube.GetChannelUrl((ChannelId)identifiedMap.ChannelId!) };
 
         async ValueTask<ChannelAliasMap> GetChannelAliasMap(object alias)
         {

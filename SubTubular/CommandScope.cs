@@ -66,11 +66,11 @@ public abstract class PlaylistLikeScope(ushort top, float cacheHours) : CommandS
     public float CacheHours { get; } = cacheHours;
 }
 
-public class PlaylistScope(string playlist, ushort top, float cacheHours) : PlaylistLikeScope(top, cacheHours)
+public class PlaylistScope(string idOrUrl, ushort top, float cacheHours) : PlaylistLikeScope(top, cacheHours)
 {
     internal const string StorageKeyPrefix = "playlist ";
     protected override string KeyPrefix => StorageKeyPrefix;
-    public string Playlist { get; } = playlist;
+    public string IdOrUrl { get; } = idOrUrl;
 }
 
 public class ChannelScope(string alias, ushort top, float cacheHours) : PlaylistLikeScope(top, cacheHours)

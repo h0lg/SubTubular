@@ -1,10 +1,10 @@
 ﻿namespace SubTubular;
 
-public sealed class SearchProgress
+public sealed class BatchProgress
 {
-    public required Dictionary<CommandScope, Playlist> Playlists { get; set; }
+    public required Dictionary<CommandScope, VideoList> VideoLists { get; set; }
 
-    public sealed class Playlist
+    public sealed class VideoList
     {
         public Status State { get; set; } = Status.queued;
         public Dictionary<string, Status>? Videos { get; set; }
@@ -13,47 +13,47 @@ public sealed class SearchProgress
     public enum Status { queued, downloading, indexing, searching, indexingAndSearching, searched }
 }
 
-internal class PlaylistBatchProgress(IProgress<SearchProgress> reporter, SearchProgress searchProgress)
+internal class BatchProgressReporter(IProgress<BatchProgress> reporter, BatchProgress batchProgress)
 {
-    internal PlaylistProgress CreatePlaylistProgress(CommandScope scope)
-        => new(searchProgress.Playlists[scope], new Progress<SearchProgress.Playlist>(listProgress =>
+    internal VideoListProgress CreateVideoListProgress(CommandScope scope)
+        => new(batchProgress.VideoLists[scope], new Progress<BatchProgress.VideoList>(listProgress =>
         {
-            searchProgress.Playlists[scope] = listProgress;
-            reporter.Report(searchProgress);
+            batchProgress.VideoLists[scope] = listProgress;
+            reporter.Report(batchProgress);
             //var playlist = progress.Playlists.Single(pl => pl.Scope == listProgress.Scope);
             //playlist.State = listProgress.State;
             //playlist.Videos = listProgress.Videos;
         }));
 
-    internal class PlaylistProgress(SearchProgress.Playlist playlist, IProgress<SearchProgress.Playlist> reporter)
+    internal class VideoListProgress(BatchProgress.VideoList videoList, IProgress<BatchProgress.VideoList> reporter)
     {
-        public SearchProgress.Playlist Playlist { get; } = playlist;
+        public BatchProgress.VideoList VideoList { get; } = videoList;
 
         internal void SetVideos(IEnumerable<string> videoIds)
         {
-            Playlist.Videos = videoIds.ToDictionary(id => id, _ => SearchProgress.Status.queued);
+            VideoList.Videos = videoIds.ToDictionary(id => id, _ => BatchProgress.Status.queued);
             ReportChange();
         }
 
-        internal void Report(SearchProgress.Status state)
+        internal void Report(BatchProgress.Status state)
         {
-            Playlist.State = state;
+            VideoList.State = state;
             ReportChange();
         }
 
-        internal void Report(string videoId, SearchProgress.Status state)
+        internal void Report(string videoId, BatchProgress.Status state)
         {
             UpdateVideoState(videoId, state);
             ReportChange();
         }
 
-        internal void Report(IEnumerable<Video> videos, SearchProgress.Status state)
+        internal void Report(IEnumerable<Video> videos, BatchProgress.Status state)
         {
             foreach (var video in videos) UpdateVideoState(video.Id, state);
             ReportChange();
         }
 
-        private void UpdateVideoState(string videoId, SearchProgress.Status state) => Playlist.Videos![videoId] = state;
-        private void ReportChange() => reporter.Report(Playlist);
+        private void UpdateVideoState(string videoId, BatchProgress.Status state) => VideoList.Videos![videoId] = state;
+        private void ReportChange() => reporter.Report(VideoList);
     }
 }
