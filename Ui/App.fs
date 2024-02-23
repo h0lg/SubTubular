@@ -148,7 +148,7 @@ module App =
         command.Query <- model.Query
         command.Padding <- model.Padding |> uint16
         command.OrderBy <- order
-        command.Scope <- scope
+        //command.Scope <- scope
         command.OutputHtml <- model.OutputHtml
         command.FileOutputPath <- model.OutputTo
 
@@ -176,7 +176,7 @@ module App =
                 let dataStore = JsonFileDataStore cacheFolder
                 let youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
                 use cts = new CancellationTokenSource()
-                do! validateChannelScope command.Scope youtube.Client dataStore cts.Token
+                //do! validateChannelScope command.Scope youtube.Client dataStore cts.Token
 
                 do! youtube.SearchAsync(command, cts.Token)
                     // see https://github.com/fsprojects/FSharp.Control.TaskSeq
@@ -204,7 +204,7 @@ module App =
             let dataStore = JsonFileDataStore cacheFolder
             let youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
             use cts = new CancellationTokenSource()
-            do! validateChannelScope command.Scope youtube.Client dataStore cts.Token
+            //do! validateChannelScope command.Scope youtube.Client dataStore cts.Token
 
             let writer = if model.OutputHtml then new HtmlOutputWriter(command) :> FileOutputWriter else new TextOutputWriter(command)
             writer.WriteHeader()
