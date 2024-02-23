@@ -44,7 +44,7 @@ static partial class Program
             Command command = new(Actions.search, "Searches the videos in the specified scopes.");
 
             command.AddAlias(Actions.search[..1]);
-            var (aliases, playlists, videos) = AddScopes(command);
+            var (channels, playlists, videos) = AddScopes(command);
             (Option<IEnumerable<string>> query, Option<ushort> padding, Option<IEnumerable<SearchCommand.OrderOptions>> orderBy) = AddSearchCommandOptions(command);
             (Option<ushort> top, Option<float> cacheHours) = AddPlaylistLikeCommandOptions(command);
             (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(command);
@@ -52,7 +52,7 @@ static partial class Program
             command.SetHandler(async (ctx) => await search(
                 new SearchCommand
                 {
-                    Channels = CreateChannelScopes(ctx, aliases, top, cacheHours),
+                    Channels = CreateChannelScopes(ctx, channels, top, cacheHours),
                     Playlists = CreatePlaylistScopes(ctx, playlists, top, cacheHours),
                     Videos = CreateVideosScope(ctx, videos)
                 }

@@ -7,15 +7,15 @@ static partial class Program
 {
     static partial class CommandHandler
     {
-        private static (Option<IEnumerable<string>> aliases, Option<IEnumerable<string>> playlists, Option<IEnumerable<string>> videos) AddScopes(Command outputCommand)
+        private static (Option<IEnumerable<string>> channels, Option<IEnumerable<string>> playlists, Option<IEnumerable<string>> videos) AddScopes(Command outputCommand)
         {
-            Option<IEnumerable<string>> aliases = new("channel", "The channel IDs, handles, slugs, user names or URLs for either of those.") { AllowMultipleArgumentsPerToken = true };
-            Option<IEnumerable<string>> playlists = new("playlist", "The playlist IDs or URLs.") { AllowMultipleArgumentsPerToken = true };
+            Option<IEnumerable<string>> channels = new("channels", "The channel IDs, handles, slugs, user names or URLs for either of those.") { AllowMultipleArgumentsPerToken = true };
+            Option<IEnumerable<string>> playlists = new("playlists", "The playlist IDs or URLs.") { AllowMultipleArgumentsPerToken = true };
             Option<IEnumerable<string>> videos = new("videos", "The space-separated YouTube video IDs and/or URLs." + quoteIdsStartingWithDash) { AllowMultipleArgumentsPerToken = true };
-            outputCommand.AddOption(aliases);
+            outputCommand.AddOption(channels);
             outputCommand.AddOption(playlists);
             outputCommand.AddOption(videos);
-            return (aliases, playlists, videos);
+            return (channels, playlists, videos);
         }
 
         private static ChannelScope[]? CreateChannelScopes(InvocationContext ctx, Option<IEnumerable<string>> aliases,

@@ -37,13 +37,13 @@ static partial class Program
                 + $" This is a glorified '{CommandGroups.playlist} {Actions.listKeywords}'.");
 
             command.AddAlias(Actions.listKeywords[..1]);
-            var (aliases, playlists, videos) = AddScopes(command);
+            var (channels, playlists, videos) = AddScopes(command);
             (Option<ushort> top, Option<float> cacheHours) = AddPlaylistLikeCommandOptions(command);
             (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(command);
 
             command.SetHandler(async (ctx) => await listKeywords(new ListKeywords
             {
-                Channels = CreateChannelScopes(ctx, aliases, top, cacheHours),
+                Channels = CreateChannelScopes(ctx, channels, top, cacheHours),
                 Playlists = CreatePlaylistScopes(ctx, playlists, top, cacheHours),
                 Videos = CreateVideosScope(ctx, videos)
             }.BindOuputOptions(ctx, html, fileOutputPath, show)));
