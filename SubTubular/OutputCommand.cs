@@ -13,6 +13,14 @@ public abstract class OutputCommand
     public string? FileOutputPath { get; set; }
     public Shows? Show { get; set; }
 
+    internal BatchProgressReporter? ProgressReporter { get; private set; }
+
+    public void SetProgressReporter(IProgress<BatchProgress> progressReporter)
+    {
+        var videoLists = GetValidScopes().ToDictionary(scope => scope, _ => new BatchProgress.VideoList());
+        ProgressReporter = new BatchProgressReporter(progressReporter, new BatchProgress() { VideoLists = videoLists });
+    }
+
     public bool HasOutputPath(out string? outputPath)
     {
         var fileOutputPath = FileOutputPath?.Trim('"');

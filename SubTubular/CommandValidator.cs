@@ -1,5 +1,4 @@
 ﻿using SubTubular.Extensions;
-using YoutubeExplode;
 using YoutubeExplode.Channels;
 using YoutubeExplode.Playlists;
 using YoutubeExplode.Videos;
@@ -11,9 +10,9 @@ public static class CommandValidator
     // see Lifti.Querying.QueryTokenizer.ParseQueryTokens()
     private static readonly char[] controlChars = ['*', '%', '|', '&', '"', '~', '>', '?', '(', ')', '=', ','];
 
-    public static void ValidateSearchCommand(SearchCommand command)
+    public static void PrevalidateSearchCommand(SearchCommand command)
     {
-        ValidateCommandScope(command);
+        PrevalidateScopes(command);
 
         if (command.Query.IsNullOrWhiteSpace()) throw new InputException(
             $"The {nameof(SearchCommand.Query).ToLower()} is empty.");
@@ -27,20 +26,20 @@ public static class CommandValidator
             $"You may order by either '{nameof(SearchCommand.OrderOptions.score)}' or '{nameof(SearchCommand.OrderOptions.uploaded)}' (date), but not both.");
     }
 
-    public static void ValidateCommandScope(OutputCommand command)
+    public static void PrevalidateScopes(OutputCommand command)
     {
         var errors = (new[]
         {
-            TryGetScopeError(command.Playlists?.Select(Validate), "{0} are not valid playlist IDs or URLs."),
-            TryGetScopeError(command.Channels?.Select(Validate), "{0} are not valid channel handles, slugs, user names or IDs."),
-            TryGetScopeError(Validate(command.Videos), "{0} are not valid video IDs or URLs.")
+            TryGetScopeError(command.Playlists?.Select(Prevalidate), "{0} are not valid playlist IDs or URLs."),
+            TryGetScopeError(command.Channels?.Select(Prevalidate), "{0} are not valid channel handles, slugs, user names or IDs."),
+            TryGetScopeError(Prevalidate(command.Videos), "{0} are not valid video IDs or URLs.")
         }).WithValue().ToArray();
 
         if (errors.Length != 0) throw new InputException(errors.Join(Environment.NewLine));
         if (!command.HasPreValidatedScopes()) throw new InputException("No valid scope.");
     }
 
-    internal static object[] ValidateChannelAlias(string alias)
+    internal static object[] PrevalidateChannelAlias(string alias)
     {
         var handle = ChannelHandle.TryParse(alias);
         var slug = ChannelSlug.TryParse(alias);
@@ -56,27 +55,27 @@ public static class CommandValidator
         return withValue.Length == 0 ? null : string.Format(format, withValue.Join(", "));
     }
 
-    private static string? Validate(ChannelScope scope)
+    private static string? Prevalidate(ChannelScope scope)
     {
         /*  validate Alias locally to throw eventual InputException,
             but store result for RemoteValidateChannelAsync */
-        object[] wellStructuredAliases = ValidateChannelAlias(scope.Alias);
+        object[] wellStructuredAliases = PrevalidateChannelAlias(scope.Alias);
         if (!wellStructuredAliases.HasAny()) return scope.Alias; // return invalid
 
         scope.AddPrevalidated(scope.Alias, wellStructuredAliases);
         return null;
     }
 
-    private static string? Validate(PlaylistScope scope)
+    private static string? Prevalidate(PlaylistScope scope)
     {
-        var id = PlaylistId.TryParse(scope.Playlist);
-        if (id == null) return scope.Playlist; // return invalid
+        var id = PlaylistId.TryParse(scope.IdOrUrl);
+        if (id == null) return scope.IdOrUrl; // return invalid
 
         scope.AddPrevalidated(id, "https://www.youtube.com/playlist?list=" + id);
         return null;
     }
 
-    private static IEnumerable<string> Validate(VideosScope? scope)
+    private static IEnumerable<string> Prevalidate(VideosScope? scope)
     {
         if (scope == null) return [];
         var idsToValid = scope.Videos.ToDictionary(id => id, id => VideoId.TryParse(id.Trim('"')));
@@ -85,7 +84,41 @@ public static class CommandValidator
         return scope.Videos.Except(validIds); // return invalid
     }
 
-    public static async Task RemoteValidateChannelAsync(ChannelScope scope, YoutubeClient youtube, DataStore dataStore, CancellationToken cancellation)
+    public static async Task ValidateScopesAsync(OutputCommand command, Youtube youtube, DataStore dataStore, CancellationToken cancellation)
+    {
+        List<Task> validations = new();
+
+        if (command.Channels.HasAny()) validations.AddRange(
+            command.Channels!.Select(channel => RemoteValidateAsync(channel, youtube, dataStore, cancellation)));
+
+        if (command.Playlists.HasAny()) validations.AddRange(
+            command.Playlists!.Select(playlist => RemoteValidateAsync(playlist, youtube, dataStore, cancellation)));
+
+        if (command.Videos?.IsPrevalidated == true) validations.AddRange(
+            command.Videos!.Validated.Select(validationResult => RemoteValidateVideoAsync(validationResult, youtube, dataStore, cancellation)));
+
+        await Task.WhenAll(validations);
+    }
+
+    private static async Task RemoteValidateVideoAsync(CommandScope.ValidationResult validationResult, Youtube youtube, DataStore dataStore, CancellationToken cancellation)
+    {
+        var video = await youtube.GetVideoAsync(validationResult.Id, cancellation);
+        //validationResult.SetRemoteValidated();
+        validationResult.Title = video.Title;
+        validationResult.Video = video;
+        validationResult.IsRemoteValidated = true;
+    }
+
+    private static async Task RemoteValidateAsync(PlaylistScope scope, Youtube youtube, DataStore dataStore, CancellationToken cancellation)
+    {
+        var playlist = await youtube.Client.Playlists.GetAsync(scope.IdOrUrl, cancellation);
+        //validationResult.SetRemoteValidated();
+        scope.SingleValidated.Title = playlist.Title;
+        scope.Playlist = new Playlist { Title = playlist.Title };
+        scope.SingleValidated.IsRemoteValidated = true;
+    }
+
+    private static async Task RemoteValidateAsync(ChannelScope scope, Youtube youtube, DataStore dataStore, CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
 
@@ -97,7 +130,7 @@ public static class CommandValidator
 
         /*  generate tasks checking which of the validAliases are accessible
             (via knownAliasMaps cache or HTTP request) and execute them in parrallel */
-        IEnumerable<object> wellStructuredAliases = scope.GetWellStructuredAliases();
+        IEnumerable<object> wellStructuredAliases = scope.SingleValidated.WellStructuredAliases!;
         var (aliasMaps, maybeExceptions) = await ValueTasks.WhenAll<ChannelAliasMap>(wellStructuredAliases.Select(GetChannelAliasMap));
 
         // cache accessibility of channel IDs and aliases locally to avoid subsequent HTTP requests
@@ -129,17 +162,21 @@ public static class CommandValidator
 
         ChannelAliasMap identifiedMap = distinct.Single();
         string id = identifiedMap.ChannelId!;
-        scope.AddPrevalidated(id, Youtube.GetChannelUrl((ChannelId)id), identifiedMap.Title);
+        //validationResult.SetRemoteValidated();
+        scope.SingleValidated.Title = identifiedMap.Title;
+        scope.Playlist = new Playlist { Title = identifiedMap.Title! };
+        scope.SingleValidated.Url = Youtube.GetChannelUrl((ChannelId)id);
+        scope.SingleValidated.IsRemoteValidated = true;
 
         async ValueTask<ChannelAliasMap> GetChannelAliasMap(object alias)
         {
             var map = knownAliasMaps.ForAlias(alias);
             if (map != null) return map; // use cached info
 
-            var loadChannel = alias is ChannelHandle handle ? youtube.Channels.GetByHandleAsync(handle, cancellation)
-                : alias is ChannelSlug slug ? youtube.Channels.GetBySlugAsync(slug, cancellation)
-                : alias is UserName user ? youtube.Channels.GetByUserAsync(user, cancellation)
-                : alias is ChannelId id ? youtube.Channels.GetAsync(id, cancellation)
+            var loadChannel = alias is ChannelHandle handle ? youtube.Client.Channels.GetByHandleAsync(handle, cancellation)
+                : alias is ChannelSlug slug ? youtube.Client.Channels.GetBySlugAsync(slug, cancellation)
+                : alias is UserName user ? youtube.Client.Channels.GetByUserAsync(user, cancellation)
+                : alias is ChannelId id ? youtube.Client.Channels.GetAsync(id, cancellation)
                 : throw new NotImplementedException($"Getting channel for alias {alias.GetType()} is not implemented.");
 
             var (type, value) = ChannelAliasMap.GetTypeAndValue(alias);

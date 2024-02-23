@@ -1,6 +1,5 @@
 ﻿using System.CommandLine;
 using System.CommandLine.Invocation;
-using SubTubular.Extensions;
 
 namespace SubTubular.Shell;
 
@@ -28,11 +27,7 @@ static partial class Program
 
         DataStore dataStore = CreateDataStore();
         var youtube = new Youtube(dataStore, CreateVideoIndexRepo());
-
-        if (command.Channels.HasAny())
-            foreach (var channel in command.Channels!)
-                await CommandValidator.RemoteValidateChannelAsync(channel, youtube.Client, dataStore, cancellation.Token);
-
+        await CommandValidator.ValidateScopesAsync(command, youtube, dataStore, cancellation.Token);
         List<OutputWriter> outputs = [new ConsoleOutputWriter(command)];
 
         if (command.OutputHtml) outputs.Add(new HtmlOutputWriter(command));
