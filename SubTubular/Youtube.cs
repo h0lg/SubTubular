@@ -278,11 +278,8 @@ public sealed class Youtube
     /// <summary>Returns the <see cref="Video.Keywords"/> and their corresponding number of occurrences
     /// from the videos scoped by <paramref name="command"/>.</summary>
     public async IAsyncEnumerable<(string keyword, string videoId, CommandScope scope)> ListKeywordsAsync(ListKeywords command,
-        IProgress<BatchProgress>? progressReporter = default,
         [EnumeratorCancellation] CancellationToken cancellation = default)
     {
-        BatchProgressReporter? progress = CreateBatchProgress(command, progressReporter);
-
         var channel = Pipe.CreateBounded<(string keyword, string videoId, CommandScope scope)>(
             new BoundedChannelOptions(5) { SingleReader = true });
 
@@ -299,7 +296,7 @@ public sealed class Youtube
 
         var lookupTasks = command.GetPlaylistLikeScopes().GetValid().Select(scope =>
         {
-            var listProgress = progress?.CreateVideoListProgress(scope);
+            var listProgress = command.ProgressReporter?.CreateVideoListProgress(scope);
 
             return Task.Run(async () =>
             {
@@ -314,7 +311,7 @@ public sealed class Youtube
 
         if (command.Videos?.IsValid == true)
         {
-            var listProgress = progress?.CreateVideoListProgress(command.Videos);
+            var listProgress = command.ProgressReporter?.CreateVideoListProgress(command.Videos);
             IEnumerable<string> videoIds = command.Videos.GetValidatedIds();
             listProgress?.SetVideos(videoIds);
 
