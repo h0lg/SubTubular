@@ -60,17 +60,20 @@ public static class CommandValidator
     {
         /*  validate Alias locally to throw eventual InputException,
             but store result for RemoteValidateChannelAsync */
-        scope.ValidAliases = ValidateChannelAlias(scope.Alias);
+        object[] wellStructuredAliases = ValidateChannelAlias(scope.Alias);
+        if (!wellStructuredAliases.HasAny()) return scope.Alias; // return invalid
 
-        return scope.ValidAliases.HasAny() ? null : scope.Alias; // return invalid
+        scope.AddPrevalidated(scope.Alias, wellStructuredAliases);
+        return null;
     }
 
     private static string? Validate(PlaylistScope scope)
     {
         var id = PlaylistId.TryParse(scope.Playlist);
-        scope.ValidId = id;
-        scope.ValidUrls = ["https://www.youtube.com/playlist?list=" + id];
-        return id == null ? scope.Playlist : null; // return invalid
+        if (id == null) return scope.Playlist; // return invalid
+
+        scope.AddPrevalidated(id, "https://www.youtube.com/playlist?list=" + id);
+        return null;
     }
 
     private static IEnumerable<string> Validate(VideosScope? scope)
@@ -78,8 +81,7 @@ public static class CommandValidator
         if (scope == null) return [];
         var idsToValid = scope.Videos.ToDictionary(id => id, id => VideoId.TryParse(id.Trim('"')));
         var validIds = idsToValid.Where(pair => pair.Value != null).Select(pair => pair.Value!.Value.ToString()).ToArray();
-        scope.ValidIds = validIds;
-        scope.ValidUrls = validIds.Select(Youtube.GetVideoUrl).ToArray();
+        foreach (var id in validIds) scope.AddPrevalidated(id, Youtube.GetVideoUrl(id));
         return scope.Videos.Except(validIds); // return invalid
     }
 
@@ -95,7 +97,8 @@ public static class CommandValidator
 
         /*  generate tasks checking which of the validAliases are accessible
             (via knownAliasMaps cache or HTTP request) and execute them in parrallel */
-        var (aliasMaps, maybeExceptions) = await ValueTasks.WhenAll(command.ValidAliases!.Select(GetChannelAliasMap));
+        IEnumerable<object> wellStructuredAliases = scope.GetWellStructuredAliases();
+        var (aliasMaps, maybeExceptions) = await ValueTasks.WhenAll<ChannelAliasMap>(wellStructuredAliases.Select(GetChannelAliasMap));
 
         // cache accessibility of channel IDs and aliases locally to avoid subsequent HTTP requests
         if (knownAliasMapsUpdated) await ChannelAliasMap.SaveList(knownAliasMaps, dataStore);
@@ -116,17 +119,17 @@ public static class CommandValidator
         if (distinct.Count() > 1) throw new InputException($"Channel alias '{scope.Alias}' is ambiguous:"
             + Environment.NewLine + accessibleMaps.Select(map =>
             {
-                var validUrl = Youtube.GetChannelUrl(command.ValidAliases!.Single(id => id.GetType().Name == map.Type));
+                var validUrl = Youtube.GetChannelUrl(wellStructuredAliases.Single(id => id.GetType().Name == map.Type));
                 var channelUrl = Youtube.GetChannelUrl((ChannelId)map.ChannelId!);
-                return $"{validUrl} points to channel {channelUrl}";
+                return $"{validUrl} points to channel {map.Title} {channelUrl}";
             })
             .Join(Environment.NewLine)
             + Environment.NewLine + "Specify the unique channel ID or full handle URL, custom/slug URL or user URL to disambiguate the channel.");
         #endregion
 
-        var identifiedMap = distinct.Single();
-        command.ValidId = identifiedMap.ChannelId;
-        command.ValidUrls = new[] { Youtube.GetChannelUrl((ChannelId)identifiedMap.ChannelId!) };
+        ChannelAliasMap identifiedMap = distinct.Single();
+        string id = identifiedMap.ChannelId!;
+        scope.AddPrevalidated(id, Youtube.GetChannelUrl((ChannelId)id), identifiedMap.Title);
 
         async ValueTask<ChannelAliasMap> GetChannelAliasMap(object alias)
         {
@@ -146,6 +149,7 @@ public static class CommandValidator
             {
                 var channel = await loadChannel;
                 map.ChannelId = channel.Id;
+                map.Title = channel.Title;
             }
             catch (HttpRequestException ex) when (ex.IsNotFound()) { map.ChannelId = null; }
             // otherwise rethrow to raise assumed transient error

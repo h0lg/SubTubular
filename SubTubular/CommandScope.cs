@@ -4,24 +4,37 @@ namespace SubTubular;
 
 public abstract class CommandScope
 {
-    private IEnumerable<string>? validUrls;
+    /// <summary>Provides a description of the scope for <see cref="OutputCommand.Describe"/>.</summary>
+    internal abstract string Identify();
+
+    internal abstract IEnumerable<string> Describe();
 
     /// <summary>A collection of validated URLs for the entities included in the scope.
     /// It translates non-URI identifiers in the scope of YouTube into URIs for <see cref="OutputCommand"/>s.</summary>
-    public IEnumerable<string>? ValidUrls
+    private List<ValidationResult> validated = new();
+    public bool IsValid => validated.All(v => v.IsRemoteValidated);
+    public bool IsPrevalidated => validated.Any();
+    internal void AddPrevalidated(string id, string url, string? title = null) =>
+        validated.Add(new ValidationResult { Id = id, Url = url, Title = title });
+
+    internal void AddPrevalidated(string alias, object[] wellStructuredAliases) =>
+        validated.Add(new ValidationResult { Id = alias, WellStructuredAliases = wellStructuredAliases });
+
+    internal string[] GetValidatedIds() => validated.Select(v => v.Id).ToArray();
+    internal string GetValidatedId() => GetValidatedIds().Single();
+
+    internal IEnumerable<object> GetWellStructuredAliases()
+        => validated.Select(v => v.WellStructuredAliases).WithValue().SelectMany(aliases => aliases);
+
+    internal sealed class ValidationResult
     {
-        get { return validUrls; }
-        internal set
-        {
-            validUrls = value;
-            IsValid = validUrls.HasAny();
-        }
+        /// <summary>The validated identifier of the <see cref="CommandScope"/>.</summary>
+        internal required string Id { get; set; }
+        internal string? Title { get; set; }
+        internal string? Url { get; set; }
+        internal object[]? WellStructuredAliases { get; set; }
+        internal bool IsRemoteValidated { get; set; }
     }
-
-    public bool IsValid { get; private set; }
-
-    /// <summary>Provides a description of the scope for <see cref="OutputCommand.Describe"/>.</summary>
-    internal abstract string Describe();
 }
 
 internal static class ScopeExtensions
@@ -30,18 +43,22 @@ internal static class ScopeExtensions
         => scopes.Where(s => s.IsValid);
 }
 
-public class VideosScope : CommandScope
+public class VideosScope(IEnumerable<string> videos) : CommandScope
 {
-    /// <summary>Video IDs or URLs.</summary>
-    public IEnumerable<string> Videos { get; set; }
+    /// <summary>Input video IDs or URLs.</summary>
+    public IEnumerable<string> Videos { get; } = videos;
 
-    /// <summary>Validated video IDs from <see cref="Videos"/>.</summary>
-    internal string[]? ValidIds { get; set; }
+    internal override string Identify()
+    {
+        IEnumerable<string> ids = GetValidatedIds();
+        if (!ids.Any()) ids = Videos;
+        return "videos " + ids.Join(" ");
+    }
 
-    public VideosScope(IEnumerable<string> videos) => Videos = videos;
-
-    /// <inheritdoc />
-    internal override string Describe() => "videos " + (ValidIds ?? Videos).Join(" ");
+    internal override IEnumerable<string> Describe()
+    {
+        throw new NotImplementedException();
+    }
 }
 
 public abstract class PlaylistLikeScope(ushort top, float cacheHours) : CommandScope
@@ -50,20 +67,21 @@ public abstract class PlaylistLikeScope(ushort top, float cacheHours) : CommandS
     /// <summary>The prefix for the <see cref="StorageKey"/>.</summary>
     protected abstract string KeyPrefix { get; }
 
-    /// <summary>The validated ID for this <see cref="PlaylistLikeScope"/>.</summary>
-    protected internal string? ValidId { get; set; }
-
     /// <summary>A unique identifier for the storing this <see cref="PlaylistLikeScope"/>,
-    /// capturing its type and <see cref="ValidId"/>.</summary>
-    internal string StorageKey => KeyPrefix + ValidId;
+    /// capturing its type and <see cref="CommandScope.GetValidatedIds"/>.</summary>
+    internal string StorageKey => KeyPrefix + GetValidatedId();
 
-    /// <inheritdoc />
-    internal override string Describe() => StorageKey;
+    internal override string Identify() => StorageKey;
     #endregion
 
     // public options
     public ushort Top { get; } = top;
     public float CacheHours { get; } = cacheHours;
+
+    internal override IEnumerable<string> Describe()
+    {
+        throw new NotImplementedException();
+    }
 }
 
 public class PlaylistScope(string playlist, ushort top, float cacheHours) : PlaylistLikeScope(top, cacheHours)
@@ -76,8 +94,6 @@ public class PlaylistScope(string playlist, ushort top, float cacheHours) : Play
 public class ChannelScope(string alias, ushort top, float cacheHours) : PlaylistLikeScope(top, cacheHours)
 {
     internal const string StorageKeyPrefix = "channel ";
-
-    public string Alias { get; } = alias;
     protected override string KeyPrefix => StorageKeyPrefix;
-    internal object[]? ValidAliases { get; set; }
+    public string Alias { get; } = alias;
 }

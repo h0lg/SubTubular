@@ -4,6 +4,7 @@ namespace SubTubular;
 
 public sealed class VideoSearchResult
 {
+    public string? PlaylistTile { get; internal set; }
     public required Video Video { get; set; }
     public MatchedText? TitleMatches { get; set; }
     public MatchedText? DescriptionMatches { get; set; }

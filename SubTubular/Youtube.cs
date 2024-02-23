@@ -83,7 +83,11 @@ public sealed class Youtube
         if (unIndexedVideoIds.Length > 0) searches.Add(SearchUnindexedVideos(command,
             unIndexedVideoIds, index, progress, cancellation, UpdatePlaylistVideosUploaded));
 
-        await foreach (var result in searches.Parallelize(cancellation)) yield return result;
+        await foreach (var result in searches.Parallelize(cancellation))
+        {
+            result.PlaylistTile = playlist.Title;
+            yield return result;
+        }
 
         async Task UpdatePlaylistVideosUploaded(IEnumerable<Video> videos)
         {
@@ -117,8 +121,10 @@ public sealed class Youtube
 
             try
             {
-                // load and update videos in playlist while keeping existing video info
-                var freshVideos = await GetVideosAsync(command, cancellation).CollectAsync(command.Top);
+                // load and update title and videos in playlist while keeping existing video info
+                var (title, videos) = GetTitleAndVideos(command, cancellation);
+                var freshVideos = await videos.CollectAsync(command.Top);
+                playlist.Title = await title;
                 playlist.Loaded = DateTime.UtcNow;
 
                 // use new order but append older entries; note that this leaves remotely deleted videos in the playlist
@@ -132,18 +138,32 @@ public sealed class Youtube
             /*  treat playlist identified by user input not being available as input error
                 and rethrow otherwise; the uploads playlist of a channel being unavailable is unexpected */
             catch (PlaylistUnavailableException ex) when (command is PlaylistScope searchPlaylist)
-            { throw new InputException($"Could not find {searchPlaylist.Describe()}.", ex); }
+            { throw new InputException($"Could not find {searchPlaylist.Identify()}.", ex); }
         }
 
         return playlist;
     }
 
-    private IAsyncEnumerable<PlaylistVideo> GetVideosAsync(PlaylistLikeScope scope, CancellationToken cancellation)
+    private (Task<string> title, IAsyncEnumerable<PlaylistVideo> videos) GetTitleAndVideos(PlaylistLikeScope scope, CancellationToken cancellation)
     {
-        cancellation.ThrowIfCancellationRequested();
-        if (scope is ChannelScope searchChannel) return Client.Channels.GetUploadsAsync(searchChannel.ValidId!, cancellation);
-        if (scope is PlaylistScope searchPlaylist) return Client.Playlists.GetVideosAsync(searchPlaylist.Playlist, cancellation);
-        throw new NotImplementedException($"Getting videos for the {scope.GetType()} is not implemented.");
+        Func<Task<string>> getTitle;
+        IAsyncEnumerable<PlaylistVideo> videos;
+
+        if (scope is ChannelScope searchChannel)
+        {
+            var id = searchChannel.GetValidatedId();
+            getTitle = async () => (await Client.Channels.GetAsync(id, cancellation)).Title;
+            videos = Client.Channels.GetUploadsAsync(id, cancellation);
+        }
+        else if (scope is PlaylistScope searchPlaylist)
+        {
+            string id = searchPlaylist.Playlist;
+            getTitle = async () => (await Client.Playlists.GetAsync(id, cancellation)).Title;
+            videos = Client.Playlists.GetVideosAsync(id, cancellation);
+        }
+        else throw new NotImplementedException($"Getting videos for the {scope.GetType()} is not implemented.");
+
+        return (Task.Run(getTitle), videos);
     }
 
     private async IAsyncEnumerable<VideoSearchResult> SearchUnindexedVideos(SearchCommand command,
@@ -237,7 +257,7 @@ public sealed class Youtube
         PlaylistBatchProgress.PlaylistProgress? progress, [EnumeratorCancellation] CancellationToken cancellation = default)
     {
         cancellation.ThrowIfCancellationRequested();
-        var videoIds = command.Videos!.ValidIds!;
+        var videoIds = command.Videos!.GetValidatedIds();
         progress?.SetVideos(videoIds);
         var storageKey = Video.StorageKeyPrefix + videoIds.Order().Join(" ");
         var index = await videoIndexRepo.GetAsync(storageKey);
@@ -297,13 +317,14 @@ public sealed class Youtube
         if (command.Videos?.IsValid == true)
         {
             var listProgress = progress?.CreatePlaylistProgress(command.Videos);
-            listProgress?.SetVideos(command.Videos.ValidIds!);
+            IEnumerable<string> videoIds = command.Videos.GetValidatedIds();
+            listProgress?.SetVideos(videoIds);
 
             lookupTasks.Add(Task.Run(async () =>
             {
                 listProgress?.Report(SearchProgress.Status.searching);
 
-                foreach (var videoId in command.Videos.ValidIds!)
+                foreach (var videoId in videoIds)
                     await GetKeywords(videoId, command.Videos, listProgress);
 
                 listProgress?.Report(SearchProgress.Status.searched);

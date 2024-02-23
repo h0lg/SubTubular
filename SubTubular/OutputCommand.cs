@@ -30,9 +30,7 @@ public abstract class OutputCommand
         }
     }
 
-    internal bool HasPreValidatedScopes() => Videos?.ValidIds.HasAny() == true
-        || Playlists?.Any(pl => pl.ValidId != null) == true
-        || Channels?.Any(ch => ch.ValidAliases.HasAny()) == true;
+    internal bool HasPreValidatedScopes() => GetScopes().Any(s => s.IsPrevalidated);
 
     internal IEnumerable<PlaylistLikeScope> GetPlaylistLikeScopes()
     {
@@ -47,8 +45,11 @@ public abstract class OutputCommand
     }
 
     internal IEnumerable<CommandScope> GetValidScopes() => GetScopes().GetValid();
-    protected string DescribeValidScopes() => GetValidScopes().Select(p => p.Describe()).Join(" ");
-    public abstract string Describe();
+    protected string DescribeValidScopes() => GetValidScopes().Select(p => p.Identify()).Join(" ");
+
+    /// <summary>Provides a human-readable description of the command, by default <paramref name="withScopes"/>.
+    /// This can be used to generate unique file names, but be aware that the returned description is not filename-safe.</summary>
+    public abstract string Describe(bool withScopes = true);
 
     public enum Shows { file, folder }
 }
@@ -61,7 +62,8 @@ public sealed class SearchCommand : OutputCommand
     // default to ordering by highest score which is probably most useful for most purposes
     public IEnumerable<OrderOptions> OrderBy { get; set; } = [OrderOptions.score];
 
-    public override string Describe() => "searching " + DescribeValidScopes() + " for " + Query;
+    public override string Describe(bool withScopes = true)
+        => $"searching for {Query} in" + (withScopes ? " " + DescribeValidScopes() : null);
 
     /// <summary>Mutually exclusive <see cref="OrderOptions"/>.</summary>
     internal static OrderOptions[] Orders = [OrderOptions.uploaded, OrderOptions.score];
@@ -72,5 +74,6 @@ public sealed class SearchCommand : OutputCommand
 
 public sealed class ListKeywords : OutputCommand
 {
-    public override string Describe() => "listing keywords in " + DescribeValidScopes();
+    public override string Describe(bool withScopes = true)
+        => "listing keywords in" + (withScopes ? " " + DescribeValidScopes() : null);
 }
