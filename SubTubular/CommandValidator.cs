@@ -83,7 +83,7 @@ public static class CommandValidator
         return scope.Videos.Except(validIds); // return invalid
     }
 
-    public static async Task RemoteValidateChannelAsync(ChannelScope command, YoutubeClient youtube, DataStore dataStore, CancellationToken cancellation)
+    public static async Task RemoteValidateChannelAsync(ChannelScope scope, YoutubeClient youtube, DataStore dataStore, CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
 
@@ -104,16 +104,16 @@ public static class CommandValidator
         var exceptions = maybeExceptions.Where(ex => ex is not null).ToArray();
 
         if (exceptions.Length > 0) throw new AggregateException(
-            $"Unexpected errors identifying channel '{command.Alias}'.", exceptions);
+            $"Unexpected errors identifying channel '{scope.Alias}'.", exceptions);
         #endregion
 
         #region throw input exceptions if Alias matches none or multiple accessible channels
         var accessibleMaps = aliasMaps.Where(map => map.ChannelId != null).ToArray();
-        if (accessibleMaps.Length == 0) throw new InputException($"Channel '{command.Alias}' could not be found.");
+        if (accessibleMaps.Length == 0) throw new InputException($"Channel '{scope.Alias}' could not be found.");
 
         var distinct = accessibleMaps.DistinctBy(map => map.ChannelId);
 
-        if (distinct.Count() > 1) throw new InputException($"Channel alias '{command.Alias}' is ambiguous:"
+        if (distinct.Count() > 1) throw new InputException($"Channel alias '{scope.Alias}' is ambiguous:"
             + Environment.NewLine + accessibleMaps.Select(map =>
             {
                 var validUrl = Youtube.GetChannelUrl(command.ValidAliases!.Single(id => id.GetType().Name == map.Type));
