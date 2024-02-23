@@ -418,5 +418,5 @@ public sealed class Youtube
     /// <summary>Returns a curried <see cref="GetVideoAsync(string, CancellationToken, BatchProgressReporter.VideoListProgress?)"/>
     /// with the <paramref name="progress"/> supplied.</summary>
     private Func<string, CancellationToken, Task<Video>> CreateVideoLookup(BatchProgressReporter.VideoListProgress? progress)
-        => (videoId, cancellation) => GetVideoAsync(videoId, cancellation, progress);
+        => async (videoId, cancellation) => await GetVideoAsync(videoId, cancellation, progress);
 }
