@@ -25,7 +25,7 @@ internal sealed class ConsoleOutputWriter : OutputWriter, IDisposable
         ResetConsoleColor();
     }
 
-    public override void WriteLine(string text = null)
+    public override void WriteLine(string? text = null)
     {
         if (text != null) Write(text);
         Console.WriteLine();
