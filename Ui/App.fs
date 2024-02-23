@@ -178,7 +178,7 @@ module App =
                 use cts = new CancellationTokenSource()
                 //do! validateChannelScope command.Scope youtube.Client dataStore cts.Token
 
-                do! youtube.SearchAsync(command, cts.Token)
+                do! youtube.SearchAsync(command, null, cts.Token)
                     // see https://github.com/fsprojects/FSharp.Control.TaskSeq
                     |> TaskSeq.iter (fun result -> SearchResult result |> dispatch )
                     |> Async.AwaitTask
