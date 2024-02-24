@@ -108,7 +108,7 @@ public sealed class Youtube
         CancellationToken cancellation, BatchProgressReporter.VideoListProgress? progress)
     {
         var storageKey = scope.StorageKey;
-        var playlist = await dataStore.GetAsync<Playlist>(storageKey); //get cached
+        var playlist = scope.Playlist;
 
         if (playlist == null //playlist cache is missing, outdated or lacking sufficient videos
             || playlist.Loaded < DateTime.UtcNow.AddHours(-Math.Abs(scope.CacheHours))
@@ -356,6 +356,7 @@ public sealed class Youtube
                 video = MapVideo(vid);
                 video.UnIndexed = true; // to re-index it if it was already indexed
 
+                //TODO do this in another step
                 await foreach (var track in DownloadCaptionTracksAsync(videoId, cancellation))
                     video.CaptionTracks.Add(track);
 
@@ -364,13 +365,6 @@ public sealed class Youtube
             catch (HttpRequestException ex) when (ex.IsNotFound())
             { throw new InputException($"Video '{videoId}' could not be found.", ex); }
         }
-
-        /* Sanitize captions, making sure cached captions as well as downloaded
-            are cleaned of duplicates and ordered by time.
-            This may be moved into DownloadCaptionTracksAsync() in a future version
-            when we can be reasonably sure caches in the wild are sanitized. */
-        foreach (var track in video.CaptionTracks.Where(t => t.Captions != null))
-            track.Captions = track.Captions!.Distinct().OrderBy(c => c.At).ToList();
 
         return video;
     }
@@ -402,6 +396,9 @@ public sealed class Youtube
 
                 captionTrack.Captions = track.Captions
                     .Select(c => new Caption { At = Convert.ToInt32(c.Offset.TotalSeconds), Text = c.Text })
+                    /* Sanitize captions, making sure cached captions as well as downloaded
+                        are cleaned of duplicates and ordered by time. */
+                    .Distinct().OrderBy(c => c.At)
                     .ToList();
             }
             catch (Exception ex)

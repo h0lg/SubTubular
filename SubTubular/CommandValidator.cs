@@ -89,19 +89,24 @@ public static class CommandValidator
         List<Task> validations = new();
 
         if (command.Channels.HasAny()) validations.AddRange(
-            command.Channels!.Select(channel => RemoteValidateAsync(channel, youtube, dataStore, cancellation)));
+            command.Channels!.Select(channel => RemoteValidateAsync(channel, youtube, dataStore,
+                cancellation, command.ProgressReporter?.CreateVideoListProgress(channel))));
 
         if (command.Playlists.HasAny()) validations.AddRange(
-            command.Playlists!.Select(playlist => RemoteValidateAsync(playlist, youtube, dataStore, cancellation)));
+            command.Playlists!.Select(playlist => RemoteValidateAsync(playlist, youtube, dataStore,
+                cancellation, command.ProgressReporter?.CreateVideoListProgress(playlist))));
 
         if (command.Videos?.IsPrevalidated == true) validations.AddRange(
-            command.Videos!.Validated.Select(validationResult => RemoteValidateVideoAsync(validationResult, youtube, dataStore, cancellation)));
+            command.Videos!.Validated.Select(validationResult => RemoteValidateVideoAsync(validationResult, youtube, dataStore,
+                cancellation, command.ProgressReporter?.CreateVideoListProgress(command.Videos!))));
 
         await Task.WhenAll(validations);
     }
 
-    private static async Task RemoteValidateVideoAsync(CommandScope.ValidationResult validationResult, Youtube youtube, DataStore dataStore, CancellationToken cancellation)
+    private static async Task RemoteValidateVideoAsync(CommandScope.ValidationResult validationResult, Youtube youtube, DataStore dataStore,
+        CancellationToken cancellation, BatchProgressReporter.VideoListProgress? progress)
     {
+        progress?.Report(BatchProgress.Status.downloading);
         var video = await youtube.GetVideoAsync(validationResult.Id, cancellation);
         //validationResult.SetRemoteValidated();
         validationResult.Title = video.Title;
@@ -109,21 +114,34 @@ public static class CommandValidator
         validationResult.IsRemoteValidated = true;
     }
 
-    private static async Task RemoteValidateAsync(PlaylistScope scope, Youtube youtube, DataStore dataStore, CancellationToken cancellation)
+    private static async Task RemoteValidateAsync(PlaylistScope scope, Youtube youtube, DataStore dataStore,
+        CancellationToken cancellation, BatchProgressReporter.VideoListProgress? progress)
     {
-        var playlist = await youtube.Client.Playlists.GetAsync(scope.IdOrUrl, cancellation);
+        //progress?.Report(BatchProgress.Status.loading);
+        var playlist = await dataStore.GetAsync<Playlist>(scope.StorageKey); // get cached
+
+        if (playlist == null)
+        {
+            progress?.Report(BatchProgress.Status.downloading);
+            var playlistInfo = await youtube.Client.Playlists.GetAsync(scope.IdOrUrl, cancellation);
+            playlist = new Playlist { Title = playlistInfo.Title };
+        }
+
         //validationResult.SetRemoteValidated();
         scope.SingleValidated.Title = playlist.Title;
-        scope.Playlist = new Playlist { Title = playlist.Title };
+        scope.Playlist = playlist;
         scope.SingleValidated.IsRemoteValidated = true;
+        progress?.Report(BatchProgress.Status.validated);
+        await dataStore.SetAsync(scope.StorageKey, playlist); //TODO may be unnecessary here
     }
 
-    private static async Task RemoteValidateAsync(ChannelScope scope, Youtube youtube, DataStore dataStore, CancellationToken cancellation)
+    private static async Task RemoteValidateAsync(ChannelScope scope, Youtube youtube, DataStore dataStore,
+        CancellationToken cancellation, BatchProgressReporter.VideoListProgress? progress)
     {
         cancellation.ThrowIfCancellationRequested();
 
         // load cached info about which channel aliases map to which channel IDs and which channel IDs are accessible
-        var knownAliasMaps = await ChannelAliasMap.LoadList(dataStore) ?? new List<ChannelAliasMap>();
+        var knownAliasMaps = await ChannelAliasMap.LoadList(dataStore) ?? [];
 
         // remembers whether knownAliasMaps was changed across multiple calls of GetChannelIdMap
         var knownAliasMapsUpdated = false;
