@@ -10,7 +10,11 @@ public sealed class BatchProgress
         public Dictionary<string, Status>? Videos { get; set; }
     }
 
-    public enum Status { queued, loading, downloading, validated, indexing, searching, searched }
+    public enum Status
+    {
+        queued, loading, downloading, validated, indexing, searching, searched,
+        indexingAndSearching
+    }
 }
 
 internal class BatchProgressReporter(IProgress<BatchProgress> reporter, BatchProgress batchProgress)

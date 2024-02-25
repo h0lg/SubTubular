@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Lifti;
 using Lifti.Querying;
@@ -128,7 +129,7 @@ internal sealed class VideoIndex
         try { results = Index.Search(command.Query!); }
         catch (QueryParserException ex) { throw new InputException("Error parsing query from --for | -f parameter: " + ex.Message, ex); }
 
-        // make sure to only return results for the requested videos if specified; index may contain more
+        // make sure to only return results for the requested videos if specified; playlist or channel indexes may contain more
         var matches = results.Where(m => relevantVideos?.ContainsKey(m.Key) != false).ToList();
 
         Video[]? videosWithoutUploadDate = null;
@@ -149,6 +150,7 @@ internal sealed class VideoIndex
                 // get upload dates for videos that we don't know it of
                 if (matchesForVideosWithoutUploadDate.Length != 0)
                 {
+                    Debugger.Break(); // TODO when does this occur?
                     var getVideos = matchesForVideosWithoutUploadDate.Select(m => getVideoAsync(m.Key, cancellation)).ToArray();
                     await Task.WhenAll(getVideos).WithAggregateException();
                     videosWithoutUploadDate = getVideos.Select(t => t.Result).ToArray();

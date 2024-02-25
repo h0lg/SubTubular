@@ -106,12 +106,13 @@ public static class CommandValidator
     private static async Task RemoteValidateVideoAsync(CommandScope.ValidationResult validationResult, Youtube youtube, DataStore dataStore,
         CancellationToken cancellation, BatchProgressReporter.VideoListProgress? progress)
     {
-        progress?.Report(BatchProgress.Status.downloading);
-        var video = await youtube.GetVideoAsync(validationResult.Id, cancellation);
+        progress?.Report(validationResult.Id, BatchProgress.Status.downloading);
+        var video = await youtube.GetVideoAsync(validationResult.Id, cancellation, downloadCaptionTracksAndSave: false);
         //validationResult.SetRemoteValidated();
         validationResult.Title = video.Title;
         validationResult.Video = video;
         validationResult.IsRemoteValidated = true;
+        progress?.Report(validationResult.Id, BatchProgress.Status.validated);
     }
 
     private static async Task RemoteValidateAsync(PlaylistScope scope, Youtube youtube, DataStore dataStore,
@@ -129,7 +130,7 @@ public static class CommandValidator
 
         //validationResult.SetRemoteValidated();
         scope.SingleValidated.Title = playlist.Title;
-        scope.Playlist = playlist;
+        scope.SingleValidated.Playlist = playlist;
         scope.SingleValidated.IsRemoteValidated = true;
         progress?.Report(BatchProgress.Status.validated);
         await dataStore.SetAsync(scope.StorageKey, playlist); //TODO may be unnecessary here
@@ -149,6 +150,8 @@ public static class CommandValidator
         /*  generate tasks checking which of the validAliases are accessible
             (via knownAliasMaps cache or HTTP request) and execute them in parrallel */
         IEnumerable<object> wellStructuredAliases = scope.SingleValidated.WellStructuredAliases!;
+
+        progress?.Report(BatchProgress.Status.downloading);
         var (aliasMaps, maybeExceptions) = await ValueTasks.WhenAll<ChannelAliasMap>(wellStructuredAliases.Select(GetChannelAliasMap));
 
         // cache accessibility of channel IDs and aliases locally to avoid subsequent HTTP requests
@@ -182,9 +185,10 @@ public static class CommandValidator
         string id = identifiedMap.ChannelId!;
         //validationResult.SetRemoteValidated();
         scope.SingleValidated.Title = identifiedMap.Title;
-        scope.Playlist = new Playlist { Title = identifiedMap.Title! };
+        scope.SingleValidated.Playlist = new Playlist { Title = identifiedMap.Title! };
         scope.SingleValidated.Url = Youtube.GetChannelUrl((ChannelId)id);
         scope.SingleValidated.IsRemoteValidated = true;
+        progress?.Report(BatchProgress.Status.validated);
 
         async ValueTask<ChannelAliasMap> GetChannelAliasMap(object alias)
         {

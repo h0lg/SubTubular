@@ -22,6 +22,7 @@ public abstract class CommandScope
     internal void AddPrevalidated(string alias, object[] wellStructuredAliases) =>
         Validated.Add(new ValidationResult { Id = alias, WellStructuredAliases = wellStructuredAliases });
 
+    /// <summary>Reutrns all pre-validated or validated <see cref="ValidationResult.Id"/> depending on <see cref="IsValid"/>.</summary>
     internal string[] GetValidatedIds() => Validated.Select(v => v.Id).ToArray();
     internal string GetValidatedId() => GetValidatedIds().Single();
 
@@ -30,16 +31,25 @@ public abstract class CommandScope
 
     internal sealed class ValidationResult
     {
-        // pre-validation
+        // pre-validation, checking input syntax
         /// <summary>The validated identifier of the <see cref="CommandScope"/>.</summary>
         internal required string Id { get; set; }
         internal string? Url { get; set; }
+
+        /// <summary>Syntactically correct interpretations of <see cref="ChannelScope.Alias"/>
+        /// returned by <see cref="CommandValidator.PrevalidateChannelAlias(string)"/>.
+        /// For <see cref="ChannelScope"/>s only.</summary>
         internal object[]? WellStructuredAliases { get; set; }
 
-        // remote validation
+        // proper validation, including loading from YouTube if required.
         internal string? Title { get; set; }
-        internal Video? Video { get; set; }
         internal bool IsRemoteValidated { get; set; }
+
+        /// <summary>For <see cref="VideosScope"/>s only.</summary>
+        internal Video? Video { get; set; }
+
+        /// <summary>For <see cref="PlaylistLikeScope"/>s only.</summary>
+        internal Playlist? Playlist { get; set; }
     }
 }
 
@@ -54,7 +64,7 @@ public class VideosScope(IEnumerable<string> videos) : CommandScope
     /// <summary>Input video IDs or URLs.</summary>
     public IEnumerable<string> Videos { get; } = videos;
 
-    internal Video? Video { get; set; }
+    //internal Video? Video { get; set; }
 
     internal override string Identify()
     {
@@ -81,7 +91,6 @@ public abstract class PlaylistLikeScope(ushort top, float cacheHours) : CommandS
 
     internal override string Identify() => StorageKey;
     #endregion
-    internal Playlist? Playlist { get; set; }
 
     // public options
     public ushort Top { get; } = top;

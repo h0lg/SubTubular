@@ -6,10 +6,9 @@ using YoutubeExplode.Channels;
 using YoutubeExplode.Common;
 using YoutubeExplode.Exceptions;
 using YoutubeExplode.Playlists;
+using Pipe = System.Threading.Channels.Channel; // to avoid conflict with YoutubeExplode.Channels.Channel
 
 namespace SubTubular;
-
-using Pipe = System.Threading.Channels.Channel;
 
 public sealed class Youtube
 {
@@ -108,7 +107,7 @@ public sealed class Youtube
         CancellationToken cancellation, BatchProgressReporter.VideoListProgress? progress)
     {
         var storageKey = scope.StorageKey;
-        var playlist = scope.Playlist;
+        var playlist = scope.SingleValidated.Playlist;
 
         if (playlist == null //playlist cache is missing, outdated or lacking sufficient videos
             || playlist.Loaded < DateTime.UtcNow.AddHours(-Math.Abs(scope.CacheHours))
@@ -171,6 +170,7 @@ public sealed class Youtube
         Func<IEnumerable<Video>, Task>? updatePlaylistVideosUploaded = default)
     {
         cancellation.ThrowIfCancellationRequested();
+        progress?.Report(BatchProgress.Status.indexingAndSearching);
 
         /* limit channel capacity to avoid holding a lot of loaded but unprocessed videos in memory
             SingleReader because we're reading from it synchronously */
@@ -193,7 +193,11 @@ public sealed class Youtube
                     try
                     {
                         cancellation.ThrowIfCancellationRequested();
-                        var video = await GetVideoAsync(id, cancellation, progress);
+                        Video? video = command.Videos?.Validated.SingleOrDefault(v => v.Id == id)?.Video;
+
+                        if (video == null) video = await GetVideoAsync(id, cancellation, progress);
+                        else await DownloadCaptionTracksAndSaveAsync(video, cancellation);
+
                         await unIndexedVideos.Writer.WriteAsync(video);
                         progress?.Report(id, BatchProgress.Status.indexing);
                     }
@@ -212,9 +216,8 @@ public sealed class Youtube
 
         var uncommitted = new List<Video>(); // batch of loaded and indexed, but uncommited video index changes
 
-        // local getter preferring to reuse already loaded video from uncommitted bag for better performance
-        Func<string, CancellationToken, Task<Video>> getVideoAsync = async (videoId, cancellation)
-            => uncommitted.SingleOrDefault(v => v.Id == videoId) ?? await GetVideoAsync(videoId, cancellation, progress);
+        // local getter reusing already loaded video from uncommitted bag for better performance
+        Func<string, CancellationToken, Task<Video>> getVideoAsync = CreateVideoLookup(uncommitted);
 
         // read synchronously from the channel because we're writing to the same video index
         await foreach (var video in unIndexedVideos.Reader.ReadAllAsync())
@@ -259,7 +262,6 @@ public sealed class Youtube
         progress?.SetVideos(videoIds);
         var storageKey = Video.StorageKeyPrefix + videoIds.Order().Join(" ");
         var index = await videoIndexRepo.GetAsync(storageKey);
-        progress?.Report(BatchProgress.Status.searching);
 
         if (index == null)
         {
@@ -268,9 +270,14 @@ public sealed class Youtube
             await foreach (var result in SearchUnindexedVideos(command, videoIds, index, progress, cancellation))
                 yield return result;
         }
+        else
+        {
+            progress?.Report(BatchProgress.Status.searching);
+            Video[] videos = command.Videos!.Validated.Select(v => v.Video!).ToArray();
 
-        await foreach (var result in index.SearchAsync(command, CreateVideoLookup(progress), cancellation: cancellation))
-            yield return result;
+            await foreach (var result in index.SearchAsync(command, CreateVideoLookup(videos), cancellation: cancellation))
+                yield return result;
+        }
 
         progress?.Report(BatchProgress.Status.searched);
     }
@@ -340,7 +347,7 @@ public sealed class Youtube
     }
 
     internal async Task<Video> GetVideoAsync(string videoId, CancellationToken cancellation,
-        BatchProgressReporter.VideoListProgress? progress = null)
+        BatchProgressReporter.VideoListProgress? progress = null, bool downloadCaptionTracksAndSave = true)
     {
         cancellation.ThrowIfCancellationRequested();
         var storageKey = Video.StorageKeyPrefix + videoId;
@@ -355,12 +362,7 @@ public sealed class Youtube
                 var vid = await Client.Videos.GetAsync(videoId, cancellation);
                 video = MapVideo(vid);
                 video.UnIndexed = true; // to re-index it if it was already indexed
-
-                //TODO do this in another step
-                await foreach (var track in DownloadCaptionTracksAsync(videoId, cancellation))
-                    video.CaptionTracks.Add(track);
-
-                await dataStore.SetAsync(storageKey, video);
+                if (downloadCaptionTracksAndSave) await DownloadCaptionTracksAndSaveAsync(video, cancellation);
             }
             catch (HttpRequestException ex) when (ex.IsNotFound())
             { throw new InputException($"Video '{videoId}' could not be found.", ex); }
@@ -369,7 +371,15 @@ public sealed class Youtube
         return video;
     }
 
-    internal static Video MapVideo(YoutubeExplode.Videos.Video video) => new()
+    private async Task DownloadCaptionTracksAndSaveAsync(Video video, CancellationToken cancellation)
+    {
+        await foreach (var track in DownloadCaptionTracksAsync(video.Id, cancellation))
+            video.CaptionTracks.Add(track);
+
+        await dataStore.SetAsync(Video.StorageKeyPrefix + video.Id, video);
+    }
+
+    private static Video MapVideo(YoutubeExplode.Videos.Video video) => new()
     {
         Id = video.Id.Value,
         Title = video.Title,
@@ -411,8 +421,12 @@ public sealed class Youtube
         }
     }
 
+    /// <summary>Returns a video lookup that used the local <paramref name="videos"/> collection for better performance.</summary>
+    private Func<string, CancellationToken, Task<Video>> CreateVideoLookup(IEnumerable<Video> videos)
+        => (videoId, _cancellation) => Task.FromResult(videos.Single(v => v.Id == videoId));
+
     /// <summary>Returns a curried <see cref="GetVideoAsync(string, CancellationToken, BatchProgressReporter.VideoListProgress?)"/>
     /// with the <paramref name="progress"/> supplied.</summary>
     private Func<string, CancellationToken, Task<Video>> CreateVideoLookup(BatchProgressReporter.VideoListProgress? progress)
-        => (videoId, cancellation) => GetVideoAsync(videoId, cancellation, progress);
+        => async (videoId, cancellation) => await GetVideoAsync(videoId, cancellation, progress);
 }
