@@ -107,33 +107,24 @@ public static class CommandValidator
         CancellationToken cancellation, BatchProgressReporter.VideoListProgress? progress)
     {
         progress?.Report(validationResult.Id, BatchProgress.Status.downloading);
+        //TODO not saved here
         var video = await youtube.GetVideoAsync(validationResult.Id, cancellation, downloadCaptionTracksAndSave: false);
         //validationResult.SetRemoteValidated();
-        validationResult.Title = video.Title;
+        //validationResult.Title = video.Title;
         validationResult.Video = video;
-        validationResult.IsRemoteValidated = true;
+        //validationResult.IsRemoteValidated = true;
         progress?.Report(validationResult.Id, BatchProgress.Status.validated);
     }
 
     private static async Task RemoteValidateAsync(PlaylistScope scope, Youtube youtube, DataStore dataStore,
         CancellationToken cancellation, BatchProgressReporter.VideoListProgress? progress)
     {
-        //progress?.Report(BatchProgress.Status.loading);
-        var playlist = await dataStore.GetAsync<Playlist>(scope.StorageKey); // get cached
-
-        if (playlist == null)
-        {
-            progress?.Report(BatchProgress.Status.downloading);
-            var playlistInfo = await youtube.Client.Playlists.GetAsync(scope.IdOrUrl, cancellation);
-            playlist = new Playlist { Title = playlistInfo.Title };
-        }
-
         //validationResult.SetRemoteValidated();
-        scope.SingleValidated.Title = playlist.Title;
-        scope.SingleValidated.Playlist = playlist;
-        scope.SingleValidated.IsRemoteValidated = true;
+        //scope.SingleValidated.Title = playlist.Title;
+        //scope.SingleValidated.IsRemoteValidated = true;
+        //progress?.Report(BatchProgress.Status.loading);
+        scope.SingleValidated.Playlist = await youtube.GetPlaylistAsync(scope, cancellation, progress);
         progress?.Report(BatchProgress.Status.validated);
-        await dataStore.SetAsync(scope.StorageKey, playlist); //TODO may be unnecessary here
     }
 
     private static async Task RemoteValidateAsync(ChannelScope scope, Youtube youtube, DataStore dataStore,
@@ -184,12 +175,16 @@ public static class CommandValidator
         ChannelAliasMap identifiedMap = distinct.Single();
         string id = identifiedMap.ChannelId!;
         //validationResult.SetRemoteValidated();
-        scope.SingleValidated.Title = identifiedMap.Title;
+        //scope.SingleValidated.Title = identifiedMap.Title;
+        scope.SingleValidated.Id = id;
+        //TODO where to set the title from?
+        scope.SingleValidated.Playlist = await youtube.GetPlaylistAsync(scope, cancellation, progress);
         scope.SingleValidated.Playlist = new Playlist { Title = identifiedMap.Title! };
         scope.SingleValidated.Url = Youtube.GetChannelUrl((ChannelId)id);
-        scope.SingleValidated.IsRemoteValidated = true;
+        //scope.SingleValidated.IsRemoteValidated = true;
         progress?.Report(BatchProgress.Status.validated);
 
+        //refactor into get(channelid, Playlist)
         async ValueTask<ChannelAliasMap> GetChannelAliasMap(object alias)
         {
             var map = knownAliasMaps.ForAlias(alias);

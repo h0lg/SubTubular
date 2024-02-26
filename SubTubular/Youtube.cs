@@ -58,7 +58,7 @@ public sealed class Youtube
         var storageKey = scope.StorageKey;
         var index = await videoIndexRepo.GetAsync(storageKey);
         if (index == null) index = videoIndexRepo.Build(storageKey);
-        var playlist = await GetPlaylistAsync(scope, cancellation, progress);
+        var playlist = await RefreshPlaylistAsync(scope, cancellation, progress);
         var videoIds = playlist.Videos.Keys.Take(scope.Top).ToArray();
         progress?.SetVideos(videoIds);
         var indexedVideoIds = index.GetIndexed(videoIds);
@@ -103,64 +103,60 @@ public sealed class Youtube
         }
     }
 
-    private async Task<Playlist> GetPlaylistAsync(PlaylistLikeScope scope,
-        CancellationToken cancellation, BatchProgressReporter.VideoListProgress? progress)
+    internal async Task<Playlist?> GetPlaylistAsync(PlaylistScope scope, CancellationToken cancellation, BatchProgressReporter.VideoListProgress? progress)
     {
-        var storageKey = scope.StorageKey;
-        var playlist = scope.SingleValidated.Playlist;
+        var playlist = await dataStore.GetAsync<Playlist>(scope.StorageKey); // get cached
 
-        if (playlist == null //playlist cache is missing, outdated or lacking sufficient videos
-            || playlist.Loaded < DateTime.UtcNow.AddHours(-Math.Abs(scope.CacheHours))
-            || playlist.Videos.Count < scope.Top)
+        if (playlist == null)
         {
             progress?.Report(BatchProgress.Status.downloading);
-            if (playlist == null) playlist = new Playlist();
-
-            try
-            {
-                // load and update title and videos in playlist while keeping existing video info
-                var (title, videos) = GetTitleAndVideos(scope, cancellation);
-                var freshVideos = await videos.CollectAsync(scope.Top);
-                playlist.Title = await title;
-                playlist.Loaded = DateTime.UtcNow;
-
-                // use new order but append older entries; note that this leaves remotely deleted videos in the playlist
-                var freshKeys = freshVideos.Select(v => v.Id.Value).ToArray();
-
-                playlist.Videos = freshKeys.Concat(playlist.Videos.Keys.Except(freshKeys))
-                    .ToDictionary(id => id, id => playlist.Videos.TryGetValue(id, out var uploaded) ? uploaded : null);
-
-                await dataStore.SetAsync(storageKey, playlist);
-            }
-            /*  treat playlist identified by user input not being available as input error
-                and rethrow otherwise; the uploads playlist of a channel being unavailable is unexpected */
-            catch (PlaylistUnavailableException ex) when (scope is PlaylistScope playlistScope)
-            { throw new InputException($"Could not find {playlistScope.Identify()}.", ex); }
+            var playlistInfo = await Client.Playlists.GetAsync(scope.IdOrUrl, cancellation);
+            playlist = new Playlist { Title = playlistInfo.Title };
+            await dataStore.SetAsync(scope.StorageKey, playlist);
         }
 
         return playlist;
     }
 
-    private (Task<string> title, IAsyncEnumerable<PlaylistVideo> videos) GetTitleAndVideos(PlaylistLikeScope scope, CancellationToken cancellation)
+    private async Task<Playlist> RefreshPlaylistAsync(PlaylistLikeScope scope,
+        CancellationToken cancellation, BatchProgressReporter.VideoListProgress? progress)
     {
-        Func<Task<string>> getTitle;
-        IAsyncEnumerable<PlaylistVideo> videos;
+        var playlist = scope.SingleValidated.Playlist!;
 
-        if (scope is ChannelScope searchChannel)
-        {
-            var id = searchChannel.GetValidatedId();
-            getTitle = async () => (await Client.Channels.GetAsync(id, cancellation)).Title;
-            videos = Client.Channels.GetUploadsAsync(id, cancellation);
-        }
-        else if (scope is PlaylistScope searchPlaylist)
-        {
-            string id = searchPlaylist.IdOrUrl;
-            getTitle = async () => (await Client.Playlists.GetAsync(id, cancellation)).Title;
-            videos = Client.Playlists.GetVideosAsync(id, cancellation);
-        }
-        else throw new NotImplementedException($"Getting videos for the {scope.GetType()} is not implemented.");
+        // return fresh playlist with sufficient videos loaded
+        if (DateTime.UtcNow.AddHours(-Math.Abs(scope.CacheHours)) <= playlist.Loaded
+            && scope.Top <= playlist.Videos.Count) return playlist;
 
-        return (Task.Run(getTitle), videos);
+        // playlist cache is outdated or lacking sufficient videos
+        progress?.Report(BatchProgress.Status.downloading);
+
+        try
+        {
+            // load and update videos in playlist while keeping existing video info
+            var freshVideos = await GetVideos(scope, cancellation).CollectAsync(scope.Top);
+            playlist.Loaded = DateTime.UtcNow;
+
+            // use new order but append older entries; note that this leaves remotely deleted videos in the playlist
+            var freshKeys = freshVideos.Select(v => v.Id.Value).ToArray();
+
+            playlist.Videos = freshKeys.Concat(playlist.Videos.Keys.Except(freshKeys))
+                .ToDictionary(id => id, id => playlist.Videos.TryGetValue(id, out var uploaded) ? uploaded : null);
+
+            await dataStore.SetAsync(scope.StorageKey, playlist);
+        }
+        /*  treat playlist identified by user input not being available as input error
+            and rethrow otherwise; the uploads playlist of a channel being unavailable is unexpected */
+        catch (PlaylistUnavailableException ex) when (scope is PlaylistScope playlistScope)
+        { throw new InputException($"Could not find {playlistScope.Identify()}.", ex); }
+
+        return playlist;
+
+        IAsyncEnumerable<PlaylistVideo> GetVideos(PlaylistLikeScope scope, CancellationToken cancellation) => scope switch
+        {
+            ChannelScope searchChannel => Client.Channels.GetUploadsAsync(searchChannel.GetValidatedId(), cancellation),
+            PlaylistScope searchPlaylist => Client.Playlists.GetVideosAsync(searchPlaylist.IdOrUrl, cancellation),
+            _ => throw new NotImplementedException($"Getting videos for the {scope.GetType()} is not implemented.")
+        };
     }
 
     private async IAsyncEnumerable<VideoSearchResult> SearchUnindexedVideos(SearchCommand command,
@@ -227,6 +223,7 @@ public sealed class Youtube
             await index.AddAsync(video, cancellation);
             uncommitted.Add(video);
 
+            //TODO optimize to do this if we'd have to wait for an item using reader.TryRead
             // save batch of changes
             if (uncommitted.Count >= 5 // to prevent the batch from growing too big
                 || unIndexedVideos.Reader.Completion.IsCompleted // to save remaining changes
@@ -307,7 +304,7 @@ public sealed class Youtube
 
             return Task.Run(async () =>
             {
-                var playlist = await GetPlaylistAsync(scope, cancellation, listProgress);
+                var playlist = await RefreshPlaylistAsync(scope, cancellation, listProgress);
                 var videoIds = playlist.Videos.Keys.Take(scope.Top);
                 listProgress?.SetVideos(videoIds);
                 listProgress?.Report(BatchProgress.Status.searching);

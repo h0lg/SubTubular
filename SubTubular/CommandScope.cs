@@ -42,8 +42,8 @@ public abstract class CommandScope
         internal object[]? WellStructuredAliases { get; set; }
 
         // proper validation, including loading from YouTube if required.
-        internal string? Title { get; set; }
-        internal bool IsRemoteValidated { get; set; }
+        internal string? Title => Playlist?.Title ?? Video?.Title;
+        internal bool IsRemoteValidated => Playlist != null || Video != null;
 
         /// <summary>For <see cref="VideosScope"/>s only.</summary>
         internal Video? Video { get; set; }
