@@ -2,7 +2,7 @@
 
 public sealed class BatchProgress
 {
-    public required Dictionary<CommandScope, VideoList> VideoLists { get; set; }
+    public Dictionary<CommandScope, VideoList> VideoLists { get; set; } = [];
 
     public sealed class VideoList
     {
@@ -12,15 +12,18 @@ public sealed class BatchProgress
 
     public enum Status
     {
-        queued, loading, downloading, validated, indexing, searching, searched,
-        indexingAndSearching
+        queued, loading, downloading, validated, indexing, searching, indexingAndSearching, searched
     }
 }
 
 internal class BatchProgressReporter(IProgress<BatchProgress> reporter, BatchProgress batchProgress)
 {
     internal VideoListProgress CreateVideoListProgress(CommandScope scope)
-        => new(batchProgress.VideoLists[scope], new Progress<BatchProgress.VideoList>(listProgress =>
+    {
+        if (!batchProgress.VideoLists.TryGetValue(scope, out var videoList))
+            videoList = new BatchProgress.VideoList();
+
+        return new(videoList, new Progress<BatchProgress.VideoList>(listProgress =>
         {
             batchProgress.VideoLists[scope] = listProgress;
             reporter.Report(batchProgress);
@@ -28,6 +31,7 @@ internal class BatchProgressReporter(IProgress<BatchProgress> reporter, BatchPro
             //playlist.State = listProgress.State;
             //playlist.Videos = listProgress.Videos;
         }));
+    }
 
     internal class VideoListProgress(BatchProgress.VideoList videoList, IProgress<BatchProgress.VideoList> reporter)
     {

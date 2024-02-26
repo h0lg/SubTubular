@@ -17,8 +17,7 @@ public abstract class OutputCommand
 
     public void SetProgressReporter(IProgress<BatchProgress> progressReporter)
     {
-        var videoLists = GetValidScopes().ToDictionary(scope => scope, _ => new BatchProgress.VideoList());
-        ProgressReporter = new BatchProgressReporter(progressReporter, new BatchProgress() { VideoLists = videoLists });
+        ProgressReporter = new BatchProgressReporter(progressReporter, new BatchProgress());
     }
 
     public bool HasOutputPath(out string? outputPath)
