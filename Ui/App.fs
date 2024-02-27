@@ -431,6 +431,8 @@ module App =
     let view model =
         (Grid(coldefs = [Star], rowdefs = [Auto; Auto; Auto; Auto; Star]) {
 
+            // see https://usecasepod.github.io/posts/mvu-composition.html
+            // and https://github.com/TimLariviere/FabulousContacts/blob/0d5024c4bfc7a84f02c0788a03f63ff946084c0b/FabulousContacts/ContactsListPage.fs#L89C17-L89C31
             // search options
             (Grid(coldefs = [Auto; Star; Auto; Stars 2; Auto], rowdefs = [Auto]) {
                 ComboBox(Enum.GetValues<Scopes>(), fun scope -> ComboBoxItem(displayScope scope))
