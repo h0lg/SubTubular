@@ -24,8 +24,8 @@ module App =
     type OpenOutputOptions = nothing = 0 | file = 1 | folder = 2
 
     type SavedSettings = {
-        Top: float option
-        CacheHours: float option
+        //Top: float option
+        //CacheHours: float option
 
         OrderByScore: bool
         OrderDesc: bool
@@ -36,15 +36,20 @@ module App =
         OpenOutput: OpenOutputOptions
     }
 
-    type Model = {
-        NotificationManager: WindowNotificationManager
-
-        Scope: Scopes
+    type Scope = {
+        Type: Scopes
+        //TODO validate on losing focus
         Aliases: string
-        Query: string
 
         Top: float option
         CacheHours: float option
+    }
+
+    type Model = {
+        NotificationManager: WindowNotificationManager
+
+        Scopes: Scope list
+        Query: string
 
         OrderByScore: bool
         OrderDesc: bool
@@ -80,6 +85,7 @@ module App =
 
         | Search of bool
         | SearchResult of VideoSearchResult
+        | SearchProgress of BatchProgress
         | SearchCompleted
 
         | AttachedToVisualTreeChanged of VisualTreeAttachmentEventArgs
@@ -111,8 +117,8 @@ module App =
         let save model =
             async {
                 let settings = {
-                    Top = model.Top
-                    CacheHours = model.CacheHours
+                    //Top = model.Top
+                    //CacheHours = model.CacheHours
 
                     OrderByScore = model.OrderByScore
                     OrderDesc = model.OrderDesc
@@ -137,18 +143,23 @@ module App =
             | (false, true) -> [SearchCommand.OrderOptions.uploaded]
             | (false, false) -> [SearchCommand.OrderOptions.uploaded; SearchCommand.OrderOptions.asc]
 
-        let scope =
-            match model.Scope with
-            | Scopes.videos -> VideosScope(model.Aliases.Split [|' '|]) :> CommandScope
-            | Scopes.playlist -> PlaylistScope(model.Aliases, model.Top.Value |> uint16, model.CacheHours.Value |> float32)
-            | Scopes.channel -> ChannelScope(model.Aliases, model.Top.Value |> uint16, model.CacheHours.Value |> float32)
-            | _ -> failwith ("unknown scope " + model.Scope.ToString())
-
         let command = SearchCommand()
+        let getScopes scope = model.Scopes |> List.filter (fun s -> s.Type = scope && s.Aliases.IsNonWhiteSpace())
+
+        command.Channels <- getScopes Scopes.channel
+            |> List.map(fun scope -> ChannelScope(scope.Aliases, scope.Top.Value |> uint16, scope.CacheHours.Value |> float32))
+            |> List.toArray
+
+        command.Playlists <- getScopes Scopes.playlist
+            |> List.map(fun scope -> PlaylistScope(scope.Aliases, scope.Top.Value |> uint16, scope.CacheHours.Value |> float32))
+            |> List.toArray
+
+        let videos = getScopes Scopes.videos |> List.tryExactlyOne
+        if videos.IsSome then command.Videos <- VideosScope(videos.Value.Aliases.Split [|' '|])
+
         command.Query <- model.Query
         command.Padding <- model.Padding |> uint16
         command.OrderBy <- order
-        //command.Scope <- scope
         command.OutputHtml <- model.OutputHtml
         command.FileOutputPath <- model.OutputTo
 
@@ -159,26 +170,19 @@ module App =
 
         command
 
-    let private validateChannelScope (scope: CommandScope) youTube dataStore cancellation =
-        match scope with
-        | :? ChannelScope as channel ->
-            async {
-                return! CommandValidator.RemoteValidateChannelAsync(channel, youTube, dataStore, cancellation) |> Async.AwaitTask
-            }
-        | _ ->  async { return () }
-
     let private searchCmd model =
         fun dispatch ->
             async {
                 let command = mapToSearchCommand model
-                CommandValidator.ValidateSearchCommand command
                 let cacheFolder = Folder.GetPath Folders.cache
                 let dataStore = JsonFileDataStore cacheFolder
                 let youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
+                command.SetProgressReporter(Progress<BatchProgress>(fun progress -> SearchProgress progress |> dispatch))
+                CommandValidator.PrevalidateSearchCommand command
                 use cts = new CancellationTokenSource()
-                //do! validateChannelScope command.Scope youtube.Client dataStore cts.Token
+                do! CommandValidator.ValidateScopesAsync(command, youtube, dataStore, cts.Token) |> Async.AwaitTask
 
-                do! youtube.SearchAsync(command, null, cts.Token)
+                do! youtube.SearchAsync(command, cts.Token)
                     // see https://github.com/fsprojects/FSharp.Control.TaskSeq
                     |> TaskSeq.iter (fun result -> SearchResult result |> dispatch )
                     |> Async.AwaitTask
@@ -199,12 +203,12 @@ module App =
     let private saveOutput model =
         async {
             let command = mapToSearchCommand model
-            CommandValidator.ValidateSearchCommand command
+            CommandValidator.PrevalidateSearchCommand command
             let cacheFolder = Folder.GetPath Folders.cache
             let dataStore = JsonFileDataStore cacheFolder
             let youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
             use cts = new CancellationTokenSource()
-            //do! validateChannelScope command.Scope youtube.Client dataStore cts.Token
+            do! CommandValidator.ValidateScopesAsync(command, youtube, dataStore, cts.Token) |> Async.AwaitTask
 
             let writer = if model.OutputHtml then new HtmlOutputWriter(command) :> FileOutputWriter else new TextOutputWriter(command)
             writer.WriteHeader()
@@ -246,17 +250,20 @@ module App =
         dispatch(fun () -> FabApplication.Current.WindowNotificationManager.Show(Notification(message, message, NotificationType.Information, TimeSpan.FromSeconds 3)))
         Cmd.none
 
+    let private createScope scope aliases = { Type = scope; Aliases = aliases; Top = Some (float 25); CacheHours = Some (float 24) }
+
     let initModel = {
         NotificationManager = null
-
-        Scope = Scopes.channel
-        Aliases = ""
         Query = ""
 
-        Top = Some (float 25)
+        Scopes = [
+            createScope Scopes.channel ""
+            createScope Scopes.playlist ""
+            { Type = Scopes.videos; Aliases = ""; Top = None; CacheHours = None }
+        ]
+
         OrderByScore = true
         OrderDesc = true
-        CacheHours = Some (float 24)
 
         Padding = 69
         DisplayOutputOptions = false
@@ -273,12 +280,12 @@ module App =
 
     let update msg model =
         match msg with
-        | ScopeChanged args -> { model with Scope = args.AddedItems.Item 0 :?> Scopes }, Cmd.none
-        | AliasesUpdated txt -> { model with Aliases = txt }, Cmd.none
+        //| ScopeChanged args -> { model with Scope = args.AddedItems.Item 0 :?> Scopes }, Cmd.none
+        //| AliasesUpdated txt -> { model with Aliases = txt }, Cmd.none
         | QueryChanged txt -> { model with Query = txt }, Cmd.none
 
-        | TopChanged top -> { model with Top = top }, Settings.requestSave()
-        | CacheHoursChanged hours -> { model with CacheHours = hours }, Settings.requestSave()
+        //| TopChanged top -> { model with Top = top }, Settings.requestSave()
+        //| CacheHoursChanged hours -> { model with CacheHours = hours }, Settings.requestSave()
 
         | OrderByScoreChanged value -> { model with OrderByScore = value }, Settings.requestSave()
         | OrderDescChanged value -> { model with OrderDesc = value }, Settings.requestSave()
@@ -293,9 +300,8 @@ module App =
 
         | Search on -> { model with Searching = on; SearchResults = [] }, (if on then searchCmd model else Cmd.none)
         | SearchResult result -> { model with SearchResults = result::model.SearchResults }, Cmd.none
-        | SearchCompleted ->
-            
-            { model with Searching = false }, Notify "search completed" |> Cmd.ofMsg
+        //| SearchProgress progress -> { model with SearchResults = result::model.SearchResults }, Cmd.none
+        | SearchCompleted -> { model with Searching = false }, Notify "search completed" |> Cmd.ofMsg
 
         | AttachedToVisualTreeChanged args -> { model with NotificationManager = FabApplication.Current.WindowNotificationManager }, []
         | Notify message ->
@@ -309,8 +315,8 @@ module App =
         | SettingsSaved -> model, [] //Notify "settings saved" |> Cmd.ofMsg
         | SettingsLoaded s -> ({
             model with
-                Top = s.Top
-                CacheHours = s.CacheHours
+                //Top = s.Top
+                //CacheHours = s.CacheHours
                 OrderByScore = s.OrderByScore
                 OrderDesc = s.OrderDesc
                 Padding = s.Padding

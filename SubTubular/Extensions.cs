@@ -29,7 +29,7 @@ public static class StringExtensions
     internal static bool IsNullOrWhiteSpace(this string? input) => string.IsNullOrWhiteSpace(input);
 
     /// <summary>Determines whether <paramref name="input"/> NOT <see cref="string.IsNullOrWhiteSpace(string?)"/>.</summary>
-    internal static bool IsNonWhiteSpace(this string? input) => !string.IsNullOrWhiteSpace(input);
+    public static bool IsNonWhiteSpace(this string? input) => !string.IsNullOrWhiteSpace(input);
 
     /// <summary>Converts the first letters after word boundaries in <paramref name="input"/> to upper case.</summary>
     internal static string UpperCaseFirstLetters(this string input) => lowerCaseFirstLetters.Replace(input, match => match.Value.ToUpper());
