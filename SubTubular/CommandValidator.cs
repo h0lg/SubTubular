@@ -109,19 +109,13 @@ public static class CommandValidator
         progress?.Report(validationResult.Id, BatchProgress.Status.downloading);
         //TODO not saved here
         var video = await youtube.GetVideoAsync(validationResult.Id, cancellation, downloadCaptionTracksAndSave: false);
-        //validationResult.SetRemoteValidated();
-        //validationResult.Title = video.Title;
         validationResult.Video = video;
-        //validationResult.IsRemoteValidated = true;
         progress?.Report(validationResult.Id, BatchProgress.Status.validated);
     }
 
     private static async Task RemoteValidateAsync(PlaylistScope scope, Youtube youtube, DataStore dataStore,
         CancellationToken cancellation, BatchProgressReporter.VideoListProgress? progress)
     {
-        //validationResult.SetRemoteValidated();
-        //scope.SingleValidated.Title = playlist.Title;
-        //scope.SingleValidated.IsRemoteValidated = true;
         //progress?.Report(BatchProgress.Status.loading);
         scope.SingleValidated.Playlist = await youtube.GetPlaylistAsync(scope, cancellation, progress);
         progress?.Report(BatchProgress.Status.validated);
@@ -135,7 +129,7 @@ public static class CommandValidator
         // load cached info about which channel aliases map to which channel IDs and which channel IDs are accessible
         var knownAliasMaps = await ChannelAliasMap.LoadList(dataStore) ?? [];
 
-        // remembers whether knownAliasMaps was changed across multiple calls of GetChannelIdMap
+        // remembers whether knownAliasMaps was changed across multiple calls of GetChannelAliasMap
         var knownAliasMapsUpdated = false;
 
         /*  generate tasks checking which of the validAliases are accessible
@@ -166,22 +160,16 @@ public static class CommandValidator
             {
                 var validUrl = Youtube.GetChannelUrl(wellStructuredAliases.Single(id => id.GetType().Name == map.Type));
                 var channelUrl = Youtube.GetChannelUrl((ChannelId)map.ChannelId!);
-                return $"{validUrl} points to channel {map.Title} {channelUrl}";
+                return $"{validUrl} points to channel {channelUrl}";
             })
             .Join(Environment.NewLine)
             + Environment.NewLine + "Specify the unique channel ID or full handle URL, custom/slug URL or user URL to disambiguate the channel.");
         #endregion
 
-        ChannelAliasMap identifiedMap = distinct.Single();
-        string id = identifiedMap.ChannelId!;
-        //validationResult.SetRemoteValidated();
-        //scope.SingleValidated.Title = identifiedMap.Title;
+        string id = distinct.Single().ChannelId!;
         scope.SingleValidated.Id = id;
-        //TODO where to set the title from?
         scope.SingleValidated.Playlist = await youtube.GetPlaylistAsync(scope, cancellation, progress);
-        scope.SingleValidated.Playlist = new Playlist { Title = identifiedMap.Title! };
         scope.SingleValidated.Url = Youtube.GetChannelUrl((ChannelId)id);
-        //scope.SingleValidated.IsRemoteValidated = true;
         progress?.Report(BatchProgress.Status.validated);
 
         //refactor into get(channelid, Playlist)
@@ -203,7 +191,6 @@ public static class CommandValidator
             {
                 var channel = await loadChannel;
                 map.ChannelId = channel.Id;
-                map.Title = channel.Title;
             }
             catch (HttpRequestException ex) when (ex.IsNotFound()) { map.ChannelId = null; }
             // otherwise rethrow to raise assumed transient error

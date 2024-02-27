@@ -111,7 +111,7 @@ public sealed class Caption
 }
 
 /// <summary>Maps valid channel aliases by <see cref="Type"/> and <see cref="Value"/>
-/// to an accessible <see cref="ChannelId"/> and <see cref="Title"/> or null if none was found.</summary>
+/// to an accessible <see cref="ChannelId"/> or null if none was found.</summary>
 [Serializable]
 public sealed class ChannelAliasMap
 {
@@ -120,7 +120,6 @@ public sealed class ChannelAliasMap
     public required string Type { get; set; }
     public required string Value { get; set; }
     public string? ChannelId { get; set; }
-    public string? Title { get; set; }
 
     internal static (string, string) GetTypeAndValue(object alias) => (alias.GetType().Name, alias.ToString()!);
 
