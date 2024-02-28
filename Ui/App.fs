@@ -253,8 +253,9 @@ module App =
         Cmd.none
 
     let private createScope scope aliases =
-        let top = if scope = Scopes.videos then None else Some (float 25)
-        let cacheHours = if scope = Scopes.videos then None else Some (float 24)
+        let isVideos = scope = Scopes.videos
+        let top = if isVideos then None else Some (float 25)
+        let cacheHours = if isVideos then None else Some (float 24)
         { Type = scope; Aliases = aliases; Top = top; CacheHours = cacheHours; DisplaysSettings = false }
 
     let initModel = {
