@@ -65,12 +65,12 @@ module App =
     }
 
     type Msg =
-        | ScopeChanged of SelectionChangedEventArgs
-        | AliasesUpdated of string
         | QueryChanged of string
+        | AddScope of Scopes
+        | AliasesUpdated of Scope * string
 
-        | TopChanged of float option
-        | CacheHoursChanged of float option
+        | TopChanged of Scope * float option
+        | CacheHoursChanged of Scope * float option
 
         | OrderByScoreChanged of bool
         | OrderDescChanged of bool
@@ -250,7 +250,10 @@ module App =
         dispatch(fun () -> FabApplication.Current.WindowNotificationManager.Show(Notification(message, message, NotificationType.Information, TimeSpan.FromSeconds 3)))
         Cmd.none
 
-    let private createScope scope aliases = { Type = scope; Aliases = aliases; Top = Some (float 25); CacheHours = Some (float 24) }
+    let private createScope scope aliases =
+        let top = if scope = Scopes.videos then None else Some (float 25)
+        let cacheHours = if scope = Scopes.videos then None else Some (float 24)
+        { Type = scope; Aliases = aliases; Top = top; CacheHours = cacheHours }
 
     let initModel = {
         NotificationManager = null
@@ -258,8 +261,6 @@ module App =
 
         Scopes = [
             createScope Scopes.channel ""
-            createScope Scopes.playlist ""
-            { Type = Scopes.videos; Aliases = ""; Top = None; CacheHours = None }
         ]
 
         OrderByScore = true
@@ -280,12 +281,20 @@ module App =
 
     let update msg model =
         match msg with
-        //| ScopeChanged args -> { model with Scope = args.AddedItems.Item 0 :?> Scopes }, Cmd.none
-        //| AliasesUpdated txt -> { model with Aliases = txt }, Cmd.none
         | QueryChanged txt -> { model with Query = txt }, Cmd.none
+        | AddScope scope -> { model with Scopes = (createScope scope "")::model.Scopes }, Cmd.none
 
-        //| TopChanged top -> { model with Top = top }, Settings.requestSave()
-        //| CacheHoursChanged hours -> { model with CacheHours = hours }, Settings.requestSave()
+        | AliasesUpdated (scope, aliases) ->
+            let scopes = model.Scopes |> List.map(fun s -> if s = scope then { s with Aliases = aliases } else s)
+            { model with Scopes = scopes }, Cmd.none
+
+        | TopChanged (scope, top) ->
+            let scopes = model.Scopes |> List.map(fun s -> if s = scope then { s with Top = top } else s)
+            { model with Scopes = scopes }, Settings.requestSave()
+
+        | CacheHoursChanged (scope, hours) ->
+            let scopes = model.Scopes |> List.map(fun s -> if s = scope then { s with CacheHours = hours } else s)
+            { model with Scopes = scopes }, Settings.requestSave()
 
         | OrderByScoreChanged value -> { model with OrderByScore = value }, Settings.requestSave()
         | OrderDescChanged value -> { model with OrderDesc = value }, Settings.requestSave()
@@ -300,7 +309,9 @@ module App =
 
         | Search on -> { model with Searching = on; SearchResults = [] }, (if on then searchCmd model else Cmd.none)
         | SearchResult result -> { model with SearchResults = result::model.SearchResults }, Cmd.none
-        //| SearchProgress progress -> { model with SearchResults = result::model.SearchResults }, Cmd.none
+        | SearchProgress progress ->
+            
+            model, Cmd.none
         | SearchCompleted -> { model with Searching = false }, Notify "search completed" |> Cmd.ofMsg
 
         | AttachedToVisualTreeChanged args -> { model with NotificationManager = FabApplication.Current.WindowNotificationManager }, []
@@ -435,13 +446,6 @@ module App =
             // and https://github.com/TimLariviere/FabulousContacts/blob/0d5024c4bfc7a84f02c0788a03f63ff946084c0b/FabulousContacts/ContactsListPage.fs#L89C17-L89C31
             // search options
             (Grid(coldefs = [Auto; Star; Auto; Stars 2; Auto], rowdefs = [Auto]) {
-                ComboBox(Enum.GetValues<Scopes>(), fun scope -> ComboBoxItem(displayScope scope))
-                    .selectedItem(model.Scope).onSelectionChanged(ScopeChanged)
-                TextBox(model.Aliases, AliasesUpdated)
-                    .watermark("by " + (if model.Scope = Scopes.videos then "space-separated IDs or URLs"
-                        elif model.Scope = Scopes.playlist then "ID or URL"
-                        else "handle, slug, user name, ID or URL"))
-                    .gridColumn(1)
                 TextBlock("for")
                     .margin(10, 0).centerVertical().gridColumn(2)
                 TextBox(model.Query, QueryChanged)
@@ -452,30 +456,51 @@ module App =
                     .gridColumn(4)
             }).trailingMargin()
 
-            // playlist options
-            (Grid(coldefs = [Auto; Star; Star], rowdefs = [Auto]) {
-                Label "in playlists and channels"
+            // scopes
+            ScrollViewer((VStack() {
+                HWrap(){
+                    Label "in"
 
-                (HStack(5) {
-                    Label "search top"
-                    NumericUpDown(0, float UInt16.MaxValue, model.Top, TopChanged)
-                        .formatString("F0")
-                        .tip(ToolTip("number of videos to search"))
-                    Label "videos"
-                }).gridColumn(1).centerHorizontal()
+                    for scope in model.Scopes do
+                        Label(displayScope scope.Type)
 
-                (HStack(5) {
-                    Label "and look for new ones after"
-                    NumericUpDown(0, float UInt16.MaxValue, model.CacheHours, CacheHoursChanged)
-                        .formatString("F0")
-                        .tip(ToolTip("The info about which videos are in a playlist or channel is cached locally to speed up future searches."
-                            + " This controls after how many hours such a cache is considered stale."
-                            + Environment.NewLine + Environment.NewLine
-                            + "Note that this doesn't concern the video data caches,"
-                            + " which are not expected to change often and are stored until you explicitly clear them."))
-                    Label "hours"
-                }).gridColumn(2).centerHorizontal()
-            }).gridRow(1).trailingMargin()
+                        TextBox(scope.Aliases, fun value -> AliasesUpdated(scope, value))
+                            .watermark("by " + (if scope.Type = Scopes.videos then "space-separated IDs or URLs"
+                                elif scope.Type = Scopes.playlist then "ID or URL"
+                                else "handle, slug, user name, ID or URL"))
+
+                        (HStack(5) {
+                            Label "search top"
+                            NumericUpDown(0, float UInt16.MaxValue, scope.Top, fun value -> TopChanged(scope, value))
+                                .formatString("F0")
+                                .tip(ToolTip("number of videos to search"))
+                            Label "videos"
+                        }).centerHorizontal()
+
+                        (HStack(5) {
+                            Label "and look for new ones after"
+                            NumericUpDown(0, float UInt16.MaxValue, scope.CacheHours, fun value -> CacheHoursChanged(scope, value))
+                                .formatString("F0")
+                                .tip(ToolTip("The info about which videos are in a playlist or channel is cached locally to speed up future searches."
+                                    + " This controls after how many hours such a cache is considered stale."
+                                    + Environment.NewLine + Environment.NewLine
+                                    + "Note that this doesn't concern the video data caches,"
+                                    + " which are not expected to change often and are stored until you explicitly clear them."))
+                            Label "hours"
+                        }).centerHorizontal()
+                }
+
+                HStack(5){
+                    Label "add"
+
+                    let hasVideosScope = model.Scopes |> List.exists(fun scope -> scope.Type = Scopes.videos)
+                    let allScopes = Enum.GetValues<Scopes>()
+                    let addable = if hasVideosScope then allScopes |> Array.except [Scopes.videos] else allScopes
+
+                    for scope in addable do
+                        Button(displayScope scope, AddScope scope)
+                }
+            })).gridRow(1).trailingMargin()
 
             // result options
             (Grid(coldefs = [Auto; Star; Star; Auto], rowdefs = [Auto]) {
