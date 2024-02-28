@@ -41,6 +41,7 @@ module App =
         //TODO validate on losing focus
         Aliases: string
 
+        DisplaysSettings: bool
         Top: float option
         CacheHours: float option
     }
@@ -66,9 +67,11 @@ module App =
 
     type Msg =
         | QueryChanged of string
-        | AddScope of Scopes
-        | AliasesUpdated of Scope * string
 
+        | AddScope of Scopes
+        | RemoveScope of Scope
+        | AliasesUpdated of Scope * string
+        | DisplaySettingsChanged of Scope * bool
         | TopChanged of Scope * float option
         | CacheHoursChanged of Scope * float option
 
@@ -244,7 +247,6 @@ module App =
             Avalonia.Threading.Dispatcher.UIThread.Invoke(action)
         else action() // run action on current thread
 
-
     let private notify message =
         //notificationManager.Value.Show(Notification(message, message, NotificationType.Information, TimeSpan.FromSeconds 3))
         dispatch(fun () -> FabApplication.Current.WindowNotificationManager.Show(Notification(message, message, NotificationType.Information, TimeSpan.FromSeconds 3)))
@@ -253,7 +255,7 @@ module App =
     let private createScope scope aliases =
         let top = if scope = Scopes.videos then None else Some (float 25)
         let cacheHours = if scope = Scopes.videos then None else Some (float 24)
-        { Type = scope; Aliases = aliases; Top = top; CacheHours = cacheHours }
+        { Type = scope; Aliases = aliases; Top = top; CacheHours = cacheHours; DisplaysSettings = false }
 
     let initModel = {
         NotificationManager = null
@@ -282,7 +284,12 @@ module App =
     let update msg model =
         match msg with
         | QueryChanged txt -> { model with Query = txt }, Cmd.none
-        | AddScope scope -> { model with Scopes = (createScope scope "")::model.Scopes }, Cmd.none
+        | AddScope scope -> { model with Scopes = model.Scopes@[createScope scope ""] }, Cmd.none
+        | RemoveScope scope -> { model with Scopes = model.Scopes |> List.except [scope] }, Cmd.none
+
+        | DisplaySettingsChanged (scope, display) ->
+            let scopes = model.Scopes |> List.map(fun s -> if s = scope then { s with DisplaysSettings = display } else s)
+            { model with Scopes = scopes }, Cmd.none
 
         | AliasesUpdated (scope, aliases) ->
             let scopes = model.Scopes |> List.map(fun s -> if s = scope then { s with Aliases = aliases } else s)
@@ -290,11 +297,11 @@ module App =
 
         | TopChanged (scope, top) ->
             let scopes = model.Scopes |> List.map(fun s -> if s = scope then { s with Top = top } else s)
-            { model with Scopes = scopes }, Settings.requestSave()
+            { model with Scopes = scopes }, Cmd.none
 
         | CacheHoursChanged (scope, hours) ->
             let scopes = model.Scopes |> List.map(fun s -> if s = scope then { s with CacheHours = hours } else s)
-            { model with Scopes = scopes }, Settings.requestSave()
+            { model with Scopes = scopes }, Cmd.none
 
         | OrderByScoreChanged value -> { model with OrderByScore = value }, Settings.requestSave()
         | OrderDescChanged value -> { model with OrderDesc = value }, Settings.requestSave()
@@ -475,7 +482,7 @@ module App =
                                 .formatString("F0")
                                 .tip(ToolTip("number of videos to search"))
                             Label "videos"
-                        }).centerHorizontal()
+                        }).centerHorizontal().isVisible(scope.DisplaysSettings)
 
                         (HStack(5) {
                             Label "and look for new ones after"
@@ -487,7 +494,12 @@ module App =
                                     + "Note that this doesn't concern the video data caches,"
                                     + " which are not expected to change often and are stored until you explicitly clear them."))
                             Label "hours"
-                        }).centerHorizontal()
+                        }).centerHorizontal().isVisible(scope.DisplaysSettings)
+
+                        ToggleButton("⚙", scope.DisplaysSettings, fun display -> DisplaySettingsChanged(scope, display))
+                            .tip(ToolTip("display settings"))
+
+                        Button("❌", RemoveScope scope).tip(ToolTip("remove this scope"))
                 }
 
                 HStack(5){
