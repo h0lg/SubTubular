@@ -29,12 +29,12 @@ public abstract class FileDataStore : DataStore
     protected abstract ValueTask<T?> DeserializeFrom<T>(string key, string path);
     protected abstract Task SerializeToPath<T>(T value, string path);
 
-    public ValueTask<T?> GetAsync<T>(string key)
+    public async ValueTask<T?> GetAsync<T>(string key)
     {
         var path = GetPath(key);
         if (!File.Exists(path)) return default;
 
-        try { return DeserializeFrom<T>(key, path); }
+        try { return await DeserializeFrom<T>(key, path); }
         catch
         {
             File.Delete(path); // delete corrupted or incorrectly formatted cache
