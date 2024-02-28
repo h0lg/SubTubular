@@ -109,8 +109,7 @@ public static class CommandValidator
     {
         progress?.Report(validationResult.Id, BatchProgress.Status.downloading);
         //TODO not saved here
-        var video = await youtube.GetVideoAsync(validationResult.Id, cancellation, downloadCaptionTracksAndSave: false);
-        validationResult.Video = video;
+        validationResult.Video = await youtube.GetVideoAsync(validationResult.Id, cancellation, downloadCaptionTracksAndSave: false);
         progress?.Report(validationResult.Id, BatchProgress.Status.validated);
     }
 
