@@ -1,4 +1,5 @@
-﻿using SubTubular.Extensions;
+﻿using System.Diagnostics;
+using SubTubular.Extensions;
 using YoutubeExplode.Channels;
 using YoutubeExplode.Playlists;
 using YoutubeExplode.Videos;
@@ -126,8 +127,10 @@ public static class CommandValidator
     {
         cancellation.ThrowIfCancellationRequested();
 
+        Debug.WriteLine("######### ChannelAliasMap.LoadList for " + scope.Identify());
         // load cached info about which channel aliases map to which channel IDs and which channel IDs are accessible
         var knownAliasMaps = await ChannelAliasMap.LoadList(dataStore) ?? [];
+        Debug.WriteLine("######### ChannelAliasMap.LoadList done for " + scope.Identify());
 
         // remembers whether knownAliasMaps was changed across multiple calls of GetChannelAliasMap
         var knownAliasMapsUpdated = false;
@@ -140,7 +143,12 @@ public static class CommandValidator
         var (aliasMaps, maybeExceptions) = await ValueTasks.WhenAll<ChannelAliasMap>(wellStructuredAliases.Select(GetChannelAliasMap));
 
         // cache accessibility of channel IDs and aliases locally to avoid subsequent HTTP requests
-        if (knownAliasMapsUpdated) await ChannelAliasMap.SaveList(knownAliasMaps, dataStore);
+        if (knownAliasMapsUpdated)
+        {
+            Debug.WriteLine("######### ChannelAliasMap.SaveList for " + scope.Identify());
+            await ChannelAliasMap.SaveList(knownAliasMaps, dataStore);
+            Debug.WriteLine("######### ChannelAliasMap.SaveList done for " + scope.Identify());
+        }
 
         #region rethrow unexpected exceptions
         var exceptions = maybeExceptions.Where(ex => ex is not null).ToArray();

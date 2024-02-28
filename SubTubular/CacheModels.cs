@@ -126,6 +126,6 @@ public sealed class ChannelAliasMap
     internal static async Task<List<ChannelAliasMap>> LoadList(DataStore dataStore)
         => await dataStore.GetAsync<List<ChannelAliasMap>>(StorageKey) ?? [];
 
-    internal static Task SaveList(List<ChannelAliasMap> maps, DataStore dataStore)
-        => dataStore.SetAsync(StorageKey, maps);
+    internal static async Task SaveList(List<ChannelAliasMap> maps, DataStore dataStore)
+        => await dataStore.SetAsync(StorageKey, maps);
 }
