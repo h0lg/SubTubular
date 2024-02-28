@@ -541,7 +541,7 @@ module App =
                 }).gridColumn(2).centerHorizontal()
 
                 ToggleButton("to file 📄", model.DisplayOutputOptions, DisplayOutputOptionsChanged).gridColumn(3)
-            }).gridRow(2).trailingMargin()
+            }).gridRow(2).trailingMargin().isVisible(not model.SearchResults.IsEmpty)
 
             // output options
             (Grid(coldefs = [Auto; Auto; Auto; Star; Auto; Auto; Auto], rowdefs = [Auto]) {
