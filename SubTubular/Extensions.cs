@@ -146,7 +146,7 @@ public static class AsyncEnumerableExtensions
         }).ToList();
 
         // hook up writer completion before starting to read to ensure the reader knows when it's done
-        var completion = Task.WhenAll(productionLines).ContinueWith(_ => products.Writer.Complete()).WithAggregateException();
+        var completion = Task.WhenAll(productionLines).ContinueWith(_ => products.Writer.Complete());
 
         // Read from product channel and yield each product
         await foreach (var product in products.Reader.ReadAllAsync(cancellation)) yield return product;
@@ -196,7 +196,7 @@ internal static class HttpRequestExceptionExtensions
 
 internal static class ChannelAliasMapExtensions
 {
-    internal static ChannelAliasMap? ForAlias(this List<ChannelAliasMap> maps, object alias)
+    internal static ChannelAliasMap? ForAlias(this ISet<ChannelAliasMap> maps, object alias)
     {
         var (type, value) = ChannelAliasMap.GetTypeAndValue(alias);
 

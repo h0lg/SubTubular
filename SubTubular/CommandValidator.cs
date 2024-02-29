@@ -86,8 +86,6 @@ public static class CommandValidator
 
     public static async Task ValidateScopesAsync(OutputCommand command, Youtube youtube, DataStore dataStore, CancellationToken cancellation)
     {
-        List<Task> validations = new();
-
         if (command.Channels.HasAny())
         {
             // load cached info about which channel aliases map to which channel IDs and which channel IDs are accessible
@@ -100,7 +98,7 @@ public static class CommandValidator
 
                 string? error = null;
 
-                if (discoveredMaps.Length > 1) error = $"Channel alias '{channel.Alias}' is ambiguous:"
+                if (discoveredMaps.Count() > 1) error = $"Channel alias '{channel.Alias}' is ambiguous:"
                     + Environment.NewLine + discoveredMaps.Select(map =>
                     {
                         var validUrl = Youtube.GetChannelUrl(channel.SingleValidated.WellStructuredAliases!.Single(id => id.GetType().Name == map.Type));
@@ -113,14 +111,20 @@ public static class CommandValidator
                 return (discoveredMaps, error);
             });
 
-            var channelsValidated = Task.WhenAll(channelValidations).ContinueWith(async results =>
-            {
-                knownAliasMaps.AddRange(results.Result.SelectMany(pair => pair.discoveredMaps).Distinct());
-                await ChannelAliasMap.SaveList(knownAliasMaps, dataStore);
-            }).WithAggregateException();
+            var results = await Task.WhenAll(channelValidations);
+            var discoveredMaps = results.SelectMany(pair => pair.discoveredMaps).Distinct();
 
-            validations.Add(channelsValidated);
+            if (discoveredMaps.Any())
+            {
+                foreach (var map in discoveredMaps) knownAliasMaps.Add(map);
+                await ChannelAliasMap.SaveList(knownAliasMaps, dataStore);
+            }
+
+            var errors = results.Select(pair => pair.error).WithValue();
+            if (errors.Any()) throw new InputException(errors.Join(Environment.NewLine));
         }
+
+        List<Task> validations = new();
 
         if (command.Playlists.HasAny()) validations.AddRange(
             command.Playlists!.Select(playlist => RemoteValidateAsync(playlist, youtube, dataStore,
@@ -130,7 +134,7 @@ public static class CommandValidator
             command.Videos!.Validated.Select(validationResult => RemoteValidateVideoAsync(validationResult, youtube, dataStore,
                 cancellation, command.ProgressReporter?.CreateVideoListProgress(command.Videos!))));
 
-        await Task.WhenAll(validations).WithAggregateException();
+        await Task.WhenAll(validations);
     }
 
     private static async Task RemoteValidateVideoAsync(CommandScope.ValidationResult validationResult, Youtube youtube, DataStore dataStore,
@@ -150,14 +154,14 @@ public static class CommandValidator
         progress?.Report(BatchProgress.Status.validated);
     }
 
-    private static async Task<ChannelAliasMap[]> RemoteValidateAsync(ChannelScope channel, List<ChannelAliasMap> knownAliasMaps, Youtube youtube, DataStore dataStore,
+    private static async Task<IEnumerable<ChannelAliasMap>> RemoteValidateAsync(ChannelScope channel, HashSet<ChannelAliasMap> knownAliasMaps, Youtube youtube, DataStore dataStore,
         CancellationToken cancellation, BatchProgressReporter.VideoListProgress? progress)
     {
         cancellation.ThrowIfCancellationRequested();
 
         /*  generate tasks checking which of the validAliases are accessible
             (via knownAliasMaps cache or HTTP request) and execute them in parrallel */
-        var (aliasMaps, maybeExceptions) = await ValueTasks.WhenAll<ChannelAliasMap>(channel.SingleValidated.WellStructuredAliases!.Select(GetChannelAliasMap));
+        var (aliasMaps, maybeExceptions) = await ValueTasks.WhenAll(channel.SingleValidated.WellStructuredAliases!.Select(GetChannelAliasMap));
 
         #region rethrow unexpected exceptions
         var exceptions = maybeExceptions.Where(ex => ex is not null).ToArray();
@@ -166,26 +170,29 @@ public static class CommandValidator
             $"Unexpected errors identifying channel '{channel.Alias}'.", exceptions);
         #endregion
 
-        #region throw input exceptions if Alias matches none or multiple accessible channels
-        var accessibleMaps = aliasMaps.Where(map => map.ChannelId != null).ToArray();
+        #region throw input exceptions if Alias matches no accessible channels
+        var accessibleMaps = aliasMaps.Where(map => map.map.ChannelId != null).ToArray();
         if (accessibleMaps.Length == 0) throw new InputException($"Channel '{channel.Alias}' could not be found.");
-
-        var distinct = accessibleMaps.DistinctBy(map => map.ChannelId).ToArray();
-        if (distinct.Length > 0) return distinct;
         #endregion
 
-        string id = distinct.Single().ChannelId!;
-        channel.SingleValidated.Id = id;
-        channel.SingleValidated.Playlist = await youtube.GetPlaylistAsync(channel, cancellation, progress);
-        channel.SingleValidated.Url = Youtube.GetChannelUrl((ChannelId)id);
-        progress?.Report(BatchProgress.Status.validated);
-        return distinct;
+        var distinct = accessibleMaps.DistinctBy(map => map.map.ChannelId).ToArray();
+
+        if (distinct.Length <= 1)
+        {
+            string id = distinct.Single().map.ChannelId!;
+            channel.SingleValidated.Id = id;
+            channel.SingleValidated.Playlist = await youtube.GetPlaylistAsync(channel, cancellation, progress);
+            channel.SingleValidated.Url = Youtube.GetChannelUrl((ChannelId)id);
+            progress?.Report(BatchProgress.Status.validated);
+        }
+
+        return distinct.Where(map => map.isNew).Select(map => map.map);
 
         //refactor into get(channelid, Playlist)
-        async ValueTask<ChannelAliasMap> GetChannelAliasMap(object alias)
+        async ValueTask<(ChannelAliasMap map, bool isNew)> GetChannelAliasMap(object alias)
         {
             var map = knownAliasMaps.ForAlias(alias);
-            if (map != null) return map; // use cached info
+            if (map != null) return (map, false); // use cached info
 
             var loadChannel = alias is ChannelHandle handle ? youtube.Client.Channels.GetByHandleAsync(handle, cancellation)
                 : alias is ChannelSlug slug ? youtube.Client.Channels.GetBySlugAsync(slug, cancellation)
@@ -205,7 +212,7 @@ public static class CommandValidator
             catch (HttpRequestException ex) when (ex.IsNotFound()) { map.ChannelId = null; }
             // otherwise rethrow to raise assumed transient error
 
-            return map;
+            return (map, true);
         }
     }
 }
