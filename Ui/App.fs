@@ -187,7 +187,7 @@ module App =
 
                 do! youtube.SearchAsync(command, cts.Token)
                     // see https://github.com/fsprojects/FSharp.Control.TaskSeq
-                    |> TaskSeq.iter (fun result -> SearchResult result |> dispatch )
+                    |> TaskSeq.iter (fun result -> SearchResult result |> dispatch)
                     |> Async.AwaitTask
 
                 dispatch SearchCompleted

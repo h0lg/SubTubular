@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using SubTubular.Extensions;
+﻿using SubTubular.Extensions;
 using YoutubeExplode.Channels;
 using YoutubeExplode.Playlists;
 using YoutubeExplode.Videos;
@@ -89,9 +88,39 @@ public static class CommandValidator
     {
         List<Task> validations = new();
 
-        if (command.Channels.HasAny()) validations.AddRange(
-            command.Channels!.Select(channel => RemoteValidateAsync(channel, youtube, dataStore,
-                cancellation, command.ProgressReporter?.CreateVideoListProgress(channel))));
+        if (command.Channels.HasAny())
+        {
+            // load cached info about which channel aliases map to which channel IDs and which channel IDs are accessible
+            var knownAliasMaps = await ChannelAliasMap.LoadList(dataStore) ?? [];
+
+            var channelValidations = command.Channels!.Select(async channel =>
+            {
+                var discoveredMaps = await RemoteValidateAsync(channel, knownAliasMaps, youtube, dataStore,
+                    cancellation, command.ProgressReporter?.CreateVideoListProgress(channel));
+
+                string? error = null;
+
+                if (discoveredMaps.Length > 1) error = $"Channel alias '{channel.Alias}' is ambiguous:"
+                    + Environment.NewLine + discoveredMaps.Select(map =>
+                    {
+                        var validUrl = Youtube.GetChannelUrl(channel.SingleValidated.WellStructuredAliases!.Single(id => id.GetType().Name == map.Type));
+                        var channelUrl = Youtube.GetChannelUrl((ChannelId)map.ChannelId!);
+                        return $"{validUrl} points to channel {channelUrl}";
+                    })
+                    .Join(Environment.NewLine)
+                    + Environment.NewLine + "Specify the unique channel ID or full handle URL, custom/slug URL or user URL to disambiguate the channel.";
+
+                return (discoveredMaps, error);
+            });
+
+            var channelsValidated = Task.WhenAll(channelValidations).ContinueWith(async results =>
+            {
+                knownAliasMaps.AddRange(results.Result.SelectMany(pair => pair.discoveredMaps).Distinct());
+                await ChannelAliasMap.SaveList(knownAliasMaps, dataStore);
+            }).WithAggregateException();
+
+            validations.Add(channelsValidated);
+        }
 
         if (command.Playlists.HasAny()) validations.AddRange(
             command.Playlists!.Select(playlist => RemoteValidateAsync(playlist, youtube, dataStore,
@@ -101,7 +130,7 @@ public static class CommandValidator
             command.Videos!.Validated.Select(validationResult => RemoteValidateVideoAsync(validationResult, youtube, dataStore,
                 cancellation, command.ProgressReporter?.CreateVideoListProgress(command.Videos!))));
 
-        await Task.WhenAll(validations);
+        await Task.WhenAll(validations).WithAggregateException();
     }
 
     private static async Task RemoteValidateVideoAsync(CommandScope.ValidationResult validationResult, Youtube youtube, DataStore dataStore,
@@ -121,63 +150,36 @@ public static class CommandValidator
         progress?.Report(BatchProgress.Status.validated);
     }
 
-    private static async Task RemoteValidateAsync(ChannelScope scope, Youtube youtube, DataStore dataStore,
+    private static async Task<ChannelAliasMap[]> RemoteValidateAsync(ChannelScope channel, List<ChannelAliasMap> knownAliasMaps, Youtube youtube, DataStore dataStore,
         CancellationToken cancellation, BatchProgressReporter.VideoListProgress? progress)
     {
         cancellation.ThrowIfCancellationRequested();
 
-        Debug.WriteLine("######### ChannelAliasMap.LoadList for " + scope.Identify());
-        // load cached info about which channel aliases map to which channel IDs and which channel IDs are accessible
-        var knownAliasMaps = await ChannelAliasMap.LoadList(dataStore) ?? [];
-        Debug.WriteLine("######### ChannelAliasMap.LoadList done for " + scope.Identify());
-
-        // remembers whether knownAliasMaps was changed across multiple calls of GetChannelAliasMap
-        var knownAliasMapsUpdated = false;
-
         /*  generate tasks checking which of the validAliases are accessible
             (via knownAliasMaps cache or HTTP request) and execute them in parrallel */
-        IEnumerable<object> wellStructuredAliases = scope.SingleValidated.WellStructuredAliases!;
-
-        progress?.Report(BatchProgress.Status.downloading);
-        var (aliasMaps, maybeExceptions) = await ValueTasks.WhenAll<ChannelAliasMap>(wellStructuredAliases.Select(GetChannelAliasMap));
-
-        // cache accessibility of channel IDs and aliases locally to avoid subsequent HTTP requests
-        if (knownAliasMapsUpdated)
-        {
-            Debug.WriteLine("######### ChannelAliasMap.SaveList for " + scope.Identify());
-            await ChannelAliasMap.SaveList(knownAliasMaps, dataStore);
-            Debug.WriteLine("######### ChannelAliasMap.SaveList done for " + scope.Identify());
-        }
+        var (aliasMaps, maybeExceptions) = await ValueTasks.WhenAll<ChannelAliasMap>(channel.SingleValidated.WellStructuredAliases!.Select(GetChannelAliasMap));
 
         #region rethrow unexpected exceptions
         var exceptions = maybeExceptions.Where(ex => ex is not null).ToArray();
 
         if (exceptions.Length > 0) throw new AggregateException(
-            $"Unexpected errors identifying channel '{scope.Alias}'.", exceptions);
+            $"Unexpected errors identifying channel '{channel.Alias}'.", exceptions);
         #endregion
 
         #region throw input exceptions if Alias matches none or multiple accessible channels
         var accessibleMaps = aliasMaps.Where(map => map.ChannelId != null).ToArray();
-        if (accessibleMaps.Length == 0) throw new InputException($"Channel '{scope.Alias}' could not be found.");
+        if (accessibleMaps.Length == 0) throw new InputException($"Channel '{channel.Alias}' could not be found.");
 
-        var distinct = accessibleMaps.DistinctBy(map => map.ChannelId);
-
-        if (distinct.Count() > 1) throw new InputException($"Channel alias '{scope.Alias}' is ambiguous:"
-            + Environment.NewLine + accessibleMaps.Select(map =>
-            {
-                var validUrl = Youtube.GetChannelUrl(wellStructuredAliases.Single(id => id.GetType().Name == map.Type));
-                var channelUrl = Youtube.GetChannelUrl((ChannelId)map.ChannelId!);
-                return $"{validUrl} points to channel {channelUrl}";
-            })
-            .Join(Environment.NewLine)
-            + Environment.NewLine + "Specify the unique channel ID or full handle URL, custom/slug URL or user URL to disambiguate the channel.");
+        var distinct = accessibleMaps.DistinctBy(map => map.ChannelId).ToArray();
+        if (distinct.Length > 0) return distinct;
         #endregion
 
         string id = distinct.Single().ChannelId!;
-        scope.SingleValidated.Id = id;
-        scope.SingleValidated.Playlist = await youtube.GetPlaylistAsync(scope, cancellation, progress);
-        scope.SingleValidated.Url = Youtube.GetChannelUrl((ChannelId)id);
+        channel.SingleValidated.Id = id;
+        channel.SingleValidated.Playlist = await youtube.GetPlaylistAsync(channel, cancellation, progress);
+        channel.SingleValidated.Url = Youtube.GetChannelUrl((ChannelId)id);
         progress?.Report(BatchProgress.Status.validated);
+        return distinct;
 
         //refactor into get(channelid, Playlist)
         async ValueTask<ChannelAliasMap> GetChannelAliasMap(object alias)
@@ -193,6 +195,7 @@ public static class CommandValidator
 
             var (type, value) = ChannelAliasMap.GetTypeAndValue(alias);
             map = new ChannelAliasMap { Type = type, Value = value };
+            //progress?.Report(BatchProgress.Status.downloading);
 
             try
             {
@@ -202,8 +205,6 @@ public static class CommandValidator
             catch (HttpRequestException ex) when (ex.IsNotFound()) { map.ChannelId = null; }
             // otherwise rethrow to raise assumed transient error
 
-            knownAliasMaps.Add(map);
-            knownAliasMapsUpdated = true;
             return map;
         }
     }
