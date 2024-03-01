@@ -19,15 +19,18 @@ public sealed class BatchProgress
 
         public override string ToString()
         {
-            var videos = Videos?.Where(v => v.Value != State).GroupBy(v => v.Value).Select(g => $"{g.Key} " + g.Count()).Join(" - ");
-            return $"{State} {CompletedJobs}/{AllJobs}" + (videos.IsNullOrEmpty() ? null : (" - " + videos));
+            var videos = Videos?.Where(v => v.Value != State).GroupBy(v => v.Value).Select(g => $"{Display(g.Key)} " + g.Count()).Join(" | ");
+            return $"{Display(State)} {CompletedJobs}/{AllJobs}" + (videos.IsNullOrEmpty() ? null : (" - " + videos));
         }
     }
 
-    public enum Status
+    private static string Display(Status status) => status switch
     {
-        queued, loading, downloading, validated, indexing, searching, indexingAndSearching, searched
-    }
+        Status.indexingAndSearching => "indexing and searching",
+        _ => status.ToString()
+    };
+
+    public enum Status { queued, loading, downloading, validated, indexing, searching, indexingAndSearching, searched }
 }
 
 internal class BatchProgressReporter(IProgress<BatchProgress> reporter, BatchProgress batchProgress)
