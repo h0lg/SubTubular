@@ -86,6 +86,8 @@ public static class CommandValidator
 
     public static async Task ValidateScopesAsync(OutputCommand command, Youtube youtube, DataStore dataStore, CancellationToken cancellation)
     {
+        List<Task> validations = new();
+
         if (command.Channels.HasAny())
         {
             // load cached info about which channel aliases map to which channel IDs and which channel IDs are accessible
@@ -111,17 +113,18 @@ public static class CommandValidator
                 return (discoveredMaps, error);
             });
 
-            var results = await Task.WhenAll(channelValidations);
-            var discoveredMaps = results.SelectMany(pair => pair.discoveredMaps).Distinct();
+            var channelsValidating = Task.WhenAll(channelValidations);
+            validations.Add(channelsValidating);
+            var channelsValidated = await channelsValidating;
+            var discoveredMaps = channelsValidated.SelectMany(pair => pair.discoveredMaps).Distinct();
 
             if (discoveredMaps.Any() && discoveredMaps.Select(knownAliasMaps.Add).Any(isNew => isNew))
                 await ChannelAliasMap.SaveList(knownAliasMaps, dataStore);
 
-            var errors = results.Select(pair => pair.error).WithValue();
+            var errors = channelsValidated.Select(pair => pair.error).WithValue();
             if (errors.Any()) throw new InputException(errors.Join(Environment.NewLine));
         }
 
-        List<Task> validations = new();
 
         if (command.Playlists.HasAny()) validations.AddRange(
             command.Playlists!.Select(playlist => RemoteValidateAsync(playlist, youtube, dataStore,
