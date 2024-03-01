@@ -114,11 +114,8 @@ public static class CommandValidator
             var results = await Task.WhenAll(channelValidations);
             var discoveredMaps = results.SelectMany(pair => pair.discoveredMaps).Distinct();
 
-            if (discoveredMaps.Any())
-            {
-                foreach (var map in discoveredMaps) knownAliasMaps.Add(map);
+            if (discoveredMaps.Any() && discoveredMaps.Select(knownAliasMaps.Add).Any(isNew => isNew))
                 await ChannelAliasMap.SaveList(knownAliasMaps, dataStore);
-            }
 
             var errors = results.Select(pair => pair.error).WithValue();
             if (errors.Any()) throw new InputException(errors.Join(Environment.NewLine));
@@ -161,7 +158,7 @@ public static class CommandValidator
 
         /*  generate tasks checking which of the validAliases are accessible
             (via knownAliasMaps cache or HTTP request) and execute them in parrallel */
-        var (aliasMaps, maybeExceptions) = await ValueTasks.WhenAll(channel.SingleValidated.WellStructuredAliases!.Select(GetChannelAliasMap));
+        var (matchingMaps, maybeExceptions) = await ValueTasks.WhenAll(channel.SingleValidated.WellStructuredAliases!.Select(GetChannelAliasMap));
 
         #region rethrow unexpected exceptions
         var exceptions = maybeExceptions.Where(ex => ex is not null).ToArray();
@@ -170,29 +167,26 @@ public static class CommandValidator
             $"Unexpected errors identifying channel '{channel.Alias}'.", exceptions);
         #endregion
 
-        #region throw input exceptions if Alias matches no accessible channels
-        var accessibleMaps = aliasMaps.Where(map => map.map.ChannelId != null).ToArray();
-        if (accessibleMaps.Length == 0) throw new InputException($"Channel '{channel.Alias}' could not be found.");
+        #region throw input exceptions if Alias matches none or multiple accessible channels
+        var indentifiedMaps = matchingMaps.Where(map => map.ChannelId != null).ToArray();
+        if (indentifiedMaps.Length == 0) throw new InputException($"Channel '{channel.Alias}' could not be found.");
         #endregion
 
-        var distinct = accessibleMaps.DistinctBy(map => map.map.ChannelId).ToArray();
+        var distinctChannels = indentifiedMaps.DistinctBy(map => map.ChannelId).ToArray();
+        if (distinctChannels.Length > 1) return distinctChannels;
 
-        if (distinct.Length <= 1)
-        {
-            string id = distinct.Single().map.ChannelId!;
-            channel.SingleValidated.Id = id;
-            channel.SingleValidated.Playlist = await youtube.GetPlaylistAsync(channel, cancellation, progress);
-            channel.SingleValidated.Url = Youtube.GetChannelUrl((ChannelId)id);
-            progress?.Report(BatchProgress.Status.validated);
-        }
-
-        return distinct.Where(map => map.isNew).Select(map => map.map);
+        string id = distinctChannels.Single().ChannelId!;
+        channel.SingleValidated.Id = id;
+        channel.SingleValidated.Playlist = await youtube.GetPlaylistAsync(channel, cancellation, progress);
+        channel.SingleValidated.Url = Youtube.GetChannelUrl((ChannelId)id);
+        progress?.Report(BatchProgress.Status.validated);
+        return distinctChannels;
 
         //refactor into get(channelid, Playlist)
-        async ValueTask<(ChannelAliasMap map, bool isNew)> GetChannelAliasMap(object alias)
+        async ValueTask<ChannelAliasMap> GetChannelAliasMap(object alias)
         {
             var map = knownAliasMaps.ForAlias(alias);
-            if (map != null) return (map, false); // use cached info
+            if (map != null) return map; // use cached info
 
             var loadChannel = alias is ChannelHandle handle ? youtube.Client.Channels.GetByHandleAsync(handle, cancellation)
                 : alias is ChannelSlug slug ? youtube.Client.Channels.GetBySlugAsync(slug, cancellation)
@@ -212,7 +206,7 @@ public static class CommandValidator
             catch (HttpRequestException ex) when (ex.IsNotFound()) { map.ChannelId = null; }
             // otherwise rethrow to raise assumed transient error
 
-            return (map, true);
+            return map;
         }
     }
 }
