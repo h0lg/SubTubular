@@ -182,12 +182,8 @@ module App =
                 let cacheFolder = Folder.GetPath Folders.cache
                 let dataStore = JsonFileDataStore cacheFolder
                 let youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
-                let dispatchProgress =
-                    Cmd.debounce 100 (fun progress -> 
-                        SearchProgress progress 
-                        )
-                command.SetProgressReporter(Progress<BatchProgress>(fun progress ->
-                    dispatchProgress progress |> List.iter (fun effect -> effect dispatch)))
+                let dispatchProgress = Cmd.debounce 100 (fun progress -> SearchProgress progress)
+                command.SetProgressReporter(Progress<BatchProgress>(fun progress -> dispatchProgress progress |> List.iter (fun effect -> effect dispatch)))
                 CommandValidator.PrevalidateSearchCommand command
                 use cts = new CancellationTokenSource()
                 do! CommandValidator.ValidateScopesAsync(command, youtube, dataStore, cts.Token) |> Async.AwaitTask
@@ -532,7 +528,7 @@ module App =
 
                             if scope.Progress.IsSome then
                                 ProgressBar(0, scope.Progress.Value.AllJobs, scope.Progress.Value.CompletedJobs, ProgressChanged)
-                                    .progressTextFormat("{0}% " + scope.Progress.Value.ToString()).showProgressText(true)
+                                    .progressTextFormat(scope.Progress.Value.ToString()).showProgressText(true)
                         }
                 }
 

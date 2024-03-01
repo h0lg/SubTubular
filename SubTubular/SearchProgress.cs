@@ -6,6 +6,9 @@ public sealed class BatchProgress
 {
     public Dictionary<CommandScope, VideoList> VideoLists { get; set; } = [];
 
+    public override string ToString() =>
+        VideoLists.Select(list => list.Key.Identify() + " " + list.Value).Join(Environment.NewLine);
+
     public sealed class VideoList
     {
         public Status State { get; set; } = Status.queued;
@@ -15,7 +18,8 @@ public sealed class BatchProgress
         public int CompletedJobs => Videos?.Count(v => v.Value == Status.searched) ?? 0;
 
         public override string ToString() =>
-            $"{State} - " + Videos?.GroupBy(v => v.Value).Select(g => $"{g.Key} " + g.Select(v => v.Key).Join(" ")).Join(" - ");
+            $"{State} {CompletedJobs}/{AllJobs} - " +
+            Videos?.GroupBy(v => v.Value).Select(g => $"{g.Key} " + g.Count()).Join(" - ");
     }
 
     public enum Status
