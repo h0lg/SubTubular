@@ -1,4 +1,6 @@
-﻿namespace SubTubular;
+﻿using SubTubular.Extensions;
+
+namespace SubTubular;
 
 public sealed class BatchProgress
 {
@@ -8,6 +10,12 @@ public sealed class BatchProgress
     {
         public Status State { get; set; } = Status.queued;
         public Dictionary<string, Status>? Videos { get; set; }
+
+        public int AllJobs => Videos?.Count ?? 1;
+        public int CompletedJobs => Videos?.Count(v => v.Value == Status.searched) ?? 0;
+
+        public override string ToString() =>
+            $"{State} - " + Videos?.GroupBy(v => v.Value).Select(g => $"{g.Key} " + g.Select(v => v.Key).Join(" ")).Join(" - ");
     }
 
     public enum Status
