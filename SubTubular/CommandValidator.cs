@@ -113,18 +113,20 @@ public static class CommandValidator
                 return (discoveredMaps, error);
             });
 
-            var channelsValidating = Task.WhenAll(channelValidations);
-            validations.Add(channelsValidating);
-            var channelsValidated = await channelsValidating;
-            var discoveredMaps = channelsValidated.SelectMany(pair => pair.discoveredMaps).Distinct();
 
-            if (discoveredMaps.Any() && discoveredMaps.Select(knownAliasMaps.Add).Any(isNew => isNew))
-                await ChannelAliasMap.SaveList(knownAliasMaps, dataStore);
+            var channelsValidated = Task.WhenAll(channelValidations).ContinueWith(async task =>
+            {
+                var discoveredMaps = task.Result.SelectMany(pair => pair.discoveredMaps).Distinct();
 
-            var errors = channelsValidated.Select(pair => pair.error).WithValue();
-            if (errors.Any()) throw new InputException(errors.Join(Environment.NewLine));
+                if (discoveredMaps.Any() && discoveredMaps.Select(knownAliasMaps.Add).Any(isNew => isNew))
+                    await ChannelAliasMap.SaveList(knownAliasMaps, dataStore);
+
+                var errors = task.Result.Select(pair => pair.error).WithValue();
+                if (errors.Any()) throw new InputException(errors.Join(Environment.NewLine));
+            }).WithAggregateException();
+
+            validations.Add(channelsValidated);
         }
-
 
         if (command.Playlists.HasAny()) validations.AddRange(
             command.Playlists!.Select(playlist => RemoteValidateAsync(playlist, youtube, dataStore,
