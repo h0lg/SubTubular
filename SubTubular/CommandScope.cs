@@ -12,8 +12,9 @@ public abstract class CommandScope
     /// <summary>A collection of validated URLs for the entities included in the scope.
     /// It translates non-URI identifiers in the scope of YouTube into URIs for <see cref="OutputCommand"/>s.</summary>
     internal readonly List<ValidationResult> Validated = new();
+
     internal bool IsValid => Validated.All(v => v.IsRemoteValidated);
-    internal bool IsPrevalidated => Validated.Any();
+    internal bool IsPrevalidated => Validated.Count > 0;
     internal ValidationResult SingleValidated => Validated.Single();
 
     internal void AddPrevalidated(string id, string url) =>
@@ -22,12 +23,9 @@ public abstract class CommandScope
     internal void AddPrevalidated(string alias, object[] wellStructuredAliases) =>
         Validated.Add(new ValidationResult { Id = alias, WellStructuredAliases = wellStructuredAliases });
 
-    /// <summary>Reutrns all pre-validated or validated <see cref="ValidationResult.Id"/> depending on <see cref="IsValid"/>.</summary>
+    /// <summary>Returns all pre-validated or validated <see cref="ValidationResult.Id"/> depending on <see cref="IsValid"/>.</summary>
     internal string[] GetValidatedIds() => Validated.Select(v => v.Id).ToArray();
     internal string GetValidatedId() => GetValidatedIds().Single();
-
-    /*internal IEnumerable<object> GetWellStructuredAliases()
-        => Validated.Select(v => v.WellStructuredAliases).WithValue().SelectMany(aliases => aliases);*/
 
     internal sealed class ValidationResult
     {

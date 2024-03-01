@@ -44,6 +44,7 @@ module App =
         DisplaysSettings: bool
         Top: float option
         CacheHours: float option
+        Progress: BatchProgress.VideoList option
     }
 
     type Model = {
@@ -180,7 +181,8 @@ module App =
                 let cacheFolder = Folder.GetPath Folders.cache
                 let dataStore = JsonFileDataStore cacheFolder
                 let youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
-                command.SetProgressReporter(Progress<BatchProgress>(fun progress -> SearchProgress progress |> dispatch))
+                let dispatchProgress progress = Cmd.debounce 1000 (fun () -> SearchProgress progress |> dispatch) |> ignore
+                command.SetProgressReporter(Progress<BatchProgress>(dispatchProgress))
                 CommandValidator.PrevalidateSearchCommand command
                 use cts = new CancellationTokenSource()
                 do! CommandValidator.ValidateScopesAsync(command, youtube, dataStore, cts.Token) |> Async.AwaitTask
@@ -256,7 +258,7 @@ module App =
         let isVideos = scope = Scopes.videos
         let top = if isVideos then None else Some (float 25)
         let cacheHours = if isVideos then None else Some (float 24)
-        { Type = scope; Aliases = aliases; Top = top; CacheHours = cacheHours; DisplaysSettings = false }
+        { Type = scope; Aliases = aliases; Top = top; CacheHours = cacheHours; DisplaysSettings = false; Progress = None }
 
     let initModel = {
         NotificationManager = null
@@ -317,21 +319,36 @@ module App =
 
         | Search on -> { model with Searching = on; SearchResults = [] }, (if on then searchCmd model else Cmd.none)
         | SearchResult result -> { model with SearchResults = result::model.SearchResults }, Cmd.none
+
         | SearchProgress progress ->
-            
-            model, Cmd.none
+            let scopes = model.Scopes |> List.map(fun s ->
+                let equals scope (commandScope: CommandScope) =
+                    match commandScope with
+                    | :? ChannelScope as channel -> channel.Alias = scope.Aliases
+                    | :? PlaylistScope as playlist -> playlist.IdOrUrl = scope.Aliases
+                    | :? VideosScope as videos -> videos.Videos = scope.Aliases.Split [|' '|]
+                    | _ -> failwith "quark"
+
+                let scopeProgress = progress.VideoLists |> Seq.tryFind (fun pair -> equals s pair.Key) |> Option.map (fun pair -> pair.Value)
+                if scopeProgress.IsSome then { s with Progress = scopeProgress } else s )
+
+            { model with Scopes = scopes }, Cmd.none
+
         | SearchCompleted -> { model with Searching = false }, Notify "search completed" |> Cmd.ofMsg
 
         | AttachedToVisualTreeChanged args -> { model with NotificationManager = FabApplication.Current.WindowNotificationManager }, []
+
+
         | Notify message ->
             notificationManager.Value.Show(Notification(message, message, NotificationType.Information, TimeSpan.FromSeconds 3))
             //model.NotificationManager.Show(Notification(message, message, NotificationType.Information, TimeSpan.FromSeconds 3))
             //notify message
-            model, []
+            model, Cmd.none
+
         | OpenUrl url -> model, (fun _ -> ShellCommands.OpenUri(url); Cmd.none)()
         | CopyingToClipboard _args -> model, Cmd.none
         | SaveSettings -> model, Settings.save model
-        | SettingsSaved -> model, [] //Notify "settings saved" |> Cmd.ofMsg
+        | SettingsSaved -> model, Cmd.none //Notify "settings saved" |> Cmd.ofMsg
         | SettingsLoaded s -> ({
             model with
                 //Top = s.Top
