@@ -16,42 +16,42 @@ open Styles
 open type Fabulous.Avalonia.View
 
 module App =
-    type Scopes = videos = 0 | playlist = 1 | channel = 2
+    type Scopes =
+        | videos = 0
+        | playlist = 1
+        | channel = 2
 
-    type SavedSettings = {
-        OrderByScore: bool
-        OrderDesc: bool
-        Padding: int
+    type SavedSettings =
+        { OrderByScore: bool
+          OrderDesc: bool
+          Padding: int
 
-        FileOutput: FileOutput.Model option
-    }
+          FileOutput: FileOutput.Model option }
 
-    type Scope = {
-        Type: Scopes
-        Aliases: string
+    type Scope =
+        { Type: Scopes
+          Aliases: string
 
-        DisplaysSettings: bool
-        Top: float option
-        CacheHours: float option
-        Progress: BatchProgress.VideoList option
-    }
+          DisplaysSettings: bool
+          Top: float option
+          CacheHours: float option
+          Progress: BatchProgress.VideoList option }
 
-    type Model = {
-        Notifier: WindowNotificationManager
+    type Model =
+        { Notifier: WindowNotificationManager
 
-        Scopes: Scope list
-        Query: string
+          Scopes: Scope list
+          Query: string
 
-        OrderByScore: bool
-        OrderDesc: bool
-        Padding: int
+          OrderByScore: bool
+          OrderDesc: bool
+          Padding: int
 
-        Searching: bool
-        SearchResults: VideoSearchResult list
+          Searching: bool
+          SearchResults: VideoSearchResult list
 
-        DisplayOutputOptions: bool
-        FileOutput: FileOutput.Model
-    }
+          DisplayOutputOptions: bool
+          FileOutput: FileOutput.Model }
 
     type Msg =
         | QueryChanged of string
@@ -90,7 +90,7 @@ module App =
         let private getPath = Path.Combine(Folder.GetPath Folders.cache, "ui-settings.json")
         let requestSave = Cmd.debounce 1000 (fun () -> SaveSettings)
 
-        let load = 
+        let load =
             async {
                 let path = getPath
 
@@ -98,19 +98,19 @@ module App =
                     let! json = File.ReadAllTextAsync(getPath) |> Async.AwaitTask
                     let settings = JsonSerializer.Deserialize json
                     return SettingsLoaded settings
-                else return Reset
+                else
+                    return Reset
             }
             |> Cmd.OfAsync.msg
 
         let save model =
             async {
-                let settings = {
-                    OrderByScore = model.OrderByScore
-                    OrderDesc = model.OrderDesc
-                    Padding = model.Padding
+                let settings =
+                    { OrderByScore = model.OrderByScore
+                      OrderDesc = model.OrderDesc
+                      Padding = model.Padding
 
-                    FileOutput = Some model.FileOutput
-                }
+                      FileOutput = Some model.FileOutput }
 
                 let json = JsonSerializer.Serialize settings
                 do! File.WriteAllTextAsync(getPath, json) |> Async.AwaitTask
@@ -119,26 +119,35 @@ module App =
             |> Cmd.OfAsync.msg
 
     let private mapToSearchCommand model =
-        let order = 
+        let order =
             match (model.OrderByScore, model.OrderDesc) with
-            | (true, true) -> [SearchCommand.OrderOptions.score]
-            | (true, false) -> [SearchCommand.OrderOptions.score; SearchCommand.OrderOptions.asc]
-            | (false, true) -> [SearchCommand.OrderOptions.uploaded]
-            | (false, false) -> [SearchCommand.OrderOptions.uploaded; SearchCommand.OrderOptions.asc]
+            | (true, true) -> [ SearchCommand.OrderOptions.score ]
+            | (true, false) -> [ SearchCommand.OrderOptions.score; SearchCommand.OrderOptions.asc ]
+            | (false, true) -> [ SearchCommand.OrderOptions.uploaded ]
+            | (false, false) -> [ SearchCommand.OrderOptions.uploaded; SearchCommand.OrderOptions.asc ]
 
         let command = SearchCommand()
-        let getScopes scope = model.Scopes |> List.filter (fun s -> s.Type = scope && s.Aliases.IsNonWhiteSpace())
 
-        command.Channels <- getScopes Scopes.channel
-            |> List.map(fun scope -> ChannelScope(scope.Aliases, scope.Top.Value |> uint16, scope.CacheHours.Value |> float32))
+        let getScopes scope =
+            model.Scopes
+            |> List.filter (fun s -> s.Type = scope && s.Aliases.IsNonWhiteSpace())
+
+        command.Channels <-
+            getScopes Scopes.channel
+            |> List.map (fun scope ->
+                ChannelScope(scope.Aliases, scope.Top.Value |> uint16, scope.CacheHours.Value |> float32))
             |> List.toArray
 
-        command.Playlists <- getScopes Scopes.playlist
-            |> List.map(fun scope -> PlaylistScope(scope.Aliases, scope.Top.Value |> uint16, scope.CacheHours.Value |> float32))
+        command.Playlists <-
+            getScopes Scopes.playlist
+            |> List.map (fun scope ->
+                PlaylistScope(scope.Aliases, scope.Top.Value |> uint16, scope.CacheHours.Value |> float32))
             |> List.toArray
 
         let videos = getScopes Scopes.videos |> List.tryExactlyOne
-        if videos.IsSome then command.Videos <- VideosScope(videos.Value.Aliases.Split [|' '|])
+
+        if videos.IsSome then
+            command.Videos <- VideosScope(videos.Value.Aliases.Split [| ' ' |])
 
         command.Query <- model.Query
         command.Padding <- model.Padding |> uint16
@@ -146,10 +155,10 @@ module App =
         command.OutputHtml <- model.FileOutput.Html
         command.FileOutputPath <- model.FileOutput.To
 
-        if model.FileOutput.Opening = FileOutput.Open.file
-        then command.Show <- OutputCommand.Shows.file
-        elif model.FileOutput.Opening = FileOutput.Open.folder
-        then command.Show <- OutputCommand.Shows.folder
+        if model.FileOutput.Opening = FileOutput.Open.file then
+            command.Show <- OutputCommand.Shows.file
+        elif model.FileOutput.Opening = FileOutput.Open.folder then
+            command.Show <- OutputCommand.Shows.folder
 
         command
 
@@ -160,31 +169,54 @@ module App =
                 let cacheFolder = Folder.GetPath Folders.cache
                 let dataStore = JsonFileDataStore cacheFolder
                 let youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
-                let dispatchProgress = CmdExtensions.bufferedThrottle 100 (fun progress ->
-                    System.Diagnostics.Debug.WriteLine("############# progress dispatched" + Environment.NewLine + progress.ToString())
-                    SearchProgress progress)
-                command.SetProgressReporter(Progress<BatchProgress>(fun progress ->
-                    System.Diagnostics.Debug.WriteLine("############# progress reported" + Environment.NewLine + progress.ToString())
-                    dispatchProgress progress |> List.iter (fun effect -> effect dispatch)))
+
+                let dispatchProgress =
+                    CmdExtensions.bufferedThrottle 100 (fun progress ->
+                        System.Diagnostics.Debug.WriteLine(
+                            "############# progress dispatched" + Environment.NewLine + progress.ToString()
+                        )
+
+                        SearchProgress progress)
+
+                command.SetProgressReporter(
+                    Progress<BatchProgress>(fun progress ->
+                        System.Diagnostics.Debug.WriteLine(
+                            "############# progress reported" + Environment.NewLine + progress.ToString()
+                        )
+
+                        dispatchProgress progress |> List.iter (fun effect -> effect dispatch))
+                )
+
                 CommandValidator.PrevalidateSearchCommand command
                 use cts = new CancellationTokenSource()
-                do! CommandValidator.ValidateScopesAsync(command, youtube, dataStore, cts.Token) |> Async.AwaitTask
 
-                do! youtube.SearchAsync(command, cts.Token)
+                do!
+                    CommandValidator.ValidateScopesAsync(command, youtube, dataStore, cts.Token)
+                    |> Async.AwaitTask
+
+                do!
+                    youtube.SearchAsync(command, cts.Token)
                     // see https://github.com/fsprojects/FSharp.Control.TaskSeq
                     |> TaskSeq.iter (fun result -> SearchResult result |> dispatch)
                     |> Async.AwaitTask
 
                 dispatch SearchCompleted
-            } |> Async.StartImmediate
+            }
+            |> Async.StartImmediate
         |> Cmd.ofEffect
 
     let private orderResults model =
-        let sortBy = if model.OrderDesc then List.sortByDescending else List.sortBy
+        let sortBy =
+            if model.OrderDesc then
+                List.sortByDescending
+            else
+                List.sortBy
 
         let comparable: (VideoSearchResult -> IComparable) =
-            if model.OrderByScore then (fun r -> r.Score)
-            else (fun r -> r.Video.Uploaded)
+            if model.OrderByScore then
+                (fun r -> r.Score)
+            else
+                (fun r -> r.Video.Uploaded)
 
         model.SearchResults |> sortBy comparable
 
@@ -212,28 +244,31 @@ module App =
 
     let private createScope scope aliases =
         let isVideos = scope = Scopes.videos
-        let top = if isVideos then None else Some (float 50)
-        let cacheHours = if isVideos then None else Some (float 24)
-        { Type = scope; Aliases = aliases; Top = top; CacheHours = cacheHours; DisplaysSettings = false; Progress = None }
+        let top = if isVideos then None else Some(float 50)
+        let cacheHours = if isVideos then None else Some(float 24)
 
-    let initModel = {
-        Notifier = null
-        Query = ""
+        { Type = scope
+          Aliases = aliases
+          Top = top
+          CacheHours = cacheHours
+          DisplaysSettings = false
+          Progress = None }
 
-        Scopes = [
-            createScope Scopes.channel ""
-        ]
+    let initModel =
+        { Notifier = null
+          Query = ""
 
-        OrderByScore = true
-        OrderDesc = true
+          Scopes = [ createScope Scopes.channel "" ]
 
-        Padding = 69
-        DisplayOutputOptions = false
-        FileOutput = FileOutput.init()
+          OrderByScore = true
+          OrderDesc = true
 
-        Searching = false
-        SearchResults = []
-    }
+          Padding = 69
+          DisplayOutputOptions = false
+          FileOutput = FileOutput.init ()
+
+          Searching = false
+          SearchResults = [] }
 
     // load settings on init, see https://docs.fabulous.dev/basics/application-state/commands#triggering-commands-on-initialization
     let init () = initModel, Settings.load
@@ -241,59 +276,107 @@ module App =
     let update msg model =
         match msg with
         | QueryChanged txt -> { model with Query = txt }, Cmd.none
-        | AddScope scope -> { model with Scopes = model.Scopes@[createScope scope ""] }, Cmd.none
-        | RemoveScope scope -> { model with Scopes = model.Scopes |> List.except [scope] }, Cmd.none
 
-        | DisplaySettingsChanged (scope, display) ->
-            let scopes = model.Scopes |> List.map(fun s -> if s = scope then { s with DisplaysSettings = display } else s)
+        | AddScope scope ->
+            { model with
+                Scopes = model.Scopes @ [ createScope scope "" ] },
+            Cmd.none
+
+        | RemoveScope scope ->
+            { model with
+                Scopes = model.Scopes |> List.except [ scope ] },
+            Cmd.none
+
+        | DisplaySettingsChanged(scope, display) ->
+            let scopes =
+                model.Scopes
+                |> List.map (fun s ->
+                    if s = scope then
+                        { s with DisplaysSettings = display }
+                    else
+                        s)
+
             { model with Scopes = scopes }, Cmd.none
 
-        | AliasesUpdated (scope, aliases) ->
-            let scopes = model.Scopes |> List.map(fun s -> if s = scope then { s with Aliases = aliases } else s)
+        | AliasesUpdated(scope, aliases) ->
+            let scopes =
+                model.Scopes
+                |> List.map (fun s -> if s = scope then { s with Aliases = aliases } else s)
+
             { model with Scopes = scopes }, Cmd.none
 
-        | TopChanged (scope, top) ->
-            let scopes = model.Scopes |> List.map(fun s -> if s = scope then { s with Top = top } else s)
+        | TopChanged(scope, top) ->
+            let scopes =
+                model.Scopes
+                |> List.map (fun s -> if s = scope then { s with Top = top } else s)
+
             { model with Scopes = scopes }, Cmd.none
 
-        | CacheHoursChanged (scope, hours) ->
-            let scopes = model.Scopes |> List.map(fun s -> if s = scope then { s with CacheHours = hours } else s)
+        | CacheHoursChanged(scope, hours) ->
+            let scopes =
+                model.Scopes
+                |> List.map (fun s -> if s = scope then { s with CacheHours = hours } else s)
+
             { model with Scopes = scopes }, Cmd.none
 
-        | OrderByScoreChanged value -> { model with OrderByScore = value }, Settings.requestSave()
-        | OrderDescChanged value -> { model with OrderDesc = value }, Settings.requestSave()
-        | PaddingChanged padding -> { model with Padding = int padding.Value }, Settings.requestSave()
+        | OrderByScoreChanged value -> { model with OrderByScore = value }, Settings.requestSave ()
+        | OrderDescChanged value -> { model with OrderDesc = value }, Settings.requestSave ()
 
-        | DisplayOutputOptionsChanged output -> { model with DisplayOutputOptions = output }, Cmd.none
+        | PaddingChanged padding ->
+            { model with
+                Padding = int padding.Value },
+            Settings.requestSave ()
+
+        | DisplayOutputOptionsChanged output ->
+            { model with
+                DisplayOutputOptions = output },
+            Cmd.none
 
         | FileOutputMsg fom ->
-            let updated = { model with FileOutput = FileOutput.update fom model.FileOutput }
+            let updated =
+                { model with
+                    FileOutput = FileOutput.update fom model.FileOutput }
 
             let cmd =
                 match fom with
                 | FileOutput.Msg.SaveOutput -> saveOutput updated
-                | _ -> Settings.requestSave()
+                | _ -> Settings.requestSave ()
 
             updated, cmd
 
-        | SavedOutput path -> model, Notify ("Saved results to " + path) |> Cmd.ofMsg
+        | SavedOutput path -> model, Notify("Saved results to " + path) |> Cmd.ofMsg
 
-        | Search on -> { model with Searching = on; SearchResults = [] }, (if on then searchCmd model else Cmd.none)
-        | SearchResult result -> { model with SearchResults = result::model.SearchResults }, Cmd.none
+        | Search on ->
+            { model with
+                Searching = on
+                SearchResults = [] },
+            (if on then searchCmd model else Cmd.none)
+
+        | SearchResult result ->
+            { model with
+                SearchResults = result :: model.SearchResults },
+            Cmd.none
 
         | SearchProgress progress ->
-            let scopes = model.Scopes |> List.map(fun s ->
-                let equals scope (commandScope: CommandScope) =
-                    match commandScope with
-                    | :? ChannelScope as channel -> channel.Alias = scope.Aliases
-                    | :? PlaylistScope as playlist -> playlist.Alias = scope.Aliases
-                    | :? VideosScope as videos -> videos.Videos = scope.Aliases.Split [|' '|]
-                    | _ -> failwith "quark"
+            let scopes =
+                model.Scopes
+                |> List.map (fun s ->
+                    let equals scope (commandScope: CommandScope) =
+                        match commandScope with
+                        | :? ChannelScope as channel -> channel.Alias = scope.Aliases
+                        | :? PlaylistScope as playlist -> playlist.Alias = scope.Aliases
+                        | :? VideosScope as videos -> videos.Videos = scope.Aliases.Split [| ' ' |]
+                        | _ -> failwith "quark"
 
-                let scopeProgress = progress.VideoLists |> Seq.tryFind (fun pair -> equals s pair.Key) |> Option.map (fun pair -> pair.Value)
-                if scopeProgress.IsSome
-                then { s with Progress = scopeProgress }
-                else s )
+                    let scopeProgress =
+                        progress.VideoLists
+                        |> Seq.tryFind (fun pair -> equals s pair.Key)
+                        |> Option.map (fun pair -> pair.Value)
+
+                    if scopeProgress.IsSome then
+                        { s with Progress = scopeProgress }
+                    else
+                        s)
 
             { model with Scopes = scopes }, Cmd.none
 
@@ -307,7 +390,7 @@ module App =
 
             model, Cmd.none
 
-        | AttachedToVisualTreeChanged args -> 
+        | AttachedToVisualTreeChanged args ->
             let notifier = FabApplication.Current.WindowNotificationManager
             notifier.Position <- NotificationPosition.BottomRight
             { model with Notifier = notifier }, Cmd.none
@@ -316,8 +399,8 @@ module App =
         | SaveSettings -> model, Settings.save model
         | SettingsSaved -> model, Cmd.none
 
-        | SettingsLoaded s -> ({
-            model with
+        | SettingsLoaded s ->
+            ({ model with
                 OrderByScore = s.OrderByScore
                 OrderDesc = s.OrderDesc
                 Padding = s.Padding
@@ -329,11 +412,12 @@ module App =
 
         | Reset -> initModel, Cmd.none
 
-    let private displayScope = function
-    | Scopes.videos -> "📼 videos"
-    | Scopes.playlist -> "▶️ playlist"
-    | Scopes.channel -> "📺 channel"
-    | _ -> failwith "unknown scope"
+    let private displayScope =
+        function
+        | Scopes.videos -> "📼 videos"
+        | Scopes.playlist -> "▶️ playlist"
+        | Scopes.channel -> "📺 channel"
+        | _ -> failwith "unknown scope"
 
     (*  see for F#
             https://fsharp.org/learn/
@@ -347,119 +431,195 @@ module App =
             https://github.com/fabulous-dev/Fabulous.Avalonia/tree/main/src/Fabulous.Avalonia/Views
             https://play.avaloniaui.net/ *)
     let view model =
-        (Grid(coldefs = [Star], rowdefs = [Auto; Auto; Auto; Auto; Star]) {
+        (Grid(coldefs = [ Star ], rowdefs = [ Auto; Auto; Auto; Auto; Star ]) {
 
             // see https://usecasepod.github.io/posts/mvu-composition.html
             // and https://github.com/TimLariviere/FabulousContacts/blob/0d5024c4bfc7a84f02c0788a03f63ff946084c0b/FabulousContacts/ContactsListPage.fs#L89C17-L89C31
             // search options
-            (Grid(coldefs = [Auto; Star; Auto; Stars 2; Auto], rowdefs = [Auto]) {
-                TextBlock("for")
-                    .margin(10, 0).centerVertical().gridColumn(2)
-                TextBox(model.Query, QueryChanged)
-                    .watermark("your query")
-                    .gridColumn(3)
+            (Grid(coldefs = [ Auto; Star; Auto; Stars 2; Auto ], rowdefs = [ Auto ]) {
+                TextBlock("for").margin(10, 0).centerVertical().gridColumn (2)
+                TextBox(model.Query, QueryChanged).watermark("your query").gridColumn (3)
+
                 ToggleButton((if model.Searching then "🛑 Stop" else "🔍 Search"), model.Searching, Search)
                     .margin(10, 0)
-                    .gridColumn(4)
-            }).trailingMargin()
+                    .gridColumn (4)
+            })
+                .trailingMargin ()
 
             // scopes
-            ScrollViewer((VStack() {
-                HWrap(){
-                    Label "in"
+            ScrollViewer(
+                (VStack() {
+                    HWrap() {
+                        Label "in"
 
-                    for scope in model.Scopes do
-                        VStack(5){
-                            HStack(5){
-                                Label(displayScope scope.Type)
+                        for scope in model.Scopes do
+                            VStack(5) {
+                                HStack(5) {
+                                    Label(displayScope scope.Type)
 
-                                TextBox(scope.Aliases, fun value -> AliasesUpdated(scope, value))
-                                    .watermark("by " + (if scope.Type = Scopes.videos then "space-separated IDs or URLs"
-                                        elif scope.Type = Scopes.playlist then "ID or URL"
-                                        else "handle, slug, user name, ID or URL"))
+                                    TextBox(scope.Aliases, (fun value -> AliasesUpdated(scope, value)))
+                                        .watermark (
+                                            "by "
+                                            + (if scope.Type = Scopes.videos then
+                                                   "space-separated IDs or URLs"
+                                               elif scope.Type = Scopes.playlist then
+                                                   "ID or URL"
+                                               else
+                                                   "handle, slug, user name, ID or URL")
+                                        )
 
-                                (HStack(5) {
-                                    Label "search top"
-                                    NumericUpDown(0, float UInt16.MaxValue, scope.Top, fun value -> TopChanged(scope, value))
-                                        .formatString("F0")
-                                        .tip(ToolTip("number of videos to search"))
-                                    Label "videos"
-                                }).centerHorizontal().isVisible(scope.DisplaysSettings)
+                                    (HStack(5) {
+                                        Label "search top"
 
-                                (HStack(5) {
-                                    Label "and look for new ones after"
-                                    NumericUpDown(0, float UInt16.MaxValue, scope.CacheHours, fun value -> CacheHoursChanged(scope, value))
-                                        .formatString("F0")
-                                        .tip(ToolTip("The info about which videos are in a playlist or channel is cached locally to speed up future searches."
-                                            + " This controls after how many hours such a cache is considered stale."
-                                            + Environment.NewLine + Environment.NewLine
-                                            + "Note that this doesn't concern the video data caches,"
-                                            + " which are not expected to change often and are stored until you explicitly clear them."))
-                                    Label "hours"
-                                }).centerHorizontal().isVisible(scope.DisplaysSettings)
+                                        NumericUpDown(
+                                            0,
+                                            float UInt16.MaxValue,
+                                            scope.Top,
+                                            fun value -> TopChanged(scope, value)
+                                        )
+                                            .formatString("F0")
+                                            .tip (ToolTip("number of videos to search"))
 
-                                ToggleButton("⚙", scope.DisplaysSettings, fun display -> DisplaySettingsChanged(scope, display))
-                                    .tip(ToolTip("display settings"))
+                                        Label "videos"
+                                    })
+                                        .centerHorizontal()
+                                        .isVisible (scope.DisplaysSettings)
 
-                                Button("❌", RemoveScope scope).tip(ToolTip("remove this scope"))
+                                    (HStack(5) {
+                                        Label "and look for new ones after"
+
+                                        NumericUpDown(
+                                            0,
+                                            float UInt16.MaxValue,
+                                            scope.CacheHours,
+                                            fun value -> CacheHoursChanged(scope, value)
+                                        )
+                                            .formatString("F0")
+                                            .tip (
+                                                ToolTip(
+                                                    "The info about which videos are in a playlist or channel is cached locally to speed up future searches."
+                                                    + " This controls after how many hours such a cache is considered stale."
+                                                    + Environment.NewLine
+                                                    + Environment.NewLine
+                                                    + "Note that this doesn't concern the video data caches,"
+                                                    + " which are not expected to change often and are stored until you explicitly clear them."
+                                                )
+                                            )
+
+                                        Label "hours"
+                                    })
+                                        .centerHorizontal()
+                                        .isVisible (scope.DisplaysSettings)
+
+                                    ToggleButton(
+                                        "⚙",
+                                        scope.DisplaysSettings,
+                                        fun display -> DisplaySettingsChanged(scope, display)
+                                    )
+                                        .tip (ToolTip("display settings"))
+
+                                    Button("❌", RemoveScope scope).tip (ToolTip("remove this scope"))
+                                }
+
+                                if scope.Progress.IsSome then
+                                    ProgressBar(
+                                        0,
+                                        scope.Progress.Value.AllJobs,
+                                        scope.Progress.Value.CompletedJobs,
+                                        ProgressChanged
+                                    )
+                                        .progressTextFormat(scope.Progress.Value.ToString())
+                                        .showProgressText (true)
                             }
+                    }
 
-                            if scope.Progress.IsSome then
-                                ProgressBar(0, scope.Progress.Value.AllJobs, scope.Progress.Value.CompletedJobs, ProgressChanged)
-                                    .progressTextFormat(scope.Progress.Value.ToString()).showProgressText(true)
-                        }
-                }
+                    HStack(5) {
+                        Label "add"
 
-                HStack(5){
-                    Label "add"
+                        let hasVideosScope =
+                            model.Scopes |> List.exists (fun scope -> scope.Type = Scopes.videos)
 
-                    let hasVideosScope = model.Scopes |> List.exists(fun scope -> scope.Type = Scopes.videos)
-                    let allScopes = Enum.GetValues<Scopes>()
-                    let addable = if hasVideosScope then allScopes |> Array.except [Scopes.videos] else allScopes
+                        let allScopes = Enum.GetValues<Scopes>()
 
-                    for scope in addable do
-                        Button(displayScope scope, AddScope scope)
-                }
-            })).gridRow(1).trailingMargin()
+                        let addable =
+                            if hasVideosScope then
+                                allScopes |> Array.except [ Scopes.videos ]
+                            else
+                                allScopes
+
+                        for scope in addable do
+                            Button(displayScope scope, AddScope scope)
+                    }
+                })
+            )
+                .gridRow(1)
+                .trailingMargin ()
 
             // result options
-            (Grid(coldefs = [Auto; Star; Star; Auto], rowdefs = [Auto]) {
+            (Grid(coldefs = [ Auto; Star; Star; Auto ], rowdefs = [ Auto ]) {
                 TextBlock("Results")
 
                 (HStack(5) {
                     let direction =
                         match (model.OrderByScore, model.OrderDesc) with
-                        | (true ,true) -> "⋱ highest"
-                        | (true ,false) -> "⋰ lowest"
+                        | (true, true) -> "⋱ highest"
+                        | (true, false) -> "⋰ lowest"
                         | (false, true) -> "⋱ latest"
                         | (false, false) -> "⋰ earliest"
 
                     Label "ordered by"
                     ToggleButton(direction, model.OrderDesc, OrderDescChanged)
-                    ToggleButton((if model.OrderByScore then "💯 score" else "📅 uploaded"), model.OrderByScore, OrderByScoreChanged)
+
+                    ToggleButton(
+                        (if model.OrderByScore then "💯 score" else "📅 uploaded"),
+                        model.OrderByScore,
+                        OrderByScoreChanged
+                    )
+
                     Label "first"
-                }).gridColumn(1).centerVertical().centerHorizontal()
+                })
+                    .gridColumn(1)
+                    .centerVertical()
+                    .centerHorizontal ()
 
                 (HStack(5) {
                     Label "padded with"
-                    NumericUpDown(0, float UInt16.MaxValue, Some (float model.Padding), PaddingChanged)
-                        .increment(5).formatString("F0")
-                        .tip(ToolTip("how much context to show a search result in"))
-                    Label "chars for context"
-                }).gridColumn(2).centerHorizontal()
 
-                ToggleButton("to file 📄", model.DisplayOutputOptions, DisplayOutputOptionsChanged).gridColumn(3)
-            }).gridRow(2).trailingMargin().isVisible(not model.SearchResults.IsEmpty)
+                    NumericUpDown(0, float UInt16.MaxValue, Some(float model.Padding), PaddingChanged)
+                        .increment(5)
+                        .formatString("F0")
+                        .tip (ToolTip("how much context to show a search result in"))
+
+                    Label "chars for context"
+                })
+                    .gridColumn(2)
+                    .centerHorizontal ()
+
+                ToggleButton("to file 📄", model.DisplayOutputOptions, DisplayOutputOptionsChanged)
+                    .gridColumn (3)
+            })
+                .gridRow(2)
+                .trailingMargin()
+                .isVisible (not model.SearchResults.IsEmpty)
 
             // output options
-            (View.map FileOutputMsg (FileOutput.view model.FileOutput)).isVisible(model.DisplayOutputOptions).gridRow(3).trailingMargin()
+            (View.map FileOutputMsg (FileOutput.view model.FileOutput))
+                .isVisible(model.DisplayOutputOptions)
+                .gridRow(3)
+                .trailingMargin ()
 
             // results
-            ScrollViewer((VStack() {
-                for result in orderResults model do
-                    (View.map SearchResultMsg (SearchResult.render (model.Padding |> uint32) result)).trailingMargin()
-            })).gridRow(4)
-        }).margin(5, 5 , 5, 0).onAttachedToVisualTree(AttachedToVisualTreeChanged)
+            ScrollViewer(
+                (VStack() {
+                    for result in orderResults model do
+                        (View.map SearchResultMsg (SearchResult.render (model.Padding |> uint32) result))
+                            .trailingMargin ()
+                })
+            )
+                .gridRow (4)
+        })
+            .margin(5, 5, 5, 0)
+            .onAttachedToVisualTree (AttachedToVisualTreeChanged)
 
 #if MOBILE
     let app model = SingleViewApplication(view model)
@@ -472,8 +632,8 @@ module App =
 
         let program =
             Program.statefulWithCmd init update
-            |> Program.withTrace(fun (format, args) -> System.Diagnostics.Debug.WriteLine(format, box args))
-            |> Program.withExceptionHandler(fun ex ->
+            |> Program.withTrace (fun (format, args) -> System.Diagnostics.Debug.WriteLine(format, box args))
+            |> Program.withExceptionHandler (fun ex ->
 #if DEBUG
                 printfn $"Exception: %s{ex.ToString()}"
                 false

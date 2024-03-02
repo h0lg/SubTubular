@@ -11,7 +11,7 @@ module Styles =
     type SharedStyle =
 
         [<Extension>]
-        static member inline trailingMargin(this: WidgetBuilder<'msg, #IFabLayoutable>) = this.margin(0 ,0, 0, 5)
+        static member inline trailingMargin(this: WidgetBuilder<'msg, #IFabLayoutable>) = this.margin (0, 0, 0, 5)
 
         [<Extension>]
-        static member inline demoted(this: WidgetBuilder<'msg, IFabTextBlock>) = this.foreground(Colors.Gray)
+        static member inline demoted(this: WidgetBuilder<'msg, IFabTextBlock>) = this.foreground (Colors.Gray)
