@@ -173,7 +173,7 @@ module App =
                 let cacheFolder = Folder.GetPath Folders.cache
                 let dataStore = JsonFileDataStore cacheFolder
                 let youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
-                let dispatchProgress = Cmd.debounce 100 (fun progress -> SearchProgress progress)
+                let dispatchProgress = CmdExtensions.bufferedThrottle 100 (fun progress -> SearchProgress progress)
                 command.SetProgressReporter(Progress<BatchProgress>(fun progress -> dispatchProgress progress |> List.iter (fun effect -> effect dispatch)))
                 CommandValidator.PrevalidateSearchCommand command
                 use cts = new CancellationTokenSource()
