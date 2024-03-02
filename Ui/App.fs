@@ -175,7 +175,7 @@ module App =
                 let cacheFolder = Folder.GetPath Folders.cache
                 let dataStore = JsonFileDataStore cacheFolder
                 let youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
-                let dispatchProgress = Cmd.debounce 100 (fun progress ->
+                let dispatchProgress = CmdExtensions.bufferedThrottle 100 (fun progress ->
                     System.Diagnostics.Debug.WriteLine("############# progress dispatched" + Environment.NewLine + progress.ToString())
                     SearchProgress progress)
                 command.SetProgressReporter(Progress<BatchProgress>(fun progress ->
