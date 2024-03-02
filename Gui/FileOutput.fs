@@ -9,13 +9,15 @@ open SubTubular
 open type Fabulous.Avalonia.View
 
 module FileOutput =
-    type Open= nothing = 0 | file = 1 | folder = 2
+    type Open =
+        | nothing = 0
+        | file = 1
+        | folder = 2
 
-    type Model = {
-        Html: bool
-        To: string
-        Opening: Open
-    }
+    type Model =
+        { Html: bool
+          To: string
+          Opening: Open }
 
     type Msg =
         | HtmlChanged of bool
@@ -24,11 +26,9 @@ module FileOutput =
         | SaveOutput
 
     let init () =
-        {
-            Html = true
-            To = Folder.GetPath Folders.output
-            Opening = Open.nothing
-        }
+        { Html = true
+          To = Folder.GetPath Folders.output
+          Opening = Open.nothing }
 
     let save command orderedResults =
         async {
@@ -37,9 +37,17 @@ module FileOutput =
             let dataStore = JsonFileDataStore cacheFolder
             let youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
             use cts = new CancellationTokenSource()
-            do! CommandValidator.ValidateScopesAsync(command, youtube, dataStore, cts.Token) |> Async.AwaitTask
 
-            let writer = if command.OutputHtml then new HtmlOutputWriter(command) :> FileOutputWriter else new TextOutputWriter(command)
+            do!
+                CommandValidator.ValidateScopesAsync(command, youtube, dataStore, cts.Token)
+                |> Async.AwaitTask
+
+            let writer =
+                if command.OutputHtml then
+                    new HtmlOutputWriter(command) :> FileOutputWriter
+                else
+                    new TextOutputWriter(command)
+
             writer.WriteHeader()
 
             for result in orderedResults do
@@ -67,23 +75,37 @@ module FileOutput =
         match msg with
         | HtmlChanged value -> { model with Html = value }
         | ToChanged path -> { model with To = path }
-        | OpenChanged args -> { model with Opening = args.AddedItems.Item 0 :?> Open }
+        | OpenChanged args ->
+            { model with
+                Opening = args.AddedItems.Item 0 :?> Open }
         | SaveOutput -> model
 
-    let private displayOpen = function
-    | Open.nothing -> "nothing"
-    | Open.file -> "📄 file"
-    | Open.folder -> "📂 folder"
-    | _ -> failwith "unknown Show Option"
+    let private displayOpen =
+        function
+        | Open.nothing -> "nothing"
+        | Open.file -> "📄 file"
+        | Open.folder -> "📂 folder"
+        | _ -> failwith "unknown Show Option"
 
     let view model =
-        Grid(coldefs = [Auto; Auto; Auto; Star; Auto; Auto; Auto], rowdefs = [Auto]) {
+        Grid(coldefs = [ Auto; Auto; Auto; Star; Auto; Auto; Auto ], rowdefs = [ Auto ]) {
             Label("ouput")
-            ToggleButton((if model.Html then "🖺 html" else "🖹 text"), model.Html, HtmlChanged).gridColumn(1)
-            Label("to").gridColumn(2)
-            TextBox(model.To, ToChanged).watermark("where to save the output file").gridColumn(3)
-            Label("and open").gridColumn(4)
-            ComboBox(Enum.GetValues<Open>(), fun show -> ComboBoxItem(displayOpen show))
-                .selectedItem(model.Opening).onSelectionChanged(OpenChanged).gridColumn(5)
-            Button("💾 Save", SaveOutput).gridColumn(6)
+
+            ToggleButton((if model.Html then "🖺 html" else "🖹 text"), model.Html, HtmlChanged)
+                .gridColumn (1)
+
+            Label("to").gridColumn (2)
+
+            TextBox(model.To, ToChanged)
+                .watermark("where to save the output file")
+                .gridColumn (3)
+
+            Label("and open").gridColumn (4)
+
+            ComboBox(Enum.GetValues<Open>(), (fun show -> ComboBoxItem(displayOpen show)))
+                .selectedItem(model.Opening)
+                .onSelectionChanged(OpenChanged)
+                .gridColumn (5)
+
+            Button("💾 Save", SaveOutput).gridColumn (6)
         }
