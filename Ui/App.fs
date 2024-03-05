@@ -2,11 +2,9 @@
 
 open System
 open System.IO
-open System.Runtime.CompilerServices
 open System.Text.Json
 open System.Threading
 open Avalonia
-open Avalonia.Controls
 open Avalonia.Controls.Notifications
 open Avalonia.Interactivity
 open Avalonia.Layout
@@ -17,6 +15,7 @@ open Fabulous.Avalonia
 open FSharp.Control
 open SubTubular
 open SubTubular.Extensions
+open Styles
 open type Fabulous.Avalonia.View
 
 module App =
@@ -328,16 +327,6 @@ module App =
              Cmd.none)
 
         | Reset -> initModel, Cmd.none
-
-    // see https://docs.fabulous.dev/basics/user-interface/styling
-    [<Extension>]
-    type SharedStyle =
-
-        [<Extension>]
-        static member inline trailingMargin(this: WidgetBuilder<'msg, #IFabLayoutable>) = this.margin(0 ,0, 0, 5)
-
-        [<Extension>]
-        static member inline demoted(this: WidgetBuilder<'msg, IFabTextBlock>) = this.foreground(Colors.Gray)
 
     let private displayScope = function
     | Scopes.videos -> "📼 videos"

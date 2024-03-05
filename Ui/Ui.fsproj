@@ -27,6 +27,7 @@
     <DisableCodesignVerification>true</DisableCodesignVerification>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Styles.fs" />
     <Compile Include="FileOutput.fs" />
     <Compile Include="CmdExtensions.fs" />
     <Compile Include="App.fs" />
