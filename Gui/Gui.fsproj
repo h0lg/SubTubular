@@ -12,6 +12,7 @@
     <RootNamespace>SubTubular.Gui</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="FileOutput.fs" />
     <Compile Include="CmdExtensions.fs" />
     <Compile Include="App.fs" />
   </ItemGroup>
