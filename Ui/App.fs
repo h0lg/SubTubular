@@ -21,16 +21,13 @@ open type Fabulous.Avalonia.View
 
 module App =
     type Scopes = videos = 0 | playlist = 1 | channel = 2
-    type OpenOutputOptions = nothing = 0 | file = 1 | folder = 2
 
     type SavedSettings = {
         OrderByScore: bool
         OrderDesc: bool
         Padding: int
 
-        OutputHtml: bool
-        OutputTo: string
-        OpenOutput: OpenOutputOptions
+        FileOutput: FileOutput.Model option
     }
 
     type Scope = {
@@ -57,9 +54,7 @@ module App =
         SearchResults: VideoSearchResult list
 
         DisplayOutputOptions: bool
-        OutputHtml: bool
-        OutputTo: string
-        OpenOutput: OpenOutputOptions
+        FileOutput: FileOutput.Model
     }
 
     type Msg =
@@ -77,10 +72,7 @@ module App =
         | PaddingChanged of float option
 
         | DisplayOutputOptionsChanged of bool
-        | OutputHtmlChanged of bool
-        | OutputToChanged of string
-        | OpenOutputChanged of SelectionChangedEventArgs
-        | SaveOutput
+        | FileOutputMsg of FileOutput.Msg
         | SavedOutput of string
 
         | Search of bool
@@ -122,9 +114,7 @@ module App =
                     OrderDesc = model.OrderDesc
                     Padding = model.Padding
 
-                    OutputHtml = model.OutputHtml
-                    OutputTo = model.OutputTo
-                    OpenOutput = model.OpenOutput
+                    FileOutput = Some model.FileOutput
                 }
 
                 let json = JsonSerializer.Serialize settings
@@ -158,12 +148,12 @@ module App =
         command.Query <- model.Query
         command.Padding <- model.Padding |> uint16
         command.OrderBy <- order
-        command.OutputHtml <- model.OutputHtml
-        command.FileOutputPath <- model.OutputTo
+        command.OutputHtml <- model.FileOutput.Html
+        command.FileOutputPath <- model.FileOutput.To
 
-        if model.OpenOutput = OpenOutputOptions.file
+        if model.FileOutput.Opening = FileOutput.Open.file
         then command.Show <- OutputCommand.Shows.file
-        elif model.OpenOutput = OpenOutputOptions.folder
+        elif model.FileOutput.Opening = FileOutput.Open.folder
         then command.Show <- OutputCommand.Shows.folder
 
         command
@@ -194,46 +184,19 @@ module App =
             } |> Async.StartImmediate
         |> Cmd.ofEffect
 
-    let private orderResults byScore desc results =
-        let sortBy = if desc then List.sortByDescending else List.sortBy
+    let private orderResults model =
+        let sortBy = if model.OrderDesc then List.sortByDescending else List.sortBy
 
         let comparable: (VideoSearchResult -> IComparable) =
-            if byScore then (fun r -> r.Score)
+            if model.OrderByScore then (fun r -> r.Score)
             else (fun r -> r.Video.Uploaded)
 
-        results |> sortBy comparable
+        model.SearchResults |> sortBy comparable
 
     let private saveOutput model =
         async {
             let command = mapToSearchCommand model
-            CommandValidator.PrevalidateSearchCommand command
-            let cacheFolder = Folder.GetPath Folders.cache
-            let dataStore = JsonFileDataStore cacheFolder
-            let youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
-            use cts = new CancellationTokenSource()
-            do! CommandValidator.ValidateScopesAsync(command, youtube, dataStore, cts.Token) |> Async.AwaitTask
-
-            let writer = if model.OutputHtml then new HtmlOutputWriter(command) :> FileOutputWriter else new TextOutputWriter(command)
-            writer.WriteHeader()
-
-            for result in orderResults model.OrderDesc model.OrderByScore model.SearchResults do
-                writer.WriteVideoResult(result, model.Padding |> uint32)
-
-            // turn ValueTask into Task while native ValueTask handling is in RFC, see https://stackoverflow.com/a/52398452
-            let! path = writer.SaveFile().AsTask() |> Async.AwaitTask
-
-            match writer with
-            | :? HtmlOutputWriter as htmlWriter -> htmlWriter.Dispose()
-            | :? TextOutputWriter as textWriter -> textWriter.Dispose()
-            | _ -> failwith "Unknown output writer type."
-
-            // spare the user some file browsing
-            if command.Show.HasValue then
-                match command.Show.Value with
-                | OutputCommand.Shows.file -> ShellCommands.OpenFile path
-                | OutputCommand.Shows.folder -> ShellCommands.ExploreFolder path |> ignore
-                | _ -> failwith $"Unknown {nameof OutputCommand.Shows} value"
-
+            let! path = FileOutput.save command (orderResults model)
             return SavedOutput path
         }
         |> Cmd.OfAsync.msg
@@ -271,9 +234,7 @@ module App =
 
         Padding = 69
         DisplayOutputOptions = false
-        OutputHtml = true
-        OutputTo = Folder.GetPath Folders.output
-        OpenOutput = OpenOutputOptions.nothing
+        FileOutput = FileOutput.init()
 
         Searching = false
         SearchResults = []
@@ -309,10 +270,17 @@ module App =
         | PaddingChanged padding -> { model with Padding = int padding.Value }, Settings.requestSave()
 
         | DisplayOutputOptionsChanged output -> { model with DisplayOutputOptions = output }, Cmd.none
-        | OutputHtmlChanged value -> { model with OutputHtml = value }, Settings.requestSave()
-        | OutputToChanged path -> { model with OutputTo = path }, Settings.requestSave()
-        | OpenOutputChanged args -> { model with OpenOutput = args.AddedItems.Item 0 :?> OpenOutputOptions }, Settings.requestSave()
-        | SaveOutput -> model, saveOutput model
+
+        | FileOutputMsg fom ->
+            let updated = { model with FileOutput = FileOutput.update fom model.FileOutput }
+
+            let cmd =
+                match fom with
+                | FileOutput.Msg.SaveOutput -> saveOutput updated
+                | _ -> Settings.requestSave()
+
+            updated, cmd
+
         | SavedOutput path -> model, Notify ("Saved results to " + path) |> Cmd.ofMsg
 
         | Search on -> { model with Searching = on; SearchResults = [] }, (if on then searchCmd model else Cmd.none)
@@ -353,10 +321,11 @@ module App =
                 OrderByScore = s.OrderByScore
                 OrderDesc = s.OrderDesc
                 Padding = s.Padding
-                OutputHtml = s.OutputHtml
-                OutputTo = s.OutputTo
-                OpenOutput = s.OpenOutput
-        }, Cmd.none)
+                FileOutput =
+                    match s.FileOutput with
+                    | None -> FileOutput.init ()
+                    | Some fo -> fo },
+             Cmd.none)
 
         | Reset -> initModel, Cmd.none
 
@@ -375,12 +344,6 @@ module App =
     | Scopes.playlist -> "▶️ playlist"
     | Scopes.channel -> "📺 channel"
     | _ -> failwith "unknown scope"
-
-    let private displayOpenOutput = function
-    | OpenOutputOptions.nothing -> "nothing"
-    | OpenOutputOptions.file -> "📄 file"
-    | OpenOutputOptions.folder -> "📂 folder"
-    | _ -> failwith "unknown Show Option"
 
     // see https://github.com/AvaloniaUI/Avalonia/discussions/9654
     let private writeHighlightingMatches (matched: MatchedText) (matchPadding: uint32 option) =
@@ -568,21 +531,11 @@ module App =
             }).gridRow(2).trailingMargin().isVisible(not model.SearchResults.IsEmpty)
 
             // output options
-            (Grid(coldefs = [Auto; Auto; Auto; Star; Auto; Auto; Auto], rowdefs = [Auto]) {
-                Label("ouput")
-                ToggleButton((if model.OutputHtml then "🖺 html" else "🖹 text"), model.OutputHtml, OutputHtmlChanged).gridColumn(1)
-                Label("to").gridColumn(2)
-                TextBox(model.OutputTo, OutputToChanged)
-                    .watermark("where to save the output file").gridColumn(3)
-                Label("and open").gridColumn(4)
-                ComboBox(Enum.GetValues<OpenOutputOptions>(), fun show -> ComboBoxItem(displayOpenOutput show))
-                    .selectedItem(model.OpenOutput).onSelectionChanged(OpenOutputChanged).gridColumn(5)
-                Button("💾 Save", SaveOutput).gridColumn(6)
-            }).isVisible(model.DisplayOutputOptions).gridRow(3).trailingMargin()
+            (View.map FileOutputMsg (FileOutput.view model.FileOutput)).isVisible(model.DisplayOutputOptions).gridRow(3).trailingMargin()
 
             // results
             ScrollViewer((VStack() {
-                for result in orderResults model.OrderDesc model.OrderByScore model.SearchResults do
+                for result in orderResults model do
                     renderSearchResult (model.Padding |> uint32) result
             })).gridRow(4)
         }).margin(5, 5 , 5, 0).onAttachedToVisualTree(AttachedToVisualTreeChanged)
