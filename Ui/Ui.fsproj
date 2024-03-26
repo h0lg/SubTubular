@@ -29,6 +29,7 @@
   <ItemGroup>
     <Compile Include="Styles.fs" />
     <Compile Include="CmdExtensions.fs" />
+    <Compile Include="Scopes.fs" />
     <Compile Include="SearchResult.fs" />
     <Compile Include="FileOutput.fs" />
     <Compile Include="App.fs" />
