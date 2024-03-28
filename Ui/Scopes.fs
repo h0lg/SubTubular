@@ -144,9 +144,18 @@ module Scopes =
                                 let newScopeAliases = ViewRef<TextBox>()
                                 aliases.reference (newScopeAliases)
 
-                                newScopeAliases.Attached.AddHandler(fun _ _ ->
-                                    newScopeAliases.Value.AttachedToVisualTree.AddHandler(fun _ _ ->
-                                        newScopeAliases.Value.Focus() |> ignore))
+                                let rec attachFocus =
+                                    fun _ _ ->
+                                        let rec focus =
+                                            fun _ _ ->
+                                                newScopeAliases.Value.Focus() |> ignore
+                                                newScopeAliases.Value.AttachedToVisualTree.RemoveHandler(focus)
+                                                ()
+
+                                        newScopeAliases.Value.AttachedToVisualTree.AddHandler(focus)
+                                        newScopeAliases.Attached.RemoveHandler(attachFocus)
+
+                                newScopeAliases.Attached.AddHandler(attachFocus)
                             else
                                 aliases
 
