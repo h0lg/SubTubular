@@ -201,7 +201,7 @@ module App =
     let private saveOutput model =
         async {
             let command = mapToSearchCommand model
-            let! path = FileOutput.save command (orderResults model)
+            let! path = FileOutput.saveAsync command (orderResults model)
             return SavedOutput path
         }
         |> Cmd.OfAsync.msg

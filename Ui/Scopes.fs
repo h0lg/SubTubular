@@ -15,7 +15,7 @@ module Scopes =
         { Type: Type
           Aliases: string
 
-          DisplaysSettings: bool
+          ShowSettings: bool
           Top: float option
           CacheHours: float option
           Progress: BatchProgress.VideoList option }
@@ -26,7 +26,7 @@ module Scopes =
         | AddScope of Type
         | RemoveScope of Scope
         | AliasesUpdated of Scope * string
-        | DisplaySettingsChanged of Scope * bool
+        | ToggleSettings of Scope * bool
         | TopChanged of Scope * float option
         | CacheHoursChanged of Scope * float option
         | ProgressChanged of float
@@ -40,7 +40,7 @@ module Scopes =
           Aliases = aliases
           Top = top
           CacheHours = cacheHours
-          DisplaysSettings = false
+          ShowSettings = false
           Progress = None }
 
     let initModel = { List = [] }
@@ -55,14 +55,10 @@ module Scopes =
             { model with
                 List = model.List |> List.except [ scope ] }
 
-        | DisplaySettingsChanged(scope, display) ->
+        | ToggleSettings(scope, show) ->
             let scopes =
                 model.List
-                |> List.map (fun s ->
-                    if s = scope then
-                        { s with DisplaysSettings = display }
-                    else
-                        s)
+                |> List.map (fun s -> if s = scope then { s with ShowSettings = show } else s)
 
             { model with List = scopes }
 
@@ -154,7 +150,7 @@ module Scopes =
                                 Label "videos"
                             })
                                 .centerHorizontal()
-                                .isVisible (scope.DisplaysSettings)
+                                .isVisible (scope.ShowSettings)
 
                             (HStack(5) {
                                 Label "and look for new ones after"
@@ -180,14 +176,10 @@ module Scopes =
                                 Label "hours"
                             })
                                 .centerHorizontal()
-                                .isVisible (scope.DisplaysSettings)
+                                .isVisible (scope.ShowSettings)
 
-                            ToggleButton(
-                                "⚙",
-                                scope.DisplaysSettings,
-                                fun display -> DisplaySettingsChanged(scope, display)
-                            )
-                                .tip (ToolTip("display settings"))
+                            ToggleButton("⚙", scope.ShowSettings, (fun show -> ToggleSettings(scope, show)))
+                                .tip (ToolTip("toggle settings"))
 
                             Button("❌", RemoveScope scope).tip (ToolTip("remove this scope"))
                         }
