@@ -1,7 +1,9 @@
 ﻿namespace Ui
 
 open System
+open Fabulous
 open Fabulous.Avalonia
+open Avalonia.Controls
 open SubTubular
 open type Fabulous.Avalonia.View
 
@@ -18,7 +20,8 @@ module Scopes =
           ShowSettings: bool
           Top: float option
           CacheHours: float option
-          Progress: BatchProgress.VideoList option }
+          Progress: BatchProgress.VideoList option
+          Added: bool }
 
     type Model = { List: Scope list }
 
@@ -31,7 +34,7 @@ module Scopes =
         | CacheHoursChanged of Scope * float option
         | ProgressChanged of float
 
-    let private createScope scopeType aliases =
+    let private createScope scopeType aliases added =
         let isVideos = scopeType = Type.videos
         let top = if isVideos then None else Some(float 50)
         let cacheHours = if isVideos then None else Some(float 24)
@@ -41,7 +44,8 @@ module Scopes =
           Top = top
           CacheHours = cacheHours
           ShowSettings = false
-          Progress = None }
+          Progress = None
+          Added = added }
 
     let initModel = { List = [] }
 
@@ -49,7 +53,7 @@ module Scopes =
         match msg with
         | AddScope scope ->
             { model with
-                List = model.List @ [ createScope scope "" ] }
+                List = model.List @ [ createScope scope "" true ] }
 
         | RemoveScope scope ->
             { model with
@@ -124,16 +128,27 @@ module Scopes =
                         HStack(5) {
                             Label(displayType scope.Type)
 
-                            TextBox(scope.Aliases, (fun value -> AliasesUpdated(scope, value)))
-                                .watermark (
-                                    "by "
-                                    + (if scope.Type = Type.videos then
-                                           "space-separated IDs or URLs"
-                                       elif scope.Type = Type.playlist then
-                                           "ID or URL"
-                                       else
-                                           "handle, slug, user name, ID or URL")
-                                )
+                            let aliases =
+                                TextBox(scope.Aliases, (fun value -> AliasesUpdated(scope, value)))
+                                    .watermark (
+                                        "by "
+                                        + (if scope.Type = Type.videos then
+                                               "space-separated IDs or URLs"
+                                           elif scope.Type = Type.playlist then
+                                               "ID or URL"
+                                           else
+                                               "handle, slug, user name, ID or URL")
+                                    )
+
+                            if scope.Added then
+                                let newScopeAliases = ViewRef<TextBox>()
+                                aliases.reference (newScopeAliases)
+
+                                newScopeAliases.Attached.AddHandler(fun _ _ ->
+                                    newScopeAliases.Value.AttachedToVisualTree.AddHandler(fun _ _ ->
+                                        newScopeAliases.Value.Focus() |> ignore))
+                            else
+                                aliases
 
                             (HStack(5) {
                                 Label "search top"
