@@ -30,7 +30,7 @@ module FileOutput =
           To = Folder.GetPath Folders.output
           Opening = Open.nothing }
 
-    let save command orderedResults =
+    let saveAsync command orderedResults =
         async {
             CommandValidator.PrevalidateSearchCommand command
             let cacheFolder = Folder.GetPath Folders.cache
@@ -85,7 +85,7 @@ module FileOutput =
         | Open.nothing -> "nothing"
         | Open.file -> "📄 file"
         | Open.folder -> "📂 folder"
-        | _ -> failwith "unknown Show Option"
+        | _ -> failwith "unknown Open Option"
 
     let view model =
         Grid(coldefs = [ Auto; Auto; Auto; Star; Auto; Auto; Auto ], rowdefs = [ Auto ]) {
