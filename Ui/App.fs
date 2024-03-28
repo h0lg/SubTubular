@@ -17,10 +17,7 @@ open type Fabulous.Avalonia.View
 
 module App =
     type SavedSettings =
-        { OrderByScore: bool
-          OrderDesc: bool
-          Padding: int
-
+        { ResultOptions: ResultOptions.Model option
           FileOutput: FileOutput.Model option }
 
     type Model =
@@ -29,9 +26,7 @@ module App =
           Scopes: Scopes.Model
           Query: string
 
-          OrderByScore: bool
-          OrderDesc: bool
-          Padding: int
+          ResultOptions: ResultOptions.Model
 
           Searching: bool
           SearchResults: VideoSearchResult list
@@ -42,9 +37,7 @@ module App =
     type Msg =
         | QueryChanged of string
         | ScopesMsg of Scopes.Msg
-        | OrderByScoreChanged of bool
-        | OrderDescChanged of bool
-        | PaddingChanged of float option
+        | ResultOptionsMsg of ResultOptions.Msg
 
         | DisplayOutputOptionsChanged of bool
         | FileOutputMsg of FileOutput.Msg
@@ -54,10 +47,10 @@ module App =
         | SearchResult of VideoSearchResult
         | SearchProgress of BatchProgress
         | SearchCompleted
+        | SearchResultMsg of SearchResult.Msg
 
         | AttachedToVisualTreeChanged of VisualTreeAttachmentEventArgs
         | Notify of string
-        | SearchResultMsg of SearchResult.Msg
         | SaveSettings
         | SettingsSaved
         | SettingsLoaded of SavedSettings
@@ -75,35 +68,26 @@ module App =
                 if File.Exists path then
                     let! json = File.ReadAllTextAsync(getPath) |> Async.AwaitTask
                     let settings = JsonSerializer.Deserialize json
-                    return SettingsLoaded settings
+                    return SettingsLoaded settings |> Some
                 else
-                    return Reset
+                    return None
             }
-            |> Cmd.OfAsync.msg
+            |> Cmd.OfAsync.msgOption
 
         let save model =
             async {
                 let settings =
-                    { OrderByScore = model.OrderByScore
-                      OrderDesc = model.OrderDesc
-                      Padding = model.Padding
-
+                    { ResultOptions = Some model.ResultOptions
                       FileOutput = Some model.FileOutput }
 
                 let json = JsonSerializer.Serialize settings
                 do! File.WriteAllTextAsync(getPath, json) |> Async.AwaitTask
-                return SettingsSaved // Cmd.none?
+                return SettingsSaved
             }
             |> Cmd.OfAsync.msg
 
     let private mapToSearchCommand model =
-        let order =
-            match (model.OrderByScore, model.OrderDesc) with
-            | (true, true) -> [ SearchCommand.OrderOptions.score ]
-            | (true, false) -> [ SearchCommand.OrderOptions.score; SearchCommand.OrderOptions.asc ]
-            | (false, true) -> [ SearchCommand.OrderOptions.uploaded ]
-            | (false, false) -> [ SearchCommand.OrderOptions.uploaded; SearchCommand.OrderOptions.asc ]
-
+        let order = ResultOptions.getSearchCommandOrderOptions model.ResultOptions
         let command = SearchCommand()
 
         let getScopes scope =
@@ -128,7 +112,7 @@ module App =
             command.Videos <- VideosScope(videos.Value.Aliases.Split [| ' ' |])
 
         command.Query <- model.Query
-        command.Padding <- model.Padding |> uint16
+        command.Padding <- model.ResultOptions.Padding |> uint16
         command.OrderBy <- order
         command.OutputHtml <- model.FileOutput.Html
         command.FileOutputPath <- model.FileOutput.To
@@ -183,25 +167,10 @@ module App =
             |> Async.StartImmediate
         |> Cmd.ofEffect
 
-    let private orderResults model =
-        let sortBy =
-            if model.OrderDesc then
-                List.sortByDescending
-            else
-                List.sortBy
-
-        let comparable: (VideoSearchResult -> IComparable) =
-            if model.OrderByScore then
-                (fun r -> r.Score)
-            else
-                (fun r -> r.Video.Uploaded)
-
-        model.SearchResults |> sortBy comparable
-
     let private saveOutput model =
         async {
             let command = mapToSearchCommand model
-            let! path = FileOutput.saveAsync command (orderResults model)
+            let! path = FileOutput.saveAsync command model.SearchResults
             return SavedOutput path
         }
         |> Cmd.OfAsync.msg
@@ -225,11 +194,8 @@ module App =
           Query = ""
 
           Scopes = Scopes.initModel
+          ResultOptions = ResultOptions.initModel
 
-          OrderByScore = true
-          OrderDesc = true
-
-          Padding = 69
           DisplayOutputOptions = false
           FileOutput = FileOutput.init ()
 
@@ -242,17 +208,17 @@ module App =
     let update msg model =
         match msg with
         | QueryChanged txt -> { model with Query = txt }, Cmd.none
-        | OrderByScoreChanged value -> { model with OrderByScore = value }, Settings.requestSave ()
-        | OrderDescChanged value -> { model with OrderDesc = value }, Settings.requestSave ()
 
         | ScopesMsg ext ->
             let scopes = Scopes.update ext model.Scopes
             { model with Scopes = scopes }, Cmd.none
 
+        | ResultOptionsMsg ext ->
+            let options = ResultOptions.update ext model.ResultOptions
 
-        | PaddingChanged padding ->
             { model with
-                Padding = int padding.Value },
+                ResultOptions = options
+                SearchResults = ResultOptions.orderVideoResults options model.SearchResults },
             Settings.requestSave ()
 
         | DisplayOutputOptionsChanged output ->
@@ -282,7 +248,9 @@ module App =
 
         | SearchResult result ->
             { model with
-                SearchResults = result :: model.SearchResults },
+                SearchResults =
+                    result :: model.SearchResults
+                    |> ResultOptions.orderVideoResults model.ResultOptions },
             Cmd.none
 
         | SearchProgress progress ->
@@ -309,9 +277,10 @@ module App =
 
         | SettingsLoaded s ->
             ({ model with
-                OrderByScore = s.OrderByScore
-                OrderDesc = s.OrderDesc
-                Padding = s.Padding
+                ResultOptions =
+                    match s.ResultOptions with
+                    | None -> ResultOptions.initModel
+                    | Some ro -> ro
                 FileOutput =
                     match s.FileOutput with
                     | None -> FileOutput.init ()
@@ -356,39 +325,13 @@ module App =
             (Grid(coldefs = [ Auto; Star; Star; Auto ], rowdefs = [ Auto ]) {
                 TextBlock("Results")
 
-                (HStack(5) {
-                    let direction =
-                        match (model.OrderByScore, model.OrderDesc) with
-                        | (true, true) -> "⋱ highest"
-                        | (true, false) -> "⋰ lowest"
-                        | (false, true) -> "⋱ latest"
-                        | (false, false) -> "⋰ earliest"
-
-                    Label "ordered by"
-                    ToggleButton(direction, model.OrderDesc, OrderDescChanged)
-
-                    ToggleButton(
-                        (if model.OrderByScore then "💯 score" else "📅 uploaded"),
-                        model.OrderByScore,
-                        OrderByScoreChanged
-                    )
-
-                    Label "first"
-                })
+                (View.map ResultOptionsMsg (ResultOptions.orderBy model.ResultOptions))
                     .gridColumn(1)
                     .centerVertical()
                     .centerHorizontal ()
 
-                (HStack(5) {
-                    Label "padded with"
 
-                    NumericUpDown(0, float UInt16.MaxValue, Some(float model.Padding), PaddingChanged)
-                        .increment(5)
-                        .formatString("F0")
-                        .tip (ToolTip("how much context to show a search result in"))
-
-                    Label "chars for context"
-                })
+                (View.map ResultOptionsMsg (ResultOptions.padding model.ResultOptions))
                     .gridColumn(2)
                     .centerHorizontal ()
 
@@ -408,8 +351,8 @@ module App =
             // results
             ScrollViewer(
                 (VStack() {
-                    for result in orderResults model do
-                        (View.map SearchResultMsg (SearchResult.render (model.Padding |> uint32) result))
+                    for result in model.SearchResults do
+                        (View.map SearchResultMsg (SearchResult.render (model.ResultOptions.Padding |> uint32) result))
                             .trailingMargin ()
                 })
             )
