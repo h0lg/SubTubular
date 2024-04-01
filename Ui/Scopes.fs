@@ -27,6 +27,7 @@ module Scopes =
 
     type Msg =
         | AddScope of Type
+        | Focused of Scope
         | RemoveScope of Scope
         | AliasesUpdated of Scope * string
         | ToggleSettings of Scope * bool
@@ -54,6 +55,13 @@ module Scopes =
         | AddScope scope ->
             { model with
                 List = model.List @ [ createScope scope "" true ] }
+
+        | Focused scope ->
+            let scopes =
+                model.List
+                |> List.map (fun s -> if s = scope then { s with Added = false } else s)
+
+            { model with List = scopes }
 
         | RemoveScope scope ->
             { model with
@@ -142,7 +150,7 @@ module Scopes =
 
                             if scope.Added then
                                 let newScopeAliases = ViewRef<TextBox>()
-                                aliases.reference (newScopeAliases)
+                                aliases.reference(newScopeAliases).onGotFocus (fun args -> Focused scope)
 
                                 let rec attachFocus =
                                     fun _ _ ->
