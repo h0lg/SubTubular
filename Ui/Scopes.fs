@@ -1,9 +1,7 @@
 ﻿namespace Ui
 
 open System
-open Fabulous
 open Fabulous.Avalonia
-open Avalonia.Controls
 open SubTubular
 open type Fabulous.Avalonia.View
 
@@ -149,21 +147,9 @@ module Scopes =
                                     )
 
                             if scope.Added then
-                                let newScopeAliases = ViewRef<TextBox>()
-                                aliases.reference(newScopeAliases).onGotFocus (fun args -> Focused scope)
-
-                                let rec attachFocus =
-                                    fun _ _ ->
-                                        let rec focus =
-                                            fun _ _ ->
-                                                newScopeAliases.Value.Focus() |> ignore
-                                                newScopeAliases.Value.AttachedToVisualTree.RemoveHandler(focus)
-                                                ()
-
-                                        newScopeAliases.Value.AttachedToVisualTree.AddHandler(focus)
-                                        newScopeAliases.Attached.RemoveHandler(attachFocus)
-
-                                newScopeAliases.Attached.AddHandler(attachFocus)
+                                aliases
+                                    .focus(true) // to enable typing immediately
+                                    .onGotFocus (fun args -> Focused scope) // to clear Added flag
                             else
                                 aliases
 
