@@ -196,8 +196,9 @@ module Scopes =
                                 .centerHorizontal()
                                 .isVisible (scope.ShowSettings)
 
-                            ToggleButton("⚙", scope.ShowSettings, (fun show -> ToggleSettings(scope, show)))
-                                .tip (ToolTip("toggle settings"))
+                            if scope.Type <> Type.videos then
+                                ToggleButton("⚙", scope.ShowSettings, (fun show -> ToggleSettings(scope, show)))
+                                    .tip (ToolTip("toggle settings"))
 
                             Button("❌", RemoveScope scope).tip (ToolTip("remove this scope"))
                         }
