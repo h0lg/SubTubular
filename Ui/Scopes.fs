@@ -1,6 +1,9 @@
 ﻿namespace Ui
 
 open System
+open System.Threading
+open System.Threading.Tasks
+open Avalonia.Controls
 open Fabulous.Avalonia
 open SubTubular
 open type Fabulous.Avalonia.View
@@ -21,13 +24,14 @@ module Scopes =
           Progress: BatchProgress.VideoList option
           Added: bool }
 
-    type Model = { List: Scope list }
+    type Model = { List: Scope list; Youtube: Youtube }
 
     type Msg =
         | AddScope of Type
         | Focused of Scope
         | RemoveScope of Scope
         | AliasesUpdated of Scope * string
+        | AliasesSelected of Scope * SelectionChangedEventArgs
         | ToggleSettings of Scope * bool
         | TopChanged of Scope * float option
         | CacheHoursChanged of Scope * float option
@@ -48,7 +52,7 @@ module Scopes =
           Progress = None
           Added = added }
 
-    let initModel = { List = [] }
+    let init youtube = { List = []; Youtube = youtube }
 
     let update msg model =
         match msg with
@@ -73,6 +77,18 @@ module Scopes =
                 |> List.map (fun s -> if s = scope then { s with ShowSettings = show } else s)
 
             { model with List = scopes }
+
+        | AliasesSelected(scope, args) ->
+            if args.AddedItems.Count > 0 then
+                let item = args.AddedItems.Item 0 :?> YoutubeSearchResult
+
+                let scopes =
+                    model.List
+                    |> List.map (fun s -> if s = scope then { s with Aliases = item.Id } else s)
+
+                { model with List = scopes }
+            else
+                model
 
         | AliasesUpdated(scope, aliases) ->
             let scopes =
@@ -130,6 +146,27 @@ module Scopes =
         | Type.channel -> "handle, slug, user name, ID or URL"
         | _ -> failwith "unmatched scope type " + scope.Type.ToString()
 
+    let searchAliasesAsync model scope (text: string) (cancellation: CancellationToken) : Task<seq<obj>> =
+        Async.StartAsTask(
+            async {
+                match scope.Type with
+                | Type.channel ->
+                    let! channels = model.Youtube.SearchForChannelsAsync(text, cancellation) |> Async.AwaitTask
+                    return channels |> Seq.map (fun c -> c)
+                | Type.playlist ->
+                    let! playlists = model.Youtube.SearchForPlaylistsAsync(text, cancellation) |> Async.AwaitTask
+                    return playlists |> Seq.map (fun c -> c)
+                | Type.videos ->
+                    let! videos = model.Youtube.SearchForVideosAsync(text, cancellation) |> Async.AwaitTask
+                    return videos |> Seq.map (fun c -> c)
+                | _ ->
+                    //failwith "unknown scope type"
+                    return []
+            },
+            TaskCreationOptions.None,
+            cancellation
+        )
+
     let private displayType =
         function
         | Type.videos -> "📼 videos"
@@ -156,9 +193,17 @@ module Scopes =
                     VStack(5) {
                         HStack(5) {
                             Label(displayType scope.Type)
+                            Label(scope.Aliases)
 
                             let aliases =
-                                TextBox(scope.Aliases, (fun value -> AliasesUpdated(scope, value)))
+                                AutoCompleteBox(
+                                    scope.Aliases,
+                                    (fun value -> AliasesUpdated(scope, value)),
+                                    fun text ct -> searchAliasesAsync model scope text ct
+                                )
+                                    .minimumPrefixLength(3)
+                                    .onSelectionChanged(fun args -> AliasesSelected(scope, args))
+                                    .filterMode(AutoCompleteFilterMode.None)
                                     .watermark ("by " + getAliasWatermark scope)
 
                             if scope.Added then
