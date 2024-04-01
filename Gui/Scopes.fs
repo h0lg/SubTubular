@@ -94,26 +94,30 @@ module Scopes =
 
         | ProgressChanged _value -> model
 
-    let updateSearchProgress (progress: BatchProgress) model =
+    // takes a batch of progresses and applies them to the model
+    let updateSearchProgress (progresses: BatchProgress list) model =
+        let matches (scope: Scope) (commandScope: CommandScope) =
+            match commandScope with
+            | :? ChannelScope as channel -> channel.Alias = scope.Aliases
+            | :? PlaylistScope as playlist -> playlist.Alias = scope.Aliases
+            | :? VideosScope as videos -> videos.Videos = scope.Aliases.Split [| ' ' |]
+            | _ -> failwith $"unsupported {nameof CommandScope} type on {commandScope}"
+
+        let videoLists = progresses |> List.collect (fun p -> p.VideoLists |> List.ofSeq)
+
         let scopes =
             model.List
-            |> List.map (fun s ->
-                let equals (scope: Scope) (commandScope: CommandScope) =
-                    match commandScope with
-                    | :? ChannelScope as channel -> channel.Alias = scope.Aliases
-                    | :? PlaylistScope as playlist -> playlist.Alias = scope.Aliases
-                    | :? VideosScope as videos -> videos.Videos = scope.Aliases.Split [| ' ' |]
-                    | _ -> failwith $"unsupported {nameof CommandScope} type on {commandScope}"
+            |> List.map (fun scope ->
+                let matching = videoLists |> List.filter (fun pair -> matches scope pair.Key)
 
-                let scopeProgress =
-                    progress.VideoLists
-                    |> Seq.tryFind (fun pair -> equals s pair.Key)
-                    |> Option.map (fun pair -> pair.Value)
+                match matching with
+                | [] -> scope // no match, return unaltered scope
+                | _ ->
+                    // only apply most completed progress; batch may contain stale reports due to batched throttling
+                    let scopeProgress = matching |> List.maxBy (fun pair -> pair.Value.CompletedJobs)
 
-                if scopeProgress.IsSome then
-                    { s with Progress = scopeProgress }
-                else
-                    s)
+                    { scope with
+                        Progress = Some scopeProgress.Value })
 
         { model with List = scopes }
 

@@ -45,7 +45,7 @@ module App =
 
         | Search of bool
         | SearchResult of VideoSearchResult
-        | SearchProgress of BatchProgress
+        | SearchProgresses of BatchProgress list
         | SearchCompleted
         | SearchResultMsg of SearchResult.Msg
 
@@ -130,11 +130,12 @@ module App =
                 let dataStore = JsonFileDataStore cacheFolder
                 let youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
 
-                let dispatchProgress =
-                    CmdExtensions.bufferedThrottle 100 (fun progress -> SearchProgress progress)
+                let dispatchProgress, awaitNextDispatch =
+                    CmdExtensions.batchedThrottle 100 (fun progresses -> SearchProgresses progresses)
 
                 command.SetProgressReporter(
                     Progress<BatchProgress>(fun progress ->
+                        // make dispatch available to commands
                         dispatchProgress progress |> List.iter (fun effect -> effect dispatch))
                 )
 
@@ -150,6 +151,8 @@ module App =
                     // see https://github.com/fsprojects/FSharp.Control.TaskSeq
                     |> TaskSeq.iter (fun result -> SearchResult result |> dispatch)
                     |> Async.AwaitTask
+
+                do! awaitNextDispatch (Some(TimeSpan.FromMilliseconds 100)) // to make sure all progresses are dispatched before calling it done
 
                 dispatch SearchCompleted
             }
@@ -242,8 +245,8 @@ module App =
                     |> ResultOptions.orderVideoResults model.ResultOptions },
             Cmd.none
 
-        | SearchProgress progress ->
-            let scopes = Scopes.updateSearchProgress progress model.Scopes
+        | SearchProgresses progresses ->
+            let scopes = Scopes.updateSearchProgress progresses model.Scopes
             { model with Scopes = scopes }, Cmd.none
 
         | SearchCompleted -> { model with Searching = false }, notifyInfo model.Notifier "search completed"
