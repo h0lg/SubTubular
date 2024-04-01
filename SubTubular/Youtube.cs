@@ -428,4 +428,22 @@ public sealed class Youtube
     /// with the <paramref name="progress"/> supplied.</summary>
     private Func<string, CancellationToken, Task<Video>> CreateVideoLookup(BatchProgressReporter.VideoListProgress? progress)
         => (videoId, cancellation) => GetVideoAsync(videoId, cancellation, progress);
+
+    public async Task<IEnumerable<YoutubeSearchResult>> SearchForChannelsAsync(string text, CancellationToken cancellation)
+    {
+        var channels = await Client.Search.GetChannelsAsync(text, cancellation);
+        return channels.Select(c => new YoutubeSearchResult { Id = c.Id, Title = c.Title, Url = c.Url });
+    }
+
+    public async Task<IEnumerable<YoutubeSearchResult>> SearchForPlaylistsAsync(string text, CancellationToken cancellation)
+    {
+        var playlists = await Client.Search.GetPlaylistsAsync(text, cancellation);
+        return playlists.Select(pl => new YoutubeSearchResult { Id = pl.Id, Title = pl.Title, Url = pl.Url });
+    }
+
+    public async Task<IEnumerable<YoutubeSearchResult>> SearchForVideosAsync(string text, CancellationToken cancellation)
+    {
+        var videos = await Client.Search.GetVideosAsync(text, cancellation);
+        return videos.Select(v => new YoutubeSearchResult { Id = v.Id, Title = v.Title, Url = v.Url });
+    }
 }

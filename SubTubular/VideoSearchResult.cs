@@ -2,6 +2,15 @@
 
 namespace SubTubular;
 
+public sealed class YoutubeSearchResult
+{
+    public required string Id { get; set; }
+    public required string Title { get; set; }
+    public required string Url { get; set; }
+
+    public override string ToString() => Title;
+}
+
 public sealed class VideoSearchResult
 {
     public required Video Video { get; set; }

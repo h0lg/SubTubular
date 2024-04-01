@@ -122,13 +122,14 @@ module App =
 
         command
 
+    let private cacheFolder = Folder.GetPath Folders.cache
+    let private dataStore = JsonFileDataStore cacheFolder
+    let private youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
+
     let private searchCmd model =
         fun dispatch ->
             async {
                 let command = mapToSearchCommand model
-                let cacheFolder = Folder.GetPath Folders.cache
-                let dataStore = JsonFileDataStore cacheFolder
-                let youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
 
                 let dispatchProgress, awaitNextDispatch =
                     CmdExtensions.batchedThrottle 100 (fun progresses -> SearchProgresses progresses)
@@ -185,7 +186,7 @@ module App =
         { Notifier = null
           Query = ""
 
-          Scopes = Scopes.initModel
+          Scopes = Scopes.init youtube
           ResultOptions = ResultOptions.initModel
 
           DisplayOutputOptions = false
