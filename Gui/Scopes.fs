@@ -6,6 +6,7 @@ open System.Threading.Tasks
 open Avalonia.Controls
 open Fabulous.Avalonia
 open SubTubular
+open YoutubeExplode.Videos
 open type Fabulous.Avalonia.View
 
 module Scopes =
@@ -141,12 +142,29 @@ module Scopes =
 
     let private getAliasWatermark scope =
         match scope.Type with
-        | Type.videos -> "space-separated IDs or URLs"
+        | Type.videos -> "comma-separated IDs or URLs"
         | Type.playlist -> "ID or URL"
         | Type.channel -> "handle, slug, user name, ID or URL"
         | _ -> failwith "unmatched scope type " + scope.Type.ToString()
 
-    let searchAliasesAsync model scope (text: string) (cancellation: CancellationToken) : Task<seq<obj>> =
+    let private getVideos withValue (enteredText: string) =
+        enteredText.Split(',', StringSplitOptions.RemoveEmptyEntries)
+        |> Array.filter (fun vid ->
+            let colon = vid.IndexOf ':'
+            let parsable = if colon = -1 then vid else vid.Substring(colon + 1).Trim()
+            VideoId.TryParse(parsable).HasValue = withValue)
+        |> List.ofArray
+
+    let private selectAliases enteredText (selected: YoutubeSearchResult) multipleCommaSeparated =
+        let newText = $"{selected.Title} : {selected.Id}"
+
+        if multipleCommaSeparated then
+            let comma = " , "
+            getVideos true enteredText @ [ newText + comma ] |> String.concat comma
+        else
+            newText
+
+    let private searchAliasesAsync model scope (text: string) (cancellation: CancellationToken) : Task<seq<obj>> =
         Async.StartAsTask(
             async {
                 match scope.Type with
@@ -157,7 +175,8 @@ module Scopes =
                     let! playlists = model.Youtube.SearchForPlaylistsAsync(text, cancellation) |> Async.AwaitTask
                     return playlists |> Seq.map (fun c -> c)
                 | Type.videos ->
-                    let! videos = model.Youtube.SearchForVideosAsync(text, cancellation) |> Async.AwaitTask
+                    let searchTerm = getVideos false text |> List.head
+                    let! videos = model.Youtube.SearchForVideosAsync(searchTerm, cancellation) |> Async.AwaitTask
                     return videos |> Seq.map (fun c -> c)
                 | _ ->
                     //failwith "unknown scope type"
@@ -203,15 +222,7 @@ module Scopes =
                                 )
                                     .minimumPrefixLength(3)
                                     .itemSelector(fun enteredText item ->
-                                        let r = item :?> YoutubeSearchResult
-                                        let newText = $"{r.Title}:{r.Id}"
-
-                                        if scope.Type = Type.videos then
-                                            let vids = enteredText.Split(',', StringSplitOptions.RemoveEmptyEntries) |> Array.filter (fun vid -> vid)
-
-                                            enteredText + " " + newText
-                                        else
-                                            newText)
+                                        selectAliases enteredText (item :?> YoutubeSearchResult) forVideos)
                                     .onSelectionChanged(fun args -> AliasesSelected(scope, args))
                                     .filterMode(AutoCompleteFilterMode.None)
                                     .watermark ("by " + getAliasWatermark scope)
