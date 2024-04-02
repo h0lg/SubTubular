@@ -61,7 +61,7 @@ internal static class ScopeExtensions
 public class VideosScope(IEnumerable<string> videos) : CommandScope
 {
     /// <summary>Input video IDs or URLs.</summary>
-    public IEnumerable<string> Videos { get; } = videos;
+    public IEnumerable<string> Videos { get; } = videos.Select(id => id.Trim()).ToArray();
 
     internal override IEnumerable<string> Describe()
     {
@@ -90,7 +90,7 @@ public abstract class PlaylistLikeScope(string alias, ushort top, float cacheHou
 
     // public options
     public ushort Top { get; } = top;
-    public string Alias { get; set; } = alias;
+    public string Alias { get; set; } = alias.Trim();
     public float CacheHours { get; } = cacheHours;
 
     internal override IEnumerable<string> Describe()
