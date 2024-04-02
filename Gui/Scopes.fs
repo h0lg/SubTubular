@@ -202,6 +202,16 @@ module Scopes =
                                     fun text ct -> searchAliasesAsync model scope text ct
                                 )
                                     .minimumPrefixLength(3)
+                                    .itemSelector(fun enteredText item ->
+                                        let r = item :?> YoutubeSearchResult
+                                        let newText = $"{r.Title}:{r.Id}"
+
+                                        if scope.Type = Type.videos then
+                                            let vids = enteredText.Split(',', StringSplitOptions.RemoveEmptyEntries) |> Array.filter (fun vid -> vid)
+
+                                            enteredText + " " + newText
+                                        else
+                                            newText)
                                     .onSelectionChanged(fun args -> AliasesSelected(scope, args))
                                     .filterMode(AutoCompleteFilterMode.None)
                                     .watermark ("by " + getAliasWatermark scope)
