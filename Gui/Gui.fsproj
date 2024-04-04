@@ -12,6 +12,7 @@
     <RootNamespace>SubTubular.Gui</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="AutoCompleteBox.fs" />
     <Compile Include="Styles.fs" />
     <Compile Include="CmdExtensions.fs" />
     <Compile Include="Focus.fs" />
