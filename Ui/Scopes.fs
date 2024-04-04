@@ -212,14 +212,10 @@ module Scopes =
                     VStack(5) {
                         HStack(5) {
                             Label(displayType scope.Type)
-                            Label(scope.Aliases)
 
                             let aliases =
-                                AutoCompleteBox(
-                                    scope.Aliases,
-                                    (fun value -> AliasesUpdated(scope, value)),
-                                    fun text ct -> searchAliasesAsync model scope text ct
-                                )
+                                AutoCompleteBox(fun text ct -> searchAliasesAsync model scope text ct)
+                                    .onTextChanged(scope.Aliases, (fun value -> AliasesUpdated(scope, value)))
                                     .minimumPrefixLength(3)
                                     .itemSelector(fun enteredText item ->
                                         selectAliases enteredText (item :?> YoutubeSearchResult) forVideos)
