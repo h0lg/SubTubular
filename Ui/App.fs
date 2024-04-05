@@ -94,27 +94,30 @@ module App =
             model.Scopes.List
             |> List.filter (fun s -> s.Type = scope && s.Aliases.IsNonWhiteSpace())
 
-        // removes title prefix, i.e. everything before the last ':'
-        let cleanAlias (alias: string) =
-            let idx = alias.LastIndexOf(':')
-            if idx < 0 then alias else alias.Substring(idx + 1)
-
         command.Channels <-
-            getScopes Scopes.Type.channel
+            getScopes Scope.Type.channel
             |> List.map (fun scope ->
-                ChannelScope(cleanAlias scope.Aliases, scope.Top.Value |> uint16, scope.CacheHours.Value |> float32))
+                ChannelScope(
+                    Scope.cleanAlias scope.Aliases,
+                    scope.Top.Value |> uint16,
+                    scope.CacheHours.Value |> float32
+                ))
             |> List.toArray
 
         command.Playlists <-
-            getScopes Scopes.Type.playlist
+            getScopes Scope.Type.playlist
             |> List.map (fun scope ->
-                PlaylistScope(cleanAlias scope.Aliases, scope.Top.Value |> uint16, scope.CacheHours.Value |> float32))
+                PlaylistScope(
+                    Scope.cleanAlias scope.Aliases,
+                    scope.Top.Value |> uint16,
+                    scope.CacheHours.Value |> float32
+                ))
             |> List.toArray
 
-        let videos = getScopes Scopes.Type.videos |> List.tryExactlyOne
+        let videos = getScopes Scope.Type.videos |> List.tryExactlyOne
 
         if videos.IsSome then
-            command.Videos <- VideosScope(videos.Value.Aliases.Split [| ',' |] |> Array.map cleanAlias)
+            command.Videos <- VideosScope(videos.Value.Aliases.Split [| ',' |] |> Array.map Scope.cleanAlias)
 
         command.Query <- model.Query
         command.Padding <- model.ResultOptions.Padding |> uint16
