@@ -123,12 +123,27 @@ module Scopes =
 
         { model with List = scopes }
 
+    let private getAliasWatermark scope =
+        match scope.Type with
+        | Type.videos -> "space-separated IDs or URLs"
+        | Type.playlist -> "ID or URL"
+        | Type.channel -> "handle, slug, user name, ID or URL"
+        | _ -> failwith "unmatched scope type " + scope.Type.ToString()
+
     let private displayType =
         function
         | Type.videos -> "📼 videos"
         | Type.playlist -> "▶️ playlist"
         | Type.channel -> "📺 channel"
         | _ -> failwith "unknown scope"
+
+    let private getAddableTypes model =
+        let allTypes = Enum.GetValues<Type>()
+
+        if model.List |> List.exists isForVideos then
+            allTypes |> Array.except [ Type.videos ]
+        else
+            allTypes
 
     let view model =
         (VStack() {
@@ -144,12 +159,7 @@ module Scopes =
 
                             let aliases =
                                 TextBox(scope.Aliases, (fun value -> AliasesUpdated(scope, value)))
-                                    .watermark (
-                                        "by "
-                                        + (if isForVideos scope then "space-separated IDs or URLs"
-                                           elif scope.Type = Type.playlist then "ID or URL"
-                                           else "handle, slug, user name, ID or URL")
-                                    )
+                                    .watermark ("by " + getAliasWatermark scope)
 
                             if scope.Added then
                                 aliases
@@ -223,16 +233,7 @@ module Scopes =
             HStack(5) {
                 Label "add"
 
-                let hasVideosScope = model.List |> List.exists isForVideos
-                let allScopes = Enum.GetValues<Type>()
-
-                let addable =
-                    if hasVideosScope then
-                        allScopes |> Array.except [ Type.videos ]
-                    else
-                        allScopes
-
-                for scopeType in addable do
+                for scopeType in getAddableTypes model do
                     Button(displayType scopeType, AddScope scopeType)
             }
         })
