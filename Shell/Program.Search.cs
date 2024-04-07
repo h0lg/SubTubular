@@ -9,6 +9,7 @@ static partial class Program
     private static async Task SearchAsync(SearchCommand command, string originalCommand)
     {
         CommandValidator.PrevalidateSearchCommand(command);
+        if (command.Save) await OutputCommandSerializer.SaveAsync(command);
 
         await OutputAsync(command, originalCommand, async (youtube, cancellation, outputs) =>
         {
@@ -48,6 +49,7 @@ static partial class Program
             (Option<IEnumerable<string>> query, Option<ushort> padding, Option<IEnumerable<SearchCommand.OrderOptions>> orderBy) = AddSearchCommandOptions(command);
             (Option<ushort> top, Option<float> cacheHours) = AddPlaylistLikeCommandOptions(command);
             (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(command);
+            Option<bool> save = AddSaveOption(command);
 
             command.SetHandler(async (ctx) => await search(
                 new SearchCommand
@@ -57,7 +59,8 @@ static partial class Program
                     Videos = CreateVideosScope(ctx, videos)
                 }
                 .BindSearchOptions(ctx, query, padding, orderBy)
-                .BindOuputOptions(ctx, html, fileOutputPath, show)));
+                .BindOuputOptions(ctx, html, fileOutputPath, show)
+                .BindSaveOption(ctx, save)));
 
             return command;
         }

@@ -32,7 +32,11 @@ public enum Folders
     /// <summary>The directory the app is running from.</summary>
     app,
 
-    /// <summary>The directory used for caching channel, playlist and video info.</summary>
+    /// <summary>The directory used for storing search configurations you saved.</summary>
+    searches,
+
+    /// <summary>The directory used for caching channel, playlist and video info
+    /// as well as full-text indexes to search them.</summary>
     cache,
 
     /// <summary>The directory error logs are written to.</summary>
@@ -42,7 +46,7 @@ public enum Folders
     /// (unless explicitly specified using <see cref="SearchCommand.FileOutputPath"/>).</summary>
     output,
 
-    /// <summary>The directory that hosts the <see cref="cache"/>,
+    /// <summary>The directory that hosts the <see cref="cache"/>, <see cref="searches"/>,
     /// <see cref="errors"/> and <see cref="output"/> folders.</summary>
     storage
 }

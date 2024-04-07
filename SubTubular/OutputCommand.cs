@@ -1,3 +1,4 @@
+using System.Text.Json;
 using SubTubular.Extensions;
 
 namespace SubTubular;
@@ -7,6 +8,8 @@ public abstract class OutputCommand
     public VideosScope? Videos { get; set; }
     public PlaylistScope[]? Playlists { get; set; }
     public ChannelScope[]? Channels { get; set; }
+
+    public bool Save { get; set; }
 
     public short OutputWidth { get; set; } = 80;
     public bool OutputHtml { get; set; }
@@ -83,4 +86,28 @@ public sealed class ListKeywords : OutputCommand
 {
     public override string Describe(bool withScopes = true)
         => "listing keywords in" + (withScopes ? " " + DescribeValidScopes() : null);
+}
+
+public static class OutputCommandSerializer
+{
+    private const string extension = ".js";
+    private static string folder = Folder.GetPath(Folders.searches);
+
+    private static string GetPath(string fileName)
+        => Path.Combine(folder, fileName + extension);
+
+    public static async Task SaveAsync(OutputCommand command)
+    {
+        var json = JsonSerializer.Serialize(command);
+        await File.WriteAllTextAsync(GetPath(command.Describe().ToFileSafe()), json);
+    }
+
+    public static IEnumerable<string> List()
+        => Directory.GetFiles(folder, "*" + extension).Select(path => Path.GetFileNameWithoutExtension(path));
+
+    public static async Task<OutputCommand?> LoadAsync(string fileName)
+    {
+        var json = await File.ReadAllTextAsync(GetPath(fileName));
+        return JsonSerializer.Deserialize<OutputCommand>(json);
+    }
 }
