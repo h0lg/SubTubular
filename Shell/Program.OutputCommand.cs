@@ -72,6 +72,13 @@ static partial class Program
 
     static partial class CommandHandler
     {
+        private static Option<bool> AddSaveOption(Command command)
+        {
+            Option<bool> save = new(["save", "-s"], "If set, saves this search for later.");
+            command.AddOption(save);
+            return save;
+        }
+
         private static (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) AddOutputOptions(Command command)
         {
             const string htmlName = "--html", outputPathName = "--out",
@@ -100,6 +107,12 @@ static partial class Program
 
 internal static partial class BindingExtensions
 {
+    internal static T BindSaveOption<T>(this T command, InvocationContext ctx, Option<bool> save) where T : OutputCommand
+    {
+        command.Save = ctx.Parsed(save);
+        return command;
+    }
+
     internal static T BindOuputOptions<T>(this T command, InvocationContext ctx,
         Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) where T : OutputCommand
     {

@@ -33,15 +33,17 @@ public abstract class OutputWriter(OutputCommand command)
             if (!validScopes.Any()) return;
             Write(label + " ");
             var indent = CreateIndent();
+            foreach (var scope in validScopes) Describe(scope, indent);
+            WriteLine();
+        }
+    }
 
-            foreach (var scope in validScopes)
-            {
-                foreach (var line in scope.Describe())
-                {
-                    Write(line);
-                    indent.StartNewLine(this);
-                }
-            }
+    private void Describe(CommandScope scope, IndentedText indent)
+    {
+        foreach (var line in scope.Describe())
+        {
+            Write(line);
+            indent.StartNewLine(this);
         }
     }
 

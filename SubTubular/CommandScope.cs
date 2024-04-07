@@ -1,4 +1,5 @@
-﻿using SubTubular.Extensions;
+﻿using System.Runtime.Serialization;
+using SubTubular.Extensions;
 
 namespace SubTubular;
 
@@ -6,13 +7,13 @@ public abstract class CommandScope
 {
     /// <summary>Provides a description of the scope for <see cref="OutputCommand.Describe"/>.
     /// May yield multiple lines.</summary>
-    internal abstract IEnumerable<string> Describe();
+    public abstract IEnumerable<string> Describe();
 
     /// <summary>A collection of validated URLs for the entities included in the scope.
     /// It translates non-URI identifiers in the scope of YouTube into URIs for <see cref="OutputCommand"/>s.</summary>
     internal readonly List<ValidationResult> Validated = new();
 
-    internal bool IsValid => Validated.All(v => v.IsRemoteValidated);
+    internal bool IsValid => IsPrevalidated && Validated.All(v => v.IsRemoteValidated);
     internal bool IsPrevalidated => Validated.Count > 0;
     internal ValidationResult SingleValidated => Validated.Single();
 
@@ -58,12 +59,20 @@ internal static class ScopeExtensions
         => scopes.Where(s => s.IsValid);
 }
 
-public class VideosScope(IEnumerable<string> videos) : CommandScope
+[Serializable]
+public class VideosScope : CommandScope, ISerializable
 {
     /// <summary>Input video IDs or URLs.</summary>
-    public IEnumerable<string> Videos { get; } = videos.Select(id => id.Trim()).ToArray();
+    public string[] Videos { get; }
 
-    internal override IEnumerable<string> Describe()
+    public VideosScope(IEnumerable<string> videos)
+        => Videos = videos.Select(id => id.Trim()).ToArray();
+
+    // Constructor for deserialization
+    protected VideosScope(SerializationInfo info, StreamingContext context)
+        => Videos = info.GetValue(nameof(Videos), typeof(string[])) as string[] ?? [];
+
+    public override IEnumerable<string> Describe()
     {
         if (IsValid) // if validated, use titles - one per line
             foreach (var validated in Validated)
@@ -75,9 +84,12 @@ public class VideosScope(IEnumerable<string> videos) : CommandScope
             yield return "videos " + ids.Join(" "); // and join them
         }
     }
+
+    void ISerializable.GetObjectData(SerializationInfo info, StreamingContext context)
+        => info.AddValue(nameof(Videos), Videos);
 }
 
-public abstract class PlaylistLikeScope(string alias, ushort top, float cacheHours) : CommandScope
+public abstract class PlaylistLikeScope : CommandScope
 {
     #region internal API
     /// <summary>The prefix for the <see cref="StorageKey"/>.</summary>
@@ -89,22 +101,31 @@ public abstract class PlaylistLikeScope(string alias, ushort top, float cacheHou
     #endregion
 
     // public options
-    public ushort Top { get; } = top;
-    public string Alias { get; set; } = alias.Trim();
-    public float CacheHours { get; } = cacheHours;
+    public string Alias { get; set; }
+    public ushort Top { get; }
+    public float CacheHours { get; }
 
-    internal override IEnumerable<string> Describe()
+    protected PlaylistLikeScope(string alias, ushort top, float cacheHours)
+    {
+        Alias = alias.Trim();
+        Top = top;
+        CacheHours = cacheHours;
+    }
+
+    public override IEnumerable<string> Describe()
     {
         yield return IsValid ? SingleValidated.Playlist!.Title : Alias;
     }
 }
 
+[Serializable]
 public class PlaylistScope(string alias, ushort top, float cacheHours) : PlaylistLikeScope(alias, top, cacheHours)
 {
     internal const string StorageKeyPrefix = "playlist ";
     protected override string KeyPrefix => StorageKeyPrefix;
 }
 
+[Serializable]
 public class ChannelScope(string alias, ushort top, float cacheHours) : PlaylistLikeScope(alias, top, cacheHours)
 {
     internal const string StorageKeyPrefix = "channel ";
