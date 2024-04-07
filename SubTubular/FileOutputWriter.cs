@@ -43,7 +43,7 @@ public abstract class FileOutputWriter : OutputWriter
         if (hasOutputPath && !fileOutputPath!.IsDirectoryPath()) return fileOutputPath!; // treat as full file path
 
         // generate default file path
-        var fileName = command.Describe().ToFileSafe() + extension;
+        var fileName = command.Describe().ToFileSafe(replacement: "").NormalizeWhiteSpace() + extension;
         var folder = hasOutputPath ? fileOutputPath! : Folder.GetPath(Folders.output);
         return Path.Combine(folder, fileName);
     }

@@ -9,7 +9,6 @@ static partial class Program
     private static async Task SearchAsync(SearchCommand command, string originalCommand)
     {
         CommandValidator.PrevalidateSearchCommand(command);
-        if (command.SaveAsRecent) await RecentCommand.SaveAsync(command);
 
         await OutputAsync(command, originalCommand, async (youtube, outputs, cancellation) =>
         {

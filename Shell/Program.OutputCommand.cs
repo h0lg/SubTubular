@@ -28,6 +28,7 @@ static partial class Program
         DataStore dataStore = CreateDataStore();
         var youtube = new Youtube(dataStore, CreateVideoIndexRepo());
         await CommandValidator.ValidateScopesAsync(command, youtube, dataStore, cancellation.Token);
+        if (command.SaveAsRecent) await RecentCommand.SaveAsync(command);
         List<OutputWriter> outputs = [new ConsoleOutputWriter(command)];
 
         if (command.OutputHtml) outputs.Add(new HtmlOutputWriter(command));
@@ -74,7 +75,7 @@ static partial class Program
     {
         private static Option<bool> AddSaveAsRecent(Command command)
         {
-            Option<bool> saveAsRecent = new(["--recent", "-r"], "Unless set to false, saves this command into the recent list for later.");
+            Option<bool> saveAsRecent = new(["--recent", "-rc"], "Unless set to false, saves this command into the recent list for later.");
             saveAsRecent.SetDefaultValue(true);
             command.AddOption(saveAsRecent);
             return saveAsRecent;

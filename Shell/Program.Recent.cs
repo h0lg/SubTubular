@@ -9,7 +9,7 @@ static partial class Program
         private static Command ConfigureRecent(Func<SearchCommand, Task> search, Func<ListKeywords, Task> listKeywords)
         {
             Command recent = new("recent", "List, run or remove recently run commands.");
-            recent.AddAlias("r");
+            recent.AddAlias("rc");
             recent.AddCommand(ConfigureListRecent());
             recent.AddCommand(ConfigureRunRecent(search, listKeywords));
             recent.AddCommand(ConfigureRemoveRecent());

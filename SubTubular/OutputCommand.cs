@@ -1,7 +1,10 @@
+using System.Text.Json.Serialization;
 using SubTubular.Extensions;
 
 namespace SubTubular;
 
+[JsonDerivedType(typeof(SearchCommand), "search")]
+[JsonDerivedType(typeof(ListKeywords), "list keywords")]
 public abstract class OutputCommand
 {
     public VideosScope? Videos { get; set; }

@@ -1,4 +1,5 @@
 ﻿using System.Runtime.Serialization;
+using System.Text.Json.Serialization;
 using SubTubular.Extensions;
 
 namespace SubTubular;
@@ -27,6 +28,9 @@ public abstract class CommandScope
     internal string[] GetValidatedIds() => Validated.Select(v => v.Id).ToArray();
 
     internal string GetValidatedId() => GetValidatedIds().Single();
+
+    // used for debugging
+    public override string ToString() => Describe().Join(" ");
 
     internal sealed class ValidationResult
     {
@@ -65,12 +69,9 @@ public class VideosScope : CommandScope, ISerializable
     /// <summary>Input video IDs or URLs.</summary>
     public string[] Videos { get; }
 
-    public VideosScope(IEnumerable<string> videos)
+    [JsonConstructor]
+    public VideosScope(string[] videos)
         => Videos = videos.Select(id => id.Trim()).ToArray();
-
-    // Constructor for deserialization
-    protected VideosScope(SerializationInfo info, StreamingContext context)
-        => Videos = info.GetValue(nameof(Videos), typeof(string[])) as string[] ?? [];
 
     public override IEnumerable<string> Describe()
     {
