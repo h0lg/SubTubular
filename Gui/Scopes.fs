@@ -33,10 +33,12 @@ module Scopes =
         | CacheHoursChanged of Scope * float option
         | ProgressChanged of float
 
+    let private isForVideos scope = scope.Type = Type.videos
+
     let private createScope scopeType aliases added =
-        let isVideos = scopeType = Type.videos
-        let top = if isVideos then None else Some(float 50)
-        let cacheHours = if isVideos then None else Some(float 24)
+        let forVideos = scopeType = Type.videos
+        let top = if forVideos then None else Some(float 50)
+        let cacheHours = if forVideos then None else Some(float 24)
 
         { Type = scopeType
           Aliases = aliases
@@ -134,6 +136,8 @@ module Scopes =
                 Label "in"
 
                 for scope in model.List do
+                    let forVideos = isForVideos scope
+
                     VStack(5) {
                         HStack(5) {
                             Label(displayType scope.Type)
@@ -142,12 +146,9 @@ module Scopes =
                                 TextBox(scope.Aliases, (fun value -> AliasesUpdated(scope, value)))
                                     .watermark (
                                         "by "
-                                        + (if scope.Type = Type.videos then
-                                               "space-separated IDs or URLs"
-                                           elif scope.Type = Type.playlist then
-                                               "ID or URL"
-                                           else
-                                               "handle, slug, user name, ID or URL")
+                                        + (if isForVideos scope then "space-separated IDs or URLs"
+                                           elif scope.Type = Type.playlist then "ID or URL"
+                                           else "handle, slug, user name, ID or URL")
                                     )
 
                             if scope.Added then
@@ -200,7 +201,7 @@ module Scopes =
                                 .centerHorizontal()
                                 .isVisible (scope.ShowSettings)
 
-                            if scope.Type <> Type.videos then
+                            if not forVideos then
                                 ToggleButton("⚙", scope.ShowSettings, (fun show -> ToggleSettings(scope, show)))
                                     .tip (ToolTip("toggle settings"))
 
@@ -222,9 +223,7 @@ module Scopes =
             HStack(5) {
                 Label "add"
 
-                let hasVideosScope =
-                    model.List |> List.exists (fun scope -> scope.Type = Type.videos)
-
+                let hasVideosScope = model.List |> List.exists isForVideos
                 let allScopes = Enum.GetValues<Type>()
 
                 let addable =
