@@ -104,11 +104,7 @@ module Scope =
 
     let isForVideos model = model.Type = Type.videos
 
-    let init scopeType aliases youtube added =
-        let forVideos = scopeType = Type.videos
-        let top = if forVideos then None else Some(float 50)
-        let cacheHours = if forVideos then None else Some(float 24)
-
+    let private create scopeType aliases youtube top cacheHours added =
         { Type = scopeType
           Aliases = aliases
           AliasSearch = AliasSearch()
@@ -118,6 +114,15 @@ module Scope =
           Progress = None
           Added = added
           Youtube = youtube }
+
+    let init scopeType aliases youtube top cacheHours =
+        create scopeType aliases youtube top cacheHours false
+
+    let add scopeType youtube =
+        let forVideos = scopeType = Type.videos
+        let top = if forVideos then None else Some(float 50)
+        let cacheHours = if forVideos then None else Some(float 24)
+        create scopeType "" youtube top cacheHours true
 
     let update msg model =
         match msg with

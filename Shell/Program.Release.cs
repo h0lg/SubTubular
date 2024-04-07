@@ -9,7 +9,7 @@ static partial class Program
         private static Command ConfigureRelease()
         {
             Command release = new("release", $"List, browse and install other {AssemblyInfo.Name} releases.");
-            release.AddAlias("r");
+            release.AddAlias("rls");
 
             Command list = new("list", $"Lists available releases from {AssemblyInfo.ReleasesUrl} .");
             list.AddAlias("l");

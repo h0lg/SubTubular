@@ -18,6 +18,38 @@ module Scopes =
 
     let init youtube = { List = []; Youtube = youtube }
 
+    let updateFromCommand model (command: OutputCommand) =
+        let list =
+            seq {
+                for c in
+                    command.Channels
+                    |> Seq.map (fun c ->
+                        Scope.init
+                            Scope.Type.channel
+                            c.Alias
+                            model.Youtube
+                            (Some(c.Top |> float))
+                            (Some(c.CacheHours |> float))) do
+                    yield c
+
+                for p in
+                    command.Playlists
+                    |> Seq.map (fun p ->
+                        Scope.init
+                            Scope.Type.playlist
+                            p.Alias
+                            model.Youtube
+                            (Some(p.Top |> float))
+                            (Some(p.CacheHours |> float))) do
+                    yield p
+
+                if command.Videos <> null && command.Videos.Videos.Length > 0 then
+                    let aliases = command.Videos.Videos |> String.concat " , "
+                    yield Scope.init Scope.Type.videos aliases model.Youtube None None
+            }
+
+        { model with List = list |> List.ofSeq }
+
     let setOnCommand model (command: OutputCommand) =
         let getScopes ofType =
             model.List
@@ -45,9 +77,9 @@ module Scopes =
 
     let update msg model =
         match msg with
-        | AddScope scope ->
+        | AddScope ofType ->
             { model with
-                List = model.List @ [ Scope.init scope "" model.Youtube true ] }
+                List = model.List @ [ Scope.add ofType model.Youtube ] }
 
         | ScopeMsg(scope, scopeMsg) ->
             let updated, intent = Scope.update scopeMsg scope

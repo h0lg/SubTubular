@@ -36,28 +36,32 @@ public static class RecentCommand
 
     public static async Task<string[]> ListAsync()
     {
-        var existing = Directory.GetFiles(folder, "*" + configExtension).Select(path => Path.GetFileNameWithoutExtension(path)).ToArray();
+        var existing = GetFileNames(Directory.GetFiles(folder, "*" + configExtension)).ToArray();
         var recent = await LoadListAsync();
 
         // drop non-existing recent entries
-        recent = recent.Where(name => existing.Contains(name)).ToArray();
+        recent = recent.Intersect(existing).ToArray();
 
         // determine missing entries, prepend them and save the changes
         var missing = existing.Except(recent).ToArray();
 
         if (missing.Any())
         {
-            recent = missing.Select(GetConfigPath).OrderByDescending(path => new FileInfo(path).CreationTime).Concat(recent).ToArray();
+            var orderedMissing = missing.Select(GetConfigPath).OrderByDescending(path => new FileInfo(path).LastWriteTime);
+            recent = GetFileNames(orderedMissing).Concat(recent).ToArray();
             await UpdateListAsync(recent);
         }
 
         return recent;
+
+        static IEnumerable<string> GetFileNames(IEnumerable<string> paths)
+            => paths.Select(path => Path.GetFileNameWithoutExtension(path));
     }
 
     public static async Task SaveAsync(OutputCommand command)
     {
         string json = JsonSerializer.Serialize(command);
-        string fileName = command.Describe().ToFileSafe();
+        string fileName = command.Describe().ToFileSafe(replacement: "").NormalizeWhiteSpace();
         await File.WriteAllTextAsync(GetConfigPath(fileName), json);
     }
 

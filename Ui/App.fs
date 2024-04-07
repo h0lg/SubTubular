@@ -6,6 +6,7 @@ open System.IO
 open System.Text.Json
 open System.Threading
 open Avalonia
+open Avalonia.Controls
 open Avalonia.Controls.Notifications
 open Avalonia.Media
 open Avalonia.Themes.Fluent
@@ -30,6 +31,7 @@ module App =
         {
             Notifier: WindowNotificationManager
 
+            Recent: ConfigFile.Model
             Command: Commands
             Scopes: Scopes.Model
             Query: string
@@ -47,6 +49,7 @@ module App =
         }
 
     type Msg =
+        | RecentMsg of ConfigFile.Msg
         | CommandChanged of Commands
         | QueryChanged of string
         | ScopesMsg of Scopes.Msg
@@ -234,8 +237,9 @@ module App =
         notify notifier (Notification(title, "", NotificationType.Information, TimeSpan.FromSeconds 3))
         Cmd.none
 
-    let initModel =
-        { Command = Commands.Search
+    let private initModel =
+        { Recent = ConfigFile.initModel
+          Command = Commands.Search
           Notifier = null
           Query = ""
 
@@ -250,10 +254,58 @@ module App =
           KeywordResults = null }
 
     // load settings on init, see https://docs.fabulous.dev/basics/application-state/commands#triggering-commands-on-initialization
-    let init () = initModel, Settings.load
+    let private init () =
+        initModel, Cmd.batch [ Settings.load; ConfigFile.loadRecent |> Cmd.OfTask.msg |> Cmd.map RecentMsg ]
 
-    let update msg model =
+    let private searchTab = ViewRef<TabItem>()
+
+    let private update msg model =
         match msg with
+        | RecentMsg rmsg ->
+            let recent, rCmd = ConfigFile.update rmsg model.Recent
+
+            let updated =
+                match rmsg with
+                | ConfigFile.Msg.Load cmd ->
+                    searchTab.Value.IsSelected <- true
+
+                    let specific =
+                        match cmd with
+                        | :? SearchCommand as s ->
+                            { model with
+                                Command = Commands.Search
+                                Query = s.Query
+                                ResultOptions =
+                                    { model.ResultOptions with
+                                        Padding = s.Padding |> int
+                                        OrderByScore = s.OrderBy |> Seq.contains SearchCommand.OrderOptions.score
+                                        OrderDesc = s.OrderBy |> Seq.contains SearchCommand.OrderOptions.asc |> not } }
+                        | :? ListKeywords as l ->
+                            { model with
+                                Command = Commands.ListKeywords }
+                        | _ -> failwith "unsupported command type"
+
+                    let updated =
+                        { specific with
+                            Scopes = Scopes.updateFromCommand model.Scopes cmd
+                            DisplayOutputOptions = false
+                            FileOutput =
+                                { specific.FileOutput with
+                                    To = cmd.FileOutputPath
+                                    Html = cmd.OutputHtml
+                                    Opening =
+                                        if cmd.Show.HasValue then
+                                            match cmd.Show.Value with
+                                            | OutputCommand.Shows.file -> FileOutput.Open.file
+                                            | OutputCommand.Shows.folder -> FileOutput.Open.folder
+                                            | _ -> FileOutput.Open.nothing
+                                        else
+                                            FileOutput.Open.nothing } }
+
+                    updated
+                | _ -> model
+
+            { updated with Recent = recent }, Cmd.map RecentMsg rCmd
         | CommandChanged cmd -> { model with Command = cmd }, Cmd.none
         | QueryChanged txt -> { model with Query = txt }, Cmd.none
 
@@ -375,7 +427,7 @@ module App =
         see for widgets
             https://github.com/fabulous-dev/Fabulous.Avalonia/tree/main/src/Fabulous.Avalonia/Views
             https://play.avaloniaui.net/ *)
-    let view model =
+    let private runCommand model =
         (Grid(coldefs = [ Star ], rowdefs = [ Auto; Auto; Auto; Auto; Star ]) {
             let isSearch = model.Command = Commands.Search
 
@@ -388,25 +440,24 @@ module App =
             // see https://usecasepod.github.io/posts/mvu-composition.html
             // and https://github.com/TimLariviere/FabulousContacts/blob/0d5024c4bfc7a84f02c0788a03f63ff946084c0b/FabulousContacts/ContactsListPage.fs#L89C17-L89C31
             // search options
-            (Grid(coldefs = [ Auto; Star; Auto; Stars 2; Auto ], rowdefs = [ Auto ]) {
-                (Menu() {
+            (Grid(coldefs = [ Auto; Star; Auto ], rowdefs = [ Auto ]) {
+                Menu() {
                     MenuItem("🏷 List _keywords", CommandChanged Commands.ListKeywords)
                         .asToggle (not isSearch)
 
                     MenuItem("🔍 _Search for", CommandChanged Commands.Search).asToggle (isSearch)
-                })
-                    .gridColumn (2)
+                }
 
                 TextBox(model.Query, QueryChanged)
                     .watermark("your query")
                     .isVisible(isSearch)
-                    .gridColumn (3)
+                    .gridColumn (1)
 
                 let isRunning = model.Running <> null
 
                 ToggleButton((if isRunning then "✋ _Halt" else "💨 Let's _go"), isRunning, Run)
                     .margin(10, 0)
-                    .gridColumn (4)
+                    .gridColumn (2)
             })
                 .trailingMargin ()
 
@@ -478,15 +529,16 @@ module App =
             .margin(5, 5, 5, 0)
             .onAttachedToVisualTree (AttachedToVisualTreeChanged)
 
+    let private view model =
+        TabControl() {
+            TabItem("Recent", View.map RecentMsg (ConfigFile.view model.Recent))
+            TabItem("Search", runCommand model).reference (searchTab)
+        }
 #if MOBILE
     let app model = SingleViewApplication(view model)
 #else
     let app model =
-        DesktopApplication(
-            Window(view model)
-                .icon("avares://Ui/SubTubular.ico")
-                .title ("SubTubular")
-        )
+        DesktopApplication(Window(view model).icon("avares://Ui/SubTubular.ico").title ("SubTubular"))
 #endif
 
     let create () =

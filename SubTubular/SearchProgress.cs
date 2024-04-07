@@ -8,7 +8,7 @@ public sealed class BatchProgress
     public Dictionary<CommandScope, VideoList> VideoLists { get; set; } = [];
 
     public override string ToString() =>
-        VideoLists.Select(list => list.Key.Describe() + " " + list.Value).Join(Environment.NewLine);
+        VideoLists.Select(list => list.Key.Describe().Join(" ") + " " + list.Value).Join(Environment.NewLine);
 
     /// <summary>Represents the progress of a <see cref="CommandScope"/>.</summary>
     public sealed class VideoList
