@@ -27,6 +27,7 @@ static partial class Program
             root.AddCommand(ConfigureClearCache(ApplyClearCacheAsync));
             root.AddCommand(ConfigureRelease());
             root.AddCommand(ConfigureOpen());
+            root.AddCommand(ConfigureRecent(search, listKeywords));
 
             Parser parser = new CommandLineBuilder(root).UseDefaults()
                 // see https://learn.microsoft.com/en-us/dotnet/standard/commandline/customize-help

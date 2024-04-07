@@ -7,7 +7,7 @@ static partial class Program
     private static async Task ListKeywordsAsync(ListKeywords command, string originalCommand)
     {
         CommandValidator.PrevalidateScopes(command);
-        if (command.Save) await OutputCommandSerializer.SaveAsync(command);
+        if (command.SaveAsRecent) await RecentCommand.SaveAsync(command);
 
         await OutputAsync(command, originalCommand, async (youtube, outputs, cancellation) =>
         {
@@ -34,7 +34,7 @@ static partial class Program
             var (channels, playlists, videos) = AddScopes(command);
             (Option<ushort> top, Option<float> cacheHours) = AddPlaylistLikeCommandOptions(command);
             (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(command);
-            Option<bool> save = AddSaveOption(command);
+            Option<bool> saveAsRecent = AddSaveAsRecent(command);
 
             command.SetHandler(async (ctx) => await listKeywords(
                 new ListKeywords
@@ -44,7 +44,7 @@ static partial class Program
                     Videos = CreateVideosScope(ctx, videos)
                 }
                 .BindOuputOptions(ctx, html, fileOutputPath, show)
-                .BindSaveOption(ctx, save)));
+                .BindSaveAsRecent(ctx, saveAsRecent)));
 
             return command;
         }

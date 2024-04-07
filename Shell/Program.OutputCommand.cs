@@ -72,11 +72,12 @@ static partial class Program
 
     static partial class CommandHandler
     {
-        private static Option<bool> AddSaveOption(Command command)
+        private static Option<bool> AddSaveAsRecent(Command command)
         {
-            Option<bool> save = new(["save", "-s"], "If set, saves this search for later.");
-            command.AddOption(save);
-            return save;
+            Option<bool> saveAsRecent = new(["--recent", "-r"], "Unless set to false, saves this command into the recent list for later.");
+            saveAsRecent.SetDefaultValue(true);
+            command.AddOption(saveAsRecent);
+            return saveAsRecent;
         }
 
         private static (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) AddOutputOptions(Command command)
@@ -107,9 +108,9 @@ static partial class Program
 
 internal static partial class BindingExtensions
 {
-    internal static T BindSaveOption<T>(this T command, InvocationContext ctx, Option<bool> save) where T : OutputCommand
+    internal static T BindSaveAsRecent<T>(this T command, InvocationContext ctx, Option<bool> saveAsRecent) where T : OutputCommand
     {
-        command.Save = ctx.Parsed(save);
+        command.SaveAsRecent = ctx.Parsed(saveAsRecent);
         return command;
     }
 
