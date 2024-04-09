@@ -15,3 +15,10 @@ module Styles =
 
         [<Extension>]
         static member inline demoted(this: WidgetBuilder<'msg, IFabTextBlock>) = this.foreground (Colors.Gray)
+
+        [<Extension>]
+        static member inline asToggle(this: WidgetBuilder<'msg, IFabButton>, condition) =
+            if condition then
+                this.background (Colors.Blue)
+            else
+                this.background(Colors.Transparent).foreground (Colors.Gray)

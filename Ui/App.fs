@@ -6,6 +6,7 @@ open System.Text.Json
 open System.Threading
 open Avalonia
 open Avalonia.Controls.Notifications
+open Avalonia.Media
 open Avalonia.Themes.Fluent
 open Fabulous
 open Fabulous.Avalonia
@@ -14,27 +15,40 @@ open SubTubular
 open SubTubular.Extensions
 open Styles
 open type Fabulous.Avalonia.View
+open Avalonia.Media
+open System.Collections.Generic
 
 module App =
     type SavedSettings =
         { ResultOptions: ResultOptions.Model option
           FileOutput: FileOutput.Model option }
 
+    type Commands =
+        | ListKeywords = 1
+        | Search = 0
+
     type Model =
-        { Notifier: WindowNotificationManager
+        {
+            Notifier: WindowNotificationManager
 
-          Scopes: Scopes.Model
-          Query: string
+            Command: Commands
+            Scopes: Scopes.Model
+            Query: string
 
-          ResultOptions: ResultOptions.Model
+            ResultOptions: ResultOptions.Model
 
-          Searching: bool
-          SearchResults: VideoSearchResult list
+            Running: bool
+            SearchResults: VideoSearchResult list
 
-          DisplayOutputOptions: bool
-          FileOutput: FileOutput.Model }
+            /// video IDs by keyword by scope
+            KeywordResults: Dictionary<CommandScope, Dictionary<string, List<string>>>
+
+            DisplayOutputOptions: bool
+            FileOutput: FileOutput.Model
+        }
 
     type Msg =
+        | CommandChanged of Commands
         | QueryChanged of string
         | ScopesMsg of Scopes.Msg
         | ResultOptionsMsg of ResultOptions.Msg
@@ -43,10 +57,11 @@ module App =
         | FileOutputMsg of FileOutput.Msg
         | SavedOutput of string
 
-        | Search of bool
+        | Run of bool
         | SearchResult of VideoSearchResult
-        | SearchProgresses of BatchProgress list
-        | SearchCompleted
+        | KeywordResult of string * string * CommandScope
+        | CommandProgress of BatchProgress list
+        | CommandCompleted
         | SearchResultMsg of SearchResult.Msg
 
         | AttachedToVisualTreeChanged of VisualTreeAttachmentEventArgs
@@ -86,9 +101,14 @@ module App =
             }
             |> Cmd.OfAsync.msg
 
-    let private mapToSearchCommand model =
+    let private mapToCommand model =
         let order = ResultOptions.getSearchCommandOrderOptions model.ResultOptions
-        let command = SearchCommand()
+
+        let command =
+            if model.Command = Commands.Search then
+                SearchCommand() :> OutputCommand
+            else
+                ListKeywords()
 
         let getScopes scope =
             model.Scopes.List
@@ -119,9 +139,13 @@ module App =
         if videos.IsSome then
             command.Videos <- VideosScope(videos.Value.Aliases.Split [| ',' |] |> Array.map Scope.cleanAlias)
 
-        command.Query <- model.Query
-        command.Padding <- model.ResultOptions.Padding |> uint16
-        command.OrderBy <- order
+        match command with
+        | :? SearchCommand as search ->
+            search.Query <- model.Query
+            search.Padding <- model.ResultOptions.Padding |> uint16
+            search.OrderBy <- order
+        | _ -> ()
+
         command.OutputHtml <- model.FileOutput.Html
         command.FileOutputPath <- model.FileOutput.To
 
@@ -159,7 +183,7 @@ module App =
     let private searchCmd model =
         fun dispatch ->
             async {
-                let command = mapToSearchCommand model
+                let command = mapToCommand model
 
                 let dispatchProgress, awaitNextDispatch =
                     CmdExtensions.batchedThrottle 100 (fun progresses ->
@@ -171,7 +195,7 @@ module App =
                                |> String.concat Environment.NewLine)
                         )
 
-                        SearchProgresses progresses)
+                        CommandProgress progresses)
 
                 command.SetProgressReporter(
                     Progress<BatchProgress>(fun progress ->
@@ -183,28 +207,69 @@ module App =
                         dispatchProgress progress |> List.iter (fun effect -> effect dispatch))
                 )
 
-                CommandValidator.PrevalidateSearchCommand command
-                use cts = new CancellationTokenSource()
+                match command with
+                | :? SearchCommand as search ->
+                    CommandValidator.PrevalidateSearchCommand search
+                    use cts = new CancellationTokenSource()
 
-                do!
-                    CommandValidator.ValidateScopesAsync(command, youtube, dataStore, cts.Token)
-                    |> Async.AwaitTask
+                    do!
+                        CommandValidator.ValidateScopesAsync(search, youtube, dataStore, cts.Token)
+                        |> Async.AwaitTask
 
-                do! dispatchAsyncEnumerable (youtube.SearchAsync(command, cts.Token)) SearchResult dispatch
+                    if command.SaveAsRecent then
+                        do! RecentCommand.SaveAsync(command) |> Async.AwaitTask
+
+                    do! dispatchAsyncEnumerable (youtube.SearchAsync(search, cts.Token)) SearchResult dispatch
+
+                | :? ListKeywords as listKeywords ->
+                    CommandValidator.PrevalidateScopes listKeywords
+                    use cts = new CancellationTokenSource()
+
+                    do!
+                        CommandValidator.ValidateScopesAsync(listKeywords, youtube, dataStore, cts.Token)
+                        |> Async.AwaitTask
+
+                    if command.SaveAsRecent then
+                        do! RecentCommand.SaveAsync(command) |> Async.AwaitTask
+
+                    do!
+                        dispatchAsyncEnumerable
+                            (youtube.ListKeywordsAsync(listKeywords, cts.Token))
+                            (fun result -> KeywordResult(result.ToTuple()))
+                            dispatch
+
+                | _ -> failwith ("Unknown command type " + command.GetType().ToString())
+
                 do! awaitNextDispatch (Some(TimeSpan.FromMilliseconds 100)) // to make sure all progresses are dispatched before calling it done
 
-                dispatch SearchCompleted
+                dispatch CommandCompleted
             }
             |> Async.StartImmediate
         |> Cmd.ofEffect
 
     let private saveOutput model =
         async {
-            let command = mapToSearchCommand model
-            let! path = FileOutput.saveAsync command model.SearchResults
-            return SavedOutput path
+            let command = mapToCommand model
+
+            match command with
+            | :? SearchCommand as search ->
+                CommandValidator.PrevalidateSearchCommand search
+
+                let! path =
+                    FileOutput.saveAsync search (fun writer ->
+                        for result in model.SearchResults do
+                            writer.WriteVideoResult(result, search.Padding |> uint32))
+
+                return SavedOutput path |> Some
+
+            | :? ListKeywords as listKeywords ->
+                CommandValidator.PrevalidateScopes listKeywords
+                let! path = FileOutput.saveAsync listKeywords _.ListKeywords(model.KeywordResults)
+                return SavedOutput path |> Some
+
+            | _ -> return None
         }
-        |> Cmd.OfAsync.msg
+        |> Cmd.OfAsync.msgOption
 
     let private dispatchToUiThread (action: unit -> unit) =
         // Check if the current thread is the UI thread
@@ -221,7 +286,8 @@ module App =
         Cmd.none
 
     let initModel =
-        { Notifier = null
+        { Command = Commands.Search
+          Notifier = null
           Query = ""
 
           Scopes = Scopes.init youtube
@@ -230,14 +296,16 @@ module App =
           DisplayOutputOptions = false
           FileOutput = FileOutput.init ()
 
-          Searching = false
-          SearchResults = [] }
+          Running = false
+          SearchResults = []
+          KeywordResults = null }
 
     // load settings on init, see https://docs.fabulous.dev/basics/application-state/commands#triggering-commands-on-initialization
     let init () = initModel, Settings.load
 
     let update msg model =
         match msg with
+        | CommandChanged cmd -> { model with Command = cmd }, Cmd.none
         | QueryChanged txt -> { model with Query = txt }, Cmd.none
 
         | ScopesMsg ext ->
@@ -271,10 +339,19 @@ module App =
 
         | SavedOutput path -> model, Notify("Saved results to " + path) |> Cmd.ofMsg
 
-        | Search on ->
+        | Run on ->
             { model with
-                Searching = on
-                SearchResults = [] },
+                Running = on
+                SearchResults =
+                    if on && model.Command = Commands.Search then
+                        []
+                    else
+                        model.SearchResults
+                KeywordResults =
+                    if on && model.Command = Commands.ListKeywords then
+                        Dictionary<CommandScope, Dictionary<string, List<string>>>()
+                    else
+                        model.KeywordResults },
             (if on then searchCmd model else Cmd.none)
 
         | SearchResult result ->
@@ -284,11 +361,25 @@ module App =
                     |> ResultOptions.orderVideoResults model.ResultOptions },
             Cmd.none
 
-        | SearchProgresses progresses ->
+        | KeywordResult(keyword, videoId, scope) ->
+            Youtube.AggregateKeywords(keyword, videoId, scope, model.KeywordResults)
+
+            { model with
+                KeywordResults = model.KeywordResults },
+            Cmd.none
+
+        | CommandProgress progresses ->
             let scopes = Scopes.updateSearchProgress progresses model.Scopes
             { model with Scopes = scopes }, Cmd.none
 
-        | SearchCompleted -> { model with Searching = false }, Notify "search completed" |> Cmd.ofMsg
+        | CommandCompleted ->
+            let cmd =
+                if model.Command = Commands.Search then
+                    "search"
+                else
+                    "listing keywords"
+
+            { model with Running = false }, Notify(cmd + " completed") |> Cmd.ofMsg
 
         | SearchResultMsg srm ->
             match srm with
@@ -333,15 +424,32 @@ module App =
             https://play.avaloniaui.net/ *)
     let view model =
         (Grid(coldefs = [ Star ], rowdefs = [ Auto; Auto; Auto; Auto; Star ]) {
+            let isSearch = model.Command = Commands.Search
+
+            let hasResults =
+                if isSearch then
+                    not model.SearchResults.IsEmpty
+                else
+                    model.KeywordResults <> null && model.KeywordResults.Count > 0
 
             // see https://usecasepod.github.io/posts/mvu-composition.html
             // and https://github.com/TimLariviere/FabulousContacts/blob/0d5024c4bfc7a84f02c0788a03f63ff946084c0b/FabulousContacts/ContactsListPage.fs#L89C17-L89C31
             // search options
             (Grid(coldefs = [ Auto; Star; Auto; Stars 2; Auto ], rowdefs = [ Auto ]) {
-                TextBlock("for").margin(10, 0).centerVertical().gridColumn (2)
-                TextBox(model.Query, QueryChanged).watermark("your query").gridColumn (3)
+                Button("🏷 List keywords in", CommandChanged Commands.ListKeywords)
+                    .asToggle(not isSearch)
+                    .gridColumn (1)
 
-                ToggleButton((if model.Searching then "🛑 Stop" else "🔍 Search"), model.Searching, Search)
+                Button("🔍 Search for", CommandChanged Commands.Search)
+                    .asToggle(isSearch)
+                    .gridColumn (2)
+
+                TextBox(model.Query, QueryChanged)
+                    .watermark("your query")
+                    .isVisible(isSearch)
+                    .gridColumn (3)
+
+                ToggleButton((if model.Running then "⏹⏹️🛑 Stop" else "▶️▶🐎 Run"), model.Running, Run)
                     .margin(10, 0)
                     .gridColumn (4)
             })
@@ -349,44 +457,67 @@ module App =
 
             // scopes
             ScrollViewer(View.map ScopesMsg (Scopes.view model.Scopes))
-                .gridRow(1)
-                .trailingMargin ()
+                .trailingMargin()
+                .gridRow (1)
 
             // result options
             (Grid(coldefs = [ Auto; Star; Star; Auto ], rowdefs = [ Auto ]) {
                 TextBlock("Results")
 
                 (View.map ResultOptionsMsg (ResultOptions.orderBy model.ResultOptions))
-                    .gridColumn(1)
                     .centerVertical()
-                    .centerHorizontal ()
-
+                    .centerHorizontal()
+                    .isVisible(isSearch)
+                    .gridColumn (1)
 
                 (View.map ResultOptionsMsg (ResultOptions.padding model.ResultOptions))
-                    .gridColumn(2)
-                    .centerHorizontal ()
+                    .centerHorizontal()
+                    .isVisible(isSearch)
+                    .gridColumn (2)
 
                 ToggleButton("to file 📄", model.DisplayOutputOptions, DisplayOutputOptionsChanged)
                     .gridColumn (3)
             })
-                .gridRow(2)
                 .trailingMargin()
-                .isVisible (not model.SearchResults.IsEmpty)
+                .isVisible(hasResults)
+                .gridRow (2)
 
             // output options
             (View.map FileOutputMsg (FileOutput.view model.FileOutput))
+                .trailingMargin()
                 .isVisible(model.DisplayOutputOptions)
-                .gridRow(3)
-                .trailingMargin ()
+                .gridRow (3)
 
             // results
             ScrollViewer(
                 (VStack() {
-                    for result in model.SearchResults do
-                        (View.map SearchResultMsg (SearchResult.render (model.ResultOptions.Padding |> uint32) result))
-                            .trailingMargin ()
+                    if not isSearch && hasResults then
+                        for scope in model.KeywordResults do
+                            (VStack() {
+                                TextBlock(scope.Key.Describe().Join(" "))
+
+                                HWrap() {
+                                    for keyword in Youtube.OrderKeywords scope.Value do
+                                        TextBlock(keyword.Value.Count.ToString() + "x")
+
+                                        Border(TextBlock(keyword.Key))
+                                            .background(Colors.Purple)
+                                            .cornerRadius(2)
+                                            .padding(3, 0, 3, 0)
+                                            .margin (3)
+                                }
+                            })
+                                .trailingMargin ()
+
+                    if isSearch && hasResults then
+                        for result in model.SearchResults do
+                            (View.map
+                                SearchResultMsg
+                                (SearchResult.render (model.ResultOptions.Padding |> uint32) result))
+                                .trailingMargin ()
                 })
             )
+                .isVisible(hasResults)
                 .gridRow (4)
         })
             .margin(5, 5, 5, 0)
