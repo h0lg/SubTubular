@@ -193,29 +193,40 @@ public abstract class OutputWriter(OutputCommand command)
         WroteResults = true;
     }
 
-    /// <summary>Displays the <paramref name="keywords"/> on the <see cref="Console"/>,
+    /// <summary>Displays the <paramref name="keywordsByScope"/> on the <see cref="Console"/>,
     /// most often occurring keyword first.</summary>
-    /// <param name="keywords">The keywords and their corresponding number of occurrences.</param>
-    public void ListKeywords(Dictionary<string, ushort> keywords)
+    /// <param name="keywordsByScope">The keywords and their corresponding number of occurrences.</param>
+    public void ListKeywords(Dictionary<CommandScope, Dictionary<string, List<string>>> keywordsByScope)
     {
         const string separator = " | ";
         var width = GetWidth();
-        var line = string.Empty;
+        var indent = CreateIndent();
 
-        /*  prevent breaking line mid-keyword on Console and breaks output into multiple lines for file
-            without adding unnecessary separators at the start or end of lines */
-        foreach (var tag in keywords.OrderByDescending(pair => pair.Value).ThenBy(pair => pair.Key))
+        foreach (var scope in keywordsByScope)
         {
-            var keyword = tag.Value + "x " + tag.Key;
+            if (scope.Value.Count == 0) continue;
+            Describe(scope.Key, indent);
 
-            // does keyword still fit into the current line?
-            if ((line.Length + separator.Length + keyword.Length) < width)
-                line += separator + keyword; // add it
-            else // keyword doesn't fit
+            var line = string.Empty;
+
+            /*  prevent breaking line mid-keyword on Console and breaks output into multiple lines for file
+                without adding unnecessary separators at the start or end of lines */
+            foreach (var tag in Youtube.OrderKeywords(scope.Value))
             {
-                if (line.Length > 0) WriteLine(line); // write current line
-                line = keyword; // and start a new one
+                var keyword = tag.Value.Count + "x " + tag.Key;
+
+                // does keyword still fit into the current line?
+                if ((line.Length + separator.Length + keyword.Length) < width)
+                    line += separator + keyword; // add it
+                else // keyword doesn't fit
+                {
+                    if (line.Length > 0) WriteLine(line); // write current line
+                    line = keyword; // and start a new one
+                }
             }
+
+            WriteLine(line); // write remaining keywords
+            WriteLine();
         }
 
         WroteResults = true;

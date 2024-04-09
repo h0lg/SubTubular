@@ -11,13 +11,12 @@ static partial class Program
 
         await OutputAsync(command, originalCommand, async (youtube, outputs, cancellation) =>
         {
-            Dictionary<string, ushort> keywords = [];
+            Dictionary<CommandScope, Dictionary<string, List<string>>> scopes = [];
 
             await foreach (var (keyword, videoId, scope) in youtube.ListKeywordsAsync(command, cancellation))
-                if (keywords.ContainsKey(keyword)) keywords[keyword]++;
-                else keywords.Add(keyword, 1);
+                Youtube.AggregateKeywords(keyword, videoId, scope, scopes);
 
-            if (keywords.Any()) outputs.ForEach(o => o.ListKeywords(keywords));
+            if (scopes.Any()) outputs.ForEach(o => o.ListKeywords(scopes));
             else Console.WriteLine("Found no keywords."); // any file output wouldn't be saved without results anyway
         });
     }

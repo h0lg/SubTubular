@@ -30,9 +30,8 @@ module FileOutput =
           To = Folder.GetPath Folders.output
           Opening = Open.nothing }
 
-    let saveAsync command orderedResults =
+    let saveAsync command writeResults =
         async {
-            CommandValidator.PrevalidateSearchCommand command
             let cacheFolder = Folder.GetPath Folders.cache
             let dataStore = JsonFileDataStore cacheFolder
             let youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
@@ -49,9 +48,7 @@ module FileOutput =
                     new TextOutputWriter(command)
 
             writer.WriteHeader()
-
-            for result in orderedResults do
-                writer.WriteVideoResult(result, command.Padding |> uint32)
+            writeResults writer
 
             // turn ValueTask into Task while native ValueTask handling is in RFC, see https://stackoverflow.com/a/52398452
             let! path = writer.SaveFile().AsTask() |> Async.AwaitTask

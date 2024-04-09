@@ -347,6 +347,20 @@ public sealed class Youtube
         await lookups; // to propagate exceptions
     }
 
+    public static void AggregateKeywords(string keyword, string videoId, CommandScope scope,
+        Dictionary<CommandScope, Dictionary<string, List<string>>> keywordsByScope)
+    {
+        if (keywordsByScope.TryGetValue(scope, out Dictionary<string, List<string>>? videoIdsByKeyword))
+        {
+            if (videoIdsByKeyword.TryGetValue(keyword, out List<string>? videoIds)) videoIds.Add(videoId);
+            else videoIdsByKeyword.Add(keyword, [videoId]);
+        }
+        else keywordsByScope.Add(scope, new Dictionary<string, List<string>> { { keyword, [videoId] } });
+    }
+
+    public static IOrderedEnumerable<KeyValuePair<string, List<string>>> OrderKeywords(Dictionary<string, List<string>> keywordsByScope)
+        => keywordsByScope.OrderByDescending(pair => pair.Value.Count).ThenBy(pair => pair.Key);
+
     internal async Task<Video> GetVideoAsync(string videoId, CancellationToken cancellation,
         BatchProgressReporter.VideoListProgress? progress = null, bool downloadCaptionTracksAndSave = true)
     {
