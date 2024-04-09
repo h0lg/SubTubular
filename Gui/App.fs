@@ -57,8 +57,8 @@ module App =
         | SavedOutput of string
 
         | Run of bool
-        | SearchResult of VideoSearchResult
-        | KeywordResult of string * string * CommandScope
+        | SearchResults of VideoSearchResult list
+        | KeywordResults of (string * string * CommandScope) list
         | CommandProgress of BatchProgress list
         | CommandCompleted
         | SearchResultMsg of SearchResult.Msg
@@ -157,39 +157,15 @@ module App =
     let private dataStore = JsonFileDataStore cacheFolder
     let private youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
 
-    let dispatchAsyncEnumerable
-        (action: Collections.Generic.IAsyncEnumerable<'result>)
-        (map: 'result -> Msg)
-        (dispatch: Msg -> unit)
-        =
-        async {
-            let results = action.GetAsyncEnumerator()
-
-            let rec dispatchResults () =
-                async {
-                    let! hasNext = results.MoveNextAsync().AsTask() |> Async.AwaitTask
-
-                    if hasNext then
-                        map results.Current |> dispatch
-                        do! dispatchResults ()
-                }
-
-            do! dispatchResults ()
-        }
-
-    let private searchCmd model =
+    let private runCmd model =
         fun dispatch ->
             async {
                 let command = mapToCommand model
 
-                let dispatchProgress, awaitNextDispatch =
-                    CmdExtensions.batchedThrottle 100 (fun progresses -> CommandProgress progresses)
+                let dispatchProgress, awaitNextProgressDispatch =
+                    dispatch.batchThrottled (100, (fun progresses -> CommandProgress progresses))
 
-                command.SetProgressReporter(
-                    Progress<BatchProgress>(fun progress ->
-                        // make dispatch available to commands
-                        dispatchProgress progress |> List.iter (fun effect -> effect dispatch))
-                )
+                command.SetProgressReporter(Progress<BatchProgress>(fun progress -> dispatchProgress progress))
 
                 match command with
                 | :? SearchCommand as search ->
@@ -203,7 +179,10 @@ module App =
                     if command.SaveAsRecent then
                         do! RecentCommand.SaveAsync(command) |> Async.AwaitTask
 
-                    do! dispatchAsyncEnumerable (youtube.SearchAsync(search, cts.Token)) SearchResult dispatch
+                    do!
+                        youtube
+                            .SearchAsync(search, cts.Token)
+                            .dispatchBatchThrottledTo (100, SearchResults, dispatch)
 
                 | :? ListKeywords as listKeywords ->
                     CommandValidator.PrevalidateScopes listKeywords
@@ -217,15 +196,17 @@ module App =
                         do! RecentCommand.SaveAsync(command) |> Async.AwaitTask
 
                     do!
-                        dispatchAsyncEnumerable
-                            (youtube.ListKeywordsAsync(listKeywords, cts.Token))
-                            (fun result -> KeywordResult(result.ToTuple()))
-                            dispatch
+                        youtube
+                            .ListKeywordsAsync(listKeywords, cts.Token)
+                            .dispatchBatchThrottledTo (
+                                100,
+                                (fun list -> list |> List.map _.ToTuple() |> KeywordResults),
+                                dispatch
+                            )
 
                 | _ -> failwith ("Unknown command type " + command.GetType().ToString())
 
-                do! awaitNextDispatch (Some(TimeSpan.FromMilliseconds 100)) // to make sure all progresses are dispatched before calling it done
-
+                do! awaitNextProgressDispatch (Some 100) // to make sure all progresses are dispatched before calling it done
                 dispatch CommandCompleted
             }
             |> Async.StartImmediate
@@ -338,21 +319,20 @@ module App =
                         Dictionary<CommandScope, Dictionary<string, List<string>>>()
                     else
                         model.KeywordResults },
-            (if on then searchCmd model else Cmd.none)
+            (if on then runCmd model else Cmd.none)
 
-        | SearchResult result ->
+        | SearchResults list ->
             { model with
                 SearchResults =
-                    result :: model.SearchResults
+                    model.SearchResults @ list
                     |> ResultOptions.orderVideoResults model.ResultOptions },
             Cmd.none
 
-        | KeywordResult(keyword, videoId, scope) ->
-            Youtube.AggregateKeywords(keyword, videoId, scope, model.KeywordResults)
+        | KeywordResults list ->
+            for (keyword, videoId, scope) in list do
+                Youtube.AggregateKeywords(keyword, videoId, scope, model.KeywordResults)
 
-            { model with
-                KeywordResults = model.KeywordResults },
-            Cmd.none
+            model, Cmd.none
 
         | CommandProgress progresses ->
             let scopes = Scopes.updateSearchProgress progresses model.Scopes
