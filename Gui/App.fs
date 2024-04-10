@@ -36,7 +36,7 @@ module App =
 
             ResultOptions: ResultOptions.Model
 
-            Running: bool
+            Running: CancellationTokenSource
             SearchResults: VideoSearchResult list
 
             /// video IDs by keyword by scope
@@ -167,13 +167,14 @@ module App =
 
                 command.SetProgressReporter(Progress<BatchProgress>(fun progress -> dispatchProgress progress))
 
+                let cancellation = model.Running.Token
+
                 match command with
                 | :? SearchCommand as search ->
                     CommandValidator.PrevalidateSearchCommand search
-                    use cts = new CancellationTokenSource()
 
                     do!
-                        CommandValidator.ValidateScopesAsync(search, youtube, dataStore, cts.Token)
+                        CommandValidator.ValidateScopesAsync(search, youtube, dataStore, cancellation)
                         |> Async.AwaitTask
 
                     if command.SaveAsRecent then
@@ -181,15 +182,14 @@ module App =
 
                     do!
                         youtube
-                            .SearchAsync(search, cts.Token)
+                            .SearchAsync(search, cancellation)
                             .dispatchBatchThrottledTo (100, SearchResults, dispatch)
 
                 | :? ListKeywords as listKeywords ->
                     CommandValidator.PrevalidateScopes listKeywords
-                    use cts = new CancellationTokenSource()
 
                     do!
-                        CommandValidator.ValidateScopesAsync(listKeywords, youtube, dataStore, cts.Token)
+                        CommandValidator.ValidateScopesAsync(listKeywords, youtube, dataStore, cancellation)
                         |> Async.AwaitTask
 
                     if command.SaveAsRecent then
@@ -197,7 +197,7 @@ module App =
 
                     do!
                         youtube
-                            .ListKeywordsAsync(listKeywords, cts.Token)
+                            .ListKeywordsAsync(listKeywords, cancellation)
                             .dispatchBatchThrottledTo (
                                 100,
                                 (fun list -> list |> List.map _.ToTuple() |> KeywordResults),
@@ -261,7 +261,7 @@ module App =
           DisplayOutputOptions = false
           FileOutput = FileOutput.init ()
 
-          Running = false
+          Running = null
           SearchResults = []
           KeywordResults = null }
 
@@ -305,21 +305,23 @@ module App =
         | SavedOutput path -> model, notifyInfo model.Notifier ("Saved results to " + path)
 
         | Run on ->
-            { model with
-                Running = on
+            let updated =
+                { model with
+                    Running = if on then new CancellationTokenSource() else null
 
-                // reset result collections when starting a new search
-                SearchResults =
-                    if on && model.Command = Commands.Search then
-                        []
-                    else
-                        model.SearchResults
-                KeywordResults =
-                    if on && model.Command = Commands.ListKeywords then
-                        Dictionary<CommandScope, Dictionary<string, List<string>>>()
-                    else
-                        model.KeywordResults },
-            (if on then runCmd model else Cmd.none)
+                    // reset result collections when starting a new search
+                    SearchResults =
+                        if on && model.Command = Commands.Search then
+                            []
+                        else
+                            model.SearchResults
+                    KeywordResults =
+                        if on && model.Command = Commands.ListKeywords then
+                            Dictionary<CommandScope, Dictionary<string, List<string>>>()
+                        else
+                            model.KeywordResults }
+
+            updated, (if on then runCmd updated else Cmd.none)
 
         | SearchResults list ->
             { model with
@@ -339,13 +341,16 @@ module App =
             { model with Scopes = scopes }, Cmd.none
 
         | CommandCompleted ->
+            if model.Running <> null then
+                model.Running.Dispose()
+
             let cmd =
                 if model.Command = Commands.Search then
                     "search"
                 else
                     "listing keywords"
 
-            { model with Running = false }, notifyInfo model.Notifier (cmd + " completed")
+            { model with Running = null }, notifyInfo model.Notifier (cmd + " completed")
 
         | SearchResultMsg srm ->
             match srm with
@@ -404,7 +409,9 @@ module App =
                     .isVisible(isSearch)
                     .gridColumn (3)
 
-                ToggleButton((if model.Running then "⏹⏹️🛑 Stop" else "▶️▶🐎 Run"), model.Running, Run)
+                let isRunning = model.Running <> null
+
+                ToggleButton((if isRunning then "⏹⏹️🛑 Stop" else "▶️▶🐎 Run"), isRunning, Run)
                     .margin(10, 0)
                     .gridColumn (4)
             })
