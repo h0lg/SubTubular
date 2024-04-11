@@ -1,6 +1,7 @@
 ﻿namespace Ui
 
 open System
+open System.Collections.Generic
 open System.IO
 open System.Text.Json
 open System.Threading
@@ -15,8 +16,6 @@ open SubTubular
 open SubTubular.Extensions
 open Styles
 open type Fabulous.Avalonia.View
-open Avalonia.Media
-open System.Collections.Generic
 
 module App =
     type SavedSettings =
@@ -324,7 +323,7 @@ module App =
 
             updated, cmd
 
-        | SavedOutput path -> model, Notify("Saved results to " + path) |> Cmd.ofMsg
+        | SavedOutput path -> model, notifyInfo model.Notifier ("Saved results to " + path)
 
         | Run on ->
             let updated =
@@ -370,7 +369,7 @@ module App =
                 else
                     "listing keywords"
 
-            { model with Running = null }, Notify(cmd + " completed") |> Cmd.ofMsg
+            { model with Running = null }, notifyInfo model.Notifier (cmd + " completed")
 
         | SearchResultMsg srm ->
             match srm with
