@@ -44,7 +44,7 @@ module App =
     }
 
     type Model = {
-        NotificationManager: WindowNotificationManager
+        Notifier: WindowNotificationManager
 
         Scopes: Scope list
         Query: string
@@ -185,17 +185,18 @@ module App =
             } |> Async.StartImmediate
         |> Cmd.ofEffect
 
-    let notificationManager = ViewRef<WindowNotificationManager>()
-
-    let private dispatch (action: unit -> unit) =
+    let private dispatchToUiThread (action: unit -> unit) =
         // Check if the current thread is the UI thread
-        if not(Avalonia.Threading.Dispatcher.UIThread.CheckAccess()) then
+        if Avalonia.Threading.Dispatcher.UIThread.CheckAccess() then
+            action () // run action on current thread
+        else
             // If not on the UI thread, invoke the code on the UI thread
             Avalonia.Threading.Dispatcher.UIThread.Invoke(action)
-        else action() // run action on current thread
 
-    let private notify message =
-        dispatch(fun () -> FabApplication.Current.WindowNotificationManager.Show(Notification(message, message, NotificationType.Information, TimeSpan.FromSeconds 3)))
+    let private notifyInfo (notifier: WindowNotificationManager) title =
+        dispatchToUiThread (fun () ->
+            notifier.Show(Notification(title, "", NotificationType.Information, TimeSpan.FromSeconds 3)))
+
         Cmd.none
 
     let private createScope scope aliases =
@@ -205,7 +206,7 @@ module App =
         { Type = scope; Aliases = aliases; Top = top; CacheHours = cacheHours; DisplaysSettings = false; Progress = None }
 
     let initModel = {
-        NotificationManager = null
+        Notifier = null
         Query = ""
 
         Scopes = [
@@ -277,15 +278,16 @@ module App =
 
             { model with Scopes = scopes }, Cmd.none
 
-        | Notify message ->
-            notificationManager.Value.Show(Notification(message, message, NotificationType.Information, TimeSpan.FromSeconds 3))
-            model, Cmd.none
-
-        | AttachedToVisualTreeChanged args -> { model with NotificationManager = FabApplication.Current.WindowNotificationManager }, []
+        | AttachedToVisualTreeChanged args -> 
+            let notifier = FabApplication.Current.WindowNotificationManager
+            notifier.Position <- NotificationPosition.BottomRight
+            { model with Notifier = notifier }, Cmd.none
+        
+        | Notify title -> model, notifyInfo model.Notifier title
         | OpenUrl url -> model, (fun _ -> ShellCommands.OpenUri(url); Cmd.none)()
         | CopyingToClipboard _args -> model, Cmd.none
         | SaveSettings -> model, Settings.save model
-        | SettingsSaved -> model, Cmd.none //Notify "settings saved" |> Cmd.ofMsg
+        | SettingsSaved -> model, Cmd.none
 
         | SettingsLoaded s -> ({
             model with
@@ -515,10 +517,6 @@ module App =
                 for result in model.SearchResults do
                     renderSearchResult (model.Padding |> uint32) result
             })).gridRow(4)
-
-            View.WindowNotificationManager(notificationManager)
-                .position(NotificationPosition.BottomRight)
-                .maxItems(3)
         }).margin(5, 5 , 5, 0).onAttachedToVisualTree(AttachedToVisualTreeChanged)
 
 #if MOBILE
