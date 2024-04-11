@@ -8,10 +8,12 @@
     <AvaloniaPlatform>$([MSBuild]::GetTargetPlatformIdentifier($(TargetFramework)))</AvaloniaPlatform>
     <!-- Normalize casing -->
     <AvaloniaPlatform Condition="'$(AvaloniaPlatform)' == ''">Desktop</AvaloniaPlatform>
+    <ApplicationIcon>SubTubular.ico</ApplicationIcon>
     <AssemblyName>SubTubular.Gui</AssemblyName>
     <RootNamespace>SubTubular.Gui</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <AvaloniaResource Include="SubTubular.ico" />
     <Compile Include="AutoCompleteBox.fs" />
     <Compile Include="Styles.fs" />
     <Compile Include="CmdExtensions.fs" />

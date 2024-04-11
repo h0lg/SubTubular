@@ -451,7 +451,12 @@ module App =
 #if MOBILE
     let app model = SingleViewApplication(view model)
 #else
-    let app model = DesktopApplication(Window(view model))
+    let app model =
+        DesktopApplication(
+            Window(view model)
+                .icon("avares://SubTubular.Gui/SubTubular.ico")
+                .title ("SubTubular")
+        )
 #endif
 
     let create () =
