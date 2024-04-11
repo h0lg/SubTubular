@@ -13,6 +13,7 @@
     <AvaloniaPlatform Condition="'$(AvaloniaPlatform)' == ''">Desktop</AvaloniaPlatform>
     <AvaloniaPlatform Condition="'$(AvaloniaPlatform)' == 'android'">Android</AvaloniaPlatform>
     <AvaloniaPlatform Condition="'$(AvaloniaPlatform)' == 'ios'">iOS</AvaloniaPlatform>
+    <ApplicationIcon>SubTubular.ico</ApplicationIcon>
   </PropertyGroup>
   <PropertyGroup Condition="'$(AvaloniaPlatform)' == 'Android'">
     <SupportedOSPlatformVersion>21.0</SupportedOSPlatformVersion>
@@ -27,6 +28,7 @@
     <DisableCodesignVerification>true</DisableCodesignVerification>
   </PropertyGroup>
   <ItemGroup>
+    <AvaloniaResource Include="SubTubular.ico" />
     <Compile Include="AutoCompleteBox.fs" />
     <Compile Include="Styles.fs" />
     <Compile Include="CmdExtensions.fs" />
