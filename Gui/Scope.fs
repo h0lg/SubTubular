@@ -115,27 +115,29 @@ module Scope =
         | :? VideosScope as videos -> videos.Videos = (model.Aliases.Split [| ',' |] |> Array.map cleanAlias)
         | _ -> failwith $"unsupported {nameof CommandScope} type on {commandScope}"
 
-    let private searchAliasesAsync model (text: string) (cancellation: CancellationToken) : Task<seq<obj>> =
-        Async.StartAsTask(
-            async {
-                match model.Type with
-                | Type.channel ->
-                    let! channels = model.Youtube.SearchForChannelsAsync(text, cancellation) |> Async.AwaitTask
-                    return channels |> Seq.map (fun c -> c)
-                | Type.playlist ->
-                    let! playlists = model.Youtube.SearchForPlaylistsAsync(text, cancellation) |> Async.AwaitTask
-                    return playlists |> Seq.map (fun c -> c)
-                | Type.videos ->
-                    let searchTerm = getVideos false text |> List.head
-                    let! videos = model.Youtube.SearchForVideosAsync(searchTerm, cancellation) |> Async.AwaitTask
-                    return videos |> Seq.map (fun c -> c)
-                | _ ->
-                    //failwith "unknown scope type"
-                    return []
-            },
-            TaskCreationOptions.None,
-            cancellation
-        )
+    let private searchAliasesAsync model (text: string) (cancellation: CancellationToken) : Task<obj seq> =
+        task {
+            let yieldResults (results: YoutubeSearchResult seq) =
+                if cancellation.IsCancellationRequested then
+                    Seq.empty
+                else
+                    results |> Seq.cast<obj>
+
+            match model.Type with
+            | Type.channel ->
+                let! channels = model.Youtube.SearchForChannelsAsync(text, cancellation)
+                return yieldResults channels
+            | Type.playlist ->
+                let! playlists = model.Youtube.SearchForPlaylistsAsync(text, cancellation)
+                return yieldResults playlists
+            | Type.videos ->
+                match getVideos false text |> List.tryHead with
+                | Some searchTerm ->
+                    let! videos = model.Youtube.SearchForVideosAsync(searchTerm, cancellation)
+                    return yieldResults videos
+                | None -> return []
+            | _ -> return []
+        }
 
     let displayType =
         function
@@ -153,6 +155,7 @@ module Scope =
                 Button("❌", Remove).tip (ToolTip("remove this scope"))
 
                 AutoCompleteBox(fun text ct -> searchAliasesAsync model text ct)
+                    .minimumPopulateDelay(TimeSpan.FromMilliseconds 300)
                     .onTextChanged(model.Aliases, AliasesUpdated)
                     .minimumPrefixLength(3)
                     .itemSelector(fun enteredText item ->
