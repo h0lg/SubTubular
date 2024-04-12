@@ -426,12 +426,12 @@ module App =
             // and https://github.com/TimLariviere/FabulousContacts/blob/0d5024c4bfc7a84f02c0788a03f63ff946084c0b/FabulousContacts/ContactsListPage.fs#L89C17-L89C31
             // search options
             (Grid(coldefs = [ Auto; Star; Auto; Stars 2; Auto ], rowdefs = [ Auto ]) {
-                Button("🏷 List keywords in", CommandChanged Commands.ListKeywords)
-                    .asToggle(not isSearch)
-                    .gridColumn (1)
+                (Menu() {
+                    MenuItem("🏷 List _keywords", CommandChanged Commands.ListKeywords)
+                        .asToggle (not isSearch)
 
-                Button("🔍 Search for", CommandChanged Commands.Search)
-                    .asToggle(isSearch)
+                    MenuItem("🔍 _Search for", CommandChanged Commands.Search).asToggle (isSearch)
+                })
                     .gridColumn (2)
 
                 TextBox(model.Query, QueryChanged)
@@ -441,7 +441,7 @@ module App =
 
                 let isRunning = model.Running <> null
 
-                ToggleButton((if isRunning then "⏹⏹️🛑 Stop" else "▶️▶🐎 Run"), isRunning, Run)
+                ToggleButton((if isRunning then "✋ _Halt" else "💨 Let's _go"), isRunning, Run)
                     .margin(10, 0)
                     .gridColumn (4)
             })
