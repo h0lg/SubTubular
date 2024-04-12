@@ -109,34 +109,7 @@ module App =
             else
                 ListKeywords()
 
-        let getScopes scope =
-            model.Scopes.List
-            |> List.filter (fun s -> s.Type = scope && s.Aliases.IsNonWhiteSpace())
-
-        command.Channels <-
-            getScopes Scope.Type.channel
-            |> List.map (fun scope ->
-                ChannelScope(
-                    Scope.cleanAlias scope.Aliases,
-                    scope.Top.Value |> uint16,
-                    scope.CacheHours.Value |> float32
-                ))
-            |> List.toArray
-
-        command.Playlists <-
-            getScopes Scope.Type.playlist
-            |> List.map (fun scope ->
-                PlaylistScope(
-                    Scope.cleanAlias scope.Aliases,
-                    scope.Top.Value |> uint16,
-                    scope.CacheHours.Value |> float32
-                ))
-            |> List.toArray
-
-        let videos = getScopes Scope.Type.videos |> List.tryExactlyOne
-
-        if videos.IsSome then
-            command.Videos <- VideosScope(videos.Value.Aliases.Split [| ',' |] |> Array.map Scope.cleanAlias)
+        Scopes.setOnCommand model.Scopes command
 
         match command with
         | :? SearchCommand as search ->
@@ -257,18 +230,11 @@ module App =
         }
         |> Cmd.OfAsync.msgOption
 
-    let private dispatchToUiThread (action: unit -> unit) =
-        // Check if the current thread is the UI thread
-        if Avalonia.Threading.Dispatcher.UIThread.CheckAccess() then
-            action () // run action on current thread
-        else
-            // If not on the UI thread, invoke the code on the UI thread
-            Avalonia.Threading.Dispatcher.UIThread.Invoke(action)
+    let private notify (notifier: WindowNotificationManager) notification =
+        Dispatch.toUiThread (fun () -> notifier.Show(notification))
 
     let private notifyInfo (notifier: WindowNotificationManager) title =
-        dispatchToUiThread (fun () ->
-            notifier.Show(Notification(title, "", NotificationType.Information, TimeSpan.FromSeconds 3)))
-
+        notify notifier (Notification(title, "", NotificationType.Information, TimeSpan.FromSeconds 3))
         Cmd.none
 
     let initModel =

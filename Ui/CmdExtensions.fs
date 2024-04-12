@@ -5,6 +5,16 @@ open System.Threading
 open Fabulous
 open System.Runtime.CompilerServices
 
+module Dispatch =
+
+    let toUiThread (action: unit -> unit) =
+        // Check if the current thread is the UI thread
+        if Avalonia.Threading.Dispatcher.UIThread.CheckAccess() then
+            action () // run action on current thread
+        else
+            // If not on the UI thread, invoke the code on the UI thread
+            Avalonia.Threading.Dispatcher.UIThread.Invoke(action)
+
 type DispatchExtensions =
 
     /// <summary>
