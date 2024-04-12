@@ -4,6 +4,7 @@ open System
 open Fabulous
 open Fabulous.Avalonia
 open SubTubular
+open SubTubular.Extensions
 open type Fabulous.Avalonia.View
 
 module Scopes =
@@ -16,6 +17,31 @@ module Scopes =
         | ScopeMsg of Scope.Model * Scope.Msg
 
     let init youtube = { List = []; Youtube = youtube }
+
+    let setOnCommand model (command: OutputCommand) =
+        let getScopes ofType =
+            model.List
+            |> List.filter (fun s -> s.Type = ofType && s.Aliases.IsNonWhiteSpace())
+
+        let getPlaylistLikeScopes ofType =
+            getScopes ofType
+            |> List.map (fun scope ->
+                (Scope.cleanAlias scope.Aliases, scope.Top.Value |> uint16, scope.CacheHours.Value |> float32))
+
+        command.Channels <-
+            getPlaylistLikeScopes Scope.Type.channel
+            |> List.map ChannelScope
+            |> List.toArray
+
+        command.Playlists <-
+            getPlaylistLikeScopes Scope.Type.playlist
+            |> List.map PlaylistScope
+            |> List.toArray
+
+        let videos = getScopes Scope.Type.videos |> List.tryExactlyOne
+
+        if videos.IsSome then
+            command.Videos <- VideosScope(videos.Value.Aliases.Split [| ',' |] |> Array.map Scope.cleanAlias)
 
     let update msg model =
         match msg with

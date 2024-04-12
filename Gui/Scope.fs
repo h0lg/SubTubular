@@ -103,7 +103,7 @@ module Scope =
     // removes title prefix, i.e. everything before the last ':'
     let cleanAlias (alias: string) =
         let idx = alias.LastIndexOf(':')
-        if idx < 0 then alias else alias.Substring(idx + 1)
+        if idx < 0 then alias else alias.Substring(idx + 1).Trim()
 
     let matches model (commandScope: CommandScope) =
         match commandScope with
