@@ -147,6 +147,7 @@ module Scope =
         VStack(5) {
             HStack(5) {
                 Label(displayType model.Type)
+                Button("❌", Remove).tip (ToolTip("remove this scope"))
 
                 let aliases =
                     AutoCompleteBox(fun text ct -> searchAliasesAsync model text ct)
@@ -164,6 +165,10 @@ module Scope =
                         .onGotFocus (fun _ -> Focused) // to clear Added flag
                 else
                     aliases
+
+                if not forVideos then
+                    ToggleButton("⚙", model.ShowSettings, ToggleSettings)
+                        .tip (ToolTip("toggle settings"))
 
                 (HStack(5) {
                     Label "search top"
@@ -197,12 +202,6 @@ module Scope =
                 })
                     .centerHorizontal()
                     .isVisible (model.ShowSettings)
-
-                if not forVideos then
-                    ToggleButton("⚙", model.ShowSettings, ToggleSettings)
-                        .tip (ToolTip("toggle settings"))
-
-                Button("❌", Remove).tip (ToolTip("remove this scope"))
             }
 
             if model.Progress.IsSome then
