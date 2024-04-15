@@ -134,7 +134,7 @@ module App =
 
     let private runCmd model =
         fun dispatch ->
-            async {
+            task {
                 let command = mapToCommand model
 
                 let dispatchProgress, awaitNextProgressDispatch =
@@ -167,12 +167,10 @@ module App =
                 | :? SearchCommand as search ->
                     CommandValidator.PrevalidateSearchCommand search
 
-                    do!
-                        CommandValidator.ValidateScopesAsync(search, youtube, dataStore, cancellation)
-                        |> Async.AwaitTask
+                    do! CommandValidator.ValidateScopesAsync(search, youtube, dataStore, cancellation)
 
                     if command.SaveAsRecent then
-                        do! RecentCommand.SaveAsync(command) |> Async.AwaitTask
+                        do! RecentCommand.SaveAsync(command)
 
                     do!
                         youtube
@@ -182,12 +180,10 @@ module App =
                 | :? ListKeywords as listKeywords ->
                     CommandValidator.PrevalidateScopes listKeywords
 
-                    do!
-                        CommandValidator.ValidateScopesAsync(listKeywords, youtube, dataStore, cancellation)
-                        |> Async.AwaitTask
+                    do! CommandValidator.ValidateScopesAsync(listKeywords, youtube, dataStore, cancellation)
 
                     if command.SaveAsRecent then
-                        do! RecentCommand.SaveAsync(command) |> Async.AwaitTask
+                        do! RecentCommand.SaveAsync(command)
 
                     do!
                         youtube
@@ -203,6 +199,7 @@ module App =
                 do! awaitNextProgressDispatch (Some 100) // to make sure all progresses are dispatched before calling it done
                 dispatch CommandCompleted
             }
+            |> Async.AwaitTask
             |> Async.StartImmediate
         |> Cmd.ofEffect
 
