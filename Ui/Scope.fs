@@ -15,9 +15,72 @@ module Scope =
         | playlist = 1
         | channel = 2
 
+    type AliasSearch() =
+        let mutable searching: CancellationTokenSource = null
+
+        let cancelRunning () =
+            if searching <> null then
+                searching.Cancel()
+                searching.Dispose()
+
+        let getVideos withValue (enteredText: string) =
+            enteredText.Split(',', StringSplitOptions.RemoveEmptyEntries)
+            |> Array.filter (fun vid ->
+                let colon = vid.IndexOf ':'
+                let parsable = if colon = -1 then vid else vid.Substring(colon + 1).Trim()
+                VideoId.TryParse(parsable).HasValue = withValue)
+            |> List.ofArray
+
+        member this.SelectAliases enteredText (selected: YoutubeSearchResult) multipleCommaSeparated =
+            let newText = $"{selected.Title} : {selected.Id}"
+
+            if multipleCommaSeparated then
+                let comma = " , "
+                getVideos true enteredText @ [ newText + comma ] |> String.concat comma
+            else
+                newText
+
+        member this.SearchAsync
+            (youtube: Youtube)
+            scopeType
+            (text: string)
+            (cancellation: CancellationToken)
+            : Task<obj seq> =
+            task {
+                cancellation.Register(fun () ->
+                    cancelRunning ()
+                    searching <- null)
+                |> ignore
+
+                cancelRunning ()
+                searching <- new CancellationTokenSource()
+
+                let yieldResults (results: YoutubeSearchResult seq) =
+                    if searching = null || searching.Token.IsCancellationRequested then
+                        Seq.empty
+                    else
+                        results |> Seq.cast<obj>
+
+                match scopeType with
+                | Type.channel ->
+                    let! channels = youtube.SearchForChannelsAsync(text, searching.Token)
+                    return yieldResults channels
+                | Type.playlist ->
+                    let! playlists = youtube.SearchForPlaylistsAsync(text, searching.Token)
+                    return yieldResults playlists
+                | Type.videos ->
+                    match getVideos false text |> List.tryHead with
+                    | Some searchTerm ->
+                        let! videos = youtube.SearchForVideosAsync(searchTerm, searching.Token)
+                        return yieldResults videos
+                    | None -> return []
+                | _ -> return []
+            }
+
     type Model =
         { Type: Type
           Aliases: string
+          AliasSearch: AliasSearch
 
           ShowSettings: bool
           Top: float option
@@ -48,6 +111,7 @@ module Scope =
 
         { Type = scopeType
           Aliases = aliases
+          AliasSearch = AliasSearch()
           Top = top
           CacheHours = cacheHours
           ShowSettings = false
@@ -86,23 +150,6 @@ module Scope =
         | Type.channel -> "handle, slug, user name, ID or URL"
         | _ -> failwith "unmatched scope type " + scope.Type.ToString()
 
-    let private getVideos withValue (enteredText: string) =
-        enteredText.Split(',', StringSplitOptions.RemoveEmptyEntries)
-        |> Array.filter (fun vid ->
-            let colon = vid.IndexOf ':'
-            let parsable = if colon = -1 then vid else vid.Substring(colon + 1).Trim()
-            VideoId.TryParse(parsable).HasValue = withValue)
-        |> List.ofArray
-
-    let private selectAliases enteredText (selected: YoutubeSearchResult) multipleCommaSeparated =
-        let newText = $"{selected.Title} : {selected.Id}"
-
-        if multipleCommaSeparated then
-            let comma = " , "
-            getVideos true enteredText @ [ newText + comma ] |> String.concat comma
-        else
-            newText
-
     // removes title prefix, i.e. everything before the last ':'
     let cleanAlias (alias: string) =
         let idx = alias.LastIndexOf(':')
@@ -114,30 +161,6 @@ module Scope =
         | :? PlaylistScope as playlist -> playlist.Alias = cleanAlias model.Aliases
         | :? VideosScope as videos -> videos.Videos = (model.Aliases.Split [| ',' |] |> Array.map cleanAlias)
         | _ -> failwith $"unsupported {nameof CommandScope} type on {commandScope}"
-
-    let private searchAliasesAsync model (text: string) (cancellation: CancellationToken) : Task<obj seq> =
-        task {
-            let yieldResults (results: YoutubeSearchResult seq) =
-                if cancellation.IsCancellationRequested then
-                    Seq.empty
-                else
-                    results |> Seq.cast<obj>
-
-            match model.Type with
-            | Type.channel ->
-                let! channels = model.Youtube.SearchForChannelsAsync(text, cancellation)
-                return yieldResults channels
-            | Type.playlist ->
-                let! playlists = model.Youtube.SearchForPlaylistsAsync(text, cancellation)
-                return yieldResults playlists
-            | Type.videos ->
-                match getVideos false text |> List.tryHead with
-                | Some searchTerm ->
-                    let! videos = model.Youtube.SearchForVideosAsync(searchTerm, cancellation)
-                    return yieldResults videos
-                | None -> return []
-            | _ -> return []
-        }
 
     let displayType =
         function
@@ -154,12 +177,12 @@ module Scope =
                 Label(displayType model.Type)
                 Button("❌", Remove).tip (ToolTip("remove this scope"))
 
-                AutoCompleteBox(fun text ct -> searchAliasesAsync model text ct)
+                AutoCompleteBox(fun text ct -> model.AliasSearch.SearchAsync model.Youtube model.Type text ct)
                     .minimumPopulateDelay(TimeSpan.FromMilliseconds 300)
                     .onTextChanged(model.Aliases, AliasesUpdated)
                     .minimumPrefixLength(3)
                     .itemSelector(fun enteredText item ->
-                        selectAliases enteredText (item :?> YoutubeSearchResult) forVideos)
+                        model.AliasSearch.SelectAliases enteredText (item :?> YoutubeSearchResult) forVideos)
                     .onSelectionChanged(AliasesSelected)
                     .filterMode(AutoCompleteFilterMode.None)
                     .focus(model.Added)
