@@ -42,7 +42,18 @@ public sealed class VideoIndexRepository
         VideoIndex? videoIndex = null;
 
         // see https://mikegoatly.github.io/lifti/docs/index-construction/withindexmodificationaction/
-        FullTextIndex<string> index = CreateIndexBuilder().WithIndexModificationAction(async indexSnapshot => await SaveAsync(indexSnapshot, key)).Build();
+        FullTextIndex<string> index = CreateIndexBuilder().WithIndexModificationAction(async indexSnapshot =>
+        {
+            try
+            {
+                await videoIndex!.AccessToken.WaitAsync();
+                await SaveAsync(indexSnapshot, key);
+            }
+            finally
+            {
+                videoIndex!.AccessToken.Release();
+            }
+        }).Build();
 
         videoIndex = new VideoIndex(index);
         return videoIndex;
@@ -56,9 +67,11 @@ public sealed class VideoIndexRepository
         var file = new FileInfo(path);
         if (!file.Exists) return null;
 
+        var index = Build(key);
+
         try
         {
-            var index = Build(key);
+            await index.AccessToken.WaitAsync();
 
             // see https://mikegoatly.github.io/lifti/docs/serialization/
             using (var reader = file.OpenRead())
@@ -70,6 +83,10 @@ public sealed class VideoIndexRepository
         {
             file.Delete(); // delete corrupted index
             return null;
+        }
+        finally
+        {
+            index.AccessToken.Release();
         }
     }
 
@@ -87,7 +104,7 @@ public sealed class VideoIndexRepository
 internal sealed class VideoIndex
 {
     private static readonly string[] nonDynamicVideoFieldNames = [nameof(Video.Title), nameof(Video.Description), nameof(Video.Keywords)];
-
+    internal SemaphoreSlim AccessToken = new(1, 1);
     internal FullTextIndex<string> Index { get; }
 
     internal VideoIndex(FullTextIndex<string> index) => Index = index;
