@@ -23,15 +23,17 @@ static partial class Program
 
             list.SetHandler(async () =>
             {
-                var saved = await RecentCommand.ListAsync();
+                var saved = await RecentCommands.ListAsync();
 
-                if (saved.Length == 0)
+                if (saved.Count == 0)
                 {
                     Console.WriteLine("There are no saved configurations.");
                     return;
                 }
 
-                var numberedConfigs = saved.Select((name, index) => (name, number: index + 1)).ToArray();
+                var numberedConfigs = saved.OrderByDescending(c => c.LastRun)
+                    .Select((cmd, index) => (cmd.Description, number: index + 1)).ToArray();
+
                 var digits = numberedConfigs.Max(s => s.number).ToString().Length; // determines length of longest number
 
                 foreach (var (name, number) in numberedConfigs)
@@ -51,15 +53,19 @@ static partial class Program
 
             run.SetHandler(async (ctx) =>
             {
-                var fileName = await GetConfigFileName(ctx.Parsed(number));
-                var command = await RecentCommand.LoadAsync(fileName!);
-                if (command == null) Console.WriteLine($"Command {number} couldn't be loaded.");
+                var commands = await RecentCommands.ListAsync();
+                var command = commands.GetByNumber(ctx.Parsed(number));
 
-                if (command is SearchCommand searchCmd) await search(searchCmd);
-                else if (command is ListKeywords listCmd) await listKeywords(listCmd);
-                else throw new NotSupportedException("Unsupported command type " + command!.GetType());
+                if (command == null) Console.WriteLine($"Command {number} couldn't be found.");
+                else
+                {
+                    if (command.Command is SearchCommand searchCmd) await search(searchCmd);
+                    else if (command.Command is ListKeywords listCmd) await listKeywords(listCmd);
+                    else throw new NotSupportedException("Unsupported command type " + command.Command?.GetType());
 
-                await RecentCommand.UpdateListAsync(fileName!);
+                    command.LastRun = DateTime.Now;
+                    await RecentCommands.SaveAsync(commands);
+                }
             });
 
             return run;
@@ -75,19 +81,28 @@ static partial class Program
 
             remove.SetHandler(async (ctx) =>
             {
-                var fileName = await GetConfigFileName(ctx.Parsed(number));
-                RecentCommand.Remove(fileName!);
+                var commands = await RecentCommands.ListAsync();
+                var command = commands.GetByNumber(ctx.Parsed(number));
+
+                if (command == null) Console.WriteLine($"Command {number} couldn't be found.");
+                else
+                {
+                    commands.Remove(command);
+                    await RecentCommands.SaveAsync(commands);
+                }
             });
 
             return remove;
         }
+    }
+}
 
-        public static async Task<string?> GetConfigFileName(int number)
-        {
-            var index = number - 1;
-            string[] configs = await RecentCommand.ListAsync();
-            if (configs.Length <= index) return null;
-            return configs[index];
-        }
+internal static class ListExtensions
+{
+    internal static T? GetByNumber<T>(this List<T> list, int number)
+    {
+        var index = number - 1;
+        if (index < 0 || list.Count <= index) return default;
+        return list[index];
     }
 }

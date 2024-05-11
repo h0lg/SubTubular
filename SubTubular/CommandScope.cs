@@ -117,6 +117,9 @@ public abstract class PlaylistLikeScope : CommandScope
     {
         yield return IsValid ? SingleValidated.Playlist!.Title : Alias;
     }
+
+    // for equality comparison of recent commands
+    public override int GetHashCode() => Alias.GetHashCode();
 }
 
 [Serializable]

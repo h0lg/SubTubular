@@ -173,7 +173,7 @@ module App =
                     do! CommandValidator.ValidateScopesAsync(search, youtube, dataStore, cancellation)
 
                     if command.SaveAsRecent then
-                        do! RecentCommand.SaveAsync(command)
+                        dispatch (RecentMsg(ConfigFile.CommandRun command))
 
                     do!
                         youtube
@@ -186,7 +186,7 @@ module App =
                     do! CommandValidator.ValidateScopesAsync(listKeywords, youtube, dataStore, cancellation)
 
                     if command.SaveAsRecent then
-                        do! RecentCommand.SaveAsync(command)
+                        dispatch (RecentMsg(ConfigFile.CommandRun command))
 
                     do!
                         youtube
@@ -261,15 +261,14 @@ module App =
 
     let private update msg model =
         match msg with
-        | RecentMsg rmsg ->
-            let recent, rCmd = ConfigFile.update rmsg model.Recent
 
-            let updated =
+        | RecentMsg rmsg ->
+            let loaded =
                 match rmsg with
                 | ConfigFile.Msg.Load cmd ->
                     searchTab.Value.IsSelected <- true
 
-                    let specific =
+                    let updated =
                         match cmd with
                         | :? SearchCommand as s ->
                             { model with
@@ -285,27 +284,26 @@ module App =
                                 Command = Commands.ListKeywords }
                         | _ -> failwith "unsupported command type"
 
-                    let updated =
-                        { specific with
-                            Scopes = Scopes.updateFromCommand model.Scopes cmd
-                            DisplayOutputOptions = false
-                            FileOutput =
-                                { specific.FileOutput with
-                                    To = cmd.FileOutputPath
-                                    Html = cmd.OutputHtml
-                                    Opening =
-                                        if cmd.Show.HasValue then
-                                            match cmd.Show.Value with
-                                            | OutputCommand.Shows.file -> FileOutput.Open.file
-                                            | OutputCommand.Shows.folder -> FileOutput.Open.folder
-                                            | _ -> FileOutput.Open.nothing
-                                        else
-                                            FileOutput.Open.nothing } }
-
-                    updated
+                    { updated with
+                        Scopes = Scopes.updateFromCommand model.Scopes cmd
+                        DisplayOutputOptions = false
+                        FileOutput =
+                            { updated.FileOutput with
+                                To = cmd.FileOutputPath
+                                Html = cmd.OutputHtml
+                                Opening =
+                                    if cmd.Show.HasValue then
+                                        match cmd.Show.Value with
+                                        | OutputCommand.Shows.file -> FileOutput.Open.file
+                                        | OutputCommand.Shows.folder -> FileOutput.Open.folder
+                                        | _ -> FileOutput.Open.nothing
+                                    else
+                                        FileOutput.Open.nothing } }
                 | _ -> model
 
-            { updated with Recent = recent }, Cmd.map RecentMsg rCmd
+            let recent, rCmd = ConfigFile.update rmsg model.Recent
+            { loaded with Recent = recent }, Cmd.map RecentMsg rCmd
+
         | CommandChanged cmd -> { model with Command = cmd }, Cmd.none
         | QueryChanged txt -> { model with Query = txt }, Cmd.none
 

@@ -63,6 +63,18 @@ public abstract class OutputCommand
     /// This can be used to generate unique file names, but be aware that the returned description is not filename-safe.</summary>
     public abstract string Describe(bool withScopes = true);
 
+    // for comparing in recent command list
+    public override int GetHashCode()
+        => new HashCode()
+            .AddOrdered(Channels.AsHashCodeSet())
+            .AddOrdered(Playlists.AsHashCodeSet())
+            .AddOrdered(Videos?.Videos.AsHashCodeSet() ?? [])
+            .ToHashCode();
+
+    // for comparing in recent command list
+    public override bool Equals(object? obj)
+        => obj != null && obj.GetType() == GetType() && obj.GetHashCode() == GetHashCode();
+
     public enum Shows { file, folder }
 }
 
@@ -76,6 +88,9 @@ public sealed class SearchCommand : OutputCommand
 
     public override string Describe(bool withScopes = true)
         => $"searching for {Query} in" + (withScopes ? " " + DescribeValidScopes() : null);
+
+    // for comparing in recent command list
+    public override int GetHashCode() => HashCode.Combine(Query, base.GetHashCode());
 
     /// <summary>Mutually exclusive <see cref="OrderOptions"/>.</summary>
     internal static OrderOptions[] Orders = [OrderOptions.uploaded, OrderOptions.score];

@@ -1,7 +1,7 @@
 ﻿namespace Ui
 
-open System
-open Avalonia.Controls
+open System.Collections.Generic
+open Avalonia.Media
 open Fabulous
 open Fabulous.Avalonia
 open FSharp.Control
@@ -10,48 +10,46 @@ open SubTubular
 open type Fabulous.Avalonia.View
 
 module ConfigFile =
-
-    /// Represents info about a configuration file.
-    type Info = { Name: string }
-
-    type Model = { Recent: Info list }
+    type Model = { Recent: List<RecentCommands.Item> }
 
     type Msg =
-        | RecentsLoaded of Info array
+        | RecentsLoaded of List<RecentCommands.Item>
+        | CommandRun of OutputCommand
         | Load of OutputCommand
-        | Selected of SelectionChangedEventArgs
+        | Save
 
     let loadRecent =
         task {
-            let! recent = RecentCommand.ListAsync()
-            return RecentsLoaded(recent |> Array.map (fun name -> { Name = name }))
+            let! recent = RecentCommands.ListAsync()
+            return RecentsLoaded recent
         }
 
-    let private load info =
+    let private save model =
         task {
-            let! cmd = RecentCommand.LoadAsync(info.Name)
-            return Load cmd
+            do! RecentCommands.SaveAsync(model.Recent)
+            return None
         }
 
-    let initModel = { Recent = [ { Name = "no recent config" } ] }
+    let initModel = { Recent = List<RecentCommands.Item>() }
 
     let update msg model =
         match msg with
-        | RecentsLoaded list ->
-            { model with
-                Recent = list |> List.ofArray },
-            Cmd.none
+        | RecentsLoaded list -> { model with Recent = list }, Cmd.none
 
-        | Selected args ->
-            let control = args.Source :?> ListBox
+        | CommandRun cmd ->
+            model.Recent.AddOrUpdate(cmd)
+            model, save model |> Cmd.OfTask.msgOption
 
-            match control.SelectedItem with
-            | :? Info as info -> model, load info |> Cmd.OfTask.msg
-            | _ -> model, Cmd.none
-
+        | Save -> model, Cmd.none
         | Load _ -> model, Cmd.none
 
     let view model =
-        ListBox(model.Recent, (fun config -> ListBoxItem(config.Name)))
-            .selectedItem(model.Recent.Head)
-            .onSelectionChanged (fun args -> Selected args)
+        ListBox(
+            model.Recent,
+            (fun config ->
+                (Grid(coldefs = [ Star; Auto; Auto ], rowdefs = [ Auto ]) {
+                    TextBlock(config.Description).textWrapping (TextWrapping.Wrap)
+                    TextBlock(config.LastRun.ToString()).tip(ToolTip("last run")).gridColumn (1)
+                    Button("Load", Load config.Command).gridColumn (2)
+                }))
+        )

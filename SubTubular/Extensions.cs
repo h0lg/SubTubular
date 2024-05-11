@@ -109,6 +109,21 @@ public static class EnumerableExtensions
         => nullables.Where(v => v != null).Select(v => v!);
 }
 
+internal static class HashCodeExtensions
+{
+    // Convert a collection to a HashSet of hash codes
+    internal static HashSet<int> AsHashCodeSet<T>(this IEnumerable<T>? collection)
+        => collection == null ? [] : collection.Select(item => item?.GetHashCode() ?? 0).ToHashSet();
+
+    // Adds the elements of a collection to the HashCode in a combined and ordered way
+    internal static HashCode AddOrdered<T>(this HashCode hashCode, IEnumerable<T> collection)
+    {
+        // Sort the hash codes before combining them to ensure order-independence
+        foreach (var item in collection.OrderBy(i => i)) hashCode.Add(item);
+        return hashCode;
+    }
+}
+
 public static class AsyncEnumerableExtensions
 {
     public static async IAsyncEnumerable<T> Parallelize<T>(this IEnumerable<IAsyncEnumerable<T>> asyncProducers,

@@ -1,75 +1,46 @@
 ﻿using System.Text.Json;
-using SubTubular.Extensions;
 
 namespace SubTubular;
 
-public static class RecentCommand
+public static class RecentCommands
 {
-    private const string configExtension = ".js", recentsGlue = ",\n";
-    private static string folder = Folder.GetPath(Folders.recent);
+    private static readonly string recentPath = Path.Combine(Folder.GetPath(Folders.storage), "recent.json");
+    private static readonly Comparison<Item> byLastRunDesc = new((fst, snd) => snd.LastRun.CompareTo(fst.LastRun));
 
-    static RecentCommand()
+    public static async Task<List<Item>> ListAsync()
     {
-        if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
-    }
-
-    private static string GetPath(string fileName) => Path.Combine(folder, fileName);
-    private static string GetConfigPath(string fileName) => GetPath(fileName + configExtension);
-    private static string GetRecentPath() => GetPath("recent.txt");
-
-    private static async Task<string[]> LoadListAsync()
-    {
-        var recentPath = GetRecentPath();
         if (!File.Exists(recentPath)) return [];
-        var joinedRecents = await File.ReadAllTextAsync(recentPath);
-        return joinedRecents.Split(recentsGlue);
+        var json = await File.ReadAllTextAsync(recentPath);
+        return JsonSerializer.Deserialize<List<Item>>(json!) ?? [];
     }
 
-    private static async Task UpdateListAsync(string[] recent)
-        => await File.WriteAllTextAsync(GetRecentPath(), recent.Join(recentsGlue));
-
-    public static async Task UpdateListAsync(string fileName)
+    public static async Task SaveAsync(IEnumerable<Item> commands)
     {
-        var recent = await ListAsync();
-        await UpdateListAsync(recent.OrderBy(name => name != fileName).ToArray());
+        string json = JsonSerializer.Serialize(commands);
+        await File.WriteAllTextAsync(recentPath, json);
     }
 
-    public static async Task<string[]> ListAsync()
+    public static void AddOrUpdate(this List<Item> list, OutputCommand command)
     {
-        var existing = GetFileNames(Directory.GetFiles(folder, "*" + configExtension)).ToArray();
-        var recent = await LoadListAsync();
+        var item = list.SingleOrDefault(i => command.Equals(i.Command));
 
-        // drop non-existing recent entries
-        recent = recent.Intersect(existing).ToArray();
-
-        // determine missing entries, prepend them and save the changes
-        var missing = existing.Except(recent).ToArray();
-
-        if (missing.Any())
+        if (item == null)
         {
-            var orderedMissing = missing.Select(GetConfigPath).OrderByDescending(path => new FileInfo(path).LastWriteTime);
-            recent = GetFileNames(orderedMissing).Concat(recent).ToArray();
-            await UpdateListAsync(recent);
+            item = new();
+            list.Insert(0, item);
         }
 
-        return recent;
-
-        static IEnumerable<string> GetFileNames(IEnumerable<string> paths)
-            => paths.Select(path => Path.GetFileNameWithoutExtension(path));
+        item.LastRun = DateTime.Now;
+        item.Command = command;
+        item.Description = command.Describe();
+        list.Sort(byLastRunDesc);
     }
 
-    public static async Task SaveAsync(OutputCommand command)
+    [Serializable]
+    public sealed class Item
     {
-        string json = JsonSerializer.Serialize(command);
-        string fileName = command.Describe().ToFileSafe(replacement: "").NormalizeWhiteSpace();
-        await File.WriteAllTextAsync(GetConfigPath(fileName), json);
+        public string? Description { get; set; }
+        public DateTime LastRun { get; set; }
+        public OutputCommand? Command { get; set; }
     }
-
-    public static async Task<OutputCommand?> LoadAsync(string fileName)
-    {
-        string json = await File.ReadAllTextAsync(GetConfigPath(fileName));
-        return JsonSerializer.Deserialize<OutputCommand>(json);
-    }
-
-    public static void Remove(string fileName) => File.Delete(GetConfigPath(fileName));
 }
