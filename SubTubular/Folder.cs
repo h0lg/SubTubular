@@ -11,7 +11,6 @@ public static class Folder
         switch (folder)
         {
             case Folders.app: path = Environment.CurrentDirectory; break;
-            case Folders.recent: path = GetStoragePath("recent"); break;
             case Folders.cache: path = GetStoragePath("cache"); break;
             case Folders.errors: path = GetStoragePath("errors"); break;
             case Folders.output: path = GetStoragePath("out"); break;
@@ -33,9 +32,6 @@ public enum Folders
     /// <summary>The directory the app is running from.</summary>
     app,
 
-    /// <summary>The directory used for storing recently run commands.</summary>
-    recent,
-
     /// <summary>The directory used for caching channel, playlist and video info
     /// as well as full-text indexes to search them.</summary>
     cache,
@@ -47,7 +43,7 @@ public enum Folders
     /// (unless explicitly specified using <see cref="SearchCommand.FileOutputPath"/>).</summary>
     output,
 
-    /// <summary>The directory that hosts the <see cref="cache"/>, <see cref="recent"/>,
+    /// <summary>The directory that holds app data as well as hosting the <see cref="cache"/>,
     /// <see cref="errors"/> and <see cref="output"/> folders.</summary>
     storage
 }

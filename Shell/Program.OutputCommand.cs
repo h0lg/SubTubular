@@ -28,7 +28,14 @@ static partial class Program
         DataStore dataStore = CreateDataStore();
         var youtube = new Youtube(dataStore, CreateVideoIndexRepo());
         await CommandValidator.ValidateScopesAsync(command, youtube, dataStore, cancellation.Token);
-        if (command.SaveAsRecent) await RecentCommand.SaveAsync(command);
+
+        if (command.SaveAsRecent)
+        {
+            var commands = await RecentCommands.ListAsync();
+            commands.AddOrUpdate(command);
+            await RecentCommands.SaveAsync(commands);
+        }
+
         List<OutputWriter> outputs = [new ConsoleOutputWriter(command)];
 
         if (command.OutputHtml) outputs.Add(new HtmlOutputWriter(command));
