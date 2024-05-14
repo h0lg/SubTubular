@@ -12,6 +12,7 @@ public static class Folder
         {
             case Folders.app: path = Environment.CurrentDirectory; break;
             case Folders.cache: path = GetStoragePath("cache"); break;
+            case Folders.thumbnails: path = GetStoragePath("cache/thumbnails"); break;
             case Folders.errors: path = GetStoragePath("errors"); break;
             case Folders.output: path = GetStoragePath("out"); break;
             case Folders.storage: path = GetStoragePath(); break;
@@ -35,6 +36,9 @@ public enum Folders
     /// <summary>The directory used for caching channel, playlist and video info
     /// as well as full-text indexes to search them.</summary>
     cache,
+
+    /// <summary>The directory used for caching channel, playlist and video thumbnails.</summary>
+    thumbnails,
 
     /// <summary>The directory error logs are written to.</summary>
     errors,

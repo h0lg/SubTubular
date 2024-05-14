@@ -14,6 +14,7 @@
   </PropertyGroup>
   <ItemGroup>
     <AvaloniaResource Include="SubTubular.ico" />
+    <Compile Include="AsyncImage.fs" />
     <Compile Include="AutoCompleteBox.fs" />
     <Compile Include="Styles.fs" />
     <Compile Include="CmdExtensions.fs" />
@@ -34,6 +35,7 @@
     <PackageReference Include="Avalonia.Desktop" Version="11.2.3" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="AsyncImageLoader.Avalonia" Version="3.3.0" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.3" />
     <PackageReference Include="FSharp.Core" Version="9.0.101" />
     <PackageReference Include="Fabulous" Version="3.0.0-pre5" />
