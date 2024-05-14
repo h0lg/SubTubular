@@ -7,10 +7,34 @@ open Avalonia.Controls
 open Fabulous
 open Fabulous.Avalonia
 
+module WidgetHelpers =
+    /// Compiles the templateBuilder into a template.
+    let compileTemplate (templateBuilder: 'item -> WidgetBuilder<'msg, 'widget>) item =
+        let itm = unbox<'item> item
+        (templateBuilder itm).Compile()
+
 module AutoCompleteBox =
 
     let Text =
         Attributes.defineAvaloniaPropertyWithChangedEvent' "AutoCompleteBox_TextChanged" AutoCompleteBox.TextProperty
+
+    /// Allows setting the ItemTemplate on an AutoCompleteBox
+    let ItemTemplate =
+        Attributes.defineSimpleScalar<obj -> Widget>
+            "AutoCompleteBox_ItemTemplate"
+            (fun a b ->
+                if LanguagePrimitives.PhysicalEquality a b then
+                    ScalarAttributeComparison.Identical
+                else
+                    ScalarAttributeComparison.Different)
+            (fun _ newValueOpt node ->
+                let autoComplete = node.Target :?> AutoCompleteBox
+
+                match newValueOpt with
+                | ValueNone -> autoComplete.ClearValue(AutoCompleteBox.ItemTemplateProperty)
+                | ValueSome template ->
+                    autoComplete.SetValue(AutoCompleteBox.ItemTemplateProperty, WidgetDataTemplate(node, template))
+                    |> ignore)
 
 [<AutoOpen>]
 module AutoCompleteBoxBuilders =
@@ -43,3 +67,12 @@ type AutoCompleteBoxModifiers =
         (this: WidgetBuilder<'msg, #IFabAutoCompleteBox>, text: string, fn: string -> 'msg)
         =
         this.AddScalar(AutoCompleteBox.Text.WithValue(ValueEventData.create text fn))
+
+    /// <summary>Sets the ItemTemplate property.</summary>
+    /// <param name="this">Current widget.</param>
+    /// <param name="template">The template to render the items with.</param>
+    [<Extension>]
+    static member inline itemTemplate
+        (this: WidgetBuilder<'msg, #IFabAutoCompleteBox>, template: 'item -> WidgetBuilder<'msg, 'widget>)
+        =
+        this.AddScalar(AutoCompleteBox.ItemTemplate.WithValue(WidgetHelpers.compileTemplate template))
