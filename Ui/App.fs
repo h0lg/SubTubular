@@ -10,6 +10,7 @@ open Avalonia.Controls
 open Avalonia.Controls.Notifications
 open Avalonia.Media
 open Avalonia.Themes.Fluent
+open AsyncImageLoader
 open Fabulous
 open Fabulous.Avalonia
 open FSharp.Control
@@ -255,6 +256,10 @@ module App =
 
     // load settings on init, see https://docs.fabulous.dev/basics/application-state/commands#triggering-commands-on-initialization
     let private init () =
+        // see https://github.com/AvaloniaUtils/AsyncImageLoader.Avalonia?tab=readme-ov-file#loaders
+        ImageLoader.AsyncImageLoader.Dispose()
+        ImageLoader.AsyncImageLoader <- new Loaders.DiskCachedWebImageLoader(Folder.GetPath(Folders.thumbnails))
+
         initModel, Cmd.batch [ Settings.load; ConfigFile.loadRecent |> Cmd.OfTask.msg |> Cmd.map RecentMsg ]
 
     let private searchTab = ViewRef<TabItem>()
