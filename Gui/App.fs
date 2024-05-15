@@ -432,11 +432,11 @@ module App =
                     .margin(10, 0)
                     .gridColumn (2)
             })
-                .trailingMargin ()
+                .trailingMargin (4)
 
             // scopes
             ScrollViewer(View.map ScopesMsg (Scopes.view model.Scopes))
-                .trailingMargin()
+                .trailingMargin(4)
                 .gridRow (1)
 
             // result options
@@ -457,13 +457,14 @@ module App =
                 ToggleButton("to file 📄", model.DisplayOutputOptions, DisplayOutputOptionsChanged)
                     .gridColumn (3)
             })
-                .trailingMargin()
+                .precedingSeparator(4)
+                .trailingMargin(4)
                 .isVisible(hasResults)
                 .gridRow (2)
 
             // output options
             (View.map FileOutputMsg (FileOutput.view model.FileOutput))
-                .trailingMargin()
+                .trailingMargin(4)
                 .isVisible(model.DisplayOutputOptions)
                 .gridRow (3)
 
@@ -497,6 +498,7 @@ module App =
                 })
             )
                 .isVisible(hasResults)
+                .precedingSeparator(4)
                 .gridRow (4)
         })
             .margin(5, 5, 5, 0)
