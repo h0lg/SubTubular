@@ -47,7 +47,7 @@ module Scopes =
                     yield p
 
                 if command.Videos <> null && command.Videos.Videos.Length > 0 then
-                    let aliases = command.Videos.Videos |> String.concat " , "
+                    let aliases = command.Videos.Videos |> Scope.VideosInput.join
                     yield Scope.init Scope.Type.videos aliases model.Youtube None None
             }
 
@@ -61,7 +61,7 @@ module Scopes =
         let getPlaylistLikeScopes ofType =
             getScopes ofType
             |> List.map (fun scope ->
-                (Scope.cleanAlias scope.Aliases, scope.Top.Value |> uint16, scope.CacheHours.Value |> float32))
+                (Scope.Alias.clean scope.Aliases, scope.Top.Value |> uint16, scope.CacheHours.Value |> float32))
 
         command.Channels <-
             getPlaylistLikeScopes Scope.Type.channel
@@ -76,7 +76,7 @@ module Scopes =
         let videos = getScopes Scope.Type.videos |> List.tryExactlyOne
 
         if videos.IsSome then
-            command.Videos <- VideosScope(videos.Value.Aliases.Split [| ',' |] |> Array.map Scope.cleanAlias)
+            command.Videos <- VideosScope(Scope.VideosInput.splitAndClean videos.Value.Aliases)
 
     let update msg model =
         match msg with
