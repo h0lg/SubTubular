@@ -93,16 +93,13 @@ module SearchResult =
                                 .FormatWithOptionalHours()
                                 .PadLeft(if displaysHour then 7 else 5)
 
-                        Grid(coldefs = [ Auto; Auto; Star ], rowdefs = [ Auto ]) {
-                            (TextBlock offset).demoted ()
+                        Grid(coldefs = [ Auto; Star ], rowdefs = [ Auto ]) {
+                            (TextBlock offset)
+                                .onTapped(fun _ -> OpenUrl $"{videoUrl}?t={captionAt}")
+                                .tip(ToolTip($"tap to start the video at this timestamp in the browser"))
+                                .margin(0, 0, 5, 0)
+                                .demoted ()
 
-                            Button("↗", OpenUrl $"{videoUrl}?t={captionAt}")
-                                .tip(ToolTip($"Open video at {offset} in browser"))
-                                .padding(5, 1)
-                                .margin(5, 0)
-                                .verticalAlignment(VerticalAlignment.Top)
-                                .gridColumn (1)
-
-                            (writeHighlightingMatches synced (Some matchPadding)).gridColumn (2)
+                            (writeHighlightingMatches synced (Some matchPadding)).gridColumn (1)
                         }
         })

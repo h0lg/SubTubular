@@ -1,6 +1,9 @@
 ﻿namespace Ui
 
 open System
+open Avalonia.Controls
+open Avalonia.Layout
+open Avalonia.Media
 open Fabulous
 open Fabulous.Avalonia
 open SubTubular
@@ -120,19 +123,40 @@ module Scopes =
         else
             allTypes
 
+    let private addScopeStack = ViewRef<Border>()
+
     let view model =
-        (VStack() {
+        Panel() {
             HWrap() {
                 Label "in"
 
                 for scope in model.List do
-                    View.map (fun scopeMsg -> ScopeMsg(scope, scopeMsg)) (Scope.view scope)
+                    (Border(View.map (fun scopeMsg -> ScopeMsg(scope, scopeMsg)) (Scope.view scope)))
+                        .padding(2)
+                        .margin(0, 0, 5, 5)
+                        .cornerRadius(2)
+                        .background (Colors.DarkSlateGray)
+
+                (*  Render an empty spacer the size of the add scope control stack,
+                    effectively creating an empty line in the HWrap if they don't fit the current one.
+                    This prevents the absolutely positioned add controls from overlapping the last scope input. *)
+                match addScopeStack.TryValue with
+                | Some stack -> Rectangle().width(stack.DesiredSize.Width).height (stack.DesiredSize.Height)
+                | None -> ()
             }
 
-            HStack(5) {
-                Label "add"
+            (Border(
+                HStack(5) {
+                    Label "add"
 
-                for scopeType in getAddableTypes model do
-                    Button(Scope.displayType scopeType, AddScope scopeType)
-            }
-        })
+                    for scopeType in getAddableTypes model do
+                        Button(Scope.displayType scopeType, AddScope scopeType)
+                }
+            ))
+                .padding(2)
+                .reference(addScopeStack)
+                .verticalAlignment(VerticalAlignment.Bottom)
+                .horizontalAlignment(HorizontalAlignment.Right)
+                .cornerRadius(2)
+                .background (Colors.Gray)
+        }

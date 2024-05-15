@@ -180,8 +180,8 @@ module Scope =
 
         VStack(5) {
             HStack(5) {
-                Label(displayType model.Type)
                 Button("❌", Remove).tip (ToolTip("remove this scope"))
+                Label(displayType model.Type)
 
                 AutoCompleteBox(fun text ct -> model.AliasSearch.SearchAsync model.Youtube model.Type text ct)
                     .minimumPopulateDelay(TimeSpan.FromMilliseconds 300)
@@ -190,6 +190,7 @@ module Scope =
                     .onSelectionChanged(AliasesSelected)
                     .filterMode(AutoCompleteFilterMode.None)
                     .focus(model.Added)
+                    .multiline(true)
                     .watermark("by " + getAliasWatermark model)
                     .itemSelector(fun enteredText item ->
                         model.AliasSearch.SelectAliases enteredText (item :?> YoutubeSearchResult) forVideos)
