@@ -4,6 +4,7 @@ open System
 open System.Threading
 open System.Threading.Tasks
 open Avalonia.Controls
+open Avalonia.Media
 open Fabulous.Avalonia
 open SubTubular
 open YoutubeExplode.Videos
@@ -186,12 +187,20 @@ module Scope =
                     .minimumPopulateDelay(TimeSpan.FromMilliseconds 300)
                     .onTextChanged(model.Aliases, AliasesUpdated)
                     .minimumPrefixLength(3)
-                    .itemSelector(fun enteredText item ->
-                        model.AliasSearch.SelectAliases enteredText (item :?> YoutubeSearchResult) forVideos)
                     .onSelectionChanged(AliasesSelected)
                     .filterMode(AutoCompleteFilterMode.None)
                     .focus(model.Added)
-                    .watermark ("by " + getAliasWatermark model)
+                    .watermark("by " + getAliasWatermark model)
+                    .itemSelector(fun enteredText item ->
+                        model.AliasSearch.SelectAliases enteredText (item :?> YoutubeSearchResult) forVideos)
+                    .itemTemplate (fun (result: YoutubeSearchResult) ->
+                        HStack(5) {
+                            AsyncImage(result.Thumbnail)
+                            TextBlock(result.Title)
+
+                            if result.Channel <> null then
+                                TextBlock(result.Channel).foreground (Colors.Gray)
+                        })
 
                 if not forVideos then
                     ToggleButton("⚙", model.ShowSettings, ToggleSettings)

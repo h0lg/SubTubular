@@ -448,18 +448,20 @@ public sealed class Youtube
     public async Task<IEnumerable<YoutubeSearchResult>> SearchForChannelsAsync(string text, CancellationToken cancellation)
     {
         var channels = await Client.Search.GetChannelsAsync(text, cancellation);
-        return channels.Select(c => new YoutubeSearchResult { Id = c.Id, Title = c.Title, Url = c.Url });
+        return channels.Select(c => new YoutubeSearchResult(c.Id, c.Title, c.Url, SelectUrl(c.Thumbnails)));
     }
 
     public async Task<IEnumerable<YoutubeSearchResult>> SearchForPlaylistsAsync(string text, CancellationToken cancellation)
     {
         var playlists = await Client.Search.GetPlaylistsAsync(text, cancellation);
-        return playlists.Select(pl => new YoutubeSearchResult { Id = pl.Id, Title = pl.Title, Url = pl.Url });
+        return playlists.Select(pl => new YoutubeSearchResult(pl.Id, pl.Title, pl.Url, SelectUrl(pl.Thumbnails), pl.Author?.ChannelTitle));
     }
 
     public async Task<IEnumerable<YoutubeSearchResult>> SearchForVideosAsync(string text, CancellationToken cancellation)
     {
         var videos = await Client.Search.GetVideosAsync(text, cancellation);
-        return videos.Select(v => new YoutubeSearchResult { Id = v.Id, Title = v.Title, Url = v.Url });
+        return videos.Select(v => new YoutubeSearchResult(v.Id, v.Title, v.Url, SelectUrl(v.Thumbnails), v.Author?.ChannelTitle));
     }
+
+    private static string SelectUrl(IReadOnlyList<Thumbnail> thumbnails) => thumbnails.MinBy(tn => tn.Resolution.Area)!.Url;
 }
