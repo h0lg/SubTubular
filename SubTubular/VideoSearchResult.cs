@@ -1,25 +1,29 @@
-﻿using SubTubular.Extensions;
+﻿using System.Text.Json.Serialization;
+using SubTubular.Extensions;
 
 namespace SubTubular;
 
-public sealed class YoutubeSearchResult
+[Serializable]
+[method: JsonConstructor]
+public sealed class YoutubeSearchResult(string id, string title, string url, string thumbnail, string? channel = null)
 {
-    public string Id { get; }
-    public string Title { get; }
-    public string Url { get; }
-    public string Thumbnail { get; }
-    public string? Channel { get; }
+    public string Id { get; } = id;
+    public string Title { get; } = title;
+    public string Url { get; } = url;
+    public string Thumbnail { get; } = thumbnail.StartsWith("http") ? thumbnail : "https:" + thumbnail;
+    public string? Channel { get; } = channel;
 
-    public YoutubeSearchResult(string id, string title, string url, string thumbnail, string? channel = null)
-    {
-        Id = id;
-        Title = title;
-        Url = url;
-        Thumbnail = thumbnail.StartsWith("http") ? thumbnail : "https:" + thumbnail;
-        Channel = channel;
-    }
-
+    // for debugging
     public override string ToString() => Title;
+
+    [Serializable]
+    [method: JsonConstructor]
+    public sealed class Cache(string search, YoutubeSearchResult[] results, DateTime created)
+    {
+        public string Search { get; set; } = search;
+        public DateTime Created { get; set; } = created;
+        public YoutubeSearchResult[] Results { get; set; } = results;
+    }
 }
 
 public sealed class VideoSearchResult
