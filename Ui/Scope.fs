@@ -16,6 +16,40 @@ module Scope =
         | playlist = 1
         | channel = 2
 
+    module Alias =
+        /// removes title prefix, i.e. everything before the last ':'
+        let clean (alias: string) =
+            let colon = alias.LastIndexOf(':')
+
+            if colon < 0 then
+                alias
+            else
+                alias.Substring(colon + 1).Trim()
+
+        let label (title: string) alias =
+            let cleanTitle = title.Replace(":", "")
+            $"{cleanTitle} : {alias}"
+
+    module VideosInput =
+        let join values = values |> String.concat " , "
+
+        let private split (input: string) =
+            input.Split(',', StringSplitOptions.RemoveEmptyEntries)
+
+        let cleanTitle (title: string) = title.Replace(",", "")
+
+        let splitAndClean (input: string) = split input |> Array.map Alias.clean
+
+        /// splits and partitions the input into two lists:
+        /// first the pre-validated, labeled/uncleaned video aliases
+        /// second the unvalidated values considered search terms
+        let partition (input: string) =
+            split input
+            |> List.ofArray
+            |> List.partition (fun alias ->
+                let value = Alias.clean alias
+                VideoId.TryParse(value).HasValue)
+
     type AliasSearch() =
         let mutable searching: CancellationTokenSource = null
 
@@ -24,22 +58,14 @@ module Scope =
                 searching.Cancel()
                 searching.Dispose()
 
-        let getVideos withValue (enteredText: string) =
-            enteredText.Split(',', StringSplitOptions.RemoveEmptyEntries)
-            |> Array.filter (fun vid ->
-                let colon = vid.IndexOf ':'
-                let parsable = if colon = -1 then vid else vid.Substring(colon + 1).Trim()
-                VideoId.TryParse(parsable).HasValue = withValue)
-            |> List.ofArray
-
-        member this.SelectAliases enteredText (selected: YoutubeSearchResult) multipleCommaSeparated =
-            let newText = $"{selected.Title} : {selected.Id}"
-
-            if multipleCommaSeparated then
-                let comma = " , "
-                getVideos true enteredText @ [ newText + comma ] |> String.concat comma
+        member this.SelectAliases input (result: YoutubeSearchResult) forVideos =
+            if forVideos then
+                let selection, searchTerms = VideosInput.partition input
+                let title = VideosInput.cleanTitle result.Title
+                let labeledAlias = Alias.label title result.Id
+                selection @ [ labeledAlias ] @ searchTerms |> VideosInput.join
             else
-                newText
+                Alias.label result.Title result.Id
 
         member this.SearchAsync
             (youtube: Youtube)
@@ -70,11 +96,11 @@ module Scope =
                     let! playlists = youtube.SearchForPlaylistsAsync(text, searching.Token)
                     return yieldResults playlists
                 | Type.videos ->
-                    match getVideos false text |> List.tryHead with
-                    | Some searchTerm ->
-                        let! videos = youtube.SearchForVideosAsync(searchTerm, searching.Token)
+                    match VideosInput.partition text with
+                    | _, [] -> return []
+                    | _, searchTerms ->
+                        let! videos = youtube.SearchForVideosAsync(searchTerms |> String.concat " or ", searching.Token)
                         return yieldResults videos
-                    | None -> return []
                 | _ -> return []
             }
 
@@ -156,16 +182,11 @@ module Scope =
         | Type.channel -> "handle, slug, user name, ID or URL"
         | _ -> failwith "unmatched scope type " + scope.Type.ToString()
 
-    // removes title prefix, i.e. everything before the last ':'
-    let cleanAlias (alias: string) =
-        let idx = alias.LastIndexOf(':')
-        if idx < 0 then alias else alias.Substring(idx + 1).Trim()
-
     let matches model (commandScope: CommandScope) =
         match commandScope with
-        | :? ChannelScope as channel -> channel.Alias = cleanAlias model.Aliases
-        | :? PlaylistScope as playlist -> playlist.Alias = cleanAlias model.Aliases
-        | :? VideosScope as videos -> videos.Videos = (model.Aliases.Split [| ',' |] |> Array.map cleanAlias)
+        | :? ChannelScope as channel -> channel.Alias = Alias.clean model.Aliases
+        | :? PlaylistScope as playlist -> playlist.Alias = Alias.clean model.Aliases
+        | :? VideosScope as videos -> videos.Videos = (VideosInput.splitAndClean model.Aliases)
         | _ -> failwith $"unsupported {nameof CommandScope} type on {commandScope}"
 
     let displayType =
