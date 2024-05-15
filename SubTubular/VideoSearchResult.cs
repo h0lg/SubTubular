@@ -4,9 +4,20 @@ namespace SubTubular;
 
 public sealed class YoutubeSearchResult
 {
-    public required string Id { get; set; }
-    public required string Title { get; set; }
-    public required string Url { get; set; }
+    public string Id { get; }
+    public string Title { get; }
+    public string Url { get; }
+    public string Thumbnail { get; }
+    public string? Channel { get; }
+
+    public YoutubeSearchResult(string id, string title, string url, string thumbnail, string? channel = null)
+    {
+        Id = id;
+        Title = title;
+        Url = url;
+        Thumbnail = thumbnail.StartsWith("http") ? thumbnail : "https:" + thumbnail;
+        Channel = channel;
+    }
 
     public override string ToString() => Title;
 }
