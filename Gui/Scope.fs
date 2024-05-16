@@ -3,8 +3,10 @@
 open System
 open System.Threading
 open System.Threading.Tasks
+open Avalonia.Animation
 open Avalonia.Controls
 open Avalonia.Media
+open Fabulous
 open Fabulous.Avalonia
 open SubTubular
 open YoutubeExplode.Videos
@@ -54,16 +56,37 @@ module Scope =
 
     type AliasSearch() =
         let mutable searching: CancellationTokenSource = null
+        let input = ViewRef<AutoCompleteBox>()
+        let heartBeat = ViewRef<Animation>()
 
-        let cancelRunning () =
-            if searching <> null then
+        let isRunning () = searching <> null
+
+        let cancel () =
+            if isRunning () then
                 searching.Cancel()
                 searching.Dispose()
+                searching <- null
+
+        /// animates the input with the heartBeat until searchToken is cancelled
+        let animateInput searchToken =
+            heartBeat.Value.IterationCount <- IterationCount.Infinite
+            heartBeat.Value.RunAsync(input.Value, searchToken) |> ignore
+
+        let yieldResults (results: YoutubeSearchResult seq) =
+            if isRunning () && not searching.Token.IsCancellationRequested then
+                cancel () // to stop animation
+                results |> Seq.cast<obj>
+            else
+                cancel () // to stop animation
+                Seq.empty
+
+        member this.Input = input
+        member this.HeartBeat = heartBeat
 
         // called when either using arrow keys to cycle through results in dropdown or mouse to click one
-        member this.SelectAliases input (result: YoutubeSearchResult) forVideos =
+        member this.SelectAliases text (result: YoutubeSearchResult) forVideos =
             if forVideos then
-                let selection, searchTerms = VideosInput.partition input
+                let selection, searchTerms = VideosInput.partition text
                 let title = VideosInput.cleanTitle result.Title
                 let labeledAlias = Alias.label title result.Id
                 selection @ [ labeledAlias ] @ searchTerms |> VideosInput.join
@@ -77,34 +100,30 @@ module Scope =
             (cancellation: CancellationToken)
             : Task<obj seq> =
             task {
-                cancellation.Register(fun () ->
-                    cancelRunning ()
-                    searching <- null)
-                |> ignore
+                if input.Value.IsKeyboardFocusWithin then // only start search if input has keyboard focus
+                    cancellation.Register(cancel) |> ignore // register cancellation of running search when outer cancellation is requested
+                    cancel () // cancel any older running search
+                    searching <- new CancellationTokenSource() // and create a new source for this one
+                    animateInput (searching.Token) // pass running search token to stop it when the search completes or is cancelled
 
-                cancelRunning ()
-                searching <- new CancellationTokenSource()
+                    match scopeType with
+                    | Type.channel ->
+                        let! channels = youtube.SearchForChannelsAsync(text, searching.Token)
+                        return yieldResults channels
+                    | Type.playlist ->
+                        let! playlists = youtube.SearchForPlaylistsAsync(text, searching.Token)
+                        return yieldResults playlists
+                    | Type.videos ->
+                        match VideosInput.partition text with
+                        | _, [] -> return []
+                        | _, searchTerms ->
+                            let! videos =
+                                youtube.SearchForVideosAsync(searchTerms |> String.concat " or ", searching.Token)
 
-                let yieldResults (results: YoutubeSearchResult seq) =
-                    if searching = null || searching.Token.IsCancellationRequested then
-                        Seq.empty
-                    else
-                        results |> Seq.cast<obj>
-
-                match scopeType with
-                | Type.channel ->
-                    let! channels = youtube.SearchForChannelsAsync(text, searching.Token)
-                    return yieldResults channels
-                | Type.playlist ->
-                    let! playlists = youtube.SearchForPlaylistsAsync(text, searching.Token)
-                    return yieldResults playlists
-                | Type.videos ->
-                    match VideosInput.partition text with
-                    | _, [] -> return []
-                    | _, searchTerms ->
-                        let! videos = youtube.SearchForVideosAsync(searchTerms |> String.concat " or ", searching.Token)
-                        return yieldResults videos
-                | _ -> return []
+                            return yieldResults videos
+                    | _ -> return []
+                else
+                    return []
             }
 
     type Model =
@@ -218,7 +237,7 @@ module Scope =
                     .watermark("by " + getAliasWatermark model)
                     .itemSelector(fun enteredText item ->
                         model.AliasSearch.SelectAliases enteredText (item :?> YoutubeSearchResult) forVideos)
-                    .itemTemplate (fun (result: YoutubeSearchResult) ->
+                    .itemTemplate(fun (result: YoutubeSearchResult) ->
                         HStack(5) {
                             AsyncImage(result.Thumbnail)
                             TextBlock(result.Title)
@@ -226,6 +245,23 @@ module Scope =
                             if result.Channel <> null then
                                 TextBlock(result.Channel).foreground (Colors.Gray)
                         })
+                    .reference(model.AliasSearch.Input)
+                    .animation (
+                        // pulses the scale like a heart beat to indicate activity
+                        (Animation(TimeSpan.FromSeconds(2.)) {
+                            // extend slightly but quickly to get a pulse effect
+                            KeyFrame(ScaleTransform.ScaleXProperty, 1.05).cue (0.1)
+                            KeyFrame(ScaleTransform.ScaleYProperty, 1.05).cue (0.1)
+                            // contract slightly to get a bounce-back effect
+                            KeyFrame(ScaleTransform.ScaleXProperty, 0.95).cue (0.15)
+                            KeyFrame(ScaleTransform.ScaleYProperty, 0.95).cue (0.15)
+                            // return to original size rather quickly
+                            KeyFrame(ScaleTransform.ScaleXProperty, 1).cue (0.2)
+                            KeyFrame(ScaleTransform.ScaleYProperty, 1).cue (0.2)
+                        })
+                            .delay(TimeSpan.FromSeconds 1.) // to avoid a "heart attack", i.e. restarting the animation by typing
+                            .reference (model.AliasSearch.HeartBeat)
+                    )
 
                 if not forVideos then
                     ToggleButton("⚙", model.ShowSettings, ToggleSettings)
