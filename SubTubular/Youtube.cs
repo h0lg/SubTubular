@@ -37,10 +37,10 @@ public sealed class Youtube
     {
         List<IAsyncEnumerable<VideoSearchResult>> searches = [];
 
-        if (command.Channels.HasAny()) searches.AddRange(command.Channels!.GetValid()
+        if (command.Channels.HasAny()) searches.AddRange(command.Channels!.GetValid().DistinctBy(c => c.SingleValidated.Id)
             .Select(channel => SearchPlaylistAsync(command, channel, command.ProgressReporter?.CreateVideoListProgress(channel), cancellation)));
 
-        if (command.Playlists.HasAny()) searches.AddRange(command.Playlists!.GetValid()
+        if (command.Playlists.HasAny()) searches.AddRange(command.Playlists!.GetValid().DistinctBy(c => c.SingleValidated.Id)
             .Select(playlist => SearchPlaylistAsync(command, playlist, command.ProgressReporter?.CreateVideoListProgress(playlist), cancellation)));
 
         if (command.Videos?.IsValid == true) searches.Add(SearchVideosAsync(command, command.ProgressReporter?.CreateVideoListProgress(command.Videos), cancellation));

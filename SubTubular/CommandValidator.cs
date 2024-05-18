@@ -79,7 +79,7 @@ public static class CommandValidator
     {
         if (scope == null) return [];
         var idsToValid = scope.Videos.ToDictionary(id => id, id => VideoId.TryParse(id.Trim('"'))?.ToString());
-        var validIds = idsToValid.Select(pair => pair.Value).WithValue().ToArray();
+        var validIds = idsToValid.Select(pair => pair.Value).WithValue().Distinct().ToArray();
         foreach (var id in validIds) scope.AddPrevalidated(id, Youtube.GetVideoUrl(id));
         return scope.Videos.Except(validIds); // return invalid
     }
