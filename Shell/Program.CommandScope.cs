@@ -29,7 +29,7 @@ static partial class Program
         private static VideosScope? CreateVideosScope(InvocationContext ctx, Option<IEnumerable<string>> videos)
         {
             var ids = ctx.Parsed(videos);
-            return ids == null ? null : new(ids.ToArray());
+            return ids == null ? null : new(ids.ToList());
         }
 
         private static (Option<ushort> top, Option<float> cacheHours) AddPlaylistLikeCommandOptions(Command command)

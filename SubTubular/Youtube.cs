@@ -120,24 +120,24 @@ public sealed class Youtube
         GetPlaylistAsync(scope, async () =>
         {
             var playlist = await Client.Playlists.GetAsync(scope.SingleValidated.Id, cancellation);
-            return (playlist.Title, playlist.Author?.ChannelTitle);
+            return (playlist.Title, SelectUrl(playlist.Thumbnails), playlist.Author?.ChannelTitle);
         });
 
     internal Task<Playlist?> GetPlaylistAsync(ChannelScope scope, CancellationToken cancellation) =>
         GetPlaylistAsync(scope, async () =>
         {
             var channel = await Client.Channels.GetAsync(scope.SingleValidated.Id, cancellation);
-            return (channel.Title, null);
+            return (channel.Title, SelectUrl(channel.Thumbnails), null);
         });
 
-    private async Task<Playlist?> GetPlaylistAsync(PlaylistLikeScope scope, Func<Task<(string title, string? channel)>> downloadData)
+    private async Task<Playlist?> GetPlaylistAsync(PlaylistLikeScope scope, Func<Task<(string title, string thumbnailUrl, string? channel)>> downloadData)
     {
         var playlist = await dataStore.GetAsync<Playlist>(scope.StorageKey); // get cached
         if (playlist != null) return playlist;
 
         scope.Report(VideoList.Status.downloading);
-        var (title, channel) = await downloadData();
-        playlist = new Playlist { Title = title, Channel = channel };
+        var (title, thumbnailUrl, channel) = await downloadData();
+        playlist = new Playlist { Title = title, ThumbnailUrl = thumbnailUrl, Channel = channel };
         await dataStore.SetAsync(scope.StorageKey, playlist);
         return playlist;
     }
@@ -176,7 +176,7 @@ public sealed class Youtube
 
         IAsyncEnumerable<PlaylistVideo> GetVideos(PlaylistLikeScope scope, CancellationToken cancellation) => scope switch
         {
-            ChannelScope searchChannel => Client.Channels.GetUploadsAsync(searchChannel.GetValidatedId(), cancellation),
+            ChannelScope searchChannel => Client.Channels.GetUploadsAsync(searchChannel.SingleValidated.Id, cancellation),
             PlaylistScope searchPlaylist => Client.Playlists.GetVideosAsync(searchPlaylist.Alias, cancellation),
             _ => throw new NotImplementedException($"Getting videos for the {scope.GetType()} is not implemented.")
         };

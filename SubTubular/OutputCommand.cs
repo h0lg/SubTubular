@@ -49,6 +49,7 @@ public abstract class OutputCommand
         if (Videos != null) yield return Videos;
     }
 
+    public bool AreScopesValid() => GetScopes().All(s => s.IsValid);
     protected string DescribeScopes() => GetScopes().Select(p => p.Describe().Join(" ")).Join(" ");
 
     /// <summary>Provides a human-readable description of the command, by default <paramref name="withScopes"/>.

@@ -1,8 +1,10 @@
 ﻿namespace Ui
 
 open System.Runtime.CompilerServices
+open Avalonia.Controls
 open Avalonia.Input
 open Avalonia.Media
+open Avalonia.Styling
 open Fabulous
 open Fabulous.Avalonia
 open type Fabulous.Avalonia.View
@@ -40,6 +42,9 @@ module Styles =
         static member inline demoted(this: WidgetBuilder<'msg, IFabTextBlock>) = this.foreground (Colors.Gray)
 
         [<Extension>]
+        static member inline smallDemoted(this: WidgetBuilder<'msg, IFabTextBlock>) = this.demoted().fontSize (11)
+
+        [<Extension>]
         static member inline tooltip(this: WidgetBuilder<'msg, #IFabControl>, tooltip: string) =
             this.tip (ToolTip(tooltip))
 
@@ -53,3 +58,12 @@ module Styles =
                 this.background (Colors.RoyalBlue)
             else
                 this.background(Colors.Transparent).foreground (Colors.Gray)
+
+        [<Extension>]
+        static member inline acceptReturn(this: WidgetBuilder<'msg, #IFabAutoCompleteBox>) =
+            // Create a style that targets TextBox within AutoCompleteBox
+            let style =
+                Style(_.OfType<AutoCompleteBox>().Template().OfType<TextBox>().Name("PART_TextBox"))
+
+            style.Setters.Add(Setter(TextBox.AcceptsReturnProperty, box true))
+            this.inlineStyles (style)

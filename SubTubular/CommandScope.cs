@@ -15,14 +15,18 @@ public abstract partial class CommandScope
 }
 
 [Serializable]
-public class VideosScope : CommandScope, ISerializable
+[method: JsonConstructor]
+public class VideosScope(List<string> videos) : CommandScope, ISerializable
 {
     /// <summary>Input video IDs or URLs.</summary>
-    public string[] Videos { get; }
+    public List<string> Videos { get; } = videos.Select(id => id.Trim()).ToList();
 
-    [JsonConstructor]
-    public VideosScope(string[] videos)
-        => Videos = videos.Select(id => id.Trim()).ToArray();
+    public void Remove(string video)
+    {
+        Videos.Remove(video);
+        Validated.RemoveAll(v => v.Id == video);
+        Progress.Videos?.Remove(video);
+    }
 
     public override IEnumerable<string> Describe()
     {
@@ -48,8 +52,8 @@ public abstract class PlaylistLikeScope : CommandScope
     protected abstract string KeyPrefix { get; }
 
     /// <summary>A unique identifier for the storing this <see cref="PlaylistLikeScope"/>,
-    /// capturing its type and <see cref="CommandScope.GetValidatedIds"/>.</summary>
-    internal string StorageKey => KeyPrefix + GetValidatedId();
+    /// capturing its type and <see cref="CommandScope.ValidationResult.Id"/>.</summary>
+    internal string StorageKey => KeyPrefix + SingleValidated.Id;
     #endregion
 
     // public options

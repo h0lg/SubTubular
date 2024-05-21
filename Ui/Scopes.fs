@@ -12,31 +12,29 @@ open SubTubular.Extensions
 open type Fabulous.Avalonia.View
 
 module Scopes =
-    type Model =
-        { List: Scope.Model list }
+    type Model = { List: Scope.Model list }
 
     type Msg =
         | AddScope of Type
         | ScopeMsg of Scope.Model * Scope.Msg
+        | OpenUrl of string
 
-    let init ()= { List = [] }
+    let init () = { List = [] }
 
     let updateFromCommand model (command: OutputCommand) =
         let list =
             seq {
                 for c in
                     command.Channels
-                    |> Seq.map (fun c ->
-                        Scope.init typeof<ChannelScope> c.Alias (Some c.Top) (Some c.CacheHours)) do
+                    |> Seq.map (fun c -> Scope.init typeof<ChannelScope> c.Alias (Some c.Top) (Some c.CacheHours)) do
                     yield c
 
                 for p in
                     command.Playlists
-                    |> Seq.map (fun p ->
-                        Scope.init typeof<PlaylistScope> p.Alias (Some p.Top) (Some p.CacheHours)) do
+                    |> Seq.map (fun p -> Scope.init typeof<PlaylistScope> p.Alias (Some p.Top) (Some p.CacheHours)) do
                     yield p
 
-                if command.Videos <> null && command.Videos.Videos.Length > 0 then
+                if command.Videos <> null && command.Videos.Videos.Count > 0 then
                     let aliases = command.Videos.Videos |> Scope.VideosInput.join
                     yield Scope.init typeof<VideosScope> aliases None None
             }
@@ -62,18 +60,30 @@ module Scopes =
         match msg with
         | AddScope ofType ->
             { model with
-                List = model.List @ [ Scope.add ofType ] }
+                List = model.List @ [ Scope.add ofType ] },
+            Cmd.none
 
         | ScopeMsg(scope, scopeMsg) ->
-            let updated, intent = Scope.update scopeMsg scope
+            let updatedScope, cmd, intent = Scope.update scopeMsg scope
 
-            match intent with
-            | Scope.Intent.RemoveMe ->
-                { model with
-                    List = model.List |> List.except [ updated ] }
-            | Scope.Intent.DoNothing ->
-                { model with
-                    List = model.List |> List.map (fun s -> if s = scope then updated else s) }
+            let updated =
+                match intent with
+                | Scope.Intent.RemoveMe ->
+                    { model with
+                        List = model.List |> List.except [ updatedScope ] }
+                | Scope.Intent.DoNothing ->
+                    { model with
+                        List = model.List |> List.map (fun s -> if s = scope then updatedScope else s) }
+
+            let mappedCmd = Cmd.map (fun scopeMsg -> ScopeMsg(updatedScope, scopeMsg)) cmd
+
+            let fwdCmd =
+                match scopeMsg with
+                | Scope.Msg.OpenUrl uri -> Cmd.batch [ mappedCmd; OpenUrl uri |> Cmd.ofMsg ]
+                | _ -> mappedCmd
+
+            updated, fwdCmd
+        | OpenUrl _ -> model, Cmd.none
 
     let private getAddableTypes model =
         let multipleAllowed = [ typeof<ChannelScope>; typeof<PlaylistScope> ]
@@ -84,14 +94,21 @@ module Scopes =
             multipleAllowed @ [ typeof<VideosScope> ]
 
     let private addScopeStack = ViewRef<Border>()
+    let private container = ViewRef<Panel>()
 
     let view model =
-        Panel() {
+        (Panel() {
             HWrap() {
                 Label "in"
 
+                let maxWidth =
+                    match container.TryValue with
+                    | Some panel -> panel.DesiredSize.Width
+                    | None -> infinity
+
                 for scope in model.List do
-                    (Border(View.map (fun scopeMsg -> ScopeMsg(scope, scopeMsg)) (Scope.view scope)))
+                    (Border(View.map (fun scopeMsg -> ScopeMsg(scope, scopeMsg)) (Scope.view scope maxWidth)))
+                        .verticalAlignment(VerticalAlignment.Top)
                         .padding(2)
                         .margin(0, 0, 5, 5)
                         .cornerRadius(2)
@@ -110,7 +127,7 @@ module Scopes =
                     Label "add"
 
                     for scopeType in getAddableTypes model do
-                        Button(Scope.displayType scopeType, AddScope scopeType)
+                        Button(Scope.displayType scopeType true, AddScope scopeType)
                 }
             ))
                 .padding(2)
@@ -119,4 +136,5 @@ module Scopes =
                 .horizontalAlignment(HorizontalAlignment.Right)
                 .cornerRadius(2)
                 .background (Colors.Gray)
-        }
+        })
+            .reference (container)
