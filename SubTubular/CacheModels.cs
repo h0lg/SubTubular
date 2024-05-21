@@ -7,6 +7,7 @@ namespace SubTubular;
 public sealed class Playlist
 {
     public required string Title { get; set; }
+    public required string ThumbnailUrl { get; set; }
     public string? Channel { get; set; }
     public DateTime Loaded { get; set; }
 
@@ -34,7 +35,7 @@ public sealed class Video
     /// This is a work-around for <see cref="CacheClearer"/> not cleaning up playlist indexes when singular videos are cleared.</summary>
     internal bool UnIndexed { get; set; }
 
-    public IList<CaptionTrack> CaptionTracks { get; set; } = new List<CaptionTrack>();
+    public IList<CaptionTrack> CaptionTracks { get; set; } = [];
 }
 
 [Serializable]

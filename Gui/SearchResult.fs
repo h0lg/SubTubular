@@ -42,9 +42,7 @@ module SearchResult =
         (VStack() {
             Grid(coldefs = [ Auto; Auto; Star ], rowdefs = [ Auto; Auto ]) {
                 AsyncImage(result.Video.Thumbnail)
-                    .onTapped(fun _ -> OpenUrl videoUrl)
-                    .cursor(Cursors.hand)
-                    .tip(ToolTip("start the video in the browser"))
+                    .tappable(OpenUrl videoUrl, "start the video in the browser")
                     .margin(0, 0, 5, 0)
                     .gridRowSpan (2)
 
@@ -66,7 +64,7 @@ module SearchResult =
                         Scope.getIcon (result.Scope.GetType())
                         + result.Scope.SingleValidated.Playlist.Title
 
-                TextBlock(reference).demoted().fontSize(11).gridRow(1).gridColumn (1)
+                TextBlock(reference).smallDemoted().gridRow(1).gridColumn (1)
             }
 
             if result.DescriptionMatches <> null then

@@ -138,7 +138,8 @@ module App =
                 | :? SearchCommand as search ->
                     Prevalidate.Search search
 
-                    do! RemoteValidate.ScopesAsync(search, Services.Youtube, Services.DataStore, cancellation)
+                    if search.AreScopesValid() |> not then
+                        do! RemoteValidate.ScopesAsync(search, Services.Youtube, Services.DataStore, cancellation)
 
                     if command.SaveAsRecent then
                         dispatch (RecentMsg(ConfigFile.CommandRun command))
@@ -151,7 +152,8 @@ module App =
                 | :? ListKeywords as listKeywords ->
                     Prevalidate.Scopes listKeywords
 
-                    do! RemoteValidate.ScopesAsync(listKeywords, Services.Youtube, Services.DataStore, cancellation)
+                    if listKeywords.AreScopesValid() |> not then
+                        do! RemoteValidate.ScopesAsync(listKeywords, Services.Youtube, Services.DataStore, cancellation)
 
                     if command.SaveAsRecent then
                         dispatch (RecentMsg(ConfigFile.CommandRun command))
@@ -278,9 +280,13 @@ module App =
         | CommandChanged cmd -> { model with Command = cmd }, Cmd.none
         | QueryChanged txt -> { model with Query = txt }, Cmd.none
 
-        | ScopesMsg ext ->
-            let scopes = Scopes.update ext model.Scopes
-            { model with Scopes = scopes }, Cmd.none
+        | ScopesMsg scpsMsg ->
+            match scpsMsg with
+            | Scopes.Msg.OpenUrl url -> ShellCommands.OpenUri url
+            | _ -> ()
+
+            let scopes, cmd = Scopes.update scpsMsg model.Scopes
+            { model with Scopes = scopes }, Cmd.map ScopesMsg cmd
 
         | ResultOptionsMsg ext ->
             let options = ResultOptions.update ext model.ResultOptions

@@ -1,10 +1,13 @@
 ﻿namespace SubTubular.Gui
 
 open System
+open System.Linq
 open System.Threading
 open System.Threading.Tasks
 open Avalonia.Animation
 open Avalonia.Controls
+open Avalonia.Layout
+open Avalonia.Interactivity
 open Avalonia.Media
 open Fabulous
 open Fabulous.Avalonia
@@ -13,6 +16,26 @@ open YoutubeExplode.Videos
 open type Fabulous.Avalonia.View
 
 module Scope =
+    let private (|IsChannel|IsPlaylist|IsVideos|) (t: Type) =
+        match t with
+        | _ when t = typeof<ChannelScope> -> IsChannel
+        | _ when t = typeof<PlaylistScope> -> IsPlaylist
+        | _ when t = typeof<VideosScope> -> IsVideos
+        | _ -> failwith ("unknown scope type " + t.FullName)
+
+    let private (|Channel|Playlist|Videos|) (scope: CommandScope) =
+        match scope with
+        | :? ChannelScope as channel -> Channel channel
+        | :? PlaylistScope as playlist -> Playlist playlist
+        | :? VideosScope as videos -> Videos videos
+        | _ -> failwith $"unsupported {nameof CommandScope} type on {scope}"
+
+    let private (|PlaylistLike|Vids|) (scope: CommandScope) =
+        match scope with
+        | :? PlaylistLikeScope as playlist -> PlaylistLike playlist
+        | :? VideosScope as videos -> Vids videos
+        | _ -> failwith $"unsupported {nameof CommandScope} type on {scope}"
+
     module Alias =
         /// <summary>Removes title prefix applied by <see cref="label" />, i.e. everything before the last ':'</summary>
         let clean (alias: string) =
@@ -30,14 +53,14 @@ module Scope =
             $"{cleanTitle} : {alias}"
 
     module VideosInput =
-        let join values = values |> String.concat " , "
+        let join values = values |> String.concat "\n"
 
         let private split (input: string) =
-            input.Split(',', StringSplitOptions.RemoveEmptyEntries)
+            input.Split('\n', StringSplitOptions.RemoveEmptyEntries) |> Array.map _.Trim()
 
-        let cleanTitle (title: string) = title.Replace(",", "")
-
-        let splitAndClean (input: string) = split input |> Array.map Alias.clean
+        let splitAndClean (input: string) =
+            let array = split input |> Array.map Alias.clean
+            array.ToList()
 
         /// splits and partitions the input into two lists:
         /// first the pre-validated, labeled/uncleaned video aliases,
@@ -77,13 +100,13 @@ module Scope =
 
         member this.Input = input
         member this.HeartBeat = heartBeat
+        member this.Cancel = cancel
 
         // called when either using arrow keys to cycle through results in dropdown or mouse to click one
         member this.SelectAliases text (result: YoutubeSearchResult) forVideos =
             if forVideos then
                 let selection, searchTerms = VideosInput.partition text
-                let title = VideosInput.cleanTitle result.Title
-                let labeledAlias = Alias.label title result.Id
+                let labeledAlias = Alias.label result.Title result.Id
                 selection @ [ labeledAlias ] @ searchTerms |> VideosInput.join
             else
                 Alias.label result.Title result.Id
@@ -97,13 +120,13 @@ module Scope =
                     animateInput (searching.Token) // pass running search token to stop it when the search completes or is cancelled
 
                     match scope with
-                    | :? ChannelScope ->
+                    | Channel _ ->
                         let! channels = Services.Youtube.SearchForChannelsAsync(text, searching.Token)
                         return yieldResults channels
-                    | :? PlaylistScope ->
+                    | Playlist _ ->
                         let! playlists = Services.Youtube.SearchForPlaylistsAsync(text, searching.Token)
                         return yieldResults playlists
-                    | :? VideosScope ->
+                    | Videos _ ->
                         match VideosInput.partition text with
                         | _, [] -> return []
                         | _, searchTerms ->
@@ -114,7 +137,6 @@ module Scope =
                                 )
 
                             return yieldResults videos
-                    | _ -> return []
                 else
                     return []
             }
@@ -123,16 +145,21 @@ module Scope =
         { Scope: CommandScope
           Aliases: string
           AliasSearch: AliasSearch
+          Error: string
           ShowSettings: bool
           Added: bool }
 
     type Msg =
         | AliasesUpdated of string
-        | AliasesSelected of SelectionChangedEventArgs
+        | AliasesLostFocus of RoutedEventArgs
+        | ValidationSucceeded
+        | ValidationFailed of exn
+        | OpenUrl of string
         | ToggleSettings of bool
         | TopChanged of float option
         | CacheHoursChanged of float option
         | Remove
+        | RemoveVideo of string
         | ProgressChanged
         | ProgressValueChanged of float
 
@@ -145,23 +172,17 @@ module Scope =
         | :? VideosScope as _ -> true
         | _ -> false
 
-    let (|Channel|Playlist|Videos|) (t: Type) =
-        match t with
-        | _ when t = typeof<ChannelScope> -> Channel
-        | _ when t = typeof<PlaylistScope> -> Playlist
-        | _ when t = typeof<VideosScope> -> Videos
-        | _ -> failwith ("unknown scope type " + t.FullName)
-
     let private create scopeType aliases added (Default (uint16 50) top) (Default (float32 24) cacheHours) =
         let scope =
             match scopeType with
-            | Channel -> ChannelScope(aliases, top, cacheHours) :> CommandScope
-            | Playlist -> PlaylistScope(aliases, top, cacheHours)
-            | Videos -> VideosScope(VideosInput.splitAndClean aliases)
+            | IsChannel -> ChannelScope(aliases, top, cacheHours) :> CommandScope
+            | IsPlaylist -> PlaylistScope(aliases, top, cacheHours)
+            | IsVideos -> VideosScope(VideosInput.splitAndClean aliases)
 
         { Scope = scope
           Aliases = aliases
           AliasSearch = AliasSearch()
+          Error = null
           ShowSettings = false
           Added = added }
 
@@ -172,100 +193,183 @@ module Scope =
     /// adds a scope on user command
     let add scopeType = create scopeType "" true None None
 
+    let private remoteValidate model token =
+        task {
+            try
+                match model.Scope with
+                | Channel channel ->
+                    do! RemoteValidate.ChannelsAsync([| channel |], Services.Youtube, Services.DataStore, token)
+                | Playlist playlist -> do! RemoteValidate.PlaylistAsync(playlist, Services.Youtube, token)
+                | Videos videos -> do! RemoteValidate.AllVideosAsync(videos, Services.Youtube, token)
+
+                return ValidationSucceeded
+            with exn ->
+                return ValidationFailed exn
+        }
+
+    /// first pre-validates the scope, then triggers remoteValidate on success
+    let private validate model =
+        if model.Scope.RequiresValidation() then
+            match Prevalidate.Scope model.Scope with
+            | null ->
+                if model.Scope.IsPrevalidated then
+                    model, remoteValidate model CancellationToken.None |> Cmd.OfTask.msg
+                else
+                    model, Cmd.none
+            | error -> { model with Error = error }, Cmd.none
+        else
+            model, Cmd.none
+
     let update msg model =
         match msg with
-        | ToggleSettings show -> { model with ShowSettings = show }, DoNothing
-
-        | AliasesSelected args ->
-            (if args.AddedItems.Count > 0 then
-                 let item = args.AddedItems.Item 0 :?> YoutubeSearchResult
-
-                 { model with Aliases = item.Id }
-             else
-                 model),
-            DoNothing
+        | ToggleSettings show -> { model with ShowSettings = show }, Cmd.none, DoNothing
 
         | AliasesUpdated aliases ->
             { model with
                 Added = false
+                Error = null
                 Aliases = aliases },
+            Cmd.none,
             DoNothing
+
+        | AliasesLostFocus _ ->
+            let aliases = model.Aliases
+
+            let updatedAliases =
+                match model.Scope with
+                | Playlist playlist ->
+                    playlist.Alias <- Alias.clean aliases
+                    aliases
+                | Channel channel ->
+                    channel.Alias <- Alias.clean aliases
+                    aliases
+                | Videos vids ->
+                    let prevalidated, invalid = VideosInput.partition aliases
+                    let missing = prevalidated |> List.map Alias.clean |> List.except vids.Videos
+
+                    if not missing.IsEmpty then
+                        vids.Videos.AddRange missing // to have them validated
+
+                    VideosInput.join invalid // only leave invalid ids in the input as search terms
+
+            model.AliasSearch.Cancel() // to avoid population after losing focus
+            let model = { model with Aliases = updatedAliases }
+            let model, cmd = validate model
+            model, cmd, DoNothing
+
+        | ValidationSucceeded -> { model with Error = null }, Cmd.none, DoNothing
+        | ValidationFailed exn -> { model with Error = exn.Message }, Cmd.none, DoNothing
 
         | TopChanged top ->
             match model.Scope with
-            | :? PlaylistLikeScope as scope -> scope.Top <- uint16 top.Value
+            | PlaylistLike scope -> scope.Top <- uint16 top.Value
             | _ -> ()
 
-            model, DoNothing
+            model, Cmd.none, DoNothing
 
         | CacheHoursChanged hours ->
             match model.Scope with
-            | :? PlaylistLikeScope as scope -> scope.CacheHours <- float32 hours.Value
+            | PlaylistLike scope -> scope.CacheHours <- float32 hours.Value
             | _ -> ()
 
-            model, DoNothing
+            model, Cmd.none, DoNothing
 
-        | Remove -> model, RemoveMe
-        | ProgressChanged -> model, DoNothing
-        | ProgressValueChanged _ -> model, DoNothing
+        | RemoveVideo id ->
+            match model.Scope with
+            | Vids scope -> scope.Remove(id)
+            | _ -> ()
+
+            model, Cmd.none, DoNothing
+
+        | Remove -> model, Cmd.none, RemoveMe
+        | ProgressChanged -> model, Cmd.none, DoNothing
+        | ProgressValueChanged _ -> model, Cmd.none, DoNothing
+        | OpenUrl _ -> model, Cmd.none, DoNothing
 
     let private getAliasWatermark model =
-        match model.Scope with
-        | :? VideosScope -> "comma-separated IDs or URLs"
-        | :? PlaylistScope -> "ID or URL"
-        | :? ChannelScope -> "handle, slug, user name, ID or URL"
-        | _ -> failwith "unmatched scope type " + model.Scope.ToString()
-
-    let matches model (commandScope: CommandScope) =
-        match commandScope with
-        | :? ChannelScope as channel -> channel.Alias = Alias.clean model.Aliases
-        | :? PlaylistScope as playlist -> playlist.Alias = Alias.clean model.Aliases
-        | :? VideosScope as videos -> videos.Videos = (VideosInput.splitAndClean model.Aliases)
-        | _ -> failwith $"unsupported {nameof CommandScope} type on {commandScope}"
+        "search YouTube - or enter "
+        + match model.Scope with
+          | Videos _ -> "IDs or URLs; one per line"
+          | Playlist _ -> "ID or URL"
+          | Channel _ -> "handle, slug, user name, ID or URL"
 
     let channelIcon = "📺 "
 
+    let private channelInfo channel =
+        TextBlock(channelIcon + channel).smallDemoted ()
+
     let getIcon (t: Type) =
         match t with
-        | Videos -> "📼 "
-        | Playlist -> "▶️ "
-        | Channel -> channelIcon
+        | IsVideos -> "📼 "
+        | IsPlaylist -> "▶️ "
+        | IsChannel -> channelIcon
 
-    let displayType (t: Type) =
-        match t with
-        | Videos -> "📼 videos"
-        | Playlist -> "▶️ playlist"
-        | Channel -> "📺 channel"
+    let displayType (t: Type) withKeyBinding =
+        getIcon t
+        + if withKeyBinding then "_" else ""
+        + match t with
+          | IsVideos -> "videos"
+          | IsPlaylist -> "playlist"
+          | IsChannel -> "channel"
 
-    let view model =
+    let private validated thumbnailUrl navigateUrl title channel (scope: CommandScope) progress videoId =
+        Grid(coldefs = [ Auto; Auto; Auto; Auto ], rowdefs = [ Auto; Auto ]) {
+            match videoId with
+            | Some videoId -> Button("❌", RemoveVideo videoId).tooltip("remove this video").gridRowSpan (2)
+            | None -> ()
+
+            AsyncImage(thumbnailUrl)
+                .tappable(OpenUrl navigateUrl, "tap to open in the browser")
+                .maxHeight(30)
+                .gridColumn(1)
+                .gridRowSpan (2)
+
+            TextBlock(getIcon (scope.GetType()) + title).gridColumn(2).gridColumnSpan (2)
+
+            match channel with
+            | Some channel -> channelInfo(channel).gridColumn(2).gridRow (1)
+            | None -> ()
+
+            match progress with
+            | Some progress ->
+                TextBlock(progress)
+                    .horizontalAlignment(HorizontalAlignment.Right)
+                    .smallDemoted()
+                    .gridRow(1)
+                    .gridColumn (3)
+            | None -> ()
+        }
+
+    let private search model =
         let forVideos = isForVideos model
 
-        VStack(5) {
-            HStack(5) {
-                Button("❌", Remove).tooltip ("remove this scope")
-                Label(displayType (model.Scope.GetType()))
+        HStack(5) {
+            Label(displayType (model.Scope.GetType()) false).padding (0)
 
+            let autoComplete =
                 AutoCompleteBox(fun text ct -> model.AliasSearch.SearchAsync model.Scope text ct)
                     .minimumPopulateDelay(TimeSpan.FromMilliseconds 300)
                     .onTextChanged(model.Aliases, AliasesUpdated)
+                    .onLostFocus(AliasesLostFocus)
                     .minimumPrefixLength(3)
-                    .onSelectionChanged(AliasesSelected)
                     .filterMode(AutoCompleteFilterMode.None)
                     .focus(model.Added)
-                    .multiline(true)
-                    .watermark("by " + getAliasWatermark model)
+                    .watermark(getAliasWatermark model)
                     .itemSelector(fun enteredText item ->
                         model.AliasSearch.SelectAliases enteredText (item :?> YoutubeSearchResult) forVideos)
                     .itemTemplate(fun (result: YoutubeSearchResult) ->
                         HStack(5) {
                             AsyncImage(result.Thumbnail)
-                            TextBlock(result.Title)
 
-                            if result.Channel <> null then
-                                TextBlock(result.Channel).foreground (Colors.Gray)
+                            VStack(5) {
+                                TextBlock(result.Title)
+
+                                if result.Channel <> null then
+                                    channelInfo (result.Channel)
+                            }
                         })
                     .reference(model.AliasSearch.Input)
-                    .animation (
+                    .animation(
                         // pulses the scale like a heart beat to indicate activity
                         (Animation(TimeSpan.FromSeconds(2.)) {
                             // extend slightly but quickly to get a pulse effect
@@ -278,12 +382,46 @@ module Scope =
                             KeyFrame(ScaleTransform.ScaleXProperty, 1).cue (0.2)
                             KeyFrame(ScaleTransform.ScaleYProperty, 1).cue (0.2)
                         })
+                            .repeatCount(0)
                             .delay(TimeSpan.FromSeconds 1.) // to avoid a "heart attack", i.e. restarting the animation by typing
                             .reference (model.AliasSearch.HeartBeat)
                     )
+                    .margin (5, 0, 0, 0)
 
-                if not forVideos then
-                    let playlist = unbox<PlaylistLikeScope> model.Scope
+            match model.Scope with
+            | Videos videos -> autoComplete.acceptReturn ()
+            | _ -> autoComplete
+        }
+
+    let private removeBtn () =
+        Button("❌", Remove).tooltip ("remove this scope")
+
+    let view model maxWidth =
+        VStack() {
+            match model.Scope with
+            | PlaylistLike playlistLike ->
+                HStack(5) {
+                    removeBtn ()
+
+                    if playlistLike.IsValid then
+                        let validationResult = playlistLike.SingleValidated
+                        let playlist = validationResult.Playlist
+
+                        let channel =
+                            match playlistLike with
+                            | :? PlaylistScope -> Some playlist.Channel
+                            | _ -> None
+
+                        validated
+                            playlist.ThumbnailUrl
+                            validationResult.Url
+                            playlist.Title
+                            channel
+                            playlistLike
+                            (Some(model.Scope.Progress.ToString()))
+                            None
+                    else
+                        search model
 
                     ToggleButton("⚙", model.ShowSettings, ToggleSettings)
                         .tooltip ("toggle settings")
@@ -291,7 +429,7 @@ module Scope =
                     (HStack(5) {
                         Label "search top"
 
-                        NumericUpDown(0, float UInt16.MaxValue, Some(float playlist.Top), TopChanged)
+                        NumericUpDown(0, float UInt16.MaxValue, Some(float playlistLike.Top), TopChanged)
                             .formatString("F0")
                             .tooltip ("number of videos to search")
 
@@ -303,25 +441,56 @@ module Scope =
                     (HStack(5) {
                         Label "and look for new ones after"
 
-                        NumericUpDown(0, float UInt16.MaxValue, Some(float playlist.CacheHours), CacheHoursChanged)
+                        NumericUpDown(0, float UInt16.MaxValue, Some(float playlistLike.CacheHours), CacheHoursChanged)
                             .formatString("F0")
                             .tooltip (
-                                "The info about which videos are in a playlist or channel is cached locally to speed up future searches."
+                                "The info which videos are in a playlist or channel is cached locally to speed up future searches."
                                 + " This controls after how many hours such a cache is considered stale."
+                                + " You may want to adjust this depending on how often new videos are added to the playlist or uploaded to the channel."
                                 + Environment.NewLine
                                 + Environment.NewLine
-                                + "Note that this doesn't concern the video data caches,"
-                                + " which are not expected to change often and are stored until you explicitly clear them."
+                                + "Note that this doesn't figure into the staleness of video data caches."
+                                + " Those are not expected to change often (if ever) and are stored and considered fresh until you explicitly clear them."
                             )
 
                         Label "hours"
                     })
                         .centerHorizontal()
                         .isVisible (model.ShowSettings)
-            }
+                }
 
-            ProgressBar(0, model.Scope.VideoList.AllJobs, model.Scope.VideoList.CompletedJobs, ProgressValueChanged)
-                .progressTextFormat(model.Scope.VideoList.ToString())
-                .onScopeProgressChanged(model.Scope, ProgressChanged)
-                .showProgressText (true)
+            | Vids videos ->
+                let remoteValidated = videos.GetRemoteValidated() |> List.ofSeq
+
+                Grid(coldefs = [ Auto; Auto ], rowdefs = [ Auto; Auto ]) {
+                    if remoteValidated.IsEmpty then
+                        removeBtn().gridRow (1)
+                    else
+                        (HWrap() {
+                            for validationResult in remoteValidated do
+                                let video = validationResult.Video
+
+                                validated
+                                    video.Thumbnail
+                                    validationResult.Url
+                                    video.Title
+                                    (Some video.Channel)
+                                    model.Scope
+                                    None
+                                    (Some video.Id)
+                        })
+                            .gridColumn(1)
+                            (*   *)
+                            .maxWidth (maxWidth)
+
+                    (search model).maxWidth(maxWidth).gridColumn(1).gridRow (1)
+                }
+
+            TextBlock(model.Error)
+                .foreground(Colors.Red)
+                .textWrapping(TextWrapping.Wrap)
+                .isVisible (model.Error <> null) // && not model.Scope.IsValid)
+
+            ProgressBar(0, model.Scope.Progress.AllJobs, model.Scope.Progress.CompletedJobs, ProgressValueChanged)
+                .onScopeProgressChanged (model.Scope, ProgressChanged)
         }

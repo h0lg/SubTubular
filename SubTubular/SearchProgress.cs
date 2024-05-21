@@ -1,4 +1,5 @@
-﻿using SubTubular.Extensions;
+﻿using System.Text.Json.Serialization;
+using SubTubular.Extensions;
 
 namespace SubTubular;
 
@@ -11,20 +12,38 @@ public sealed class VideoList
     public Dictionary<string, Status>? Videos { get; set; }
 
     public int AllJobs => Videos?.Count ?? 1; // default to one job for the VideoList itself
-    public int CompletedJobs => Videos?.Count(v => v.Value == Status.searched) ?? 0;
+
+    public int CompletedJobs
+    {
+        get
+        {
+            if (Videos == null) return State == Status.validated ? 1 : 0;
+            var targetState = State > Status.validated ? Status.searched : Status.validated;
+            return Videos?.Count(v => v.Value == targetState) ?? 0;
+        }
+    }
 
     // used for display in UI
     public override string ToString()
     {
-        var videos = Videos?.Where(v => v.Value != State).GroupBy(v => v.Value).Select(g => $"{Display(g.Key)} {g.Count()}").Join(" | ");
-        return $"{Display(State)} {CompletedJobs}/{AllJobs}" + (videos.IsNullOrEmpty() ? null : (" - " + videos));
+        var videos = Videos?.Where(v => v.Value != State).GroupBy(v => v.Value).Select(g => $"{Label(g.Key)} {g.Count()}").Join(" | ");
+        var completed = Videos == null ? string.Empty : $" {CompletedJobs}/{AllJobs}";
+        return $"{Label(State)}" + completed + (videos.IsNullOrEmpty() ? null : (" - " + videos));
     }
 
-    public enum Status { queued, loading, downloading, validated, refreshing, indexing, searching, indexingAndSearching, searched }
+    /// <summary>States of a <see cref="CommandScope"/> or individual <see cref="Video"/>s.</summary>
+    public enum Status
+    {
+        queued, preValidated,
+        loading, downloading, validated,
+        refreshing, indexing, searching, indexingAndSearching,
+        searched
+    }
 
     // used for display in UI
-    private static string Display(Status status) => status switch
+    private static string Label(Status status) => status switch
     {
+        Status.preValidated => "pre-validated",
         Status.indexingAndSearching => "indexing and searching",
         _ => status.ToString()
     };
@@ -32,18 +51,25 @@ public sealed class VideoList
 
 partial class CommandScope
 {
-    public VideoList VideoList { get; } = new();
+    [JsonIgnore]
+    public VideoList Progress { get; } = new();
+
     public event EventHandler? ProgressChanged;
 
-    internal void SetVideos(IEnumerable<string> videoIds)
+    internal void QueueVideos(IEnumerable<string> videoIds)
     {
-        VideoList.Videos = videoIds.ToDictionary(id => id, _ => VideoList.Status.queued);
+        if (Progress.Videos == null) Progress.Videos = [];
+
+        foreach (var id in videoIds)
+            if (!Progress.Videos.ContainsKey(id))
+                Progress.Videos[id] = VideoList.Status.queued;
+
         ReportChange();
     }
 
     internal void Report(VideoList.Status state)
     {
-        VideoList.State = state;
+        Progress.State = state;
         ReportChange();
     }
 
@@ -59,6 +85,6 @@ partial class CommandScope
         ReportChange();
     }
 
-    private void UpdateVideoState(string videoId, VideoList.Status state) => VideoList.Videos![videoId] = state;
+    private void UpdateVideoState(string videoId, VideoList.Status state) => Progress.Videos![videoId] = state;
     private void ReportChange() => ProgressChanged?.Invoke(this, EventArgs.Empty);
 }
