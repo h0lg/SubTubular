@@ -1,6 +1,7 @@
 ﻿namespace Ui
 
 open System
+open System.Linq
 open Avalonia.Controls
 open Avalonia.Layout
 open Avalonia.Media
@@ -16,7 +17,7 @@ module Scopes =
           Youtube: Youtube }
 
     type Msg =
-        | AddScope of Scope.Type
+        | AddScope of Type
         | ScopeMsg of Scope.Model * Scope.Msg
 
     let init youtube = { List = []; Youtube = youtube }
@@ -27,56 +28,36 @@ module Scopes =
                 for c in
                     command.Channels
                     |> Seq.map (fun c ->
-                        Scope.init
-                            Scope.Type.channel
-                            c.Alias
-                            model.Youtube
-                            (Some(c.Top |> float))
-                            (Some(c.CacheHours |> float))) do
+                        Scope.init typeof<ChannelScope> c.Alias model.Youtube (Some c.Top) (Some c.CacheHours)) do
                     yield c
 
                 for p in
                     command.Playlists
                     |> Seq.map (fun p ->
-                        Scope.init
-                            Scope.Type.playlist
-                            p.Alias
-                            model.Youtube
-                            (Some(p.Top |> float))
-                            (Some(p.CacheHours |> float))) do
+                        Scope.init typeof<PlaylistScope> p.Alias model.Youtube (Some p.Top) (Some p.CacheHours)) do
                     yield p
 
                 if command.Videos <> null && command.Videos.Videos.Length > 0 then
                     let aliases = command.Videos.Videos |> Scope.VideosInput.join
-                    yield Scope.init Scope.Type.videos aliases model.Youtube None None
+                    yield Scope.init typeof<VideosScope> aliases model.Youtube None None
             }
 
         { model with List = list |> List.ofSeq }
 
+    let private getScopes<'T> model =
+        model.List
+            .Where(_.Aliases.IsNonWhiteSpace())
+            .Select(_.Scope)
+            .OfType<'T>()
+            .ToArray()
+
     let setOnCommand model (command: OutputCommand) =
-        let getScopes ofType =
-            model.List
-            |> List.filter (fun s -> s.Type = ofType && s.Aliases.IsNonWhiteSpace())
-
-        let getPlaylistLikeScopes ofType =
-            getScopes ofType
-            |> List.map (fun scope ->
-                (Scope.Alias.clean scope.Aliases, scope.Top.Value |> uint16, scope.CacheHours.Value |> float32))
-
-        command.Channels <-
-            getPlaylistLikeScopes Scope.Type.channel
-            |> List.map ChannelScope
-            |> List.toArray
-
-        command.Playlists <-
-            getPlaylistLikeScopes Scope.Type.playlist
-            |> List.map PlaylistScope
-            |> List.toArray
-
-        let videos = getScopes Scope.Type.videos |> List.tryExactlyOne
+        command.Channels <- getScopes<ChannelScope> model
+        command.Playlists <- getScopes<PlaylistScope> model
+        let videos = getScopes<VideosScope> model |> Seq.tryExactlyOne
 
         if videos.IsSome then
-            command.Videos <- VideosScope(Scope.VideosInput.splitAndClean videos.Value.Aliases)
+            command.Videos <- videos.Value
 
     let update msg model =
         match msg with
@@ -95,33 +76,13 @@ module Scopes =
                 { model with
                     List = model.List |> List.map (fun s -> if s = scope then updated else s) }
 
-    // takes a batch of progresses and applies them to the model
-    let updateSearchProgress (progresses: BatchProgress list) model =
-        let videoLists = progresses |> List.collect (fun p -> p.VideoLists |> List.ofSeq)
-
-        let scopes =
-            model.List
-            |> List.map (fun scope ->
-                let matching = videoLists |> List.filter (fun pair -> Scope.matches scope pair.Key)
-
-                match matching with
-                | [] -> scope // no match, return unaltered scope
-                | _ ->
-                    // only apply most completed progress; batch may contain stale reports due to batched throttling
-                    let scopeProgress = matching |> List.maxBy (fun pair -> pair.Value.CompletedJobs)
-
-                    { scope with
-                        Progress = Some scopeProgress.Value })
-
-        { model with List = scopes }
-
     let private getAddableTypes model =
-        let allTypes = Enum.GetValues<Scope.Type>()
+        let multipleAllowed = [ typeof<ChannelScope>; typeof<PlaylistScope> ]
 
         if model.List |> List.exists Scope.isForVideos then
-            allTypes |> Array.except [ Scope.Type.videos ]
+            multipleAllowed
         else
-            allTypes
+            multipleAllowed @ [ typeof<VideosScope> ]
 
     let private addScopeStack = ViewRef<Border>()
 

@@ -54,8 +54,8 @@ public abstract class PlaylistLikeScope : CommandScope
 
     // public options
     public string Alias { get; set; }
-    public ushort Top { get; }
-    public float CacheHours { get; }
+    public ushort Top { get; set; }
+    public float CacheHours { get; set; }
 
     protected PlaylistLikeScope(string alias, ushort top, float cacheHours)
     {

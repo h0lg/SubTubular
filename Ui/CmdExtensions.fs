@@ -5,6 +5,10 @@ open System.Threading
 open Fabulous
 open System.Runtime.CompilerServices
 
+[<AutoOpen>]
+module Helpers =
+    let (|Default|) defaultValue input = defaultArg input defaultValue
+
 module Dispatch =
 
     let toUiThread (action: unit -> unit) =

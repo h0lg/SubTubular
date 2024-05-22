@@ -13,11 +13,6 @@ open YoutubeExplode.Videos
 open type Fabulous.Avalonia.View
 
 module Scope =
-    type Type =
-        | videos = 0
-        | playlist = 1
-        | channel = 2
-
     module Alias =
         /// removes title prefix, i.e. everything before the last ':'
         let clean (alias: string) =
@@ -94,7 +89,7 @@ module Scope =
 
         member this.SearchAsync
             (youtube: Youtube)
-            scopeType
+            (scope: CommandScope)
             (text: string)
             (cancellation: CancellationToken)
             : Task<obj seq> =
@@ -105,14 +100,14 @@ module Scope =
                     searching <- new CancellationTokenSource() // and create a new source for this one
                     animateInput (searching.Token) // pass running search token to stop it when the search completes or is cancelled
 
-                    match scopeType with
-                    | Type.channel ->
+                    match scope with
+                    | :? ChannelScope ->
                         let! channels = youtube.SearchForChannelsAsync(text, searching.Token)
                         return yieldResults channels
-                    | Type.playlist ->
+                    | :? PlaylistScope ->
                         let! playlists = youtube.SearchForPlaylistsAsync(text, searching.Token)
                         return yieldResults playlists
-                    | Type.videos ->
+                    | :? VideosScope ->
                         match VideosInput.partition text with
                         | _, [] -> return []
                         | _, searchTerms ->
@@ -126,14 +121,10 @@ module Scope =
             }
 
     type Model =
-        { Type: Type
+        { Scope: CommandScope
           Aliases: string
           AliasSearch: AliasSearch
-
           ShowSettings: bool
-          Top: float option
-          CacheHours: float option
-          Progress: BatchProgress.VideoList option
           Added: bool
           Youtube: Youtube }
 
@@ -144,33 +135,46 @@ module Scope =
         | TopChanged of float option
         | CacheHoursChanged of float option
         | Remove
-        | ProgressChanged of float
+        | ProgressChanged
+        | ProgressValueChanged of float
 
     type Intent =
         | RemoveMe
         | DoNothing
 
-    let isForVideos model = model.Type = Type.videos
+    let isForVideos model =
+        match model.Scope with
+        | :? VideosScope as _ -> true
+        | _ -> false
 
-    let private create scopeType aliases youtube top cacheHours added =
-        { Type = scopeType
+    let (|Channel|Playlist|Videos|) (t: Type) =
+        match t with
+        | _ when t = typeof<ChannelScope> -> Channel
+        | _ when t = typeof<PlaylistScope> -> Playlist
+        | _ when t = typeof<VideosScope> -> Videos
+        | _ -> failwith ("unknown scope type " + t.FullName)
+
+    let private create scopeType aliases youtube added (Default (uint16 50) top) (Default (float32 24) cacheHours) =
+        let scope =
+            match scopeType with
+            | Channel -> ChannelScope(aliases, top, cacheHours) :> CommandScope
+            | Playlist -> PlaylistScope(aliases, top, cacheHours)
+            | Videos -> VideosScope(VideosInput.splitAndClean aliases)
+
+        { Scope = scope
           Aliases = aliases
           AliasSearch = AliasSearch()
-          Top = top
-          CacheHours = cacheHours
           ShowSettings = false
-          Progress = None
           Added = added
           Youtube = youtube }
 
+    /// creates a pre-existing scope
     let init scopeType aliases youtube top cacheHours =
-        create scopeType aliases youtube top cacheHours false
+        create scopeType aliases youtube false top cacheHours
 
+    /// adds a scope on user command
     let add scopeType youtube =
-        let forVideos = scopeType = Type.videos
-        let top = if forVideos then None else Some(float 50)
-        let cacheHours = if forVideos then None else Some(float 24)
-        create scopeType "" youtube top cacheHours true
+        create scopeType "" youtube true None None
 
     let update msg model =
         match msg with
@@ -191,17 +195,30 @@ module Scope =
                 Aliases = aliases },
             DoNothing
 
-        | TopChanged top -> { model with Top = top }, DoNothing
-        | CacheHoursChanged hours -> { model with CacheHours = hours }, DoNothing
-        | Remove -> model, RemoveMe
-        | ProgressChanged _ -> model, DoNothing
+        | TopChanged top ->
+            match model.Scope with
+            | :? PlaylistLikeScope as scope -> scope.Top <- uint16 top.Value
+            | _ -> ()
 
-    let private getAliasWatermark scope =
-        match scope.Type with
-        | Type.videos -> "comma-separated IDs or URLs"
-        | Type.playlist -> "ID or URL"
-        | Type.channel -> "handle, slug, user name, ID or URL"
-        | _ -> failwith "unmatched scope type " + scope.Type.ToString()
+            model, DoNothing
+
+        | CacheHoursChanged hours ->
+            match model.Scope with
+            | :? PlaylistLikeScope as scope -> scope.CacheHours <- float32 hours.Value
+            | _ -> ()
+
+            model, DoNothing
+
+        | Remove -> model, RemoveMe
+        | ProgressChanged -> model, DoNothing
+        | ProgressValueChanged _ -> model, DoNothing
+
+    let private getAliasWatermark model =
+        match model.Scope with
+        | :? VideosScope -> "comma-separated IDs or URLs"
+        | :? PlaylistScope -> "ID or URL"
+        | :? ChannelScope -> "handle, slug, user name, ID or URL"
+        | _ -> failwith "unmatched scope type " + model.Scope.ToString()
 
     let matches model (commandScope: CommandScope) =
         match commandScope with
@@ -210,12 +227,11 @@ module Scope =
         | :? VideosScope as videos -> videos.Videos = (VideosInput.splitAndClean model.Aliases)
         | _ -> failwith $"unsupported {nameof CommandScope} type on {commandScope}"
 
-    let displayType =
-        function
-        | Type.videos -> "📼 videos"
-        | Type.playlist -> "▶️ playlist"
-        | Type.channel -> "📺 channel"
-        | _ -> failwith "unknown scope"
+    let displayType (t: Type) =
+        match t with
+        | Videos -> "📼 videos"
+        | Playlist -> "▶️ playlist"
+        | Channel -> "📺 channel"
 
     let view model =
         let forVideos = isForVideos model
@@ -223,9 +239,9 @@ module Scope =
         VStack(5) {
             HStack(5) {
                 Button("❌", Remove).tooltip ("remove this scope")
-                Label(displayType model.Type)
+                Label(displayType (model.Scope.GetType()))
 
-                AutoCompleteBox(fun text ct -> model.AliasSearch.SearchAsync model.Youtube model.Type text ct)
+                AutoCompleteBox(fun text ct -> model.AliasSearch.SearchAsync model.Youtube model.Scope text ct)
                     .minimumPopulateDelay(TimeSpan.FromMilliseconds 300)
                     .onTextChanged(model.Aliases, AliasesUpdated)
                     .minimumPrefixLength(3)
@@ -263,43 +279,45 @@ module Scope =
                     )
 
                 if not forVideos then
+                    let playlist = unbox<PlaylistLikeScope> model.Scope
+
                     ToggleButton("⚙", model.ShowSettings, ToggleSettings)
                         .tooltip ("toggle settings")
 
-                (HStack(5) {
-                    Label "search top"
+                    (HStack(5) {
+                        Label "search top"
 
-                    NumericUpDown(0, float UInt16.MaxValue, model.Top, TopChanged)
-                        .formatString("F0")
-                        .tooltip ("number of videos to search")
+                        NumericUpDown(0, float UInt16.MaxValue, Some(float playlist.Top), TopChanged)
+                            .formatString("F0")
+                            .tooltip ("number of videos to search")
 
-                    Label "videos"
-                })
-                    .centerHorizontal()
-                    .isVisible (model.ShowSettings)
+                        Label "videos"
+                    })
+                        .centerHorizontal()
+                        .isVisible (model.ShowSettings)
 
-                (HStack(5) {
-                    Label "and look for new ones after"
+                    (HStack(5) {
+                        Label "and look for new ones after"
 
-                    NumericUpDown(0, float UInt16.MaxValue, model.CacheHours, CacheHoursChanged)
-                        .formatString("F0")
-                        .tooltip (
-                            "The info about which videos are in a playlist or channel is cached locally to speed up future searches."
-                            + " This controls after how many hours such a cache is considered stale."
-                            + Environment.NewLine
-                            + Environment.NewLine
-                            + "Note that this doesn't concern the video data caches,"
-                            + " which are not expected to change often and are stored until you explicitly clear them."
-                        )
+                        NumericUpDown(0, float UInt16.MaxValue, Some(float playlist.CacheHours), CacheHoursChanged)
+                            .formatString("F0")
+                            .tooltip (
+                                "The info about which videos are in a playlist or channel is cached locally to speed up future searches."
+                                + " This controls after how many hours such a cache is considered stale."
+                                + Environment.NewLine
+                                + Environment.NewLine
+                                + "Note that this doesn't concern the video data caches,"
+                                + " which are not expected to change often and are stored until you explicitly clear them."
+                            )
 
-                    Label "hours"
-                })
-                    .centerHorizontal()
-                    .isVisible (model.ShowSettings)
+                        Label "hours"
+                    })
+                        .centerHorizontal()
+                        .isVisible (model.ShowSettings)
             }
 
-            if model.Progress.IsSome then
-                ProgressBar(0, model.Progress.Value.AllJobs, model.Progress.Value.CompletedJobs, ProgressChanged)
-                    .progressTextFormat(model.Progress.Value.ToString())
-                    .showProgressText (true)
+            ProgressBar(0, model.Scope.VideoList.AllJobs, model.Scope.VideoList.CompletedJobs, ProgressValueChanged)
+                .progressTextFormat(model.Scope.VideoList.ToString())
+                .onScopeProgressChanged(model.Scope, ProgressChanged)
+                .showProgressText (true)
         }

@@ -18,13 +18,6 @@ public abstract class OutputCommand
     public string? FileOutputPath { get; set; }
     public Shows? Show { get; set; }
 
-    internal BatchProgressReporter? ProgressReporter { get; private set; }
-
-    public void SetProgressReporter(IProgress<BatchProgress> progressReporter)
-    {
-        ProgressReporter = new BatchProgressReporter(new BatchProgress(), progressReporter);
-    }
-
     public bool HasOutputPath(out string? outputPath)
     {
         var fileOutputPath = FileOutputPath?.Trim('"');
