@@ -2,31 +2,22 @@
 
 namespace SubTubular;
 
-/// <summary>Tracks the progress of distinct <see cref="CommandScope"/>s in an <see cref="OutputCommand"/>.</summary>
-public sealed class BatchProgress
+/// <summary>Represents the progress of a <see cref="CommandScope"/>.</summary>
+public sealed class VideoList
 {
-    public Dictionary<CommandScope, VideoList> VideoLists { get; set; } = [];
+    public Status State { get; set; } = Status.queued;
 
-    public override string ToString() =>
-        VideoLists.Select(list => list.Key.Describe().Join(" ") + " " + list.Value).Join(Environment.NewLine);
+    /// <summary>Represents the progress of individual <see cref="Video.Id"/>s in a <see cref="CommandScope"/>s.</summary>
+    public Dictionary<string, Status>? Videos { get; set; }
 
-    /// <summary>Represents the progress of a <see cref="CommandScope"/>.</summary>
-    public sealed class VideoList
+    public int AllJobs => Videos?.Count ?? 1; // default to one job for the VideoList itself
+    public int CompletedJobs => Videos?.Count(v => v.Value == Status.searched) ?? 0;
+
+    // used for display in UI
+    public override string ToString()
     {
-        public Status State { get; set; } = Status.queued;
-
-        /// <summary>Represents the progress of individual <see cref="Video.Id"/>s in a <see cref="CommandScope"/>s.</summary>
-        public Dictionary<string, Status>? Videos { get; set; }
-
-        public int AllJobs => Videos?.Count ?? 1; // default to one job for the VideoList itself
-        public int CompletedJobs => Videos?.Count(v => v.Value == Status.searched) ?? 0;
-
-        // used for display in UI
-        public override string ToString()
-        {
-            var videos = Videos?.Where(v => v.Value != State).GroupBy(v => v.Value).Select(g => $"{Display(g.Key)} " + g.Count()).Join(" | ");
-            return $"{Display(State)} {CompletedJobs}/{AllJobs}" + (videos.IsNullOrEmpty() ? null : (" - " + videos));
-        }
+        var videos = Videos?.Where(v => v.Value != State).GroupBy(v => v.Value).Select(g => $"{Display(g.Key)} {g.Count()}").Join(" | ");
+        return $"{Display(State)} {CompletedJobs}/{AllJobs}" + (videos.IsNullOrEmpty() ? null : (" - " + videos));
     }
 
     public enum Status { queued, loading, downloading, validated, refreshing, indexing, searching, indexingAndSearching, searched }
@@ -39,55 +30,35 @@ public sealed class BatchProgress
     };
 }
 
-/// <summary>A <see cref="VideoListProgress"/> factory for the <see cref="BatchProgress.VideoLists"/> of <paramref name="batchProgress"/>
-/// delegating to the <paramref name="reporter"/> to bundle all progress reports in it.</summary>
-internal class BatchProgressReporter(BatchProgress batchProgress, IProgress<BatchProgress> reporter)
+partial class CommandScope
 {
-    internal VideoListProgress CreateVideoListProgress(CommandScope scope)
-    {
-        if (!batchProgress.VideoLists.TryGetValue(scope, out var videoList))
-            videoList = new BatchProgress.VideoList();
+    public VideoList VideoList { get; } = new();
+    public event EventHandler? ProgressChanged;
 
-        return new(videoList, new Progress<BatchProgress.VideoList>(listProgress =>
-        {
-            batchProgress.VideoLists[scope] = listProgress;
-            reporter.Report(batchProgress);
-            //var playlist = progress.Playlists.Single(pl => pl.Scope == listProgress.Scope);
-            //playlist.State = listProgress.State;
-            //playlist.Videos = listProgress.Videos;
-        }));
+    internal void SetVideos(IEnumerable<string> videoIds)
+    {
+        VideoList.Videos = videoIds.ToDictionary(id => id, _ => VideoList.Status.queued);
+        ReportChange();
     }
 
-    /// <summary>Pairs the <paramref name="videoList"/> with the <paramref name="reporter"/> for convenient progress reporting.</summary>
-    internal class VideoListProgress(BatchProgress.VideoList videoList, IProgress<BatchProgress.VideoList> reporter)
+    internal void Report(VideoList.Status state)
     {
-        public BatchProgress.VideoList VideoList { get; } = videoList;
-
-        internal void SetVideos(IEnumerable<string> videoIds)
-        {
-            VideoList.Videos = videoIds.ToDictionary(id => id, _ => BatchProgress.Status.queued);
-            ReportChange();
-        }
-
-        internal void Report(BatchProgress.Status state)
-        {
-            VideoList.State = state;
-            ReportChange();
-        }
-
-        internal void Report(string videoId, BatchProgress.Status state)
-        {
-            UpdateVideoState(videoId, state);
-            ReportChange();
-        }
-
-        internal void Report(IEnumerable<Video> videos, BatchProgress.Status state)
-        {
-            foreach (var video in videos) UpdateVideoState(video.Id, state);
-            ReportChange();
-        }
-
-        private void UpdateVideoState(string videoId, BatchProgress.Status state) => VideoList.Videos![videoId] = state;
-        private void ReportChange() => reporter.Report(VideoList);
+        VideoList.State = state;
+        ReportChange();
     }
+
+    internal void Report(string videoId, VideoList.Status state)
+    {
+        UpdateVideoState(videoId, state);
+        ReportChange();
+    }
+
+    internal void Report(IEnumerable<Video> videos, VideoList.Status state)
+    {
+        foreach (var video in videos) UpdateVideoState(video.Id, state);
+        ReportChange();
+    }
+
+    private void UpdateVideoState(string videoId, VideoList.Status state) => VideoList.Videos![videoId] = state;
+    private void ReportChange() => ProgressChanged?.Invoke(this, EventArgs.Empty);
 }

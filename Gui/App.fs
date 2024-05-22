@@ -62,7 +62,6 @@ module App =
         | Run of bool
         | SearchResults of VideoSearchResult list
         | KeywordResults of (string * string * CommandScope) list
-        | CommandProgress of BatchProgress list
         | CommandCompleted
         | SearchResultMsg of SearchResult.Msg
 
@@ -137,12 +136,6 @@ module App =
         fun dispatch ->
             task {
                 let command = mapToCommand model
-
-                let dispatchProgress, awaitNextProgressDispatch =
-                    dispatch.batchThrottled (100, (fun progresses -> CommandProgress progresses))
-
-                command.SetProgressReporter(Progress<BatchProgress>(fun progress -> dispatchProgress progress))
-
                 let cancellation = model.Running.Token
 
                 match command with
@@ -178,7 +171,6 @@ module App =
 
                 | _ -> failwith ("Unknown command type " + command.GetType().ToString())
 
-                do! awaitNextProgressDispatch (Some 100) // to make sure all progresses are dispatched before calling it done
                 dispatch CommandCompleted
             }
             |> Async.AwaitTask
@@ -352,10 +344,6 @@ module App =
                 Youtube.AggregateKeywords(keyword, videoId, scope, model.KeywordResults)
 
             model, Cmd.none
-
-        | CommandProgress progresses ->
-            let scopes = Scopes.updateSearchProgress progresses model.Scopes
-            { model with Scopes = scopes }, Cmd.none
 
         | CommandCompleted ->
             if model.Running <> null then

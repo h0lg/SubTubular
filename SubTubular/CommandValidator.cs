@@ -102,8 +102,7 @@ public static class RemoteValidate
 
             var channelValidations = command.Channels!.Select(async channel =>
             {
-                var matchingChannels = await ChannelAsync(channel, knownAliasMaps, youtube,
-                    command.ProgressReporter?.CreateVideoListProgress(channel), cancellation);
+                var matchingChannels = await ChannelAsync(channel, knownAliasMaps, youtube, cancellation);
 
                 string? error = null;
 
@@ -137,35 +136,33 @@ public static class RemoteValidate
         }
 
         if (command.Playlists.HasAny()) validations.AddRange(
-            command.Playlists!.Select(playlist => PlaylistAsync(playlist, youtube,
-                command.ProgressReporter?.CreateVideoListProgress(playlist), cancellation)));
+            command.Playlists!.Select(playlist => PlaylistAsync(playlist, youtube, cancellation)));
 
         if (command.Videos?.IsPrevalidated == true) validations.AddRange(
             command.Videos!.Validated.Select(validationResult => VideoAsync(validationResult, youtube, dataStore,
-                command.ProgressReporter?.CreateVideoListProgress(command.Videos!), cancellation)));
+                command.Videos!, cancellation)));
 
         await Task.WhenAll(validations).WithAggregateException();
     }
 
     private static async Task VideoAsync(CommandScope.ValidationResult validationResult, Youtube youtube, DataStore dataStore,
-        BatchProgressReporter.VideoListProgress? progress, CancellationToken cancellation)
+        VideosScope videos, CancellationToken cancellation)
     {
-        progress?.Report(validationResult.Id, BatchProgress.Status.downloading);
+        videos.Report(validationResult.Id, VideoList.Status.downloading);
         // video is not saved here without captiontracks so none in the cache means there probably are none - otherwise cached info is indeterminate
-        validationResult.Video = await youtube.GetVideoAsync(validationResult.Id, cancellation, downloadCaptionTracksAndSave: false);
-        progress?.Report(validationResult.Id, BatchProgress.Status.validated);
+        validationResult.Video = await youtube.GetVideoAsync(validationResult.Id, cancellation, videos, downloadCaptionTracksAndSave: false);
+        videos.Report(validationResult.Id, VideoList.Status.validated);
     }
 
-    private static async Task PlaylistAsync(PlaylistScope scope, Youtube youtube,
-        BatchProgressReporter.VideoListProgress? progress, CancellationToken cancellation)
+    private static async Task PlaylistAsync(PlaylistScope scope, Youtube youtube, CancellationToken cancellation)
     {
-        progress?.Report(BatchProgress.Status.loading);
-        scope.SingleValidated.Playlist = await youtube.GetPlaylistAsync(scope, cancellation, progress);
-        progress?.Report(BatchProgress.Status.validated);
+        scope.Report(VideoList.Status.loading);
+        scope.SingleValidated.Playlist = await youtube.GetPlaylistAsync(scope, cancellation);
+        scope.Report(VideoList.Status.validated);
     }
 
-    private static async Task<ChannelAliasMap[]> ChannelAsync(ChannelScope channel, HashSet<ChannelAliasMap> knownAliasMaps, Youtube youtube,
-        BatchProgressReporter.VideoListProgress? progress, CancellationToken cancellation)
+    private static async Task<ChannelAliasMap[]> ChannelAsync(ChannelScope channel,
+        HashSet<ChannelAliasMap> knownAliasMaps, Youtube youtube, CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
 
@@ -190,9 +187,9 @@ public static class RemoteValidate
 
         string id = distinctChannels.Single().ChannelId!;
         channel.SingleValidated.Id = id;
-        channel.SingleValidated.Playlist = await youtube.GetPlaylistAsync(channel, cancellation, progress);
+        channel.SingleValidated.Playlist = await youtube.GetPlaylistAsync(channel, cancellation);
         channel.SingleValidated.Url = Youtube.GetChannelUrl((ChannelId)id);
-        progress?.Report(BatchProgress.Status.validated);
+        channel.Report(VideoList.Status.validated);
         return distinctChannels;
 
         async ValueTask<ChannelAliasMap> GetChannelAliasMap(object alias)
@@ -208,7 +205,7 @@ public static class RemoteValidate
 
             var (type, value) = ChannelAliasMap.GetTypeAndValue(alias);
             map = new ChannelAliasMap { Type = type, Value = value };
-            progress?.Report(BatchProgress.Status.downloading);
+            channel.Report(VideoList.Status.downloading);
 
             try
             {
