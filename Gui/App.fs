@@ -128,10 +128,6 @@ module App =
 
         command
 
-    let private cacheFolder = Folder.GetPath Folders.cache
-    let private dataStore = JsonFileDataStore cacheFolder
-    let private youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
-
     let private runCmd model =
         fun dispatch ->
             task {
@@ -142,26 +138,26 @@ module App =
                 | :? SearchCommand as search ->
                     Prevalidate.Search search
 
-                    do! RemoteValidate.ScopesAsync(search, youtube, dataStore, cancellation)
+                    do! RemoteValidate.ScopesAsync(search, Services.Youtube, Services.DataStore, cancellation)
 
                     if command.SaveAsRecent then
                         dispatch (RecentMsg(ConfigFile.CommandRun command))
 
                     do!
-                        youtube
+                        Services.Youtube
                             .SearchAsync(search, cancellation)
                             .dispatchBatchThrottledTo (100, SearchResults, dispatch)
 
                 | :? ListKeywords as listKeywords ->
                     Prevalidate.Scopes listKeywords
 
-                    do! RemoteValidate.ScopesAsync(listKeywords, youtube, dataStore, cancellation)
+                    do! RemoteValidate.ScopesAsync(listKeywords, Services.Youtube, Services.DataStore, cancellation)
 
                     if command.SaveAsRecent then
                         dispatch (RecentMsg(ConfigFile.CommandRun command))
 
                     do!
-                        youtube
+                        Services.Youtube
                             .ListKeywordsAsync(listKeywords, cancellation)
                             .dispatchBatchThrottledTo (
                                 100,
@@ -214,7 +210,7 @@ module App =
           Notifier = null
           Query = ""
 
-          Scopes = Scopes.init youtube
+          Scopes = Scopes.init ()
           ResultOptions = ResultOptions.initModel
 
           DisplayOutputOptions = false

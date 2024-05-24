@@ -13,14 +13,13 @@ open type Fabulous.Avalonia.View
 
 module Scopes =
     type Model =
-        { List: Scope.Model list
-          Youtube: Youtube }
+        { List: Scope.Model list }
 
     type Msg =
         | AddScope of Type
         | ScopeMsg of Scope.Model * Scope.Msg
 
-    let init youtube = { List = []; Youtube = youtube }
+    let init ()= { List = [] }
 
     let updateFromCommand model (command: OutputCommand) =
         let list =
@@ -28,18 +27,18 @@ module Scopes =
                 for c in
                     command.Channels
                     |> Seq.map (fun c ->
-                        Scope.init typeof<ChannelScope> c.Alias model.Youtube (Some c.Top) (Some c.CacheHours)) do
+                        Scope.init typeof<ChannelScope> c.Alias (Some c.Top) (Some c.CacheHours)) do
                     yield c
 
                 for p in
                     command.Playlists
                     |> Seq.map (fun p ->
-                        Scope.init typeof<PlaylistScope> p.Alias model.Youtube (Some p.Top) (Some p.CacheHours)) do
+                        Scope.init typeof<PlaylistScope> p.Alias (Some p.Top) (Some p.CacheHours)) do
                     yield p
 
                 if command.Videos <> null && command.Videos.Videos.Length > 0 then
                     let aliases = command.Videos.Videos |> Scope.VideosInput.join
-                    yield Scope.init typeof<VideosScope> aliases model.Youtube None None
+                    yield Scope.init typeof<VideosScope> aliases None None
             }
 
         { model with List = list |> List.ofSeq }
@@ -63,7 +62,7 @@ module Scopes =
         match msg with
         | AddScope ofType ->
             { model with
-                List = model.List @ [ Scope.add ofType model.Youtube ] }
+                List = model.List @ [ Scope.add ofType ] }
 
         | ScopeMsg(scope, scopeMsg) ->
             let updated, intent = Scope.update scopeMsg scope
