@@ -38,7 +38,7 @@ module FileOutput =
             use cts = new CancellationTokenSource()
 
             do!
-                CommandValidator.ValidateScopesAsync(command, youtube, dataStore, cts.Token)
+                RemoteValidate.ScopesAsync(command, youtube, dataStore, cts.Token)
                 |> Async.AwaitTask
 
             let writer =

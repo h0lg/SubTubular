@@ -171,7 +171,7 @@ module App =
                 | :? SearchCommand as search ->
                     Prevalidate.Search search
 
-                    do! CommandValidator.ValidateScopesAsync(search, youtube, dataStore, cancellation)
+                    do! RemoteValidate.ScopesAsync(search, youtube, dataStore, cancellation)
 
                     if command.SaveAsRecent then
                         dispatch (RecentMsg(ConfigFile.CommandRun command))
@@ -184,7 +184,7 @@ module App =
                 | :? ListKeywords as listKeywords ->
                     Prevalidate.Scopes listKeywords
 
-                    do! CommandValidator.ValidateScopesAsync(listKeywords, youtube, dataStore, cancellation)
+                    do! RemoteValidate.ScopesAsync(listKeywords, youtube, dataStore, cancellation)
 
                     if command.SaveAsRecent then
                         dispatch (RecentMsg(ConfigFile.CommandRun command))

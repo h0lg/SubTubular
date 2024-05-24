@@ -27,7 +27,7 @@ static partial class Program
 
         DataStore dataStore = CreateDataStore();
         var youtube = new Youtube(dataStore, CreateVideoIndexRepo());
-        await CommandValidator.ValidateScopesAsync(command, youtube, dataStore, cancellation.Token);
+        await RemoteValidate.ScopesAsync(command, youtube, dataStore, cancellation.Token);
 
         if (command.SaveAsRecent)
         {
