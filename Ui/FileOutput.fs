@@ -32,13 +32,10 @@ module FileOutput =
 
     let saveAsync command writeResults =
         async {
-            let cacheFolder = Folder.GetPath Folders.cache
-            let dataStore = JsonFileDataStore cacheFolder
-            let youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
             use cts = new CancellationTokenSource()
 
             do!
-                RemoteValidate.ScopesAsync(command, youtube, dataStore, cts.Token)
+                RemoteValidate.ScopesAsync(command, Services.Youtube, Services.DataStore, cts.Token)
                 |> Async.AwaitTask
 
             let writer =

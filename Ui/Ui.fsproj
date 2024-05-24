@@ -35,6 +35,7 @@
     <Compile Include="Styles.fs" />
     <Compile Include="CmdExtensions.fs" />
     <Compile Include="Focus.fs" />
+    <Compile Include="Services.fs" />
     <Compile Include="ConfigFile.fs" />
     <Compile Include="Scope.fs" />
     <Compile Include="Scopes.fs" />

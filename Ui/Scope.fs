@@ -87,12 +87,7 @@ module Scope =
             else
                 Alias.label result.Title result.Id
 
-        member this.SearchAsync
-            (youtube: Youtube)
-            (scope: CommandScope)
-            (text: string)
-            (cancellation: CancellationToken)
-            : Task<obj seq> =
+        member this.SearchAsync (scope: CommandScope) (text: string) (cancellation: CancellationToken) : Task<obj seq> =
             task {
                 if input.Value.IsKeyboardFocusWithin then // only start search if input has keyboard focus
                     cancellation.Register(cancel) |> ignore // register cancellation of running search when outer cancellation is requested
@@ -102,17 +97,20 @@ module Scope =
 
                     match scope with
                     | :? ChannelScope ->
-                        let! channels = youtube.SearchForChannelsAsync(text, searching.Token)
+                        let! channels = Services.Youtube.SearchForChannelsAsync(text, searching.Token)
                         return yieldResults channels
                     | :? PlaylistScope ->
-                        let! playlists = youtube.SearchForPlaylistsAsync(text, searching.Token)
+                        let! playlists = Services.Youtube.SearchForPlaylistsAsync(text, searching.Token)
                         return yieldResults playlists
                     | :? VideosScope ->
                         match VideosInput.partition text with
                         | _, [] -> return []
                         | _, searchTerms ->
                             let! videos =
-                                youtube.SearchForVideosAsync(searchTerms |> String.concat " or ", searching.Token)
+                                Services.Youtube.SearchForVideosAsync(
+                                    searchTerms |> String.concat " or ",
+                                    searching.Token
+                                )
 
                             return yieldResults videos
                     | _ -> return []
@@ -125,8 +123,7 @@ module Scope =
           Aliases: string
           AliasSearch: AliasSearch
           ShowSettings: bool
-          Added: bool
-          Youtube: Youtube }
+          Added: bool }
 
     type Msg =
         | AliasesUpdated of string
@@ -154,7 +151,7 @@ module Scope =
         | _ when t = typeof<VideosScope> -> Videos
         | _ -> failwith ("unknown scope type " + t.FullName)
 
-    let private create scopeType aliases youtube added (Default (uint16 50) top) (Default (float32 24) cacheHours) =
+    let private create scopeType aliases added (Default (uint16 50) top) (Default (float32 24) cacheHours) =
         let scope =
             match scopeType with
             | Channel -> ChannelScope(aliases, top, cacheHours) :> CommandScope
@@ -165,16 +162,14 @@ module Scope =
           Aliases = aliases
           AliasSearch = AliasSearch()
           ShowSettings = false
-          Added = added
-          Youtube = youtube }
+          Added = added }
 
     /// creates a pre-existing scope
-    let init scopeType aliases youtube top cacheHours =
-        create scopeType aliases youtube false top cacheHours
+    let init scopeType aliases top cacheHours =
+        create scopeType aliases false top cacheHours
 
     /// adds a scope on user command
-    let add scopeType youtube =
-        create scopeType "" youtube true None None
+    let add scopeType = create scopeType "" true None None
 
     let update msg model =
         match msg with
@@ -249,7 +244,7 @@ module Scope =
                 Button("❌", Remove).tooltip ("remove this scope")
                 Label(displayType (model.Scope.GetType()))
 
-                AutoCompleteBox(fun text ct -> model.AliasSearch.SearchAsync model.Youtube model.Scope text ct)
+                AutoCompleteBox(fun text ct -> model.AliasSearch.SearchAsync model.Scope text ct)
                     .minimumPopulateDelay(TimeSpan.FromMilliseconds 300)
                     .onTextChanged(model.Aliases, AliasesUpdated)
                     .minimumPrefixLength(3)
