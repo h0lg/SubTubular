@@ -121,7 +121,7 @@ public static class CacheClearer
 
         var aliasToChannelIds = aliases.ToDictionary(alias => alias, alias =>
         {
-            var valid = CommandValidator.PrevalidateChannelAlias(alias);
+            var valid = Prevalidate.ChannelAlias(alias);
             var matching = valid.Select(alias => cachedMaps.ForAlias(alias)).WithValue().ToArray();
 
             matchedMaps.AddRange(matching);

@@ -5,14 +5,16 @@ using YoutubeExplode.Videos;
 
 namespace SubTubular;
 
-public static class CommandValidator
+/// <summary>Pre-validates <see cref="CommandScope"/>s and <see cref="OutputCommand"/>s,
+/// i.e. checks locally for valid syntax.</summary>
+public static class Prevalidate
 {
     // see Lifti.Querying.QueryTokenizer.ParseQueryTokens()
     private static readonly char[] controlChars = ['*', '%', '|', '&', '"', '~', '>', '?', '(', ')', '=', ','];
 
-    public static void PrevalidateSearchCommand(SearchCommand command)
+    public static void Search(SearchCommand command)
     {
-        PrevalidateScopes(command);
+        Scopes(command);
 
         if (command.Query.IsNullOrWhiteSpace()) throw new InputException(
             $"The {nameof(SearchCommand.Query).ToLower()} is empty.");
@@ -26,20 +28,20 @@ public static class CommandValidator
             $"You may order by either '{nameof(SearchCommand.OrderOptions.score)}' or '{nameof(SearchCommand.OrderOptions.uploaded)}' (date), but not both.");
     }
 
-    public static void PrevalidateScopes(OutputCommand command)
+    public static void Scopes(OutputCommand command)
     {
         var errors = (new[]
         {
-            TryGetScopeError(command.Playlists?.Select(Prevalidate), "{0} are not valid playlist IDs or URLs."),
-            TryGetScopeError(command.Channels?.Select(Prevalidate), "{0} are not valid channel handles, slugs, user names or IDs."),
-            TryGetScopeError(Prevalidate(command.Videos), "{0} are not valid video IDs or URLs.")
+            TryGetScopeError(command.Playlists?.Select(Playlist), "{0} are not valid playlist IDs or URLs."),
+            TryGetScopeError(command.Channels?.Select(Channel), "{0} are not valid channel handles, slugs, user names or IDs."),
+            TryGetScopeError(Videos(command.Videos), "{0} are not valid video IDs or URLs.")
         }).WithValue().ToArray();
 
         if (errors.Length != 0) throw new InputException(errors.Join(Environment.NewLine));
         if (!command.HasPreValidatedScopes()) throw new InputException("No valid scope.");
     }
 
-    internal static object[] PrevalidateChannelAlias(string alias)
+    internal static object[] ChannelAlias(string alias)
     {
         var handle = ChannelHandle.TryParse(alias);
         var slug = ChannelSlug.TryParse(alias);
@@ -55,18 +57,18 @@ public static class CommandValidator
         return withValue.Length == 0 ? null : string.Format(format, withValue.Join(", "));
     }
 
-    private static string? Prevalidate(ChannelScope scope)
+    private static string? Channel(ChannelScope scope)
     {
         /*  validate Alias locally to throw eventual InputException,
             but store result for RemoteValidateChannelAsync */
-        object[] wellStructuredAliases = PrevalidateChannelAlias(scope.Alias);
+        object[] wellStructuredAliases = ChannelAlias(scope.Alias);
         if (!wellStructuredAliases.HasAny()) return scope.Alias; // return invalid
 
         scope.Validated.Add(new CommandScope.ValidationResult { Id = scope.Alias, WellStructuredAliases = wellStructuredAliases });
         return null;
     }
 
-    private static string? Prevalidate(PlaylistScope scope)
+    private static string? Playlist(PlaylistScope scope)
     {
         var id = PlaylistId.TryParse(scope.Alias);
         if (id == null) return scope.Alias; // return invalid
@@ -75,7 +77,7 @@ public static class CommandValidator
         return null;
     }
 
-    private static IEnumerable<string> Prevalidate(VideosScope? scope)
+    private static IEnumerable<string> Videos(VideosScope? scope)
     {
         if (scope == null) return [];
         var idsToValid = scope.Videos.ToDictionary(id => id, id => VideoId.TryParse(id.Trim('"'))?.ToString());
@@ -83,7 +85,10 @@ public static class CommandValidator
         foreach (var id in validIds) scope.AddPrevalidated(id, Youtube.GetVideoUrl(id));
         return scope.Videos.Except(validIds); // return invalid
     }
+}
 
+public static class CommandValidator
+{
     public static async Task ValidateScopesAsync(OutputCommand command, Youtube youtube, DataStore dataStore, CancellationToken cancellation)
     {
         List<Task> validations = [];

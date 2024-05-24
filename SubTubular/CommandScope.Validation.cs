@@ -27,7 +27,7 @@ partial class CommandScope
         internal string? Url { get; set; }
 
         /// <summary>Syntactically correct interpretations of <see cref="ChannelScope.Alias"/>
-        /// returned by <see cref="CommandValidator.PrevalidateChannelAlias(string)"/>.
+        /// returned by <see cref="Prevalidate.ChannelAlias(string)"/>.
         /// For <see cref="ChannelScope"/>s only.</summary>
         internal object[]? WellStructuredAliases { get; set; }
 
