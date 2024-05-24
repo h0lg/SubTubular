@@ -4,7 +4,7 @@ using SubTubular.Extensions;
 
 namespace SubTubular;
 
-public abstract class CommandScope
+public abstract partial class CommandScope
 {
     /// <summary>Provides a description of the scope for <see cref="OutputCommand.Describe"/>.
     /// May yield multiple lines.</summary>

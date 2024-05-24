@@ -8,7 +8,7 @@ static partial class Program
 {
     private static async Task SearchAsync(SearchCommand command, string originalCommand)
     {
-        CommandValidator.PrevalidateSearchCommand(command);
+        Prevalidate.Search(command);
 
         await OutputAsync(command, originalCommand, async (youtube, outputs, cancellation) =>
         {

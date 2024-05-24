@@ -148,7 +148,7 @@ module App =
 
                 match command with
                 | :? SearchCommand as search ->
-                    CommandValidator.PrevalidateSearchCommand search
+                    Prevalidate.Search search
 
                     do! CommandValidator.ValidateScopesAsync(search, youtube, dataStore, cancellation)
 
@@ -161,7 +161,7 @@ module App =
                             .dispatchBatchThrottledTo (100, SearchResults, dispatch)
 
                 | :? ListKeywords as listKeywords ->
-                    CommandValidator.PrevalidateScopes listKeywords
+                    Prevalidate.Scopes listKeywords
 
                     do! CommandValidator.ValidateScopesAsync(listKeywords, youtube, dataStore, cancellation)
 
@@ -192,7 +192,7 @@ module App =
 
             match command with
             | :? SearchCommand as search ->
-                CommandValidator.PrevalidateSearchCommand search
+                Prevalidate.Search search
 
                 let! path =
                     FileOutput.saveAsync search (fun writer ->
@@ -202,7 +202,7 @@ module App =
                 return SavedOutput path |> Some
 
             | :? ListKeywords as listKeywords ->
-                CommandValidator.PrevalidateScopes listKeywords
+                Prevalidate.Scopes listKeywords
                 let! path = FileOutput.saveAsync listKeywords _.ListKeywords(model.KeywordResults)
                 return SavedOutput path |> Some
 
