@@ -87,9 +87,11 @@ public static class Prevalidate
     }
 }
 
-public static class CommandValidator
+/// <summary>Remotely validates <see cref="CommandScope"/>s and <see cref="OutputCommand"/>s,
+/// i.e. checking for their existence and uniqueness.</summary>
+public static class RemoteValidate
 {
-    public static async Task ValidateScopesAsync(OutputCommand command, Youtube youtube, DataStore dataStore, CancellationToken cancellation)
+    public static async Task ScopesAsync(OutputCommand command, Youtube youtube, DataStore dataStore, CancellationToken cancellation)
     {
         List<Task> validations = [];
 
@@ -100,7 +102,7 @@ public static class CommandValidator
 
             var channelValidations = command.Channels!.Select(async channel =>
             {
-                var matchingChannels = await RemoteValidateAsync(channel, knownAliasMaps, youtube,
+                var matchingChannels = await ChannelAsync(channel, knownAliasMaps, youtube,
                     command.ProgressReporter?.CreateVideoListProgress(channel), cancellation);
 
                 string? error = null;
@@ -135,17 +137,17 @@ public static class CommandValidator
         }
 
         if (command.Playlists.HasAny()) validations.AddRange(
-            command.Playlists!.Select(playlist => RemoteValidateAsync(playlist, youtube,
+            command.Playlists!.Select(playlist => PlaylistAsync(playlist, youtube,
                 command.ProgressReporter?.CreateVideoListProgress(playlist), cancellation)));
 
         if (command.Videos?.IsPrevalidated == true) validations.AddRange(
-            command.Videos!.Validated.Select(validationResult => RemoteValidateVideoAsync(validationResult, youtube, dataStore,
+            command.Videos!.Validated.Select(validationResult => VideoAsync(validationResult, youtube, dataStore,
                 command.ProgressReporter?.CreateVideoListProgress(command.Videos!), cancellation)));
 
         await Task.WhenAll(validations).WithAggregateException();
     }
 
-    private static async Task RemoteValidateVideoAsync(CommandScope.ValidationResult validationResult, Youtube youtube, DataStore dataStore,
+    private static async Task VideoAsync(CommandScope.ValidationResult validationResult, Youtube youtube, DataStore dataStore,
         BatchProgressReporter.VideoListProgress? progress, CancellationToken cancellation)
     {
         progress?.Report(validationResult.Id, BatchProgress.Status.downloading);
@@ -154,7 +156,7 @@ public static class CommandValidator
         progress?.Report(validationResult.Id, BatchProgress.Status.validated);
     }
 
-    private static async Task RemoteValidateAsync(PlaylistScope scope, Youtube youtube,
+    private static async Task PlaylistAsync(PlaylistScope scope, Youtube youtube,
         BatchProgressReporter.VideoListProgress? progress, CancellationToken cancellation)
     {
         progress?.Report(BatchProgress.Status.loading);
@@ -162,7 +164,7 @@ public static class CommandValidator
         progress?.Report(BatchProgress.Status.validated);
     }
 
-    private static async Task<ChannelAliasMap[]> RemoteValidateAsync(ChannelScope channel, HashSet<ChannelAliasMap> knownAliasMaps, Youtube youtube,
+    private static async Task<ChannelAliasMap[]> ChannelAsync(ChannelScope channel, HashSet<ChannelAliasMap> knownAliasMaps, Youtube youtube,
         BatchProgressReporter.VideoListProgress? progress, CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
