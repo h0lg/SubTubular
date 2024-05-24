@@ -18,11 +18,8 @@ public abstract class CommandScope
     internal bool IsPrevalidated => Validated.Count > 0;
     internal ValidationResult SingleValidated => Validated.Single();
 
-    internal void AddPrevalidated(string id, string url) =>
-        Validated.Add(new ValidationResult { Id = id, Url = url });
-
-    internal void AddPrevalidated(string alias, object[] wellStructuredAliases) =>
-        Validated.Add(new ValidationResult { Id = alias, WellStructuredAliases = wellStructuredAliases });
+    internal void AddPrevalidated(string id, string url)
+        => Validated.Add(new ValidationResult { Id = id, Url = url });
 
     /// <summary>Returns all pre-validated or validated <see cref="ValidationResult.Id"/> depending on <see cref="IsValid"/>.</summary>
     internal string[] GetValidatedIds() => Validated.Select(v => v.Id).ToArray();

@@ -62,7 +62,7 @@ public static class CommandValidator
         object[] wellStructuredAliases = PrevalidateChannelAlias(scope.Alias);
         if (!wellStructuredAliases.HasAny()) return scope.Alias; // return invalid
 
-        scope.AddPrevalidated(scope.Alias, wellStructuredAliases);
+        scope.Validated.Add(new CommandScope.ValidationResult { Id = scope.Alias, WellStructuredAliases = wellStructuredAliases });
         return null;
     }
 
