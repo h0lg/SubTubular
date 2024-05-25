@@ -518,6 +518,9 @@ module App =
                 .icon("avares://SubTubular.Gui/SubTubular.ico")
                 .title ("SubTubular")
         )
+#if DEBUG
+            .attachDevTools ()
+#endif
 #endif
 
     let create () =
