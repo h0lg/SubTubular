@@ -7,6 +7,7 @@ namespace SubTubular;
 public sealed class Playlist
 {
     public required string Title { get; set; }
+    public string? Channel { get; set; }
     public DateTime Loaded { get; set; }
 
     /// <summary>The <see cref="Video.Id"/>s and (optional) upload dates
@@ -22,6 +23,8 @@ public sealed class Video
     public required string Id { get; set; }
     public required string Title { get; set; }
     public required string Description { get; set; }
+    public required string Channel { get; set; }
+    public required string Thumbnail { get; set; }
     public required string[] Keywords { get; set; }
 
     /// <summary>Upload time in UTC.</summary>

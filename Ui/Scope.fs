@@ -227,6 +227,14 @@ module Scope =
         | :? VideosScope as videos -> videos.Videos = (VideosInput.splitAndClean model.Aliases)
         | _ -> failwith $"unsupported {nameof CommandScope} type on {commandScope}"
 
+    let channelIcon = "📺 "
+
+    let getIcon (t: Type) =
+        match t with
+        | Videos -> "📼 "
+        | Playlist -> "▶️ "
+        | Channel -> channelIcon
+
     let displayType (t: Type) =
         match t with
         | Videos -> "📼 videos"

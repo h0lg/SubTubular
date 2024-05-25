@@ -40,22 +40,33 @@ module SearchResult =
         let videoUrl = Youtube.GetVideoUrl result.Video.Id
 
         (VStack() {
-            Grid(coldefs = [ Auto; Auto; Star ], rowdefs = [ Auto ]) {
+            Grid(coldefs = [ Auto; Auto; Star ], rowdefs = [ Auto; Auto ]) {
+                AsyncImage(result.Video.Thumbnail)
+                    .onTapped(fun _ -> OpenUrl videoUrl)
+                    .cursor(Cursors.hand)
+                    .tip(ToolTip("start the video in the browser"))
+                    .margin(0, 0, 5, 0)
+                    .gridRowSpan (2)
+
                 (match result.TitleMatches with
                  | null -> SelectableTextBlock(result.Video.Title, CopyingToClipboard)
                  | matches -> writeHighlightingMatches matches None)
-                    .fontSize (18)
-
-                Button("↗", OpenUrl videoUrl)
-                    .tooltip("Open video in browser")
-                    .padding(5, 1)
-                    .margin(5, 0)
+                    .fontSize(18)
                     .gridColumn (1)
 
                 TextBlock("📅" + result.Video.Uploaded.ToString())
                     .tooltip("uploaded")
                     .textAlignment(TextAlignment.Right)
                     .gridColumn (2)
+
+                let reference =
+                    if result.Scope = null then
+                        Scope.channelIcon + result.Video.Channel
+                    else
+                        Scope.getIcon (result.Scope.GetType())
+                        + result.Scope.SingleValidated.Playlist.Title
+
+                TextBlock(reference).demoted().fontSize(11).gridRow(1).gridColumn (1)
             }
 
             if result.DescriptionMatches <> null then
