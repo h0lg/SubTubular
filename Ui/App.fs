@@ -544,6 +544,9 @@ module App =
 #else
     let app model =
         DesktopApplication(Window(view model).icon("avares://Ui/SubTubular.ico").title ("SubTubular"))
+#if DEBUG
+            .attachDevTools ()
+#endif
 #endif
 
     let create () =
