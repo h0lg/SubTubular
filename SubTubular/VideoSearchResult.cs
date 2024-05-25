@@ -28,6 +28,7 @@ public sealed class YoutubeSearchResult(string id, string title, string url, str
 
 public sealed class VideoSearchResult
 {
+    public PlaylistLikeScope? Scope { get; internal set; }
     public required Video Video { get; set; }
     public MatchedText? TitleMatches { get; set; }
     public MatchedText? DescriptionMatches { get; set; }

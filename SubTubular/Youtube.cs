@@ -90,7 +90,13 @@ public sealed class Youtube
             unIndexedVideoIds, index, scope, cancellation, UpdatePlaylistVideosUploaded));
 
         scope.Report(VideoList.Status.searching);
-        await foreach (var result in searches.Parallelize(cancellation)) yield return result;
+
+        await foreach (var result in searches.Parallelize(cancellation))
+        {
+            result.Scope = scope;
+            yield return result;
+        }
+
         scope.Report(VideoList.Status.searched);
 
         async Task UpdatePlaylistVideosUploaded(IEnumerable<Video> videos)
@@ -111,18 +117,28 @@ public sealed class Youtube
     }
 
     internal Task<Playlist?> GetPlaylistAsync(PlaylistScope scope, CancellationToken cancellation) =>
-        GetPlaylistAsync(scope, async () => (await Client.Playlists.GetAsync(scope.SingleValidated.Id, cancellation)).Title);
+        GetPlaylistAsync(scope, async () =>
+        {
+            var playlist = await Client.Playlists.GetAsync(scope.SingleValidated.Id, cancellation);
+            return (playlist.Title, playlist.Author?.ChannelTitle);
+        });
 
     internal Task<Playlist?> GetPlaylistAsync(ChannelScope scope, CancellationToken cancellation) =>
-        GetPlaylistAsync(scope, async () => (await Client.Channels.GetAsync(scope.SingleValidated.Id, cancellation)).Title);
+        GetPlaylistAsync(scope, async () =>
+        {
+            var channel = await Client.Channels.GetAsync(scope.SingleValidated.Id, cancellation);
+            return (channel.Title, null);
+        });
 
-    private async Task<Playlist?> GetPlaylistAsync(PlaylistLikeScope scope, Func<Task<string>> downloadTitle)
+    private async Task<Playlist?> GetPlaylistAsync(PlaylistLikeScope scope,
+        Func<Task<(string title, string? channel)>> downloadData)
     {
         var playlist = await dataStore.GetAsync<Playlist>(scope.StorageKey); // get cached
         if (playlist != null) return playlist;
 
         scope.Report(VideoList.Status.downloading);
-        playlist = new Playlist { Title = await downloadTitle() };
+        var (title, channel) = await downloadData();
+        playlist = new Playlist { Title = title, Channel = channel };
         await dataStore.SetAsync(scope.StorageKey, playlist);
         return playlist;
     }
@@ -395,7 +411,9 @@ public sealed class Youtube
         Title = video.Title,
         Description = video.Description,
         Keywords = video.Keywords.ToArray(),
-        Uploaded = video.UploadDate.UtcDateTime
+        Uploaded = video.UploadDate.UtcDateTime,
+        Channel = video.Author.ChannelTitle,
+        Thumbnail = SelectUrl(video.Thumbnails)
     };
 
     private async IAsyncEnumerable<CaptionTrack> DownloadCaptionTracksAsync(string videoId,

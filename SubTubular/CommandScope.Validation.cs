@@ -8,7 +8,7 @@ partial class CommandScope
 
     internal bool IsValid => IsPrevalidated && Validated.All(v => v.IsRemoteValidated);
     internal bool IsPrevalidated => Validated.Count > 0;
-    internal ValidationResult SingleValidated => Validated.Single();
+    public ValidationResult SingleValidated => Validated.Single();
 
     internal void AddPrevalidated(string id, string url)
         => Validated.Add(new ValidationResult { Id = id, Url = url });
@@ -18,11 +18,11 @@ partial class CommandScope
 
     internal string GetValidatedId() => GetValidatedIds().Single();
 
-    internal sealed class ValidationResult
+    public sealed class ValidationResult
     {
         // pre-validation, checking input syntax
         /// <summary>The validated identifier of the <see cref="CommandScope"/>.</summary>
-        internal required string Id { get; set; }
+        public required string Id { get; set; }
 
         internal string? Url { get; set; }
 
@@ -39,7 +39,7 @@ partial class CommandScope
         internal Video? Video { get; set; }
 
         /// <summary>For <see cref="PlaylistLikeScope"/>s only.</summary>
-        internal Playlist? Playlist { get; set; }
+        public Playlist? Playlist { get; internal set; }
     }
 }
 
