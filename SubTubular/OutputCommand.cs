@@ -43,7 +43,7 @@ public abstract class OutputCommand
         if (Playlists.HasAny()) foreach (var playlist in Playlists!) yield return playlist;
     }
 
-    private IEnumerable<CommandScope> GetScopes()
+    public IEnumerable<CommandScope> GetScopes()
     {
         foreach (var playlist in GetPlaylistLikeScopes()) yield return playlist;
         if (Videos != null) yield return Videos;

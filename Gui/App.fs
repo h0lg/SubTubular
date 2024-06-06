@@ -236,13 +236,14 @@ module App =
         match msg with
 
         | RecentMsg rmsg ->
-            let loaded =
+            let loaded, cmd =
                 match rmsg with
                 | ConfigFile.Msg.Load cmd ->
                     searchTab.Value.IsSelected <- true
+                    let cmdClone = deepClone cmd // to avoid modifying the loaded recent command object itself
 
                     let updated =
-                        match cmd with
+                        match cmdClone with
                         | :? SearchCommand as s ->
                             { model with
                                 Command = Commands.Search
@@ -257,25 +258,28 @@ module App =
                                 Command = Commands.ListKeywords }
                         | _ -> failwith "unsupported command type"
 
+                    let scopes, scopesCmd = Scopes.loadRecentCommand model.Scopes cmdClone
+
                     { updated with
-                        Scopes = Scopes.updateFromCommand model.Scopes cmd
+                        Scopes = scopes
                         DisplayOutputOptions = false
                         FileOutput =
                             { updated.FileOutput with
-                                To = cmd.FileOutputPath
-                                Html = cmd.OutputHtml
+                                To = cmdClone.FileOutputPath
+                                Html = cmdClone.OutputHtml
                                 Opening =
-                                    if cmd.Show.HasValue then
-                                        match cmd.Show.Value with
+                                    if cmdClone.Show.HasValue then
+                                        match cmdClone.Show.Value with
                                         | OutputCommand.Shows.file -> FileOutput.Open.file
                                         | OutputCommand.Shows.folder -> FileOutput.Open.folder
                                         | _ -> FileOutput.Open.nothing
                                     else
-                                        FileOutput.Open.nothing } }
-                | _ -> model
+                                        FileOutput.Open.nothing } },
+                    Cmd.map ScopesMsg scopesCmd
+                | _ -> model, Cmd.none
 
             let recent, rCmd = ConfigFile.update rmsg model.Recent
-            { loaded with Recent = recent }, Cmd.map RecentMsg rCmd
+            { loaded with Recent = recent }, Cmd.batch [ cmd; Cmd.map RecentMsg rCmd ]
 
         | CommandChanged cmd -> { model with Command = cmd }, Cmd.none
         | QueryChanged txt -> { model with Query = txt }, Cmd.none
