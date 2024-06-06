@@ -174,27 +174,6 @@ module Scope =
         | :? VideosScope as _ -> true
         | _ -> false
 
-    let private create scopeType aliases added (Default (uint16 50) top) (Default (float32 24) cacheHours) =
-        let scope =
-            match scopeType with
-            | IsChannel -> ChannelScope(aliases, top, cacheHours) :> CommandScope
-            | IsPlaylist -> PlaylistScope(aliases, top, cacheHours)
-            | IsVideos -> VideosScope(VideosInput.splitAndClean aliases)
-
-        { Scope = scope
-          Aliases = aliases
-          AliasSearch = AliasSearch()
-          Error = null
-          ShowSettings = false
-          Added = added }
-
-    /// creates a pre-existing scope
-    let init scopeType aliases top cacheHours =
-        create scopeType aliases false top cacheHours
-
-    /// adds a scope on user command
-    let add scopeType = create scopeType "" true None None
-
     let private remoteValidate model =
         task {
             try
@@ -226,7 +205,7 @@ module Scope =
     let private validate model =
         let bypass =
             match model.Scope with
-            | PlaylistLike pl -> String.IsNullOrWhiteSpace(model.Aliases) || pl.IsValid
+            | PlaylistLike pl -> String.IsNullOrWhiteSpace(pl.Alias) || pl.IsValid
             | Vids vs ->
                 let remoteValidated = vs.GetRemoteValidated() |> Seq.map _.Id
                 let unvalidated = vs.Videos |> Seq.except remoteValidated
@@ -242,6 +221,34 @@ module Scope =
                 else
                     model, Cmd.none
             | error -> { model with Error = error }, Cmd.none
+
+    let private init scope aliases added =
+        { Scope = scope
+          Aliases = aliases
+          AliasSearch = AliasSearch()
+          Error = null
+          ShowSettings = false
+          Added = added }
+
+    /// Re-creates a scope from a reloaded recent command that was previously executed and kicks off its validation,
+    /// returning the new scope model and a Cmd for the running validation
+    let recreateRecent (scope: CommandScope) =
+        let model = init scope "" false
+        validate model
+
+    /// creates a scope on user command, marking it as Added for it to be focused
+    let add scopeType =
+        let aliases = ""
+        let top = uint16 50
+        let cacheHours = float32 24
+
+        let scope =
+            match scopeType with
+            | IsChannel -> ChannelScope(aliases, top, cacheHours) :> CommandScope
+            | IsPlaylist -> PlaylistScope(aliases, top, cacheHours)
+            | IsVideos -> VideosScope(VideosInput.splitAndClean aliases)
+
+        init scope aliases true
 
     let update msg model =
         match msg with
@@ -260,13 +267,10 @@ module Scope =
 
             let updatedAliases =
                 match model.Scope with
-                | Playlist playlist ->
+                | PlaylistLike playlist ->
                     playlist.Alias <- Alias.clean aliases
                     aliases
-                | Channel channel ->
-                    channel.Alias <- Alias.clean aliases
-                    aliases
-                | Videos vids ->
+                | Vids vids ->
                     let prevalidated, invalid = VideosInput.partition aliases
                     let missing = prevalidated |> List.map Alias.clean |> List.except vids.Videos
 
@@ -334,6 +338,9 @@ module Scope =
           | IsPlaylist -> "playlist"
           | IsChannel -> "channel"
 
+    let private progressText text =
+        TextBlock(text).horizontalAlignment(HorizontalAlignment.Right).smallDemoted ()
+
     let private validated thumbnailUrl navigateUrl title channel (scope: CommandScope) progress videoId =
         Grid(coldefs = [ Auto; Auto; Auto; Auto ], rowdefs = [ Auto; Auto ]) {
             match videoId with
@@ -353,19 +360,14 @@ module Scope =
             | None -> ()
 
             match progress with
-            | Some progress ->
-                TextBlock(progress)
-                    .horizontalAlignment(HorizontalAlignment.Right)
-                    .smallDemoted()
-                    .gridRow(1)
-                    .gridColumn (3)
+            | Some progress -> progressText(progress).gridRow(1).gridColumn (3)
             | None -> ()
         }
 
     let private search model =
         let forVideos = isForVideos model
 
-        HStack(5) {
+        Grid(coldefs = [ Auto; Star ], rowdefs = [ Auto; Auto ]) {
             Label(displayType (model.Scope.GetType()) false).padding (0)
 
             let autoComplete =
@@ -408,10 +410,14 @@ module Scope =
                             .delay(TimeSpan.FromSeconds 1.) // to avoid a "heart attack", i.e. restarting the animation by typing
                             .reference (model.AliasSearch.HeartBeat)
                     )
-                    .margin (5, 0, 0, 0)
+                    .margin(5, 0, 0, 0)
+                    .gridColumn(1)
+                    .gridRowSpan (2)
 
             match model.Scope with
-            | Videos videos -> autoComplete.acceptReturn ()
+            | Videos videos ->
+                progressText(videos.Progress.ToString()).gridRow (1)
+                autoComplete.acceptReturn ()
             | _ -> autoComplete
         }
 

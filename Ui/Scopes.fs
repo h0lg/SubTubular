@@ -8,7 +8,6 @@ open Avalonia.Media
 open Fabulous
 open Fabulous.Avalonia
 open SubTubular
-open SubTubular.Extensions
 open type Fabulous.Avalonia.View
 
 module Scopes =
@@ -19,34 +18,37 @@ module Scopes =
         | ScopeMsg of Scope.Model * Scope.Msg
         | OpenUrl of string
 
+    let private mapScopeCmd scopeModel scopeCmd =
+        Cmd.map (fun scopeMsg -> ScopeMsg(scopeModel, scopeMsg)) scopeCmd
+
     let init () = { List = [] }
 
-    let updateFromCommand model (command: OutputCommand) =
-        let list =
+    let loadRecentCommand model (command: OutputCommand) =
+        let scopes =
             seq {
-                for c in
-                    command.Channels
-                    |> Seq.map (fun c -> Scope.init typeof<ChannelScope> c.Alias (Some c.Top) (Some c.CacheHours)) do
+                for c in command.Channels |> Seq.map Scope.recreateRecent do
                     yield c
 
-                for p in
-                    command.Playlists
-                    |> Seq.map (fun p -> Scope.init typeof<PlaylistScope> p.Alias (Some p.Top) (Some p.CacheHours)) do
+                for p in command.Playlists |> Seq.map Scope.recreateRecent do
                     yield p
 
                 if command.Videos <> null && command.Videos.Videos.Count > 0 then
-                    let aliases = command.Videos.Videos |> Scope.VideosInput.join
-                    yield Scope.init typeof<VideosScope> aliases None None
+                    yield Scope.recreateRecent command.Videos
             }
+            (*  turn into local collection before iterating over it
+                to avoid triggering recreation and validation of scopes *)
+            |> List.ofSeq
 
-        { model with List = list |> List.ofSeq }
+        { model with
+            List = scopes |> List.map fst },
+        scopes
+        |> List.map (fun scope ->
+            let model, cmd = scope
+            mapScopeCmd model cmd)
+        |> Cmd.batch
 
     let private getScopes<'T> model =
-        model.List
-            .Where(_.Aliases.IsNonWhiteSpace())
-            .Select(_.Scope)
-            .OfType<'T>()
-            .ToArray()
+        model.List.Where(_.Scope.IsValid).Select(_.Scope).OfType<'T>().ToArray()
 
     let setOnCommand model (command: OutputCommand) =
         command.Channels <- getScopes<ChannelScope> model
@@ -75,7 +77,7 @@ module Scopes =
                     { model with
                         List = model.List |> List.map (fun s -> if s = scope then updatedScope else s) }
 
-            let mappedCmd = Cmd.map (fun scopeMsg -> ScopeMsg(updatedScope, scopeMsg)) cmd
+            let mappedCmd = mapScopeCmd updatedScope cmd
 
             let fwdCmd =
                 match scopeMsg with
