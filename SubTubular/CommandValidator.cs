@@ -67,10 +67,10 @@ public static class CommandValidator
 
     private static string? Prevalidate(PlaylistScope scope)
     {
-        var id = PlaylistId.TryParse(scope.IdOrUrl);
+        var id = PlaylistId.TryParse(scope.Alias);
         scope.ValidId = id;
         scope.ValidUrls = ["https://www.youtube.com/playlist?list=" + id];
-        return id == null ? scope.IdOrUrl : null; // return invalid
+        return id == null ? scope.Alias : null; // return invalid
     }
 
     private static IEnumerable<string> Prevalidate(VideosScope? scope)

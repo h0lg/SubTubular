@@ -141,7 +141,7 @@ public sealed class Youtube
     {
         cancellation.ThrowIfCancellationRequested();
         if (scope is ChannelScope searchChannel) return Client.Channels.GetUploadsAsync(searchChannel.ValidId!, cancellation);
-        if (scope is PlaylistScope searchPlaylist) return Client.Playlists.GetVideosAsync(searchPlaylist.IdOrUrl, cancellation);
+        if (scope is PlaylistScope searchPlaylist) return Client.Playlists.GetVideosAsync(searchPlaylist.Alias, cancellation);
         throw new NotImplementedException($"Getting videos for the {scope.GetType()} is not implemented.");
     }
 
