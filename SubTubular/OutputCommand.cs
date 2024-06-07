@@ -56,8 +56,7 @@ public abstract class OutputCommand
         if (Videos != null) yield return Videos;
     }
 
-    internal IEnumerable<CommandScope> GetValidScopes() => GetScopes().GetValid();
-    protected string DescribeValidScopes() => GetValidScopes().Select(p => p.Describe().Join(" ")).Join(" ");
+    protected string DescribeScopes() => GetScopes().Select(p => p.Describe().Join(" ")).Join(" ");
 
     /// <summary>Provides a human-readable description of the command, by default <paramref name="withScopes"/>.
     /// This can be used to generate unique file names, but be aware that the returned description is not filename-safe.</summary>
@@ -87,7 +86,7 @@ public sealed class SearchCommand : OutputCommand
     public IEnumerable<OrderOptions> OrderBy { get; set; } = [OrderOptions.score];
 
     public override string Describe(bool withScopes = true)
-        => $"searching for {Query} in" + (withScopes ? " " + DescribeValidScopes() : null);
+        => $"searching for {Query} in" + (withScopes ? " " + DescribeScopes() : null);
 
     // for comparing in recent command list
     public override int GetHashCode() => HashCode.Combine(Query, base.GetHashCode());
@@ -102,5 +101,5 @@ public sealed class SearchCommand : OutputCommand
 public sealed class ListKeywords : OutputCommand
 {
     public override string Describe(bool withScopes = true)
-        => "listing keywords in" + (withScopes ? " " + DescribeValidScopes() : null);
+        => "listing keywords in" + (withScopes ? " " + DescribeScopes() : null);
 }
