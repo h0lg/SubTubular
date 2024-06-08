@@ -16,6 +16,7 @@ module ConfigFile =
         | RecentsLoaded of RecentCommands.Item list
         | CommandRun of OutputCommand
         | Load of OutputCommand
+        | Remove of RecentCommands.Item
         | Save
 
     let loadRecent =
@@ -42,6 +43,13 @@ module ConfigFile =
             let model = { model with Recent = List.ofSeq list } // update our model
             model, save model |> Cmd.OfTask.msgOption
 
+        | Remove cfg ->
+            let model =
+                { model with
+                    Recent = model.Recent |> List.except [ cfg ] }
+
+            model, save model |> Cmd.OfTask.msgOption
+
         | Save -> model, Cmd.none
         | Load _ -> model, Cmd.none
 
@@ -55,5 +63,6 @@ module ConfigFile =
                         .textWrapping (TextWrapping.Wrap)
 
                     TextBlock(config.LastRun.ToString()).tooltip("last run").gridColumn (1)
+                    Button("❌", Remove config).tooltip("forget about this").gridColumn (2)
                 }))
         )
