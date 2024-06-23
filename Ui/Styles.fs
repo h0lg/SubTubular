@@ -42,6 +42,10 @@ module Styles =
         static member inline demoted(this: WidgetBuilder<'msg, IFabTextBlock>) = this.foreground (Colors.Gray)
 
         [<Extension>]
+        static member inline header(this: WidgetBuilder<'msg, IFabTextBlock>) =
+            this.fontSize(18).fontWeight (FontWeight.Bold)
+
+        [<Extension>]
         static member inline smallDemoted(this: WidgetBuilder<'msg, IFabTextBlock>) = this.demoted().fontSize (11)
 
         [<Extension>]

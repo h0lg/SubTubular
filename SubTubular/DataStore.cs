@@ -99,8 +99,10 @@ public abstract class FileDataStore<T> : FileDataStore where T : class
 }
 */
 
-public class JsonFileDataStore(string directory) : FileDataStore(directory, ".json")
+public class JsonFileDataStore(string directory) : FileDataStore(directory, FileExtension)
 {
+    public const string FileExtension = ".json";
+
     protected override async ValueTask<T?> DeserializeFrom<T>(string key, string path) where T : default
     {
         await using FileStream stream = new(path, FileMode.Open);

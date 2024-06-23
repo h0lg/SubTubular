@@ -31,6 +31,7 @@ module App =
         {
             Notifier: WindowNotificationManager
 
+            Cache: Cache.Model
             Recent: ConfigFile.Model
             Command: Commands
             Scopes: Scopes.Model
@@ -50,6 +51,7 @@ module App =
         }
 
     type Msg =
+        | CacheMsg of Cache.Msg
         | RecentMsg of ConfigFile.Msg
         | CommandChanged of Commands
         | QueryChanged of string
@@ -220,7 +222,8 @@ module App =
         Cmd.none
 
     let private initModel =
-        { Recent = ConfigFile.initModel
+        { Cache = Cache.initModel
+          Recent = ConfigFile.initModel
           Command = Commands.Search
           Notifier = null
           Query = ""
@@ -253,6 +256,10 @@ module App =
 
     let private update msg model =
         match msg with
+
+        | CacheMsg cmsg ->
+            let cache, cmd = Cache.update cmsg model.Cache
+            { model with Cache = cache }, Cmd.map CacheMsg cmd
 
         | RecentMsg rmsg ->
             let loaded, cmd =
@@ -561,6 +568,7 @@ module App =
         TabControl() {
             TabItem("🕝 Recent", View.map RecentMsg (ConfigFile.view model.Recent))
             TabItem("🔍 Search", runCommand model).reference (searchTab)
+            TabItem("🗃 Storage", View.map CacheMsg (Cache.view model.Cache))
         }
 #if MOBILE
     let app model = SingleViewApplication(view model)

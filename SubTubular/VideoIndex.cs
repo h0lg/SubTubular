@@ -8,7 +8,7 @@ namespace SubTubular;
 
 public sealed class VideoIndexRepository
 {
-    internal const string FileExtension = ".idx";
+    public const string FileExtension = ".idx";
 
     private readonly string directory;
     private readonly IIndexSerializer<string> serializer;
