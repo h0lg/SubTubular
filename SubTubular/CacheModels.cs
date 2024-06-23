@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text;
 using SubTubular.Extensions;
 
@@ -113,9 +114,125 @@ public sealed class ChannelAliasMap
 
     internal static (string, string) GetTypeAndValue(object alias) => (alias.GetType().Name, alias.ToString()!);
 
-    internal static async Task<HashSet<ChannelAliasMap>> LoadList(DataStore dataStore)
-        => await dataStore.GetAsync<HashSet<ChannelAliasMap>>(StorageKey) ?? [];
+    #region STORAGE
+    private static readonly ConcurrentDictionary<(string Type, string Value), ChannelAliasMap> localCache = new(); // for less file I/O during concurrent validations
+    private static readonly TimeSpan inactivityPeriod = TimeSpan.FromSeconds(5); // inactivity period before saving changes and/or discarding local cache
+    private static Timer? inactivityTimer; // helps scheduling the persistence of changes and clearing of cache
+    private static bool changesMade = false; // tracks if changes were made to the local cache
+    private static readonly SemaphoreSlim access = new(1, 1); // ensures thread-safe access and updates to local cache and dataStore version
 
-    internal static async Task SaveList(HashSet<ChannelAliasMap> maps, DataStore dataStore)
-        => await dataStore.SetAsync(StorageKey, maps);
+    public override int GetHashCode() => HashCode.Combine(Type, Value); // for safely using HashSet
+
+    /// <summary>Loads the current <see cref="ChannelAliasMap"/>s from the <see cref="localCache"/>
+    /// or the <paramref name="dataStore"/>.</summary>
+    internal static async Task<HashSet<ChannelAliasMap>> LoadListAsync(DataStore dataStore)
+    {
+        await access.WaitAsync();
+
+        try
+        {
+            DebounceClearCache(dataStore); // to prevent clearing local cache during a longer running validation
+
+            if (localCache.IsEmpty)
+            {
+                // load data from the data store if the local cache is empty
+                var stored = await dataStore.GetAsync<HashSet<ChannelAliasMap>>(StorageKey) ?? [];
+
+                foreach (var entry in stored)
+                {
+                    localCache[(entry.Type, entry.Value)] = entry;
+                }
+            }
+
+            return localCache.Values.ToHashSet();
+        }
+        finally
+        {
+            access.Release();
+        }
+    }
+
+    /// <summary>Adds <paramref name="entries"/> to the <see cref="localCache"/>
+    /// and saves them via <see cref="DebounceClearCache(DataStore)"/> to the <paramref name="dataStore"/>.</summary>
+    internal static async Task AddEntriesAsync(IEnumerable<ChannelAliasMap> entries, DataStore dataStore)
+    {
+        await access.WaitAsync();
+
+        try
+        {
+            DebounceClearCache(dataStore);
+
+            foreach (var entry in entries)
+            {
+                var key = (entry.Type, entry.Value);
+                if (localCache.ContainsKey(key)) continue;
+                localCache[key] = entry;
+                changesMade = true; // only if entry was added
+            }
+        }
+        finally
+        {
+            access.Release();
+        }
+    }
+
+    /// <summary>Removes <paramref name="entries"/> from the <see cref="localCache"/>
+    /// and saves changes via <see cref="DebounceClearCache(DataStore)"/> to the <paramref name="dataStore"/>.</summary>
+    internal static async Task RemoveEntriesAsync(IEnumerable<ChannelAliasMap> entries, DataStore dataStore)
+    {
+        await access.WaitAsync();
+
+        try
+        {
+            DebounceClearCache(dataStore);
+
+            foreach (var entry in entries)
+            {
+                if (localCache.TryRemove((entry.Type, entry.Value), out _))
+                    changesMade = true; // Mark changes as made if an entry was actually removed
+            }
+        }
+        finally
+        {
+            access.Release();
+        }
+    }
+
+    /// <summary>Resets the <see cref="inactivityTimer"/> and schedules <see cref="ClearCacheAsync(DataStore)"/>
+    /// to the <paramref name="dataStore"/> for when the <see cref="inactivityPeriod"/> expires.</summary>
+    private static void DebounceClearCache(DataStore dataStore)
+    {
+        if (inactivityTimer == null)
+            inactivityTimer = new Timer(async _ => await ClearCacheAsync(dataStore), null, inactivityPeriod, Timeout.InfiniteTimeSpan);
+        else inactivityTimer.Change(inactivityPeriod, Timeout.InfiniteTimeSpan);
+    }
+
+    /// <summary>Clears the <see cref="localCache"/>, saving changes
+    /// to the <paramref name="dataStore"/> before if <see cref="changesMade"/>.</summary>
+    private static async Task ClearCacheAsync(DataStore dataStore)
+    {
+        await access.WaitAsync();
+
+        try
+        {
+            if (changesMade)
+            {
+                // Save the local cache to the data store
+                await dataStore.SetAsync(StorageKey, localCache.Values.ToHashSet());
+
+                changesMade = false; // Reset changes flag after saving
+            }
+
+            // Clear the local cache to free up memory
+            localCache.Clear();
+
+            // Stop the inactivity timer after saving
+            inactivityTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+        }
+        finally
+        {
+            access.Release();
+        }
+    }
+    #endregion
 }

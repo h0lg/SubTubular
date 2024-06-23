@@ -116,7 +116,7 @@ public static class CacheClearer
     private static async Task<Dictionary<string, string[]>> ClearChannelAliases(
         IEnumerable<string> aliases, DataStore dataStore, bool simulate)
     {
-        var cachedMaps = await ChannelAliasMap.LoadList(dataStore);
+        var cachedMaps = await ChannelAliasMap.LoadListAsync(dataStore);
         var matchedMaps = new List<ChannelAliasMap>();
 
         var aliasToChannelIds = aliases.ToDictionary(alias => alias, alias =>
@@ -137,12 +137,7 @@ public static class CacheClearer
             var channelIds = aliasToChannelIds.SelectMany(pair => pair.Value).Distinct().ToArray();
             var siblings = cachedMaps.Where(map => channelIds.Contains(map.ChannelId));
             var removable = matchedMaps.Union(siblings).ToArray();
-
-            if (removable.Length > 0)
-            {
-                foreach (var map in removable) cachedMaps.Remove(map);
-                await ChannelAliasMap.SaveList(cachedMaps, dataStore);
-            }
+            if (removable.Length > 0) await ChannelAliasMap.RemoveEntriesAsync(removable, dataStore);
         }
 
         return aliasToChannelIds;
