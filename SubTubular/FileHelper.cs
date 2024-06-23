@@ -19,9 +19,12 @@ public static class FileHelper
     {
         var earliestAccess = notAccessedForDays.HasValue ? DateTime.Today.AddDays(-notAccessedForDays.Value) : null as DateTime?;
 
-        return new DirectoryInfo(directory).EnumerateFiles(searchPattern, SearchOption.TopDirectoryOnly)
+        return EnumerateFiles(directory, searchPattern, SearchOption.TopDirectoryOnly)
             .Where(file => earliestAccess == null || file.LastAccessTime < earliestAccess);
     }
+
+    public static IEnumerable<FileInfo> EnumerateFiles(string directory, string searchPattern, SearchOption searchOption)
+        => new DirectoryInfo(directory).EnumerateFiles(searchPattern, searchOption);
 
     /// <summary>Returns all file paths in <paramref name="folder"/> recursively
     /// except for paths in <paramref name="excludedFolder"/>.</summary>
