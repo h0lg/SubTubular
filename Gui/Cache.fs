@@ -15,7 +15,9 @@ module Cache =
     type Model =
         { ByLastAccess: LastAccessGroup list option }
 
-    type Msg = | ExpandingByLastAccess
+    type Msg =
+        | ExpandingByLastAccess
+        | RemoveByLastAccess of LastAccessGroup
 
     // Function to describe a TimeSpan into specific ranges
     let private describeTimeSpan (timeSpan: TimeSpan) =
@@ -60,6 +62,14 @@ module Cache =
 
             model, Cmd.none
 
+        | RemoveByLastAccess group ->
+            for file in group.Files do
+                file.Delete()
+
+            { model with
+                ByLastAccess = model.ByLastAccess.Value |> List.except ([ group ]) |> Some },
+            Cmd.none
+
     let private filterFilesByExtension extension group =
         group.Files |> List.filter (fun f -> f.Extension = extension)
 
@@ -80,6 +90,11 @@ module Cache =
                         fun group ->
                             (Grid(coldefs = [ Auto; Star ], rowdefs = [ Auto; Star ]) {
                                 TextBlock(group.Name).header ()
+
+                                Button("🗑", RemoveByLastAccess group)
+                                    .tooltip("clear this data")
+                                    .fontSize(20)
+                                    .gridRow (1)
 
                                 (VStack(5) {
                                     let jsonFiles = group |> filterFilesByExtension JsonFileDataStore.FileExtension
