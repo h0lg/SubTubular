@@ -8,7 +8,7 @@ namespace SubTubular;
 public sealed class ClearCache
 {
     public Scopes Scope { get; set; }
-    public IEnumerable<string>? Ids { get; set; }
+    public IEnumerable<string>? Aliases { get; set; }
     public ushort? NotAccessedForDays { get; set; }
     public Modes Mode { get; set; }
 
@@ -32,9 +32,9 @@ public static class CacheClearer
 
                 break;
             case ClearCache.Scopes.videos:
-                if (command.Ids.HasAny())
+                if (command.Aliases.HasAny())
                 {
-                    var parsed = command.Ids!.ToDictionary(id => id, id => VideoId.TryParse(id.Trim('"')));
+                    var parsed = command.Aliases!.ToDictionary(id => id, id => VideoId.TryParse(id.Trim('"')));
                     var invalid = parsed.Where(pair => pair.Value == null).Select(pair => pair.Key).ToArray();
 
                     if (invalid.Length > 0) throw new InputException(
@@ -63,9 +63,9 @@ public static class CacheClearer
             case ClearCache.Scopes.channels:
                 Func<string, string[]?>? parseAlias = null;
 
-                if (command.Ids.HasAny())
+                if (command.Aliases.HasAny())
                 {
-                    var aliasToChannelIds = await ClearChannelAliases(command.Ids!, cacheDataStore, simulate);
+                    var aliasToChannelIds = await ClearChannelAliases(command.Aliases!, cacheDataStore, simulate);
                     parseAlias = alias => aliasToChannelIds.TryGetValue(alias, out var channelIds) ? channelIds : null;
                 }
                 else DeleteByName(ChannelAliasMap.StorageKey);
@@ -83,15 +83,18 @@ public static class CacheClearer
             indexesDeleted.AddRange(videoIndexRepo.Delete(key: name, simulate: simulate));
         }
 
-        void DeleteByNames(IEnumerable<string> names) { foreach (var name in names) DeleteByName(name); }
+        void DeleteByNames(IEnumerable<string> names)
+        {
+            foreach (var name in names) DeleteByName(name);
+        }
 
         async Task ClearPlaylists(string keyPrefix, DataStore playListLikeDataStore, Func<string, string[]?> parseId)
         {
             string[] deletableKeys;
 
-            if (command.Ids.HasAny())
+            if (command.Aliases.HasAny())
             {
-                var parsed = command.Ids!.ToDictionary(id => id, id => parseId(id));
+                var parsed = command.Aliases!.ToDictionary(id => id, id => parseId(id));
 
                 var invalid = parsed.Where(pair => !pair.Value.HasAny() || pair.Value!.All(id => id == null))
                     .Select(pair => pair.Key).ToArray();

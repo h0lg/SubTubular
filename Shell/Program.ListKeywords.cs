@@ -24,11 +24,9 @@ static partial class Program
     {
         private static Command ConfigureListKeywords(Func<ListKeywords, Task> listKeywords)
         {
-            Command command = new(Actions.listKeywords,
-                "List the keywords in a channel's Uploads playlist."
-                + $" This is a glorified '{CommandGroups.playlist} {Actions.listKeywords}'.");
-
+            Command command = new(Actions.listKeywords, "List the keywords of videos in the given scopes.");
             command.AddAlias(Actions.listKeywords[..1]); // first character
+
             var (channels, playlists, videos) = AddScopes(command);
             (Option<ushort> top, Option<float> cacheHours) = AddPlaylistLikeCommandOptions(command);
             (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(command);

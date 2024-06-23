@@ -66,11 +66,6 @@ static partial class Program
             return open;
         }
 
-        private static class CommandGroups
-        {
-            internal const string channel = "channel", playlist = "playlist", videos = "videos";
-        }
-
         private static class Actions
         {
             internal const string search = "search", listKeywords = "keywords";
