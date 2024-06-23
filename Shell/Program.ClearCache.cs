@@ -26,7 +26,7 @@ static partial class Program
     {
         private static Command ConfigureClearCache(Func<ClearCache, Task> handle)
         {
-            const string scopeName = "scope", idsName = "ids";
+            const string scopeName = "scope", aliasesName = "aliases";
 
             Command clearCache = new(clearCacheCommand, "Deletes cached metadata and full-text indexes for "
                 + $"{nameof(ClearCache.Scopes.channels)}, {nameof(ClearCache.Scopes.playlists)} and {nameof(ClearCache.Scopes.videos)}.");
@@ -41,23 +41,23 @@ static partial class Program
             clearCache.AddArgument(scope);
 
             //TODO update to require e.g. an explicit "all videos" as scopes for deleting all videos.
-            Argument<IEnumerable<string>> ids = new(idsName,
-                $"The space-separated IDs or URLs of elements in the '{scope}' to delete caches for."
+            Argument<IEnumerable<string>> aliases = new(aliasesName,
+                $"The space-separated IDs, URLs or aliases of elements in the '{scope}' to delete caches for."
                 + $" Can be used with every '{scope}' but '{nameof(ClearCache.Scopes.all)}'"
                 + $" while supporting user names, channel handles and slugs besides IDs for '{nameof(ClearCache.Scopes.channels)}'."
                 + $" If not set, all elements in the specified '{scope}' are considered for deletion."
                 + quoteIdsStartingWithDash);
 
-            clearCache.AddArgument(ids);
+            clearCache.AddArgument(aliases);
 
-            Option<ushort?> notAccessedForDays = new(new[] { "--last-access", "-l" },
+            Option<ushort?> notAccessedForDays = new(["--last-access", "-l"],
                 "The maximum number of days since the last access of a cache file for it to be excluded from deletion."
                 + " Effectively only deletes old caches that haven't been accessed for this number of days."
-                + $" Ignored for explicitly set '{idsName}'.");
+                + $" Ignored for explicitly set '{aliasesName}'.");
 
             clearCache.AddOption(notAccessedForDays);
 
-            Option<ClearCache.Modes> mode = new(new[] { "--mode", "-m" }, () => ClearCache.Modes.summary,
+            Option<ClearCache.Modes> mode = new(["--mode", "-m"], () => ClearCache.Modes.summary,
                 "The deletion mode;"
                 + $" '{nameof(ClearCache.Modes.summary)}' only outputs how many of what file type were deleted."
                 + $" '{nameof(ClearCache.Modes.verbose)}' outputs the deleted file names as well as the summary."
@@ -69,10 +69,10 @@ static partial class Program
             clearCache.SetHandler(async (scope, ids, notAccessedForDays, mode) => await handle(new ClearCache
             {
                 Scope = scope,
-                Ids = ids,
+                Aliases = ids,
                 NotAccessedForDays = notAccessedForDays,
                 Mode = mode
-            }), scope, ids, notAccessedForDays, mode);
+            }), scope, aliases, notAccessedForDays, mode);
 
             return clearCache;
         }
