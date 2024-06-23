@@ -173,7 +173,7 @@ public static class RemoteValidate
     public static async Task ChannelsAsync(ChannelScope[] channelScopes, Youtube youtube, DataStore dataStore, CancellationToken cancellation)
     {
         // load cached info about which channel aliases map to which channel IDs and which channel IDs are accessible
-        var knownAliasMaps = await ChannelAliasMap.LoadList(dataStore) ?? [];
+        var knownAliasMaps = await ChannelAliasMap.LoadListAsync(dataStore);
 
         var channelValidations = channelScopes.Select(async channel =>
         {
@@ -206,8 +206,8 @@ public static class RemoteValidate
             var matchingChannels = task.Result.SelectMany(pair => pair.matchingChannels).Distinct();
 
             // save the knownAliasMaps HashSet if adding any matching channel returns true indicating that it was new
-            if (matchingChannels.Any() && matchingChannels.Select(knownAliasMaps.Add).Any(isNew => isNew))
-                await ChannelAliasMap.SaveList(knownAliasMaps, dataStore);
+            if (matchingChannels.Any())
+                await ChannelAliasMap.AddEntriesAsync(matchingChannels, dataStore);
 
             var errors = task.Result.Select(pair => pair.error).WithValue();
             if (errors.Any()) throw new InputException(errors.Join(Environment.NewLine));
