@@ -10,10 +10,10 @@ open SubTubular
 open type Fabulous.Avalonia.View
 
 module ConfigFile =
-    type Model = { Recent: List<RecentCommands.Item> }
+    type Model = { Recent: RecentCommands.Item list }
 
     type Msg =
-        | RecentsLoaded of List<RecentCommands.Item>
+        | RecentsLoaded of RecentCommands.Item list
         | CommandRun of OutputCommand
         | Load of OutputCommand
         | Save
@@ -21,7 +21,7 @@ module ConfigFile =
     let loadRecent =
         task {
             let! recent = RecentCommands.ListAsync()
-            return RecentsLoaded recent
+            return RecentsLoaded(List.ofSeq recent)
         }
 
     let private save model =
@@ -30,14 +30,16 @@ module ConfigFile =
             return None
         }
 
-    let initModel = { Recent = List<RecentCommands.Item>() }
+    let initModel = { Recent = [] }
 
     let update msg model =
         match msg with
         | RecentsLoaded list -> { model with Recent = list }, Cmd.none
 
         | CommandRun cmd ->
-            model.Recent.AddOrUpdate(cmd)
+            let list = List<RecentCommands.Item>(model.Recent) // convert to generic List to enable reusing AddOrUpdate
+            list.AddOrUpdate(cmd) // sorts the list as well
+            let model = { model with Recent = List.ofSeq list } // update our model
             model, save model |> Cmd.OfTask.msgOption
 
         | Save -> model, Cmd.none
@@ -48,8 +50,10 @@ module ConfigFile =
             model.Recent,
             (fun config ->
                 (Grid(coldefs = [ Star; Auto; Auto ], rowdefs = [ Auto ]) {
-                    TextBlock(config.Description).textWrapping (TextWrapping.Wrap)
+                    TextBlock(config.Description)
+                        .tappable(Load config.Command, "load this command")
+                        .textWrapping (TextWrapping.Wrap)
+
                     TextBlock(config.LastRun.ToString()).tooltip("last run").gridColumn (1)
-                    Button("Load", Load config.Command).gridColumn (2)
                 }))
         )
