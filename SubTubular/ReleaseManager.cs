@@ -33,7 +33,7 @@ public static class ReleaseManager
         if (installInto.IsNullOrEmpty()) // STEP 1, running in app to be replaced
         {
             // back up current app
-            var appFolder = Path.GetDirectoryName(AssemblyInfo.Location)!;
+            var appFolder = Folder.GetPath(Folders.app);
             var archiveFolder = GetArchivePath(appFolder);
             var productInfo = AssemblyInfo.Name + " " + AssemblyInfo.Version;
             var backupFolder = Path.Combine(archiveFolder, productInfo.ToFileSafe());
@@ -89,7 +89,7 @@ public static class ReleaseManager
         => OpenNotes(await GetRelease(version, dataStore));
 
     private static void OpenNotes(CacheModel release) => ShellCommands.OpenUri(release.HtmlUrl);
-    private static string GetArchivePath(string appFolder) => Path.Combine(appFolder, "other releases");
+    public static string GetArchivePath(string appFolder) => Path.Combine(appFolder, "other releases");
 
     private static GitHubClient GetGithubClient()
         => new(new ProductHeaderValue(AssemblyInfo.Name, AssemblyInfo.GetProductVersion()));

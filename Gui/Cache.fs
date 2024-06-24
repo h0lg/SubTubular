@@ -13,11 +13,13 @@ module Cache =
     type LastAccessGroup = { Name: string; Files: FileInfo list }
 
     type Model =
-        { ByLastAccess: LastAccessGroup list option }
+        { Folders: Map<string, string>
+          ByLastAccess: LastAccessGroup list option }
 
     type Msg =
         | ExpandingByLastAccess
         | RemoveByLastAccess of LastAccessGroup
+        | OpenFolder of string
 
     // Function to describe a TimeSpan into specific ranges
     let private describeTimeSpan (timeSpan: TimeSpan) =
@@ -48,7 +50,17 @@ module Cache =
               Files = snd group |> List.ofSeq })
         |> List.ofSeq
 
-    let initModel = { ByLastAccess = None }
+    let initModel =
+        let folders =
+            Enum.GetValues<Folders>()
+            |> Array.map (fun f -> f.ToString(), Folder.GetPath f)
+            |> Array.appendOne ("other releases", ReleaseManager.GetArchivePath(Folder.GetPath(Folders.app)))
+            |> Array.filter (fun pair -> snd pair |> Directory.Exists)
+            |> Array.sortBy snd
+            |> Map.ofArray
+
+        { Folders = folders
+          ByLastAccess = None }
 
     let update msg model =
         match msg with
@@ -70,6 +82,10 @@ module Cache =
                 ByLastAccess = model.ByLastAccess.Value |> List.except ([ group ]) |> Some },
             Cmd.none
 
+        | OpenFolder path ->
+            ShellCommands.ExploreFolder path |> ignore
+            model, Cmd.none
+
     let private filterFilesByExtension extension group =
         group.Files |> List.filter (fun f -> f.Extension = extension)
 
@@ -81,7 +97,8 @@ module Cache =
             .isVisible (files.Length > 0)
 
     let view model =
-        Panel() {
+        Grid(coldefs = [ Star; Auto ], rowdefs = [ Star ]) {
+
             Expander(
                 "Files accessed within the last...",
                 ScrollViewer(
@@ -119,5 +136,18 @@ module Cache =
                     )
                 )
             )
-                .onExpanding (fun _ -> ExpandingByLastAccess)
+                .onExpanding(fun _ -> ExpandingByLastAccess)
+                .verticalAlignment (VerticalAlignment.Top)
+
+            ListBox(
+                model.Folders,
+                fun folder ->
+                    (Grid(coldefs = [ Pixel(100); Star ], rowdefs = [ Auto ]) {
+                        TextBlock(folder.Key).demoted ()
+                        TextBlock(folder.Value).gridColumn (1)
+                    })
+                        .tappable (OpenFolder folder.Value, "open this folder")
+            )
+                .verticalAlignment(VerticalAlignment.Top)
+                .gridColumn (1)
         }
