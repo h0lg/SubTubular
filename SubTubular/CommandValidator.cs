@@ -41,6 +41,13 @@ public static class Prevalidate
         if (!command.HasPreValidatedScopes()) throw new InputException("No valid scope.");
     }
 
+    private static string? TryGetScopeError(IEnumerable<string?>? invalidIdentifiers, string format)
+    {
+        if (!invalidIdentifiers.HasAny()) return null;
+        var withValue = invalidIdentifiers!.WithValue().ToArray();
+        return withValue.Length == 0 ? null : string.Format(format, withValue.Join(", "));
+    }
+
     internal static object[] ChannelAlias(string alias)
     {
         var handle = ChannelHandle.TryParse(alias);
@@ -48,13 +55,6 @@ public static class Prevalidate
         var user = UserName.TryParse(alias);
         var id = ChannelId.TryParse(alias);
         return new object?[] { handle, slug, user, id }.WithValue().ToArray();
-    }
-
-    private static string? TryGetScopeError(IEnumerable<string?>? invalidIdentifiers, string format)
-    {
-        if (!invalidIdentifiers.HasAny()) return null;
-        var withValue = invalidIdentifiers!.WithValue().ToArray();
-        return withValue.Length == 0 ? null : string.Format(format, withValue.Join(", "));
     }
 
     private static string? Channel(ChannelScope scope)
