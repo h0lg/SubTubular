@@ -50,8 +50,10 @@ module ConfigFile =
             model.Recent,
             (fun config ->
                 (Grid(coldefs = [ Star; Auto; Auto ], rowdefs = [ Auto ]) {
-                    TextBlock(config.Description).textWrapping (TextWrapping.Wrap)
+                    TextBlock(config.Description)
+                        .tappable(Load config.Command, "load this command")
+                        .textWrapping (TextWrapping.Wrap)
+
                     TextBlock(config.LastRun.ToString()).tooltip("last run").gridColumn (1)
-                    Button("Load", Load config.Command).gridColumn (2)
                 }))
         )
