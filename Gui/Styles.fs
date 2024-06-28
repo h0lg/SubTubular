@@ -6,6 +6,7 @@ open Fabulous
 open Fabulous.Avalonia
 open type Fabulous.Avalonia.View
 
+[<AutoOpen>]
 module Styles =
     let private getFactor (factor: float option) = factor |> Option.defaultValue 1
 
@@ -33,6 +34,10 @@ module Styles =
 
         [<Extension>]
         static member inline demoted(this: WidgetBuilder<'msg, IFabTextBlock>) = this.foreground (Colors.Gray)
+
+        [<Extension>]
+        static member inline tooltip(this: WidgetBuilder<'msg, #IFabControl>, tooltip: string) =
+            this.tip (ToolTip(tooltip))
 
         [<Extension>]
         static member inline asToggle(this: WidgetBuilder<'msg, #IFabTemplatedControl>, condition) =

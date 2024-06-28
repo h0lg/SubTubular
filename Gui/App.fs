@@ -16,7 +16,6 @@ open Fabulous.Avalonia
 open FSharp.Control
 open SubTubular
 open SubTubular.Extensions
-open Styles
 open type Fabulous.Avalonia.View
 
 module App =

@@ -51,7 +51,7 @@ module ConfigFile =
             (fun config ->
                 (Grid(coldefs = [ Star; Auto; Auto ], rowdefs = [ Auto ]) {
                     TextBlock(config.Description).textWrapping (TextWrapping.Wrap)
-                    TextBlock(config.LastRun.ToString()).tip(ToolTip("last run")).gridColumn (1)
+                    TextBlock(config.LastRun.ToString()).tooltip("last run").gridColumn (1)
                     Button("Load", Load config.Command).gridColumn (2)
                 }))
         )

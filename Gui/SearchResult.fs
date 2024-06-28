@@ -2,13 +2,11 @@
 
 open System
 open Avalonia.Interactivity
-open Avalonia.Layout
 open Avalonia.Media
 open Fabulous.Avalonia
-open type Fabulous.Avalonia.View
 open SubTubular
 open SubTubular.Extensions
-open Styles
+open type Fabulous.Avalonia.View
 
 module SearchResult =
     type Msg =
@@ -49,13 +47,13 @@ module SearchResult =
                     .fontSize (18)
 
                 Button("↗", OpenUrl videoUrl)
-                    .tip(ToolTip("Open video in browser"))
+                    .tooltip("Open video in browser")
                     .padding(5, 1)
                     .margin(5, 0)
                     .gridColumn (1)
 
                 TextBlock("📅" + result.Video.Uploaded.ToString())
-                    .tip(ToolTip("uploaded"))
+                    .tooltip("uploaded")
                     .textAlignment(TextAlignment.Right)
                     .gridColumn (2)
             }
@@ -96,7 +94,7 @@ module SearchResult =
                         Grid(coldefs = [ Auto; Star ], rowdefs = [ Auto ]) {
                             (TextBlock offset)
                                 .onTapped(fun _ -> OpenUrl $"{videoUrl}?t={captionAt}")
-                                .tip(ToolTip($"tap to start the video at this timestamp in the browser"))
+                                .tooltip($"tap to start the video at this timestamp in the browser")
                                 .margin(0, 0, 5, 0)
                                 .demoted ()
 
