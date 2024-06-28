@@ -222,7 +222,7 @@ module Scope =
 
         VStack(5) {
             HStack(5) {
-                Button("❌", Remove).tip (ToolTip("remove this scope"))
+                Button("❌", Remove).tooltip ("remove this scope")
                 Label(displayType model.Type)
 
                 AutoCompleteBox(fun text ct -> model.AliasSearch.SearchAsync model.Youtube model.Type text ct)
@@ -264,14 +264,14 @@ module Scope =
 
                 if not forVideos then
                     ToggleButton("⚙", model.ShowSettings, ToggleSettings)
-                        .tip (ToolTip("toggle settings"))
+                        .tooltip ("toggle settings")
 
                 (HStack(5) {
                     Label "search top"
 
                     NumericUpDown(0, float UInt16.MaxValue, model.Top, TopChanged)
                         .formatString("F0")
-                        .tip (ToolTip("number of videos to search"))
+                        .tooltip ("number of videos to search")
 
                     Label "videos"
                 })
@@ -283,15 +283,13 @@ module Scope =
 
                     NumericUpDown(0, float UInt16.MaxValue, model.CacheHours, CacheHoursChanged)
                         .formatString("F0")
-                        .tip (
-                            ToolTip(
-                                "The info about which videos are in a playlist or channel is cached locally to speed up future searches."
-                                + " This controls after how many hours such a cache is considered stale."
-                                + Environment.NewLine
-                                + Environment.NewLine
-                                + "Note that this doesn't concern the video data caches,"
-                                + " which are not expected to change often and are stored until you explicitly clear them."
-                            )
+                        .tooltip (
+                            "The info about which videos are in a playlist or channel is cached locally to speed up future searches."
+                            + " This controls after how many hours such a cache is considered stale."
+                            + Environment.NewLine
+                            + Environment.NewLine
+                            + "Note that this doesn't concern the video data caches,"
+                            + " which are not expected to change often and are stored until you explicitly clear them."
                         )
 
                     Label "hours"
