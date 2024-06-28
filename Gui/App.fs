@@ -483,11 +483,13 @@ module App =
                                 .trailingMargin ()
 
                     if isSearch && hasResults then
-                        for result in model.SearchResults do
-                            (View.map
-                                SearchResultMsg
-                                (SearchResult.render (model.ResultOptions.Padding |> uint32) result))
-                                .trailingMargin ()
+                        ListBox(
+                            model.SearchResults,
+                            (fun result ->
+                                View.map
+                                    SearchResultMsg
+                                    (SearchResult.render (model.ResultOptions.Padding |> uint32) result))
+                        )
                 })
             )
                 .isVisible(hasResults)
