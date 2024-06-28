@@ -93,8 +93,10 @@ module SearchResult =
 
                         Grid(coldefs = [ Auto; Star ], rowdefs = [ Auto ]) {
                             (TextBlock offset)
-                                .onTapped(fun _ -> OpenUrl $"{videoUrl}?t={captionAt}")
-                                .tooltip($"tap to start the video at this timestamp in the browser")
+                                .tappable(
+                                    OpenUrl $"{videoUrl}?t={captionAt}",
+                                    $"tap to start the video at this timestamp in the browser"
+                                )
                                 .margin(0, 0, 5, 0)
                                 .demoted ()
 

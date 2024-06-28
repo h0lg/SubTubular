@@ -1,10 +1,14 @@
 ﻿namespace Ui
 
 open System.Runtime.CompilerServices
+open Avalonia.Input
 open Avalonia.Media
 open Fabulous
 open Fabulous.Avalonia
 open type Fabulous.Avalonia.View
+
+module Cursors =
+    let hand = new Cursor(StandardCursorType.Hand)
 
 [<AutoOpen>]
 module Styles =
@@ -38,6 +42,10 @@ module Styles =
         [<Extension>]
         static member inline tooltip(this: WidgetBuilder<'msg, #IFabControl>, tooltip: string) =
             this.tip (ToolTip(tooltip))
+
+        [<Extension>]
+        static member inline tappable(this: WidgetBuilder<'msg, #IFabControl>, msg: 'msg, tooltip: string) =
+            this.onTapped(fun _ -> msg).cursor(Cursors.hand).tooltip (tooltip)
 
         [<Extension>]
         static member inline asToggle(this: WidgetBuilder<'msg, #IFabTemplatedControl>, condition) =
