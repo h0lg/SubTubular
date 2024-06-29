@@ -39,7 +39,7 @@ module App =
             ResultOptions: ResultOptions.Model
 
             Running: CancellationTokenSource
-            SearchResults: VideoSearchResult list
+            SearchResults: (VideoSearchResult * uint32) list
 
             /// video IDs by keyword by scope
             KeywordResults: Dictionary<CommandScope, Dictionary<string, List<string>>>
@@ -186,7 +186,7 @@ module App =
                 let! path =
                     FileOutput.saveAsync search (fun writer ->
                         for result in model.SearchResults do
-                            writer.WriteVideoResult(result, search.Padding |> uint32))
+                            writer.WriteVideoResult(fst result, snd result))
 
                 return SavedOutput path |> Some
 
@@ -231,6 +231,11 @@ module App =
         initModel, Cmd.batch [ Settings.load; ConfigFile.loadRecent |> Cmd.OfTask.msg |> Cmd.map RecentMsg ]
 
     let private searchTab = ViewRef<TabItem>()
+
+    let private getResults model = model.SearchResults |> List.map fst
+
+    let private addPadding model list =
+        list |> List.map (fun r -> r, uint32 model.ResultOptions.Padding)
 
     let private update msg model =
         match msg with
@@ -297,7 +302,7 @@ module App =
 
             { model with
                 ResultOptions = options
-                SearchResults = ResultOptions.orderVideoResults options model.SearchResults },
+                SearchResults = ResultOptions.orderVideoResults options (getResults model) |> addPadding model },
             Settings.requestSave ()
 
         | DisplayOutputOptionsChanged output ->
@@ -341,8 +346,9 @@ module App =
         | SearchResults list ->
             { model with
                 SearchResults =
-                    model.SearchResults @ list
-                    |> ResultOptions.orderVideoResults model.ResultOptions },
+                    getResults model @ list
+                    |> ResultOptions.orderVideoResults model.ResultOptions
+                    |> addPadding model },
             Cmd.none
 
         | KeywordResults list ->
@@ -485,10 +491,9 @@ module App =
                     if isSearch && hasResults then
                         ListBox(
                             model.SearchResults,
-                            (fun result ->
-                                View.map
-                                    SearchResultMsg
-                                    (SearchResult.render (model.ResultOptions.Padding |> uint32) result))
+                            (fun item ->
+                                let result, padding = item
+                                View.map SearchResultMsg (SearchResult.render padding result))
                         )
                 })
             )
