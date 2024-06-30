@@ -54,6 +54,7 @@ module App =
         | QueryChanged of string
         | ScopesMsg of Scopes.Msg
         | ResultOptionsMsg of ResultOptions.Msg
+        | ResultOptionsChanged
 
         | DisplayOutputOptionsChanged of bool
         | FileOutputMsg of FileOutput.Msg
@@ -147,7 +148,7 @@ module App =
                     do!
                         Services.Youtube
                             .SearchAsync(search, cancellation)
-                            .dispatchBatchThrottledTo (100, SearchResults, dispatch)
+                            .dispatchBatchThrottledTo (300, SearchResults, dispatch)
 
                 | :? ListKeywords as listKeywords ->
                     Prevalidate.Scopes listKeywords
@@ -162,7 +163,7 @@ module App =
                         Services.Youtube
                             .ListKeywordsAsync(listKeywords, cancellation)
                             .dispatchBatchThrottledTo (
-                                100,
+                                300,
                                 (fun list -> list |> List.map _.ToTuple() |> KeywordResults),
                                 dispatch
                             )
@@ -231,7 +232,7 @@ module App =
         initModel, Cmd.batch [ Settings.load; ConfigFile.loadRecent |> Cmd.OfTask.msg |> Cmd.map RecentMsg ]
 
     let private searchTab = ViewRef<TabItem>()
-
+    let private applyResultOptions = Cmd.debounce 300 (fun () -> ResultOptionsChanged)
     let private getResults model = model.SearchResults |> List.map fst
 
     let private addPadding model list =
@@ -297,12 +298,17 @@ module App =
             let scopes, cmd = Scopes.update scpsMsg model.Scopes
             { model with Scopes = scopes }, Cmd.map ScopesMsg cmd
 
+        // udpate ResultOptions and debounce applying them to SearchResults
         | ResultOptionsMsg ext ->
             let options = ResultOptions.update ext model.ResultOptions
+            { model with ResultOptions = options }, applyResultOptions ()
 
+        // apply ResultOptions to SearchResults and debounce saving app settings
+        | ResultOptionsChanged ->
             { model with
-                ResultOptions = options
-                SearchResults = ResultOptions.orderVideoResults options (getResults model) |> addPadding model },
+                SearchResults =
+                    ResultOptions.orderVideoResults model.ResultOptions (getResults model)
+                    |> addPadding model },
             Settings.requestSave ()
 
         | DisplayOutputOptionsChanged output ->
