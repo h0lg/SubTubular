@@ -359,7 +359,7 @@ module Search =
             // see https://usecasepod.github.io/posts/mvu-composition.html
             // and https://github.com/TimLariviere/FabulousContacts/blob/0d5024c4bfc7a84f02c0788a03f63ff946084c0b/FabulousContacts/ContactsListPage.fs#L89C17-L89C31
             // search options
-            (Grid(coldefs = [ Auto; Star; Auto; Auto; Auto ], rowdefs = [ Auto ]) {
+            (Grid(coldefs = [ Auto; Star; Auto; Auto; Auto; Auto ], rowdefs = [ Auto ]) {
                 Menu() {
                     MenuItem("🏷 List _keywords", CommandChanged Commands.ListKeywords)
                         .tooltip(ListKeywords.Description)
@@ -380,10 +380,21 @@ module Search =
                     .onLostFocus(fun _ -> FocusQuery false)
                     .gridColumn (1)
 
+                (TextBlock "ⓘ")
+                    .tappable(
+                        OpenUrl "https://mikegoatly.github.io/lifti/docs/searching/lifti-query-syntax/"
+                        |> Common,
+                        "The full-text search is powered by LIFTI.\nTap to open its query syntax help page in your browser.\n\nTL/DR:\n\n"
+                        + SearchCommand.GetQueryHint().Trim()
+                    )
+                    .fontSize(20)
+                    .isVisible(isSearch)
+                    .gridColumn (2)
+
                 // invisible helper to focus query input
                 Button("_focus Query", FocusQuery true).width (0)
 
-                Label("in").centerVertical().gridColumn (2)
+                Label("in").centerVertical().gridColumn (3)
 
                 ToggleButton(
                     (if model.ShowScopes then
@@ -393,14 +404,14 @@ module Search =
                     model.ShowScopes,
                     ShowScopesChanged
                 )
-                    .gridColumn (3)
+                    .gridColumn (4)
 
                 let isRunning = model.Running <> null
 
                 ToggleButton((if isRunning then "✋ _Hold up!" else "👉 _Hit it!"), isRunning, Run)
                     .fontSize(16)
                     .margin(10, 0)
-                    .gridColumn (4)
+                    .gridColumn (5)
             })
                 .card()
                 .gridRow (1)
