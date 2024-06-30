@@ -76,7 +76,7 @@ module ResultOptions =
 
             NumericUpDown(0, float UInt16.MaxValue, Some(float model.Padding), PaddingChanged)
                 .increment(5)
-                .formatString("F0")
+                .formatString("F0") // to ditch the decimal digits
                 .tooltip ("how much context to show a search result in")
 
             Label "chars for context"
