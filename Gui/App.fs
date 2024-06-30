@@ -433,16 +433,16 @@ module App =
 
                 let isRunning = model.Running <> null
 
-                ToggleButton((if isRunning then "✋ _Halt" else "💨 Let's _go"), isRunning, Run)
+                ToggleButton((if isRunning then "✋ _Hold up!" else "👉 _Hit it!"), isRunning, Run)
+                    .fontSize(16)
                     .margin(10, 0)
                     .gridColumn (2)
             })
-                .trailingMargin (4)
-
-            // scopes
-            ScrollViewer(View.map ScopesMsg (Scopes.view model.Scopes))
                 .trailingMargin(4)
                 .gridRow (1)
+
+            // scopes
+            ScrollViewer(View.map ScopesMsg (Scopes.view model.Scopes)).trailingMargin (4)
 
             // result options
             (Grid(coldefs = [ Auto; Star; Star; Auto ], rowdefs = [ Auto ]) {
@@ -512,8 +512,8 @@ module App =
 
     let private view model =
         TabControl() {
-            TabItem("Recent", View.map RecentMsg (ConfigFile.view model.Recent))
-            TabItem("Search", runCommand model).reference (searchTab)
+            TabItem("🕝 Recent", View.map RecentMsg (ConfigFile.view model.Recent))
+            TabItem("🔍 Search", runCommand model).reference (searchTab)
         }
 #if MOBILE
     let app model = SingleViewApplication(view model)
