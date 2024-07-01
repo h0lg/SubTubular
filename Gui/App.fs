@@ -29,6 +29,7 @@ module App =
             Command: Commands
             Scopes: Scopes.Model
             ShowScopes: bool
+            FocusQuery: bool
             Query: string
 
             ResultOptions: ResultOptions.Model
@@ -48,6 +49,7 @@ module App =
         | RecentMsg of ConfigFile.Msg
         | SettingsMsg of Settings.Msg
         | CommandChanged of Commands
+        | FocusQuery of bool
         | QueryChanged of string
         | ScopesMsg of Scopes.Msg
         | ShowScopesChanged of bool
@@ -182,6 +184,7 @@ module App =
           Recent = ConfigFile.initModel
           Command = Commands.Search
           Query = ""
+          FocusQuery = false
 
           Scopes = Scopes.init ()
           ShowScopes = true
@@ -272,6 +275,7 @@ module App =
             { loaded with Recent = recent }, Cmd.batch [ cmd; Cmd.map RecentMsg rCmd ]
 
         | CommandChanged cmd -> { model with Command = cmd }, Cmd.none
+        | FocusQuery focus -> { model with FocusQuery = focus }, Cmd.none
         | QueryChanged txt -> { model with Query = txt }, Cmd.none
 
         | ScopesMsg scpsMsg ->
@@ -439,9 +443,15 @@ module App =
                 }
 
                 TextBox(model.Query, QueryChanged)
-                    .watermark("your query")
+                    .watermark("what to find")
                     .isVisible(isSearch)
+                    .focus(model.FocusQuery)
+                    .tooltip("focus using [Alt] + [F]")
+                    .onLostFocus(fun _ -> FocusQuery false)
                     .gridColumn (1)
+
+                // invisible helper to focus query input
+                Button("_focus Query", FocusQuery true).width (0)
 
                 Label("in").centerVertical().gridColumn (2)
 
