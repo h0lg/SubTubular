@@ -24,7 +24,7 @@ static partial class Program
     {
         private static Command ConfigureListKeywords(Func<ListKeywords, Task> listKeywords)
         {
-            Command command = new(Actions.listKeywords, "List the keywords of videos in the given scopes.");
+            Command command = new(Actions.listKeywords, ListKeywords.Description);
             command.AddAlias(Actions.listKeywords[..1]); // first character
 
             var (channels, playlists, videos) = AddScopes(command);

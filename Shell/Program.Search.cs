@@ -37,7 +37,7 @@ static partial class Program
     {
         private static Command ConfigureSearch(Func<SearchCommand, Task> search)
         {
-            Command command = new(Actions.search, "Searches the subtitles and metadata of videos in the given scopes.");
+            Command command = new(Actions.search, SearchCommand.Description);
             command.AddAlias(Actions.search[..1]); // first character
 
             var (channels, playlists, videos) = AddScopes(command);

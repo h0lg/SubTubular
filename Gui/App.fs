@@ -428,9 +428,14 @@ module App =
             (Grid(coldefs = [ Auto; Star; Auto ], rowdefs = [ Auto ]) {
                 Menu() {
                     MenuItem("🏷 List _keywords", CommandChanged Commands.ListKeywords)
+                        .tooltip(ListKeywords.Description)
+                        .tapCursor()
                         .asToggle (not isSearch)
 
-                    MenuItem("🔍 _Search for", CommandChanged Commands.Search).asToggle (isSearch)
+                    MenuItem("🔍 _Search for", CommandChanged Commands.Search)
+                        .tooltip(SearchCommand.Description)
+                        .tapCursor()
+                        .asToggle (isSearch)
                 }
 
                 TextBox(model.Query, QueryChanged)
