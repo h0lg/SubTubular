@@ -73,6 +73,8 @@ public abstract class OutputCommand
 
 public sealed class SearchCommand : OutputCommand
 {
+    public const string Description = "Search the subtitles and metadata of videos in the given scopes.";
+
     public string? Query { get; set; }
     public ushort Padding { get; set; }
 
@@ -94,6 +96,8 @@ public sealed class SearchCommand : OutputCommand
 
 public sealed class ListKeywords : OutputCommand
 {
+    public const string Description = "List the keywords of videos in the given scopes.";
+
     public override string Describe(bool withScopes = true)
         => "listing keywords in" + (withScopes ? " " + DescribeScopes() : null);
 }

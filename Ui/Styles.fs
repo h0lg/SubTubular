@@ -49,8 +49,11 @@ module Styles =
             this.tip (ToolTip(tooltip))
 
         [<Extension>]
+        static member inline tapCursor(this: WidgetBuilder<'msg, #IFabInputElement>) = this.cursor (Cursors.hand)
+
+        [<Extension>]
         static member inline tappable(this: WidgetBuilder<'msg, #IFabControl>, msg: 'msg, tooltip: string) =
-            this.onTapped(fun _ -> msg).cursor(Cursors.hand).tooltip (tooltip)
+            this.onTapped(fun _ -> msg).tapCursor().tooltip (tooltip)
 
         [<Extension>]
         static member inline asToggle(this: WidgetBuilder<'msg, #IFabTemplatedControl>, condition) =
