@@ -34,6 +34,7 @@ module App =
             Recent: ConfigFile.Model
             Command: Commands
             Scopes: Scopes.Model
+            ShowScopes: bool
             Query: string
 
             ResultOptions: ResultOptions.Model
@@ -53,6 +54,7 @@ module App =
         | CommandChanged of Commands
         | QueryChanged of string
         | ScopesMsg of Scopes.Msg
+        | ShowScopesChanged of bool
         | ResultOptionsMsg of ResultOptions.Msg
         | ResultOptionsChanged
 
@@ -223,6 +225,7 @@ module App =
           Query = ""
 
           Scopes = Scopes.init ()
+          ShowScopes = true
           ResultOptions = ResultOptions.initModel
 
           DisplayOutputOptions = false
@@ -277,6 +280,9 @@ module App =
 
                     { updated with
                         Scopes = scopes
+                        ShowScopes = true
+                        SearchResults = []
+                        KeywordResults = null
                         DisplayOutputOptions = false
                         FileOutput =
                             { updated.FileOutput with
@@ -306,6 +312,8 @@ module App =
 
             let scopes, cmd = Scopes.update scpsMsg model.Scopes
             { model with Scopes = scopes }, Cmd.map ScopesMsg cmd
+
+        | ShowScopesChanged show -> { model with ShowScopes = show }, Cmd.none
 
         // udpate ResultOptions and debounce applying them to SearchResults
         | ResultOptionsMsg ext ->
@@ -382,7 +390,10 @@ module App =
                 else
                     "listing keywords"
 
-            { model with Running = null }, notifyInfo model.Notifier (cmd + " completed")
+            { model with
+                Running = null
+                ShowScopes = false },
+            notifyInfo model.Notifier (cmd + " completed")
 
         | SearchResultMsg srm ->
             match srm with
@@ -422,10 +433,15 @@ module App =
                 else
                     model.KeywordResults <> null && model.KeywordResults.Count > 0
 
+            // scopes
+            ScrollViewer(View.map ScopesMsg (Scopes.view model.Scopes))
+                .isVisible(model.ShowScopes)
+                .trailingMargin (4)
+
             // see https://usecasepod.github.io/posts/mvu-composition.html
             // and https://github.com/TimLariviere/FabulousContacts/blob/0d5024c4bfc7a84f02c0788a03f63ff946084c0b/FabulousContacts/ContactsListPage.fs#L89C17-L89C31
             // search options
-            (Grid(coldefs = [ Auto; Star; Auto ], rowdefs = [ Auto ]) {
+            (Grid(coldefs = [ Auto; Star; Auto; Auto; Auto ], rowdefs = [ Auto ]) {
                 Menu() {
                     MenuItem("🏷 List _keywords", CommandChanged Commands.ListKeywords)
                         .tooltip(ListKeywords.Description)
@@ -443,18 +459,27 @@ module App =
                     .isVisible(isSearch)
                     .gridColumn (1)
 
+                Label("in").centerVertical().gridColumn (2)
+
+                ToggleButton(
+                    (if model.ShowScopes then
+                         "👆 these scopes"
+                     else
+                         $"✊ {model.Scopes.List.Length} scopes"),
+                    model.ShowScopes,
+                    ShowScopesChanged
+                )
+                    .gridColumn (3)
+
                 let isRunning = model.Running <> null
 
                 ToggleButton((if isRunning then "✋ _Hold up!" else "👉 _Hit it!"), isRunning, Run)
                     .fontSize(16)
                     .margin(10, 0)
-                    .gridColumn (2)
+                    .gridColumn (4)
             })
                 .trailingMargin(4)
                 .gridRow (1)
-
-            // scopes
-            ScrollViewer(View.map ScopesMsg (Scopes.view model.Scopes)).trailingMargin (4)
 
             // result options
             (Grid(coldefs = [ Auto; Star; Star; Auto ], rowdefs = [ Auto ]) {

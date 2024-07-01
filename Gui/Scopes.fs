@@ -93,8 +93,6 @@ module Scopes =
     let view model =
         (Panel() {
             HWrap() {
-                Label "in"
-
                 let maxWidth =
                     match container.TryValue with
                     | Some panel -> panel.DesiredSize.Width
