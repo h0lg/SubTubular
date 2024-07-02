@@ -4,23 +4,16 @@ namespace SubTubular;
 
 public static class Folder
 {
-    public static string GetPath(Folders folder)
+    public static string GetPath(Folders folder) => folder switch
     {
-        string path;
-
-        switch (folder)
-        {
-            case Folders.app: path = Environment.CurrentDirectory; break;
-            case Folders.cache: path = GetStoragePath("cache"); break;
-            case Folders.thumbnails: path = GetStoragePath("cache/thumbnails"); break;
-            case Folders.errors: path = GetStoragePath("errors"); break;
-            case Folders.output: path = GetStoragePath("out"); break;
-            case Folders.storage: path = GetStoragePath(); break;
-            default: throw new NotImplementedException($"Opening {folder} is not implemented.");
-        }
-
-        return path;
-    }
+        Folders.app => Environment.CurrentDirectory,
+        Folders.cache => GetStoragePath("cache"),
+        Folders.thumbnails => GetStoragePath("cache/thumbnails"),
+        Folders.errors => GetStoragePath("errors"),
+        Folders.output => GetStoragePath("out"),
+        Folders.storage => GetStoragePath(),
+        _ => throw new NotImplementedException($"Opening {folder} is not implemented."),
+    };
 
     private static string GetStoragePath(string subFolder = "") => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
