@@ -12,8 +12,14 @@ open type Fabulous.Avalonia.View
 module Cache =
     type LastAccessGroup = { Name: string; Files: FileInfo list }
 
+    type FolderView =
+        { Label: string
+          IndentLevel: int // to root
+          PathDiff: string // diff of Path to that of the parent FolderView if any, otherwise the full Path
+          Path: string }
+
     type Model =
-        { Folders: Map<string, string> option
+        { Folders: FolderView list option
           LastAccessGroups: LastAccessGroup list option }
 
     type Msg =
@@ -29,12 +35,37 @@ module Cache =
             else
                 folder.ToString()
 
+        // maps a label/path tuple to a FolderView relative to already mapped ancestor FolderViews
+        let mapFolderToView mapped (label, path: string) =
+            let ancestor = // with matching Path
+                match mapped with
+                | [] -> None
+                | _ -> mapped |> List.tryFind (fun prev -> path.Contains(prev.Path))
+
+            let level, pathDiff =
+                match ancestor with
+                | Some ancestor ->
+                    ancestor.IndentLevel + 1,
+                    path
+                        .Substring(ancestor.Path.Length)
+                        .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                | None -> 0, path
+
+            let folderView =
+                { Label = label
+                  IndentLevel = level
+                  PathDiff = pathDiff
+                  Path = path }
+
+            folderView :: mapped
+
         Enum.GetValues<Folders>()
         |> Array.map (fun f -> label f, Folder.GetPath f)
         |> Array.appendOne ("other releases", ReleaseManager.GetArchivePath(Folder.GetPath(Folders.app)))
-        |> Array.filter (fun pair -> snd pair |> Directory.Exists)
-        |> Array.sortBy snd
-        |> Map.ofArray
+        |> Seq.filter (fun pair -> snd pair |> Directory.Exists)
+        |> Seq.sortBy (fun pair -> fst pair <> nameof Folders.app, snd pair) // sort app first, then by path
+        |> Seq.fold mapFolderToView [] // relies on prior sorting by path
+        |> List.rev // to restore correct order reversed by folding
 
     // Function to describe a TimeSpan into specific ranges
     let private describeTimeSpan (timeSpan: TimeSpan) =
@@ -155,13 +186,16 @@ module Cache =
             Expander(
                 "Locations",
                 ItemsControl(
-                    model.Folders |> Option.defaultValue Map.empty,
+                    model.Folders |> Option.defaultValue [],
                     fun folder ->
                         (Grid(coldefs = [ Pixel(100); Star ], rowdefs = [ Auto ]) {
-                            TextBlock(folder.Key).demoted ()
-                            TextBlock(folder.Value).gridColumn (1)
+                            let indent = folder.IndentLevel * 10
+                            TextBlock(folder.Label).padding (indent, 0, 0, 0)
+
+                            if folder.Label <> folder.PathDiff then
+                                TextBlock(folder.PathDiff).padding(indent, 0, 0, 0).demoted().gridColumn (1)
                         })
-                            .tappable (OpenFolder folder.Value, "open this folder")
+                            .tappable (OpenFolder folder.Path, "open this folder")
                 )
             )
                 .onExpanding(fun _ -> ExpandingFolders)
