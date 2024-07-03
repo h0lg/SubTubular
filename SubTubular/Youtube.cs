@@ -98,6 +98,7 @@ public sealed class Youtube
         }
 
         scope.Report(VideoList.Status.searched);
+        index.Dispose();
 
         async Task UpdatePlaylistVideosUploaded(IEnumerable<Video> videos)
         {
@@ -298,6 +299,7 @@ public sealed class Youtube
         }
 
         command.Videos!.Report(VideoList.Status.searched);
+        index.Dispose();
     }
 
     /// <summary>Returns the <see cref="Video.Keywords"/> and their corresponding number of occurrences
