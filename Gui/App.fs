@@ -132,43 +132,53 @@ module App =
     let private runCmd model =
         fun dispatch ->
             task {
-                let command = mapToCommand model
-                let cancellation = model.Running.Token
+                try
+                    let command = mapToCommand model
+                    let cancellation = model.Running.Token
 
-                match command with
-                | :? SearchCommand as search ->
-                    Prevalidate.Search search
+                    match command with
+                    | :? SearchCommand as search ->
+                        Prevalidate.Search search
 
-                    if search.AreScopesValid() |> not then
-                        do! RemoteValidate.ScopesAsync(search, Services.Youtube, Services.DataStore, cancellation)
+                        if search.AreScopesValid() |> not then
+                            do! RemoteValidate.ScopesAsync(search, Services.Youtube, Services.DataStore, cancellation)
 
-                    if command.SaveAsRecent then
-                        dispatch (RecentMsg(ConfigFile.CommandRun command))
+                        if command.SaveAsRecent then
+                            dispatch (RecentMsg(ConfigFile.CommandRun command))
 
-                    do!
-                        Services.Youtube
-                            .SearchAsync(search, cancellation)
-                            .dispatchBatchThrottledTo (300, SearchResults, dispatch)
+                        do!
+                            Services.Youtube
+                                .SearchAsync(search, cancellation)
+                                .dispatchBatchThrottledTo (300, SearchResults, dispatch)
 
-                | :? ListKeywords as listKeywords ->
-                    Prevalidate.Scopes listKeywords
+                    | :? ListKeywords as listKeywords ->
+                        Prevalidate.Scopes listKeywords
 
-                    if listKeywords.AreScopesValid() |> not then
-                        do! RemoteValidate.ScopesAsync(listKeywords, Services.Youtube, Services.DataStore, cancellation)
+                        if listKeywords.AreScopesValid() |> not then
+                            do!
+                                RemoteValidate.ScopesAsync(
+                                    listKeywords,
+                                    Services.Youtube,
+                                    Services.DataStore,
+                                    cancellation
+                                )
 
-                    if command.SaveAsRecent then
-                        dispatch (RecentMsg(ConfigFile.CommandRun command))
+                        if command.SaveAsRecent then
+                            dispatch (RecentMsg(ConfigFile.CommandRun command))
 
-                    do!
-                        Services.Youtube
-                            .ListKeywordsAsync(listKeywords, cancellation)
-                            .dispatchBatchThrottledTo (
-                                300,
-                                (fun list -> list |> List.map _.ToTuple() |> KeywordResults),
-                                dispatch
-                            )
+                        do!
+                            Services.Youtube
+                                .ListKeywordsAsync(listKeywords, cancellation)
+                                .dispatchBatchThrottledTo (
+                                    300,
+                                    (fun list -> list |> List.map _.ToTuple() |> KeywordResults),
+                                    dispatch
+                                )
 
-                | _ -> failwith ("Unknown command type " + command.GetType().ToString())
+                    | _ -> failwith ("Unknown command type " + command.GetType().ToString())
+                with
+                | :? InputException as exn -> Notify exn.Message |> dispatch
+                | exn -> Notify exn.Message |> dispatch
 
                 dispatch CommandCompleted
             }
