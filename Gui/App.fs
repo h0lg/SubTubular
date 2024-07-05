@@ -2,8 +2,6 @@
 
 open System
 open System.Collections.Generic
-open System.IO
-open System.Text.Json
 open System.Threading
 open Avalonia
 open Avalonia.Controls
@@ -19,10 +17,6 @@ open SubTubular.Extensions
 open type Fabulous.Avalonia.View
 
 module App =
-    type SavedSettings =
-        { ResultOptions: ResultOptions.Model option
-          FileOutput: FileOutput.Model option }
-
     type Commands =
         | ListKeywords = 1
         | Search = 0
@@ -53,6 +47,7 @@ module App =
     type Msg =
         | CacheMsg of Cache.Msg
         | RecentMsg of ConfigFile.Msg
+        | SettingsMsg of Settings.Msg
         | CommandChanged of Commands
         | QueryChanged of string
         | ScopesMsg of Scopes.Msg
@@ -72,37 +67,6 @@ module App =
 
         | AttachedToVisualTreeChanged of VisualTreeAttachmentEventArgs
         | Notify of string
-        | SaveSettings
-        | SettingsSaved
-        | SettingsLoaded of SavedSettings
-
-    //TODO see instead https://docs.fabulous.dev/advanced/saving-and-restoring-app-state
-    module Settings =
-        let private path = Path.Combine(Folder.GetPath Folders.storage, "ui-settings.json")
-        let requestSave = Cmd.debounce 1000 (fun () -> SaveSettings)
-
-        let load =
-            async {
-                if File.Exists path then
-                    let! json = File.ReadAllTextAsync(path) |> Async.AwaitTask
-                    let settings = JsonSerializer.Deserialize json
-                    return SettingsLoaded settings |> Some
-                else
-                    return None
-            }
-            |> Cmd.OfAsync.msgOption
-
-        let save model =
-            async {
-                let settings =
-                    { ResultOptions = Some model.ResultOptions
-                      FileOutput = Some model.FileOutput }
-
-                let json = JsonSerializer.Serialize settings
-                do! File.WriteAllTextAsync(path, json) |> Async.AwaitTask
-                return SettingsSaved
-            }
-            |> Cmd.OfAsync.msg
 
     let private mapToCommand model =
         let order = ResultOptions.getSearchCommandOrderOptions model.ResultOptions
@@ -244,7 +208,10 @@ module App =
         ImageLoader.AsyncImageLoader.Dispose()
         ImageLoader.AsyncImageLoader <- new Loaders.DiskCachedWebImageLoader(Folder.GetPath(Folders.thumbnails))
 
-        initModel, Cmd.batch [ Settings.load; ConfigFile.loadRecent |> Cmd.OfTask.msg |> Cmd.map RecentMsg ]
+        initModel,
+        Cmd.batch
+            [ Settings.load |> Cmd.map SettingsMsg
+              ConfigFile.loadRecent |> Cmd.OfTask.msg |> Cmd.map RecentMsg ]
 
     let private searchTab = ViewRef<TabItem>()
     let private applyResultOptions = Cmd.debounce 300 (fun () -> ResultOptionsChanged)
@@ -252,6 +219,9 @@ module App =
 
     let private addPadding model list =
         list |> List.map (fun r -> r, uint32 model.ResultOptions.Padding)
+
+    let private requestSaveSettings () =
+        Settings.requestSave () |> Cmd.map SettingsMsg
 
     let private update msg model =
         match msg with
@@ -333,7 +303,7 @@ module App =
                 SearchResults =
                     ResultOptions.orderVideoResults model.ResultOptions (getResults model)
                     |> addPadding model },
-            Settings.requestSave ()
+            requestSaveSettings ()
 
         | DisplayOutputOptionsChanged output ->
             { model with
@@ -348,7 +318,7 @@ module App =
             let cmd =
                 match fom with
                 | FileOutput.Msg.SaveOutput -> saveOutput updated
-                | _ -> Settings.requestSave ()
+                | _ -> requestSaveSettings ()
 
             updated, cmd
 
@@ -415,20 +385,29 @@ module App =
             { model with Notifier = notifier }, Cmd.none
 
         | Notify title -> model, notifyInfo model.Notifier title
-        | SaveSettings -> model, Settings.save model
-        | SettingsSaved -> model, Cmd.none
 
-        | SettingsLoaded s ->
-            ({ model with
-                ResultOptions =
-                    match s.ResultOptions with
-                    | None -> ResultOptions.initModel
-                    | Some ro -> ro
-                FileOutput =
-                    match s.FileOutput with
-                    | None -> FileOutput.init ()
-                    | Some fo -> fo },
-             Cmd.none)
+        | SettingsMsg smsg ->
+            match smsg with
+            | Settings.Msg.Save ->
+                let saved =
+                    { Settings.Model.ResultOptions = Some model.ResultOptions
+                      Settings.Model.FileOutput = Some model.FileOutput }
+
+                model, Settings.save saved |> Cmd.map SettingsMsg
+
+            | Settings.Msg.Loaded s ->
+                { model with
+                    ResultOptions =
+                        match s.ResultOptions with
+                        | None -> ResultOptions.initModel
+                        | Some ro -> ro
+                    FileOutput =
+                        match s.FileOutput with
+                        | None -> FileOutput.init ()
+                        | Some fo -> fo },
+                Cmd.none
+
+            | _ -> model, Cmd.none
 
     let private runCommand model =
         (Grid(coldefs = [ Star ], rowdefs = [ Auto; Auto; Auto; Auto; Star ]) {
