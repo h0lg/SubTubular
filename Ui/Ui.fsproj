@@ -29,6 +29,8 @@
   </PropertyGroup>
   <ItemGroup>
     <AvaloniaResource Include="SubTubular.ico" />
+    <Compile Include="Application.fs" />
+    <Compile Include="WrapPanel.fs" />
     <Compile Include="AsyncImage.fs" />
     <Compile Include="AutoCompleteBox.fs" />
     <Compile Include="StyledElement.fs" />
