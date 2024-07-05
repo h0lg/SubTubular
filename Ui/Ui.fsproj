@@ -43,6 +43,7 @@
     <Compile Include="SearchResult.fs" />
     <Compile Include="ResultOptions.fs" />
     <Compile Include="FileOutput.fs" />
+    <Compile Include="Settings.fs" />
     <Compile Include="App.fs" />
   </ItemGroup>
   <ItemGroup>
