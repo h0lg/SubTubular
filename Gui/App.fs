@@ -25,6 +25,7 @@ module App =
         {
             Notifier: WindowNotificationManager
 
+            Settings: Settings.Model
             Cache: Cache.Model
             Recent: ConfigFile.Model
             Command: Commands
@@ -186,6 +187,7 @@ module App =
 
     let private initModel =
         { Cache = Cache.initModel
+          Settings = Settings.initModel
           Recent = ConfigFile.initModel
           Command = Commands.Search
           Notifier = null
@@ -387,16 +389,21 @@ module App =
         | Notify title -> model, notifyInfo model.Notifier title
 
         | SettingsMsg smsg ->
+            let upd, cmd = Settings.update smsg model.Settings
+            let mappedCmd = Cmd.map SettingsMsg cmd
+
             match smsg with
             | Settings.Msg.Save ->
                 let saved =
-                    { Settings.Model.ResultOptions = Some model.ResultOptions
-                      Settings.Model.FileOutput = Some model.FileOutput }
+                    { upd with
+                        ResultOptions = Some model.ResultOptions
+                        FileOutput = Some model.FileOutput }
 
-                model, Settings.save saved |> Cmd.map SettingsMsg
+                { model with Settings = saved }, Cmd.batch [ mappedCmd; Settings.save saved |> Cmd.map SettingsMsg ]
 
             | Settings.Msg.Loaded s ->
                 { model with
+                    Settings = upd
                     ResultOptions =
                         match s.ResultOptions with
                         | None -> ResultOptions.initModel
@@ -405,9 +412,9 @@ module App =
                         match s.FileOutput with
                         | None -> FileOutput.init ()
                         | Some fo -> fo },
-                Cmd.none
+                mappedCmd
 
-            | _ -> model, Cmd.none
+            | _ -> { model with Settings = upd }, mappedCmd
 
     let private runCommand model =
         (Grid(coldefs = [ Star ], rowdefs = [ Auto; Auto; Auto; Auto; Star ]) {
@@ -538,16 +545,17 @@ module App =
             TabItem("🕝 Recent", View.map RecentMsg (ConfigFile.view model.Recent))
             TabItem("🔍 Search", runCommand model).reference (searchTab)
             TabItem("🗃 Storage", View.map CacheMsg (Cache.view model.Cache))
+            TabItem("⚙ Settings", View.map SettingsMsg (Settings.view model.Settings))
         }
 #if MOBILE
     let app model = SingleViewApplication(view model)
 #else
     let app model =
-        DesktopApplication(
-            Window(view model)
-                .icon("avares://SubTubular.Gui/SubTubular.ico")
-                .title ("SubTubular")
-        )
+        let window =
+            Window(view model).icon("avares://SubTubular.Gui/SubTubular.ico").title ("SubTubular")
+
+        DesktopApplication(window)
+            .requestedThemeVariant(Settings.getThemeVariant (model.Settings.ThemeVariantKey))
 #if DEBUG
             .attachDevTools ()
 #endif
