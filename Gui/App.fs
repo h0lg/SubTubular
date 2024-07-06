@@ -428,8 +428,8 @@ module App =
 
             // scopes
             ScrollViewer(View.map ScopesMsg (Scopes.view model.Scopes))
-                .isVisible(model.ShowScopes)
-                .trailingMargin (4)
+                .card()
+                .isVisible (model.ShowScopes)
 
             // see https://usecasepod.github.io/posts/mvu-composition.html
             // and https://github.com/TimLariviere/FabulousContacts/blob/0d5024c4bfc7a84f02c0788a03f63ff946084c0b/FabulousContacts/ContactsListPage.fs#L89C17-L89C31
@@ -471,11 +471,11 @@ module App =
                     .margin(10, 0)
                     .gridColumn (4)
             })
-                .trailingMargin(4)
+                .card()
                 .gridRow (1)
 
             // result options
-            (Grid(coldefs = [ Auto; Star; Star; Auto ], rowdefs = [ Auto ]) {
+            (Grid(coldefs = [ Auto; Star; Star; Auto ], rowdefs = [ Auto; Auto ]) {
                 TextBlock("Results")
 
                 (View.map ResultOptionsMsg (ResultOptions.orderBy model.ResultOptions))
@@ -491,17 +491,16 @@ module App =
 
                 ToggleButton("to file 📄", model.DisplayOutputOptions, DisplayOutputOptionsChanged)
                     .gridColumn (3)
+
+                // output options
+                (View.map FileOutputMsg (FileOutput.view model.FileOutput))
+                    .isVisible(model.DisplayOutputOptions)
+                    .gridRow(1)
+                    .gridColumnSpan (4)
             })
-                .precedingSeparator(4)
-                .trailingMargin(4)
+                .card()
                 .isVisible(hasResults)
                 .gridRow (2)
-
-            // output options
-            (View.map FileOutputMsg (FileOutput.view model.FileOutput))
-                .trailingMargin(4)
-                .isVisible(model.DisplayOutputOptions)
-                .gridRow (3)
 
             // results
             ScrollViewer(
@@ -534,7 +533,7 @@ module App =
                 })
             )
                 .isVisible(hasResults)
-                .precedingSeparator(4)
+                .card()
                 .gridRow (4)
         })
             .margin(5, 5, 5, 0)
