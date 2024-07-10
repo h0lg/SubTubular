@@ -4,6 +4,7 @@ open System
 open Avalonia
 open Avalonia.Controls
 open Avalonia.Controls.Notifications
+open Avalonia.Controls.Primitives
 open Avalonia.Markup.Xaml.Styling
 open Avalonia.Media
 open AsyncImageLoader
@@ -98,6 +99,11 @@ module App =
 
             | OpenUrl url ->
                 ShellCommands.OpenUri url
+                model, Cmd.none
+
+            | ToggleFlyout args ->
+                let control = unbox<Control> args.Source
+                FlyoutBase.ShowAttachedFlyout(control)
                 model, Cmd.none
 
         | SettingsMsg smsg ->

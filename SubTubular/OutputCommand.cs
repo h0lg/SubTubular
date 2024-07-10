@@ -75,6 +75,14 @@ public sealed class SearchCommand : OutputCommand
 {
     public const string Description = "Search the subtitles and metadata of videos in the given scopes.";
 
+    public static string[] QueryHints = [
+        @"Quote ""multi-word phrases"".",
+        "Single words are matched exactly by default, ?fuzzy or with wild cards for s%ngle and multi* letters.",
+        @"Combine multiple & terms | ""phrases or queries"" using AND '&' and OR '|'.",
+        "Use ( brackets | for ) & ( complex | expressions ).",
+        $"You can restrict your search to the video '{nameof(Video.Title)}', '{nameof(Video.Description)}',"
+            + $@" '{nameof(Video.Keywords)}' and/or '{nameof(CaptionTrack.Captions)}'; e.g. '{nameof(Video.Title)}=""click bait""'."];
+
     public string? Query { get; set; }
     public ushort Padding { get; set; }
 
@@ -87,15 +95,7 @@ public sealed class SearchCommand : OutputCommand
     // for comparing in recent command list
     public override int GetHashCode() => HashCode.Combine(Query, base.GetHashCode());
 
-    public static string GetQueryHint()
-    {
-        return @" Quote ""multi-word phrases"". Single words are matched exactly by default,"
-            + " ?fuzzy or with wild cards for s%ngle and multi* letters."
-            + @" Combine multiple & terms | ""phrases or queries"" using AND '&' and OR '|'"
-            + " and ( use | brackets | for ) & ( complex | expressions )."
-            + $" You can restrict your search to the video '{nameof(Video.Title)}', '{nameof(Video.Description)}',"
-            + $@" '{nameof(Video.Keywords)}' and/or '{nameof(CaptionTrack.Captions)}'; e.g. '{nameof(Video.Title)}=""click bait""'.";
-    }
+    public static string GetQueryHint() => QueryHints.Join(" ");
 
     /// <summary>Mutually exclusive <see cref="OrderOptions"/>.</summary>
     internal static OrderOptions[] Orders = [OrderOptions.uploaded, OrderOptions.score];

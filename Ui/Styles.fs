@@ -3,6 +3,7 @@
 open System.Runtime.CompilerServices
 open Avalonia.Controls
 open Avalonia.Input
+open Avalonia.Interactivity
 open Avalonia.Media
 open Avalonia.Styling
 open Fabulous
@@ -44,8 +45,14 @@ module Styles =
         static member inline tapCursor(this: WidgetBuilder<'msg, #IFabInputElement>) = this.cursor (Cursors.hand)
 
         [<Extension>]
+        static member inline tappable
+            (this: WidgetBuilder<'msg, #IFabControl>, msg: RoutedEventArgs -> 'msg, tooltip: string)
+            =
+            this.onTapped(msg).tapCursor().tooltip (tooltip)
+
+        [<Extension>]
         static member inline tappable(this: WidgetBuilder<'msg, #IFabControl>, msg: 'msg, tooltip: string) =
-            this.onTapped(fun _ -> msg).tapCursor().tooltip (tooltip)
+            this.tappable ((fun _ -> msg), tooltip)
 
         [<Extension>]
         static member inline asToggle(this: WidgetBuilder<'msg, #IFabTemplatedControl>, condition) =

@@ -14,6 +14,9 @@
           <StaticResource x:Key="ExpanderHeaderBackgroundPressed" ResourceKey="ThickGlass" />
           <StaticResource x:Key="ExpanderHeaderBackgroundDisabled" ResourceKey="ThickGlass" />
           <StaticResource x:Key="ExpanderContentBackground" ResourceKey="Glass" />
+
+          <!--<StaticResource x:Key="FlyoutPresenterBackground" ResourceKey="ThickGlass" />
+          <StaticResource x:Key="FlyoutBorderThemeBrush" ResourceKey="Glass" />-->
         </ResourceDictionary>
         <ResourceDictionary x:Key='Dark'>
           <Color x:Key="Glass">#55222222</Color>
@@ -25,6 +28,9 @@
           <StaticResource x:Key="ExpanderHeaderBackgroundPressed" ResourceKey="ThickGlass" />
           <StaticResource x:Key="ExpanderHeaderBackgroundDisabled" ResourceKey="ThickGlass" />
           <StaticResource x:Key="ExpanderContentBackground" ResourceKey="Glass" />
+
+          <!--<StaticResource x:Key="FlyoutPresenterBackground" ResourceKey="Glass" />
+          <StaticResource x:Key="FlyoutBorderThemeBrush" ResourceKey="ThickGlass" />-->
         </ResourceDictionary>
       </ResourceDictionary.ThemeDictionaries>
     </ResourceDictionary>
@@ -41,6 +47,11 @@
   <Style Selector="ListBox">
     <Setter Property="Background" Value="{DynamicResource Glass}" />
     <Setter Property="CornerRadius" Value="10" />
+  </Style>
+
+  <!-- overriding https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Themes.Fluent/Controls/FlyoutPresenter.xaml -->
+  <Style Selector="FlyoutPresenter">
+    <Setter Property="Cursor" Value="Arrow" />
   </Style>
 
   <Style Selector="Border.card">
