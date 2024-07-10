@@ -3,12 +3,14 @@
 open System
 open System.Text.Json
 open Avalonia.Controls.Notifications
+open Avalonia.Interactivity
 open SubTubular
 open Fabulous
 
 [<AutoOpen>]
 module Shared =
     type CommonMsg =
+        | ToggleFlyout of RoutedEventArgs
         | OpenUrl of string
         | Notify of string
         | Fail of string

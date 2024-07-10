@@ -3,6 +3,7 @@
 open System
 open System.Collections.Generic
 open System.Threading
+open Avalonia.Controls
 open Avalonia.Media
 open Fabulous
 open Fabulous.Avalonia
@@ -343,6 +344,29 @@ module Search =
 
             model, cmd
 
+    let private queryFlyout () =
+        Flyout(
+            (VStack() {
+                TextBlock("The full-text search is powered by LIFTI.").margin (0, 0, 0, 10)
+
+                for hint in SearchCommand.QueryHints do
+                    TextBlock("▪ " + hint).textWrapping (TextWrapping.Wrap)
+
+                TextBlock("Read more about the syntax online 📡")
+                    .background(ThemeAware.With(Colors.SkyBlue, Colors.Purple))
+                    .margin(0, 10, 0, 0)
+                    .horizontalAlignment(HorizontalAlignment.Right)
+                    .tappable (
+                        Common(OpenUrl "https://mikegoatly.github.io/lifti/docs/searching/lifti-query-syntax/"),
+                        "Open the LIFTI query syntax help page in your browser"
+                    )
+            })
+                .maxWidth (400)
+        )
+            .placement(PlacementMode.BottomEdgeAlignedRight)
+            .showMode (FlyoutShowMode.Standard)
+    //.placement (PlacementMode.RightEdgeAlignedTop)
+
     let view model =
         (Grid(coldefs = [ Star ], rowdefs = [ Auto; Auto; Auto; Auto; Star ]) {
             let isSearch = model.Command = Commands.Search
@@ -380,13 +404,9 @@ module Search =
                     .onLostFocus(fun _ -> FocusQuery false)
                     .gridColumn (1)
 
-                (TextBlock "ⓘ")
-                    .tappable(
-                        OpenUrl "https://mikegoatly.github.io/lifti/docs/searching/lifti-query-syntax/"
-                        |> Common,
-                        "The full-text search is powered by LIFTI.\nTap to open its query syntax help page in your browser.\n\nTL/DR:\n\n"
-                        + SearchCommand.GetQueryHint().Trim()
-                    )
+                TextBlock("ⓘ")
+                    .attachedFlyout(queryFlyout ())
+                    .tappable(ToggleFlyout >> Common, "read about the query syntax")
                     .fontSize(20)
                     .isVisible(isSearch)
                     .gridColumn (2)
