@@ -23,8 +23,6 @@ module App =
 
     type Model =
         {
-            Notifier: WindowNotificationManager
-
             Settings: Settings.Model
             Cache: Cache.Model
             Recent: ConfigFile.Model
@@ -178,19 +176,11 @@ module App =
         }
         |> Cmd.OfAsync.msgOption
 
-    let private notify (notifier: WindowNotificationManager) notification =
-        Dispatch.toUiThread (fun () -> notifier.Show(notification))
-
-    let private notifyInfo (notifier: WindowNotificationManager) title =
-        notify notifier (Notification(title, "", NotificationType.Information, TimeSpan.FromSeconds 3))
-        Cmd.none
-
     let private initModel =
         { Cache = Cache.initModel
           Settings = Settings.initModel
           Recent = ConfigFile.initModel
           Command = Commands.Search
-          Notifier = null
           Query = ""
 
           Scopes = Scopes.init ()
@@ -324,7 +314,7 @@ module App =
 
             updated, cmd
 
-        | SavedOutput path -> model, notifyInfo model.Notifier ("Saved results to " + path)
+        | SavedOutput path -> model, Services.notifyInfo ("Saved results to " + path)
 
         | Run on ->
             let updated =
@@ -372,7 +362,7 @@ module App =
             { model with
                 Running = null
                 ShowScopes = false },
-            notifyInfo model.Notifier (cmd + " completed")
+            Services.notifyInfo (cmd + " completed")
 
         | SearchResultMsg srm ->
             match srm with
@@ -384,9 +374,10 @@ module App =
         | AttachedToVisualTreeChanged args ->
             let notifier = FabApplication.Current.WindowNotificationManager
             notifier.Position <- NotificationPosition.BottomRight
-            { model with Notifier = notifier }, Cmd.none
+            Services.Notifier <- notifier
+            model, Cmd.none
 
-        | Notify title -> model, notifyInfo model.Notifier title
+        | Notify title -> model, Services.notifyInfo title
 
         | SettingsMsg smsg ->
             let upd, cmd = Settings.update smsg model.Settings
