@@ -8,6 +8,10 @@ open Fabulous
 
 [<AutoOpen>]
 module Shared =
+    type CommonMsg =
+        | OpenUrl of string
+        | Notify of string
+
     let deepClone (obj: 'T) =
         let json = JsonSerializer.Serialize(obj)
         JsonSerializer.Deserialize<'T>(json)

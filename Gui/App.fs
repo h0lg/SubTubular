@@ -67,7 +67,7 @@ module App =
         | SearchResultMsg of SearchResult.Msg
 
         | AttachedToVisualTreeChanged of VisualTreeAttachmentEventArgs
-        | Notify of string
+        | Common of CommonMsg
 
     let private mapToCommand model =
         let order = ResultOptions.getSearchCommandOrderOptions model.ResultOptions
@@ -145,8 +145,8 @@ module App =
 
                     | _ -> failwith ("Unknown command type " + command.GetType().ToString())
                 with
-                | :? InputException as exn -> Notify exn.Message |> dispatch
-                | exn -> Notify exn.Message |> dispatch
+                | :? InputException as exn -> Notify exn.Message |> Common |> dispatch
+                | exn -> Notify exn.Message |> Common |> dispatch
 
                 dispatch CommandCompleted
             }
@@ -279,12 +279,13 @@ module App =
         | QueryChanged txt -> { model with Query = txt }, Cmd.none
 
         | ScopesMsg scpsMsg ->
-            match scpsMsg with
-            | Scopes.Msg.OpenUrl url -> ShellCommands.OpenUri url
-            | _ -> ()
+            let fwdCmd =
+                match scpsMsg with
+                | Scopes.Msg.Common cmsg -> Common cmsg |> Cmd.ofMsg
+                | _ -> Cmd.none
 
             let scopes, cmd = Scopes.update scpsMsg model.Scopes
-            { model with Scopes = scopes }, Cmd.map ScopesMsg cmd
+            { model with Scopes = scopes }, Cmd.batch [ fwdCmd; Cmd.map ScopesMsg cmd ]
 
         | ShowScopesChanged show -> { model with ShowScopes = show }, Cmd.none
 
@@ -369,11 +370,12 @@ module App =
             Services.notifyInfo (cmd + " completed")
 
         | SearchResultMsg srm ->
-            match srm with
-            | SearchResult.Msg.OpenUrl url -> ShellCommands.OpenUri url
-            | _ -> ()
+            let cmd =
+                match srm with
+                | SearchResult.Msg.Common cmsg -> Common cmsg |> Cmd.ofMsg
+                | _ -> Cmd.none
 
-            model, Cmd.none
+            model, cmd
 
         | AttachedToVisualTreeChanged args ->
             let notifier = FabApplication.Current.WindowNotificationManager
@@ -381,7 +383,13 @@ module App =
             Services.Notifier <- notifier
             model, Cmd.none
 
-        | Notify title -> model, Services.notifyInfo title
+        | Common cmsg ->
+            match cmsg with
+            | Notify title -> model, Services.notifyInfo title
+
+            | OpenUrl url ->
+                ShellCommands.OpenUri url
+                model, Cmd.none
 
         | SettingsMsg smsg ->
             let upd, cmd = Settings.update smsg model.Settings
