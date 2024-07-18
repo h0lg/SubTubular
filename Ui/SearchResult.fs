@@ -11,7 +11,7 @@ open type Fabulous.Avalonia.View
 module SearchResult =
     type Msg =
         | CopyingToClipboard of RoutedEventArgs
-        | OpenUrl of string
+        | Common of CommonMsg
 
     // see https://github.com/AvaloniaUI/Avalonia/discussions/9654
     let private writeHighlightingMatches (matched: MatchedText) (matchPadding: uint32 option) =
@@ -42,7 +42,7 @@ module SearchResult =
         (VStack() {
             Grid(coldefs = [ Auto; Auto; Star ], rowdefs = [ Auto; Auto ]) {
                 AsyncImage(result.Video.Thumbnail)
-                    .tappable(OpenUrl videoUrl, "start the video in the browser")
+                    .tappable(OpenUrl videoUrl |> Common, "start the video in the browser")
                     .margin(0, 0, 5, 0)
                     .gridRowSpan (2)
 
@@ -103,7 +103,7 @@ module SearchResult =
                         Grid(coldefs = [ Auto; Star ], rowdefs = [ Auto ]) {
                             (TextBlock offset)
                                 .tappable(
-                                    OpenUrl $"{videoUrl}?t={captionAt}",
+                                    OpenUrl $"{videoUrl}?t={captionAt}" |> Common,
                                     $"tap to start the video at this timestamp in the browser"
                                 )
                                 .margin(0, 0, 5, 0)

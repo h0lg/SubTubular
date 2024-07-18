@@ -16,7 +16,7 @@ module Scopes =
     type Msg =
         | AddScope of Type
         | ScopeMsg of Scope.Model * Scope.Msg
-        | OpenUrl of string
+        | Common of CommonMsg
 
     let private mapScopeCmd scopeModel scopeCmd =
         Cmd.map (fun scopeMsg -> ScopeMsg(scopeModel, scopeMsg)) scopeCmd
@@ -81,11 +81,11 @@ module Scopes =
 
             let fwdCmd =
                 match scopeMsg with
-                | Scope.Msg.OpenUrl uri -> Cmd.batch [ mappedCmd; OpenUrl uri |> Cmd.ofMsg ]
+                | Scope.Msg.Common cmsg -> Cmd.batch [ mappedCmd; Common cmsg |> Cmd.ofMsg ]
                 | _ -> mappedCmd
 
             updated, fwdCmd
-        | OpenUrl _ -> model, Cmd.none
+        | Common _ -> model, Cmd.none
 
     let private getAddableTypes model =
         let multipleAllowed = [ typeof<ChannelScope>; typeof<PlaylistScope> ]

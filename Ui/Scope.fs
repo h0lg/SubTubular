@@ -156,7 +156,6 @@ module Scope =
         | AliasesLostFocus of RoutedEventArgs
         | ValidationSucceeded
         | ValidationFailed of exn
-        | OpenUrl of string
         | ToggleSettings of bool
         | TopChanged of float option
         | CacheHoursChanged of float option
@@ -164,6 +163,7 @@ module Scope =
         | RemoveVideo of string
         | ProgressChanged
         | ProgressValueChanged of float
+        | Common of CommonMsg
 
     type Intent =
         | RemoveMe
@@ -311,7 +311,7 @@ module Scope =
         | Remove -> model, Cmd.none, RemoveMe
         | ProgressChanged -> model, Cmd.none, DoNothing
         | ProgressValueChanged _ -> model, Cmd.none, DoNothing
-        | OpenUrl _ -> model, Cmd.none, DoNothing
+        | Common _ -> model, Cmd.none, DoNothing
 
     let private getAliasWatermark model =
         match model.Scope with
@@ -348,7 +348,7 @@ module Scope =
             | None -> ()
 
             AsyncImage(thumbnailUrl)
-                .tappable(OpenUrl navigateUrl, "tap to open in the browser")
+                .tappable(OpenUrl navigateUrl |> Common, "tap to open in the browser")
                 .maxHeight(30)
                 .gridColumn(1)
                 .gridRowSpan (2)
