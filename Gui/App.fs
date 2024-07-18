@@ -71,7 +71,6 @@ module App =
         | SaveSettings
         | SettingsSaved
         | SettingsLoaded of SavedSettings
-        | Reset
 
     //TODO see instead https://docs.fabulous.dev/advanced/saving-and-restoring-app-state
     module Settings =
@@ -412,8 +411,6 @@ module App =
                     | None -> FileOutput.init ()
                     | Some fo -> fo },
              Cmd.none)
-
-        | Reset -> initModel, Cmd.none
 
     let private runCommand model =
         (Grid(coldefs = [ Star ], rowdefs = [ Auto; Auto; Auto; Auto; Star ]) {
