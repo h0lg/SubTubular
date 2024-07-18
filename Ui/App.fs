@@ -71,7 +71,6 @@ module App =
         | SaveSettings
         | SettingsSaved
         | SettingsLoaded of SavedSettings
-        | Reset
 
     //TODO see instead https://docs.fabulous.dev/advanced/saving-and-restoring-app-state
     module Settings =
@@ -411,8 +410,6 @@ module App =
                     | None -> FileOutput.init ()
                     | Some fo -> fo },
              Cmd.none)
-
-        | Reset -> initModel, Cmd.none
 
     (*  see for F#
             https://fsharp.org/learn/
