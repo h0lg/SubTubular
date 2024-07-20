@@ -181,7 +181,7 @@ public static class RemoteValidate
             ChannelAliasMap[] matchingChannels = [];
 
             try { matchingChannels = await ChannelAsync(channel, knownAliasMaps, youtube, cancellation); }
-            catch (InputException ex) { error = ex.Message; }
+            catch (InputException ex) { error = ex.Message; } // record input exceptions separately
 
             if (matchingChannels.Length > 1)
             {
@@ -201,19 +201,28 @@ public static class RemoteValidate
             return (matchingChannels, error);
         }).ToArray();
 
-        var task = Task.WhenAll(channelValidations).ContinueWith(async task =>
+        List<Exception> errors = [];
+
+        try
         {
-            var matchingChannels = task.Result.SelectMany(pair => pair.matchingChannels).Distinct();
+            await Task.WhenAll(channelValidations).WithAggregateException();
+        }
+        catch (Exception ex)
+        {
+            if (ex is AggregateException agg) errors.AddRange(agg.InnerExceptions);
+            else errors.Add(ex);
+        }
 
-            // save the knownAliasMaps HashSet if adding any matching channel returns true indicating that it was new
-            if (matchingChannels.Any())
-                await ChannelAliasMap.AddEntriesAsync(matchingChannels, dataStore);
+        var results = channelValidations.Where(t => t.IsCompletedSuccessfully).Select(t => t.Result).ToArray();
+        var matchingChannels = results.SelectMany(r => r.matchingChannels).Distinct();
 
-            var errors = task.Result.Select(pair => pair.error).WithValue();
-            if (errors.Any()) throw new InputException(errors.Join(Environment.NewLine));
-        }).WithAggregateException();
+        // save the knownAliasMaps HashSet if adding any matching channel returns true indicating that it was new
+        if (matchingChannels.Any()) await ChannelAliasMap.AddEntriesAsync(matchingChannels, dataStore);
 
-        await task;
+        // merge input errors
+        errors.AddRange(results.Select(r => r.error).WithValue().Select(error => new InputException(error)));
+        if (errors.Count == 1) throw errors.Single();
+        if (errors.Count > 1) throw new AggregateException(errors);
     }
 
     private static async Task<ChannelAliasMap[]> ChannelAsync(ChannelScope channel,
@@ -256,7 +265,6 @@ public static class RemoteValidate
                 : alias is ChannelHandle handle ? youtube.Client.Channels.GetByHandleAsync(handle, cancellation)
                 : alias is UserName user ? youtube.Client.Channels.GetByUserAsync(user, cancellation)
                 : alias is ChannelSlug slug ? youtube.Client.Channels.GetBySlugAsync(slug, cancellation)
-                //TODO this would get swallowed. fix exception handling.
                 : throw new NotImplementedException($"Getting channel for alias {alias.GetType()} is not implemented.");
 
             var (type, value) = ChannelAliasMap.GetTypeAndValue(alias);
