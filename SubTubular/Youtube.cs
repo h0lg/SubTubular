@@ -140,27 +140,23 @@ internal sealed class Youtube
         // load videos asynchronously in the background and put them on the unIndexedVideos channel for processing
         var loadVideos = Task.Run(async () =>
         {
-            var downloads = new List<Task>();
             var loadLimiter = new SemaphoreSlim(5, 5);
 
-            foreach (var id in unIndexedVideoIds)
+            var downloads = unIndexedVideoIds.Select(id => Task.Run(async () =>
             {
-                downloads.Add(Task.Run(async () =>
-                {
-                    /*  pause task here before starting download until channel accepts another video
-                        to avoid holding a lot of loaded but unprocessed videos in memory */
-                    await loadLimiter.WaitAsync();
+                /*  pause task here before starting download until channel accepts another video
+                    to avoid holding a lot of loaded but unprocessed videos in memory */
+                await loadLimiter.WaitAsync();
 
-                    try
-                    {
-                        cancellation.ThrowIfCancellationRequested();
-                        var video = await GetVideoAsync(id, cancellation);
-                        await unIndexedVideos.Writer.WriteAsync(video);
-                    }
-                    /* only start another download if channel has accepted the video or an error occurred */
-                    finally { loadLimiter.Release(); }
-                }));
-            }
+                try
+                {
+                    cancellation.ThrowIfCancellationRequested();
+                    var video = await GetVideoAsync(id, cancellation);
+                    await unIndexedVideos.Writer.WriteAsync(video);
+                }
+                /* only start another download if channel has accepted the video or an error occurred */
+                finally { loadLimiter.Release(); }
+            })).ToArray();
 
             try { await Task.WhenAll(downloads).WithAggregateException(); }
             finally
