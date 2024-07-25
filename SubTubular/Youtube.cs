@@ -334,12 +334,13 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                 finally { loadLimiter.Release(); }
             })).ToArray();
 
-            try { await Task.WhenAll(downloads).WithAggregateException(); }
-            finally
-            {
-                // complete writing after all download tasks finished
-                unIndexedVideos.Writer.Complete();
-            }
+            await Task.WhenAll(downloads).WithAggregateException()
+               .ContinueWith(t =>
+               {
+                   // complete writing after all download tasks finished
+                   unIndexedVideos.Writer.Complete();
+                   if (t.Exception != null) throw t.Exception;
+               }, cancellation);
         });
 
         var uncommitted = new List<Video>(); // batch of loaded and indexed, but uncommitted video index changes
@@ -504,16 +505,17 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
         }
 
         // hook up writer completion before starting to read to ensure the reader knows when it's done
-        var lookups = Task.WhenAll(lookupTasks).ContinueWith(t =>
-        {
-            channel.Writer.Complete();
-            //if (t.Exception != null) throw t.Exception;
-        }).WithAggregateException();
+        var lookups = Task.WhenAll(lookupTasks).WithAggregateException()
+            .ContinueWith(t =>
+            {
+                channel.Writer.Complete();
+                if (t.Exception != null) throw t.Exception;
+            }, cancellation);
 
         // start reading
         await foreach (var keywords in channel.Reader.ReadAllAsync(cancellation)) yield return keywords;
 
-        await lookups; // to propagate exceptions
+        await lookups;
     }
 
     public static void AggregateKeywords(string[] keywords, string videoId, CommandScope scope,

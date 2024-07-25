@@ -157,7 +157,12 @@ public static class AsyncEnumerableExtensions
         }).ToList();
 
         // hook up writer completion before starting to read to ensure the reader knows when it's done
-        var completion = Task.WhenAll(productionLines).ContinueWith(_ => products.Writer.Complete(), cancellation).WithAggregateException();
+        var completion = Task.WhenAll(productionLines).WithAggregateException()
+            .ContinueWith(t =>
+            {
+                products.Writer.Complete();
+                if (t.Exception != null) throw t.Exception;
+            }, cancellation);
 
         // Read from product channel and yield each product
         await foreach (var product in products.Reader.ReadAllAsync(cancellation)) yield return product;
