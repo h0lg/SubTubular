@@ -27,7 +27,6 @@ module Scope =
           Youtube: Youtube }
 
     type Msg =
-        | Focused
         | AliasesUpdated of string
         | AliasesSelected of SelectionChangedEventArgs
         | ToggleSettings of bool
@@ -58,7 +57,6 @@ module Scope =
 
     let update msg model =
         match msg with
-        | Focused -> { model with Added = false }, DoNothing
         | ToggleSettings show -> { model with ShowSettings = show }, DoNothing
 
         | AliasesSelected args ->
@@ -70,7 +68,12 @@ module Scope =
                  model),
             DoNothing
 
-        | AliasesUpdated aliases -> { model with Aliases = aliases }, DoNothing
+        | AliasesUpdated aliases ->
+            { model with
+                Added = false
+                Aliases = aliases },
+            DoNothing
+
         | TopChanged top -> { model with Top = top }, DoNothing
         | CacheHoursChanged hours -> { model with CacheHours = hours }, DoNothing
         | Remove -> model, RemoveMe
@@ -149,22 +152,15 @@ module Scope =
                 Label(displayType model.Type)
                 Button("❌", Remove).tip (ToolTip("remove this scope"))
 
-                let aliases =
-                    AutoCompleteBox(fun text ct -> searchAliasesAsync model text ct)
-                        .onTextChanged(model.Aliases, AliasesUpdated)
-                        .minimumPrefixLength(3)
-                        .itemSelector(fun enteredText item ->
-                            selectAliases enteredText (item :?> YoutubeSearchResult) forVideos)
-                        .onSelectionChanged(AliasesSelected)
-                        .filterMode(AutoCompleteFilterMode.None)
-                        .watermark ("by " + getAliasWatermark model)
-
-                if model.Added then
-                    aliases
-                        .focus(true) // to enable typing immediately
-                        .onGotFocus (fun _ -> Focused) // to clear Added flag
-                else
-                    aliases
+                AutoCompleteBox(fun text ct -> searchAliasesAsync model text ct)
+                    .onTextChanged(model.Aliases, AliasesUpdated)
+                    .minimumPrefixLength(3)
+                    .itemSelector(fun enteredText item ->
+                        selectAliases enteredText (item :?> YoutubeSearchResult) forVideos)
+                    .onSelectionChanged(AliasesSelected)
+                    .filterMode(AutoCompleteFilterMode.None)
+                    .focus(model.Added)
+                    .watermark ("by " + getAliasWatermark model)
 
                 if not forVideos then
                     ToggleButton("⚙", model.ShowSettings, ToggleSettings)
