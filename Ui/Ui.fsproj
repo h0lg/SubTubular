@@ -63,7 +63,6 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.0-rc1" />
-    <PackageReference Include="FSharp.Control.TaskSeq" Version="0.4.0" />
     <PackageReference Include="FSharp.Core" Version="9.0.100-beta.24422.2" />
     <PackageReference Include="Fabulous" Version="3.0.0-pre5" />
     <PackageReference Include="Fabulous.Avalonia" Version="3.0.0-pre6" />

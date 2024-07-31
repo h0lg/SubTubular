@@ -136,6 +136,26 @@ module App =
     let private dataStore = JsonFileDataStore cacheFolder
     let private youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
 
+    let dispatchAsyncEnumerable
+        (action: Collections.Generic.IAsyncEnumerable<'result>)
+        (map: 'result -> Msg)
+        (dispatch: Msg -> unit)
+        =
+        async {
+            let results = action.GetAsyncEnumerator()
+
+            let rec dispatchResults () =
+                async {
+                    let! hasNext = results.MoveNextAsync().AsTask() |> Async.AwaitTask
+
+                    if hasNext then
+                        map results.Current |> dispatch
+                        do! dispatchResults ()
+                }
+
+            do! dispatchResults ()
+        }
+
     let private searchCmd model =
         fun dispatch ->
             async {
@@ -170,12 +190,7 @@ module App =
                     CommandValidator.ValidateScopesAsync(command, youtube, dataStore, cts.Token)
                     |> Async.AwaitTask
 
-                do!
-                    youtube.SearchAsync(command, cts.Token)
-                    // see https://github.com/fsprojects/FSharp.Control.TaskSeq
-                    |> TaskSeq.iter (fun result -> SearchResult result |> dispatch)
-                    |> Async.AwaitTask
-
+                do! dispatchAsyncEnumerable (youtube.SearchAsync(command, cts.Token)) SearchResult dispatch
                 do! awaitNextDispatch (Some(TimeSpan.FromMilliseconds 100)) // to make sure all progresses are dispatched before calling it done
 
                 dispatch SearchCompleted
