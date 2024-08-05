@@ -31,12 +31,9 @@ module FileOutput =
           Opening = Open.nothing }
 
     let saveAsync command writeResults =
-        async {
+        task {
             use cts = new CancellationTokenSource()
-
-            do!
-                RemoteValidate.ScopesAsync(command, Services.Youtube, Services.DataStore, cts.Token)
-                |> Async.AwaitTask
+            do! RemoteValidate.ScopesAsync(command, Services.Youtube, Services.DataStore, cts.Token)
 
             let writer =
                 if command.OutputHtml then
@@ -48,7 +45,7 @@ module FileOutput =
             writeResults writer
 
             // turn ValueTask into Task while native ValueTask handling is in RFC, see https://stackoverflow.com/a/52398452
-            let! path = writer.SaveFile().AsTask() |> Async.AwaitTask
+            let! path = writer.SaveFile().AsTask()
 
             match writer with
             | :? HtmlOutputWriter as htmlWriter -> htmlWriter.Dispose()
@@ -64,6 +61,7 @@ module FileOutput =
 
             return path
         }
+        |> Async.AwaitTask
 
     let update msg model =
         match msg with
