@@ -37,23 +37,23 @@ module Settings =
     let requestSave = Cmd.debounce 1000 (fun () -> Save)
 
     let load =
-        async {
+        task {
             if File.Exists path then
-                let! json = File.ReadAllTextAsync(path) |> Async.AwaitTask
+                let! json = File.ReadAllTextAsync(path)
                 let settings = JsonSerializer.Deserialize json
                 return Loaded settings |> Some
             else
                 return None
         }
-        |> Cmd.OfAsync.msgOption
+        |> Cmd.OfTask.msgOption
 
     let save model =
-        async {
+        task {
             let json = JsonSerializer.Serialize model
-            do! File.WriteAllTextAsync(path, json) |> Async.AwaitTask
+            do! File.WriteAllTextAsync(path, json)
             return Saved
         }
-        |> Cmd.OfAsync.msg
+        |> Cmd.OfTask.msg
 
     let update msg model =
         match msg with
@@ -83,7 +83,7 @@ module Settings =
     let view model =
         Panel() {
             HWrap() {
-                TextBlock("Theme").centerVertical()
+                TextBlock("Theme").centerVertical ()
 
                 ListBox(themeVariants, (fun variant -> TextBlock(display variant)))
                     .selectedItem(getThemeVariant (model.ThemeVariantKey))
