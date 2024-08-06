@@ -59,7 +59,7 @@ public sealed class Youtube
         var index = await videoIndexRepo.GetAsync(storageKey);
         if (index == null) index = videoIndexRepo.Build(storageKey);
         var playlist = await RefreshPlaylistAsync(scope, cancellation);
-        var videoIds = playlist.Videos.Keys.Take(scope.Top).ToArray();
+        var videoIds = playlist.GetVideoIds().Take(scope.Top).ToArray();
         scope.QueueVideos(videoIds);
         var indexedVideoIds = index.GetIndexed(videoIds);
 
@@ -67,7 +67,7 @@ public sealed class Youtube
 
         if (indexedVideoIds.Length != 0)
         {
-            var indexedVideoInfos = indexedVideoIds.ToDictionary(id => id, id => playlist.Videos[id]);
+            var indexedVideoInfos = indexedVideoIds.ToDictionary(id => id, playlist.GetVideoUploaded);
 
             // search already indexed videos in one go - but on background task to start downloading and indexing videos in parallel
             searches.Add(SearchIndexedVideos());
@@ -106,11 +106,7 @@ public sealed class Youtube
 
             foreach (var video in videos)
             {
-                if (playlist.Videos[video.Id] != video.Uploaded)
-                {
-                    playlist.Videos[video.Id] = video.Uploaded;
-                    updated = true;
-                }
+                if (playlist.SetUploaded(video)) updated = true;
             }
 
             if (updated) await dataStore.SetAsync(storageKey, playlist);
@@ -151,7 +147,7 @@ public sealed class Youtube
 
         // return fresh playlist with sufficient videos loaded
         if (DateTime.UtcNow.AddHours(-Math.Abs(scope.CacheHours)) <= playlist.Loaded
-            && scope.Top <= playlist.Videos.Count) return playlist;
+            && scope.Top <= playlist.GetVideoIds().Count()) return playlist;
 
         // playlist cache is outdated or lacking sufficient videos
         scope.Report(VideoList.Status.refreshing);
@@ -161,13 +157,7 @@ public sealed class Youtube
             // load and update videos in playlist while keeping existing video info
             var freshVideos = await GetVideos(scope, cancellation).CollectAsync(scope.Top);
             playlist.Loaded = DateTime.UtcNow;
-
-            // use new order but append older entries; note that this leaves remotely deleted videos in the playlist
-            var freshKeys = freshVideos.Select(v => v.Id.Value).ToArray();
-
-            playlist.Videos = freshKeys.Concat(playlist.Videos.Keys.Except(freshKeys))
-                .ToDictionary(id => id, id => playlist.Videos.TryGetValue(id, out var uploaded) ? uploaded : null);
-
+            playlist.AddVideoIds(freshVideos.Select(v => v.Id.Value).ToArray());
             await dataStore.SetAsync(scope.StorageKey, playlist);
         }
         /*  treat playlist identified by user input not being available as input error
@@ -325,7 +315,7 @@ public sealed class Youtube
             Task.Run(async () =>
             {
                 var playlist = await RefreshPlaylistAsync(scope, cancellation);
-                var videoIds = playlist.Videos.Keys.Take(scope.Top).ToArray();
+                var videoIds = playlist.GetVideoIds().Take(scope.Top).ToArray();
                 scope.QueueVideos(videoIds);
                 scope.Report(VideoList.Status.searching);
                 foreach (var videoId in videoIds) await GetKeywords(videoId, scope);

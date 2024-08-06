@@ -110,7 +110,7 @@ public static class CacheClearer
             foreach (var key in deletableKeys)
             {
                 var playlist = await playListLikeDataStore.GetAsync<Playlist>(key);
-                if (playlist != null) DeleteByNames(playlist.Videos.Keys.Select(videoId => Video.StorageKeyPrefix + videoId));
+                if (playlist != null) DeleteByNames(playlist.GetVideoIds().Select(videoId => Video.StorageKeyPrefix + videoId));
                 DeleteByName(key);
             }
         }
