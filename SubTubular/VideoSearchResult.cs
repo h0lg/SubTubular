@@ -41,30 +41,6 @@ public sealed class VideoSearchResult
         public required CaptionTrack Track { get; set; }
         public required MatchedText Matches { get; set; }
 
-        public Caption GetJoinendCaption(MatchedText matches)
-        {
-            var start = matches.Matches.Min(m => m.Start);
-            var end = matches.Matches.Max(m => m.IncludedEnd);
-            var captionAtFullTextIndex = Track.GetCaptionAtFullTextIndex();
-
-            // find first and last captions containing parts of the padded match
-            var first = captionAtFullTextIndex.Last(x => x.Key <= start);
-            var last = captionAtFullTextIndex.Last(x => first.Key <= x.Key && x.Key <= end);
-
-            var captions = captionAtFullTextIndex // span of captions containing the padded match
-                .Where(x => first.Key <= x.Key && x.Key <= last.Key).ToArray();
-
-            // return a single caption for all captions containing matches
-            return new Caption
-            {
-                At = first.Value.At,
-                Text = captions.Select(x => x.Value.Text)
-                    .Where(text => text.IsNonWhiteSpace()) // skip included line breaks
-                    .Select(text => text.NormalizeWhiteSpace(CaptionTrack.FullTextSeperator)) // replace included line breaks
-                    .Join(CaptionTrack.FullTextSeperator)
-            };
-        }
-
         public (MatchedText synced, int captionStart) SyncWithCaptions(MatchedText matched, uint matchPadding)
         {
             // get (included) padded start and end index of matched Text
