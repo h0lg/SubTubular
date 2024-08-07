@@ -89,7 +89,7 @@ public sealed class CaptionTrack
     private void CacheFullText()
     {
         if (Captions == null) throw new InvalidOperationException(
-            "You may only call whis method on instances with " + nameof(Captions));
+            "You may only call this method on instances with " + nameof(Captions));
 
         var writer = new StringBuilder();
         var captionsAtFullTextIndex = new Dictionary<int, Caption>();
