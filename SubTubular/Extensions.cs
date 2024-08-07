@@ -107,6 +107,9 @@ public static class EnumerableExtensions
 
     public static IEnumerable<T> WithValue<T>(this IEnumerable<T?> nullables)
         => nullables.Where(v => v != null).Select(v => v!);
+
+    public static IEnumerable<T> WithValue<T>(this IEnumerable<T?> nullables) where T : struct
+        => nullables.Where(v => v.HasValue).Select(v => v!.Value);
 }
 
 internal static class HashCodeExtensions

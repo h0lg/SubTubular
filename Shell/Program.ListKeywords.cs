@@ -8,12 +8,12 @@ static partial class Program
     {
         Prevalidate.Scopes(command);
 
-        await OutputAsync(command, originalCommand, async (youtube, cancellation, outputs) =>
+        await OutputAsync(command, originalCommand, async (youtube, cancellation, outputs, notifyCaller) =>
         {
             var resultDisplayed = false;
             Dictionary<CommandScope, Dictionary<string, List<string>>> scopes = [];
 
-            await foreach (var (keyword, videoId, scope) in youtube.ListKeywordsAsync(command).WithCancellation(cancellation))
+            await foreach (var (keyword, videoId, scope) in youtube.ListKeywordsAsync(command, notifyCaller).WithCancellation(cancellation))
                 Youtube.AggregateKeywords(keyword, videoId, scope, scopes);
 
             if (scopes.Any())

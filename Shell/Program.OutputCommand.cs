@@ -6,7 +6,7 @@ namespace SubTubular.Shell;
 static partial class Program
 {
     private static async Task OutputAsync(OutputCommand command, string originalCommand,
-        Func<Youtube, CancellationToken, List<OutputWriter>, Task<bool>> runCommand)
+        Func<Youtube, CancellationToken, List<OutputWriter>, Action<string, string>, Task<bool>> runCommand)
     {
         //inspired by https://johnthiriet.com/cancel-asynchronous-operation-in-csharp/
         using var cancellation = new CancellationTokenSource();
@@ -53,7 +53,15 @@ static partial class Program
         {
             /*  passing token into command for it to react to cancellation,
                 see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables */
-            resultDisplayed = await runCommand(youtube, cancellation.Token, outputs);
+            resultDisplayed = await runCommand(youtube, cancellation.Token, outputs,
+                // notification channel
+                (title, message) => outputs.ForEach(o =>
+                {
+                    o.WriteLine();
+                    o.WriteLine(title);
+                    o.WriteLine(message);
+                    o.WriteLine();
+                }));
         }
         catch (OperationCanceledException) { Console.WriteLine("The operation was cancelled."); }
         finally // write output file even if exception occurs

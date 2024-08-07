@@ -10,12 +10,12 @@ static partial class Program
     {
         Prevalidate.Search(command);
 
-        await OutputAsync(command, originalCommand, async (youtube, cancellation, outputs) =>
+        await OutputAsync(command, originalCommand, async (youtube, cancellation, outputs, notifyCaller) =>
         {
             var resultDisplayed = false;
             var tracksWithErrors = new List<CaptionTrack>();
 
-            await foreach (var result in youtube.SearchAsync(command).WithCancellation(cancellation))
+            await foreach (var result in youtube.SearchAsync(command, notifyCaller).WithCancellation(cancellation))
             {
                 outputs.ForEach(o => o.WriteVideoResult(result, command.Padding));
                 resultDisplayed = true;

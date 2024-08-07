@@ -94,6 +94,9 @@ module Search =
 
                     let cancellation = model.Running.Token
 
+                    let notify title message =
+                        NotifyLong(title, message) |> Common |> dispatch
+
                     match command with
                     | :? SearchCommand as search ->
                         Prevalidate.Search search
@@ -106,7 +109,7 @@ module Search =
 
                         do!
                             Services.Youtube
-                                .SearchAsync(search, cancellation)
+                                .SearchAsync(search, notify, cancellation)
                                 .dispatchBatchThrottledTo (300, SearchResults, dispatch)
 
                     | :? ListKeywords as listKeywords ->
@@ -126,7 +129,7 @@ module Search =
 
                         do!
                             Services.Youtube
-                                .ListKeywordsAsync(listKeywords, cancellation)
+                                .ListKeywordsAsync(listKeywords, notify, cancellation)
                                 .dispatchBatchThrottledTo (
                                     300,
                                     (fun list -> list |> List.map _.ToTuple() |> KeywordResults),
