@@ -58,12 +58,14 @@ public abstract class PlaylistLikeScope : CommandScope
 
     // public options
     public string Alias { get; set; }
+    public ushort Skip { get; set; }
     public ushort Take { get; set; }
     public float CacheHours { get; set; }
 
-    protected PlaylistLikeScope(string alias, ushort take, float cacheHours)
+    protected PlaylistLikeScope(string alias, ushort skip, ushort take, float cacheHours)
     {
         Alias = alias.Trim();
+        Skip = skip;
         Take = take;
         CacheHours = cacheHours;
     }
@@ -78,14 +80,14 @@ public abstract class PlaylistLikeScope : CommandScope
 }
 
 [Serializable]
-public class PlaylistScope(string alias, ushort take, float cacheHours) : PlaylistLikeScope(alias, take, cacheHours)
+public class PlaylistScope(string alias, ushort skip, ushort take, float cacheHours) : PlaylistLikeScope(alias, skip, take, cacheHours)
 {
     internal const string StorageKeyPrefix = "playlist ";
     protected override string KeyPrefix => StorageKeyPrefix;
 }
 
 [Serializable]
-public class ChannelScope(string alias, ushort take, float cacheHours) : PlaylistLikeScope(alias, take, cacheHours)
+public class ChannelScope(string alias, ushort skip, ushort take, float cacheHours) : PlaylistLikeScope(alias, skip, take, cacheHours)
 {
     internal const string StorageKeyPrefix = "channel ";
     protected override string KeyPrefix => StorageKeyPrefix;

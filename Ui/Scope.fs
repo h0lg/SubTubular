@@ -156,6 +156,7 @@ module Scope =
         | ValidationSucceeded
         | ValidationFailed of exn
         | ToggleSettings of bool
+        | SkipChanged of float option
         | TakeChanged of float option
         | CacheHoursChanged of float option
         | Remove
@@ -238,13 +239,14 @@ module Scope =
     /// creates a scope on user command, marking it as Added for it to be focused
     let add scopeType =
         let aliases = ""
+        let skip = uint16 0
         let take = uint16 50
         let cacheHours = float32 24
 
         let scope =
             match scopeType with
-            | IsChannel -> ChannelScope(aliases, take, cacheHours) :> CommandScope
-            | IsPlaylist -> PlaylistScope(aliases, take, cacheHours)
+            | IsChannel -> ChannelScope(aliases, skip, take, cacheHours) :> CommandScope
+            | IsPlaylist -> PlaylistScope(aliases, skip, take, cacheHours)
             | IsVideos -> VideosScope(VideosInput.splitAndClean aliases)
 
         init scope aliases true
@@ -285,6 +287,13 @@ module Scope =
 
         | ValidationSucceeded -> { model with Error = null }, Cmd.none, DoNothing
         | ValidationFailed exn -> { model with Error = exn.Message }, Cmd.none, DoNothing
+
+        | SkipChanged skip ->
+            match model.Scope with
+            | PlaylistLike scope -> scope.Skip <- skip |> Option.defaultValue 0 |> uint16
+            | _ -> ()
+
+            model, Cmd.none, DoNothing
 
         | TakeChanged take ->
             match model.Scope with
@@ -453,7 +462,13 @@ module Scope =
                         .tooltip ("toggle settings")
 
                     (HStack(5) {
-                        Label "search top"
+                        Label "skip"
+
+                        NumericUpDown(0, float UInt16.MaxValue, Some(float playlistLike.Skip), SkipChanged)
+                            .formatString("F0")
+                            .tooltip ("number of videos to skip")
+
+                        Label "take"
 
                         NumericUpDown(0, float UInt16.MaxValue, Some(float playlistLike.Take), TakeChanged)
                             .formatString("F0")
