@@ -50,7 +50,7 @@ internal sealed class Youtube
 
         var unIndexedVideoIds = videoIds.Except(indexedVideoIds).ToArray();
 
-        // load, index and search un-indexed videos
+        // load, index and search not yet indexed videos
         if (unIndexedVideoIds.Length > 0) searches.Add(Task.Run(async () =>
         {
             // search already indexed videos in one go
@@ -118,7 +118,7 @@ internal sealed class Youtube
                 await dataStore.SetAsync(storageKey, playlist);
             }
             /*  treat playlist identified by user input not being available as input error
-                and rethrow otherwise; the uploads playlist of a channel being unavailable is unexpected */
+                and re-throw otherwise; the uploads playlist of a channel being unavailable is unexpected */
             catch (PlaylistUnavailableException ex) when (command is SearchPlaylist searchPlaylist)
             { throw new InputException($"Could not find {searchPlaylist.Describe()}.", ex); }
         }
@@ -170,7 +170,7 @@ internal sealed class Youtube
             }
         });
 
-        var uncommitted = new List<Video>(); // batch of loaded and indexed, but uncommited video index changes
+        var uncommitted = new List<Video>(); // batch of loaded and indexed, but uncommitted video index changes
 
         // local getter preferring to reuse already loaded video from uncommitted bag for better performance
         Func<string, CancellationToken, Task<Video>> getVideoAsync = async (videoId, cancellation)
@@ -206,7 +206,7 @@ internal sealed class Youtube
             }
         }
 
-        await loadVideos; // just to rethrow possible exceptions; should have completed at this point
+        await loadVideos; // just to re-throw possible exceptions; should have completed at this point
     }
 
     /// <summary>Searches videos scoped by the specified <paramref name="command"/>.</summary>

@@ -196,7 +196,7 @@ internal sealed class VideoIndex
         {
             cancellation.ThrowIfCancellationRequested();
 
-            // consider results for uncached videos stale
+            // consider results for un-cached videos stale
             if (unIndexedVideos.Any(video => video.Id == match.VideoId)) continue;
 
             var video = previouslyLoadedVideos.SingleOrDefault(v => v.Id == match.VideoId);
@@ -208,7 +208,7 @@ internal sealed class VideoIndex
                 if (video.UnIndexed)
                 {
                     unIndexedVideos.Add(video);
-                    continue; // consider results for uncached videos stale
+                    continue; // consider results for un-cached videos stale
                 }
             }
 
@@ -307,7 +307,7 @@ internal sealed class VideoIndex
 
         if (unIndexedVideos.Count > 0)
         {
-            // consider results for uncached videos stale and re-index them
+            // consider results for un-cached videos stale and re-index them
             await UpdateAsync(unIndexedVideos, cancellation);
 
             // re-trigger search for re-indexed videos only

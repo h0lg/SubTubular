@@ -50,7 +50,7 @@ internal static class StringExtensions
 }
 
 /// <summary>Extension methods for <see cref="IEnumerable{T}"/> types.</summary>
-internal static class EnumerableExtenions
+internal static class EnumerableExtensions
 {
     /// <summary>Indicates whether <paramref name="collection"/>
     /// contains any of the supplied <paramref name="values"/>.</summary>

@@ -210,7 +210,7 @@ internal static class Program
         }
         catch (Exception ex)
         {
-            Console.WriteLine("The following errors occurred and we were unabled to write a log for them.");
+            Console.WriteLine("The following errors occurred and we were unable to write a log for them.");
             Console.WriteLine();
             Console.Error.WriteLine(report);
             Console.WriteLine();
