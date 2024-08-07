@@ -25,7 +25,8 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
 
     public readonly YoutubeClient Client = new();
 
-    public async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command, [EnumeratorCancellation] CancellationToken cancellation = default)
+    public async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command,
+        [EnumeratorCancellation] CancellationToken cancellation = default)
     {
         List<IAsyncEnumerable<VideoSearchResult>> searches = [];
         SearchPlaylistLikeScopes(command.Channels);
@@ -54,63 +55,96 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
     {
         cancellation.ThrowIfCancellationRequested();
         var storageKey = scope.StorageKey;
-        var index = await videoIndexRepo.GetAsync(storageKey);
-        if (index == null) index = videoIndexRepo.Build(storageKey);
-        var playlist = await RefreshPlaylistAsync(scope, cancellation);
-        var videoIds = playlist.GetVideoIds().Skip(scope.Skip).Take(scope.Take).ToArray();
-        scope.QueueVideos(videoIds);
-        var indexedVideoIds = index.GetIndexed(videoIds);
+        var playlist = scope.SingleValidated.Playlist!;
 
-        List<IAsyncEnumerable<VideoSearchResult>> searches = [];
-
-        if (indexedVideoIds.Length != 0)
+        using (playlist.CreateChangeToken())
         {
-            var indexedVideoInfos = indexedVideoIds.ToDictionary(id => id, playlist.GetVideoUploaded);
-
-            // search already indexed videos in one go - but on background task to start downloading and indexing videos in parallel
-            searches.Add(SearchIndexedVideos());
-
-            async IAsyncEnumerable<VideoSearchResult> SearchIndexedVideos()
+            await foreach (var changedFromPrevious in RefreshPlaylistAsync(scope, cancellation))
             {
-                foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searching);
+                if (changedFromPrevious)
+                {
+                    await SavePlaylistAsync(playlist);
+                    scope.Notify("Search results may be stale.", playlistRefreshHadUnexpectedChanges, null);
+                    continue; // don't automatically repeat the search on the updated playlist
+                }
 
-                await foreach (var result in index.SearchAsync(command, CreateVideoLookup(scope), indexedVideoInfos, UpdatePlaylistVideosUploaded, cancellation))
+                var videos = playlist.GetVideos().Skip(scope.Skip).Take(scope.Take).ToArray();
+                var videoIds = videos.Select(v => v.Id).ToArray();
+                scope.QueueVideos(videoIds);
+
+                List<IAsyncEnumerable<VideoSearchResult>> searches = [];
+
+                foreach (var group in videos.GroupBy(v => v.ShardNumber))
+                {
+                    var containedVideoIds = group.Select(v => v.Id).ToArray();
+                    var shard = await videoIndexRepo.GetIndexShardAsync(storageKey, group.Key!.Value);
+                    ushort shardConsumers = 0; // counts shard consumer registrations for DisposeUnusedShard below
+                    var indexedVideoIds = shard.GetIndexed(containedVideoIds);
+
+                    if (indexedVideoIds.Length != 0)
+                    {
+                        var indexedVideoInfos = indexedVideoIds.ToDictionary(id => id, id => group.Single(v => v.Id == id).Uploaded);
+                        shardConsumers++;
+
+                        // search already indexed videos in one go - but on background task to start downloading and indexing videos in parallel
+                        searches.Add(SearchIndexedVideos());
+
+                        async IAsyncEnumerable<VideoSearchResult> SearchIndexedVideos()
+                        {
+                            foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searching);
+
+                            await foreach (var result in shard.SearchAsync(command, CreateVideoLookup(scope), indexedVideoInfos, playlist, cancellation))
+                                yield return result;
+
+                            foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searched);
+                            DisposeUnusedShard();
+                        }
+                    }
+
+                    var unIndexedVideoIds = containedVideoIds.Except(indexedVideoIds).ToArray();
+
+                    // load, index and search not yet indexed videos
+                    if (unIndexedVideoIds.Length > 0)
+                    {
+                        shardConsumers++;
+                        searches.Add(SearchUnindexedVids());
+
+                        async IAsyncEnumerable<VideoSearchResult> SearchUnindexedVids()
+                        {
+                            await foreach (var result in SearchUnindexedVideos(command, unIndexedVideoIds, shard, scope, cancellation, playlist))
+                                yield return result;
+
+                            DisposeUnusedShard();
+                        }
+                    }
+
+                    // helps disposing of index shard as soon as possible to free resources
+                    void DisposeUnusedShard()
+                    {
+                        lock (shard) // safe-guards concurrent access to indexConsumers
+                        {
+                            shardConsumers--;
+                            if (shardConsumers == 0) shard.Dispose();
+                        }
+                    }
+                }
+
+                scope.Report(VideoList.Status.searching);
+                var spansMultipleIndexes = searches.Count > 0;
+
+                await foreach (var result in searches.Parallelize(cancellation))
+                {
+                    result.Scope = scope;
+                    if (spansMultipleIndexes) result.Rescore();
                     yield return result;
+                }
 
-                foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searched);
+                scope.Report(VideoList.Status.searched);
+                await SavePlaylistAsync(playlist);
             }
         }
 
-        var unIndexedVideoIds = videoIds.Except(indexedVideoIds).ToArray();
-
-        // load, index and search not yet indexed videos
-        if (unIndexedVideoIds.Length > 0) searches.Add(SearchUnindexedVideos(command,
-            unIndexedVideoIds, index, scope, cancellation, UpdatePlaylistVideosUploaded));
-
-        scope.Report(VideoList.Status.searching);
-        var spansMultipleIndexes = searches.Count > 0;
-
-        await foreach (var result in searches.Parallelize(cancellation))
-        {
-            result.Scope = scope;
-            if (spansMultipleIndexes) result.Rescore();
-            yield return result;
-        }
-
-        scope.Report(VideoList.Status.searched);
-        index.Dispose();
-
-        async Task UpdatePlaylistVideosUploaded(IEnumerable<Video> videos)
-        {
-            var updated = false;
-
-            foreach (var video in videos)
-            {
-                if (playlist.SetUploaded(video)) updated = true;
-            }
-
-            if (updated) await dataStore.SetAsync(storageKey, playlist);
-        }
+        ValueTask SavePlaylistAsync(Playlist playlist) => playlist.SaveAsync(() => dataStore.SetAsync(storageKey, playlist));
     }
 
     internal Task<Playlist?> GetPlaylistAsync(PlaylistScope scope, CancellationToken cancellation) =>
@@ -141,44 +175,103 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
         return playlist;
     }
 
-    private async Task<Playlist> RefreshPlaylistAsync(PlaylistLikeScope scope, CancellationToken cancellation)
+    private static readonly string playlistRefreshHadUnexpectedChanges =
+        "The command was run on cached playlist info that turned out to be stale - you may want re-run it."
+        + $" {AssemblyInfo.Name} decided to do so when hitting known video IDs during playlist refresh to get you quicker results"
+        + " - but completing the refresh in the background turned up with unexpected changes.";
+
+    private async IAsyncEnumerable<bool> RefreshPlaylistAsync(
+        PlaylistLikeScope scope, [EnumeratorCancellation] CancellationToken cancellation)
     {
         var playlist = scope.SingleValidated.Playlist!;
+        var requiredVideoCount = (uint)(scope.Skip + scope.Take);
 
-        // return fresh playlist with sufficient videos loaded
+        // return fresh enough playlist with sufficient videos loaded
         if (DateTime.UtcNow.AddHours(-Math.Abs(scope.CacheHours)) <= playlist.Loaded
-            && scope.Take <= playlist.GetVideoIds().Count()) return playlist;
+            && requiredVideoCount <= playlist.GetVideoCount())
+        {
+            yield return false; // not changed from previous return
+            yield break;
+        }
 
         // playlist cache is outdated or lacking sufficient videos
         scope.Report(VideoList.Status.refreshing);
 
-        try
+        var changedSinceLastReturn = Pipe.CreateBounded<bool>(2);
+
+        var paging = Task.Run(async () =>
         {
-            // load and update videos in playlist while keeping existing video info
-            var freshVideos = await GetVideos(scope, cancellation).CollectAsync(scope.Skip + scope.Take);
-            playlist.Loaded = DateTime.UtcNow;
-            playlist.AddVideoIds(freshVideos.Select(v => v.Id.Value).ToArray());
-            await dataStore.SetAsync(scope.StorageKey, playlist);
+            uint listIndex = 0;
+            var madeChanges = new Queue<bool>(10);
+            using var cts = new CancellationTokenSource(); // for canceling paging
+            cancellation.Register(cts.Cancel);
+            bool returnedEarly = false;
+            var madeChangesAfterReturningEarly = false;
+
+            try
+            {
+                // load and update videos in playlist while keeping existing video info
+                await foreach (var video in GetVideos(scope, cts.Token))
+                {
+                    if (madeChanges.Count > 9) madeChanges.Dequeue(); // only track the last 10 changes
+                    bool changed = playlist.TryAddVideoId(video.Id, listIndex++);
+                    madeChanges.Enqueue(changed);
+
+                    if (returnedEarly)
+                    {
+                        if (changed) madeChangesAfterReturningEarly = true;
+                    }
+                    /* return the playlist early because we have enough cached info to serve the request scope
+                     * and can reasonably assume that the cache is up to date
+                     * because adding the last n videos didn't result in any changes */
+                    else if (requiredVideoCount <= playlist.GetVideoCount() && madeChanges.All(x => !x))
+                    {
+                        await changedSinceLastReturn.Writer.WriteAsync(false); // not changed from previous return
+                        returnedEarly = true;
+                    }
+
+                    if (listIndex > requiredVideoCount)
+                    {
+                        cts.Cancel(); // cancel paging
+                        break; // stop enumerating
+                    }
+                }
+            }
+            /* treat playlist identified by user input not being available as input error
+             * and re-throw otherwise; the uploads playlist of a channel being unavailable is unexpected */
+            catch (PlaylistUnavailableException ex) when (scope is PlaylistScope playlistScope)
+            { throw new InputException($"Could not find {playlistScope.Describe(inDetail: false).Join(" ")}.", ex); }
+            catch (Exception ex) { scope.Notify("Error refreshing playlist", ex.Message, [ex]); }
+            finally
+            {
+                if (returnedEarly && madeChangesAfterReturningEarly)
+                    await changedSinceLastReturn.Writer.WriteAsync(true); // changed from previous return
+            }
+
+            // queue up writer completion unconditionally and forwarding unexpected exceptions
+        }, cancellation).ContinueWith(t => changedSinceLastReturn.Writer.Complete(t.Exception), cancellation);
+
+        await foreach (var hasChanged in changedSinceLastReturn.Reader.ReadAllAsync(cancellation))
+        {
+            playlist.UpdateShardNumbers();
+            yield return hasChanged;
         }
-        /*  treat playlist identified by user input not being available as input error
-            and re-throw otherwise; the uploads playlist of a channel being unavailable is unexpected */
-        catch (PlaylistUnavailableException ex) when (scope is PlaylistScope playlistScope)
-        { throw new InputException($"Could not find {playlistScope.Describe().Join(" ")}.", ex); }
 
-        return playlist;
-
-        IAsyncEnumerable<PlaylistVideo> GetVideos(PlaylistLikeScope scope, CancellationToken cancellation) => scope switch
-        {
-            ChannelScope searchChannel => Client.Channels.GetUploadsAsync(searchChannel.SingleValidated.Id, cancellation),
-            PlaylistScope searchPlaylist => Client.Playlists.GetVideosAsync(searchPlaylist.Alias, cancellation),
-            _ => throw new NotImplementedException($"Getting videos for the {scope.GetType()} is not implemented.")
-        };
+        playlist.UpdateLoaded();
+        await paging; // to re-throw possible exceptions
     }
+
+    private IAsyncEnumerable<PlaylistVideo> GetVideos(PlaylistLikeScope scope, CancellationToken cancellation) => scope switch
+    {
+        ChannelScope _ => Client.Channels.GetUploadsAsync(scope.SingleValidated.Id, cancellation),
+        PlaylistScope _ => Client.Playlists.GetVideosAsync(scope.SingleValidated.Id, cancellation),
+        _ => throw new NotImplementedException($"Getting videos for the {scope.GetType()} is not implemented.")
+    };
 
     private async IAsyncEnumerable<VideoSearchResult> SearchUnindexedVideos(SearchCommand command,
         string[] unIndexedVideoIds, VideoIndex index, CommandScope scope,
         [EnumeratorCancellation] CancellationToken cancellation,
-        Func<IEnumerable<Video>, Task>? updatePlaylistVideosUploaded = default)
+        Playlist? playlist = default)
     {
         cancellation.ThrowIfCancellationRequested();
         scope.Report(VideoList.Status.indexingAndSearching);
@@ -205,6 +298,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                     Video? video = command.Videos?.Validated.SingleOrDefault(v => v.Id == id)?.Video;
                     video ??= await GetVideoAsync(id, cancellation, scope, downloadCaptionTracksAndSave: false);
                     if (video.CaptionTracks.Count == 0) await DownloadCaptionTracksAndSaveAsync(video, cancellation);
+                    playlist?.SetUploaded(video);
 
                     await unIndexedVideos.Writer.WriteAsync(video);
                     scope.Report(id, VideoList.Status.indexing);
@@ -239,9 +333,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                 || unIndexedVideos.Reader.Completion.IsCompleted // to save remaining changes
                 || unIndexedVideos.Reader.Count == 0) // to use resources efficiently while we've got nothing queued up for indexing
             {
-                List<Task> saveJobs = [index.CommitBatchChangeAsync()];
-                if (updatePlaylistVideosUploaded != null) saveJobs.Add(updatePlaylistVideosUploaded(uncommitted));
-                await Task.WhenAll(saveJobs).WithAggregateException();
+                await index.CommitBatchChangeAsync();
 
                 var indexedVideoInfos = uncommitted.ToDictionary(v => v.Id, v => v.Uploaded as DateTime?);
                 scope.Report(uncommitted, VideoList.Status.searching);
@@ -314,12 +406,25 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
         var lookupTasks = command.GetPlaylistLikeScopes().GetValid().Select(scope =>
             Task.Run(async () =>
             {
-                var playlist = await RefreshPlaylistAsync(scope, cancellation);
-                var videoIds = playlist.GetVideoIds().Skip(scope.Skip).Take(scope.Take).ToArray();
-                scope.QueueVideos(videoIds);
-                scope.Report(VideoList.Status.searching);
-                foreach (var videoId in videoIds) await GetKeywords(videoId, scope);
-                scope.Report(VideoList.Status.searched);
+                var playlist = scope.SingleValidated.Playlist!;
+
+                using (playlist.CreateChangeToken())
+                {
+                    await foreach (var changedFromPrevious in RefreshPlaylistAsync(scope, cancellation))
+                    {
+                        if (changedFromPrevious)
+                        {
+                            scope.Notify("Keywords may be stale.", playlistRefreshHadUnexpectedChanges, null);
+                            continue; // don't automatically repeat the search on the updated playlist
+                        }
+
+                        var videoIds = playlist.GetVideoIds().Skip(scope.Skip).Take(scope.Take).ToArray();
+                        scope.QueueVideos(videoIds);
+                        scope.Report(VideoList.Status.searching);
+                        foreach (var videoId in videoIds) await GetKeywords(videoId, scope);
+                        scope.Report(VideoList.Status.searched);
+                    }
+                }
             }, cancellation))
             .ToList();
 

@@ -80,7 +80,7 @@ public static class CacheClearer
         void DeleteByName(string name)
         {
             cachesDeleted.AddRange(cacheDataStore.Delete(key: name, simulate: simulate));
-            indexesDeleted.AddRange(videoIndexRepo.Delete(key: name, simulate: simulate));
+            indexesDeleted.AddRange(videoIndexRepo.Delete(keyPrefix: name, simulate: simulate));
         }
 
         void DeleteByNames(IEnumerable<string> names)

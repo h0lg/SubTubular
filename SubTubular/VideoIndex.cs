@@ -84,6 +84,15 @@ public sealed class VideoIndexRepository
         }
     }
 
+    // see https://github.com/mikegoatly/lifti/issues/32 and https://github.com/mikegoatly/lifti/issues/74
+    internal async ValueTask<VideoIndex> GetIndexShardAsync(string playlistKey, int shardNumber)
+    {
+        string key = playlistKey + "." + shardNumber;
+        var index = await GetAsync(key);
+        index ??= Build(key);
+        return index;
+    }
+
     private async Task SaveAsync(IIndexSnapshot<string> indexSnapshot, string key)
     {
         // see https://mikegoatly.github.io/lifti/docs/serialization/
@@ -125,13 +134,13 @@ internal sealed class VideoIndex : IDisposable
     /// accompanied by their corresponding <see cref="Video.Uploaded"/> dates, if known.
     /// The latter are only used for <see cref="SearchCommand.OrderOptions.uploaded"/>
     /// and missing dates are determined by loading the videos using <paramref name="getVideoAsync"/>.</param>
-    /// <param name="updatePlaylistVideosUploaded">A callback for updating the <see cref="Playlist.Videos"/>
+    /// <param name="playlist">Allows updating the <see cref="Playlist.GetVideos()"/>
     /// with the <see cref="Video.Uploaded"/> dates after loading them for
     /// <see cref="SearchCommand.OrderOptions.uploaded"/>.</param>
     internal async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command,
         Func<string, CancellationToken, Task<Video>> getVideoAsync,
         IDictionary<string, DateTime?>? relevantVideos = default,
-        Func<IEnumerable<Video>, Task>? updatePlaylistVideosUploaded = default,
+        Playlist? playlist = default,
         [EnumeratorCancellation] CancellationToken cancellation = default)
     {
         cancellation.ThrowIfCancellationRequested();
@@ -158,7 +167,7 @@ internal sealed class VideoIndex : IDisposable
                 var matchesForVideosWithoutUploadDate = matches.Where(m =>
                     !relevantVideos.ContainsKey(m.Key) || relevantVideos[m.Key] == null).ToArray();
 
-                // get upload dates for videos that we don't know it of
+                // get upload dates for videos that we don't know it of (may occur if index remembers a video the Playlist forgot about)
                 if (matchesForVideosWithoutUploadDate.Length != 0)
                 {
                     var getVideos = matchesForVideosWithoutUploadDate.Select(m => getVideoAsync(m.Key, cancellation)).ToArray();
@@ -167,10 +176,11 @@ internal sealed class VideoIndex : IDisposable
                     unIndexedVideos.AddRange(videosWithoutUploadDate.Where(v => v.UnIndexed));
 
                     foreach (var match in matchesForVideosWithoutUploadDate)
-                        relevantVideos[match.Key] = videosWithoutUploadDate.Single(v => v.Id == match.Key).Uploaded;
-
-                    if (updatePlaylistVideosUploaded != default)
-                        await updatePlaylistVideosUploaded(videosWithoutUploadDate);
+                    {
+                        Video video = videosWithoutUploadDate.Single(v => v.Id == match.Key);
+                        relevantVideos[match.Key] = video.Uploaded;
+                        playlist?.SetUploaded(video);
+                    }
                 }
             }
 
@@ -270,7 +280,7 @@ internal sealed class VideoIndex : IDisposable
 
             await foreach (var result in SearchAsync(command, GetReIndexedVideoAsync,
                 unIndexedVideos.ToDictionary(v => v.Id, v => v.Uploaded as DateTime?),
-                updatePlaylistVideosUploaded, cancellation))
+                playlist, cancellation))
                 yield return result;
 
             // re-trigger search for re-indexed videos only
