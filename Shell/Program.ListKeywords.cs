@@ -28,15 +28,15 @@ static partial class Program
             command.AddAlias(Actions.listKeywords[..1]); // first character
 
             var (channels, playlists, videos) = AddScopes(command);
-            (Option<ushort> take, Option<float> cacheHours) = AddPlaylistLikeCommandOptions(command);
+            (Option<ushort> skip, Option<ushort> take, Option<float> cacheHours) = AddPlaylistLikeCommandOptions(command);
             (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(command);
             Option<bool> saveAsRecent = AddSaveAsRecent(command);
 
             command.SetHandler(async (ctx) => await listKeywords(
                 new ListKeywords
                 {
-                    Channels = CreateChannelScopes(ctx, channels, take, cacheHours),
-                    Playlists = CreatePlaylistScopes(ctx, playlists, take, cacheHours),
+                    Channels = CreateChannelScopes(ctx, channels, skip, take, cacheHours),
+                    Playlists = CreatePlaylistScopes(ctx, playlists, skip, take, cacheHours),
                     Videos = CreateVideosScope(ctx, videos)
                 }
                 .BindOuputOptions(ctx, html, fileOutputPath, show)

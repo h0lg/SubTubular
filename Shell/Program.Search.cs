@@ -42,15 +42,15 @@ static partial class Program
 
             var (channels, playlists, videos) = AddScopes(command);
             (Option<IEnumerable<string>> query, Option<ushort> padding, Option<IEnumerable<SearchCommand.OrderOptions>> orderBy) = AddSearchCommandOptions(command);
-            (Option<ushort> take, Option<float> cacheHours) = AddPlaylistLikeCommandOptions(command);
+            (Option<ushort> skip, Option<ushort> take, Option<float> cacheHours) = AddPlaylistLikeCommandOptions(command);
             (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(command);
             Option<bool> saveAsRecent = AddSaveAsRecent(command);
 
             command.SetHandler(async (ctx) => await search(
                 new SearchCommand
                 {
-                    Channels = CreateChannelScopes(ctx, channels, take, cacheHours),
-                    Playlists = CreatePlaylistScopes(ctx, playlists, take, cacheHours),
+                    Channels = CreateChannelScopes(ctx, channels, skip, take, cacheHours),
+                    Playlists = CreatePlaylistScopes(ctx, playlists, skip, take, cacheHours),
                     Videos = CreateVideosScope(ctx, videos)
                 }
                 .BindSearchOptions(ctx, query, padding, orderBy)
@@ -78,7 +78,8 @@ static partial class Program
                 $"Order the video search results by '{nameof(SearchCommand.OrderOptions.uploaded)}'"
                 + $" or '{nameof(SearchCommand.OrderOptions.score)}' with '{nameof(SearchCommand.OrderOptions.asc)}' for ascending."
                 + $" The default is descending (i.e. latest respectively highest first) and by '{nameof(SearchCommand.OrderOptions.score)}'."
-                + $" Note that the order is only applied to the results with the search scope itself being limited by the '{takeName}' parameter for playlists."
+                + " Note that the order is only applied to the results with the search scope itself"
+                + $" being limited by the '{skipName}' and '{takeName}' parameters for playlists."
                 + " Note also that for un-cached videos, this option is ignored in favor of outputting matches as soon as they're found"
                 + " - but simply repeating the search will hit the cache and return them in the requested order.")
             { AllowMultipleArgumentsPerToken = true };

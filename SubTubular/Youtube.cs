@@ -51,7 +51,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
         var index = await videoIndexRepo.GetAsync(storageKey);
         if (index == null) index = videoIndexRepo.Build(storageKey);
         var playlist = await RefreshPlaylistAsync(scope, cancellation);
-        var videoIds = playlist.GetVideoIds().Take(scope.Take).ToArray();
+        var videoIds = playlist.GetVideoIds().Skip(scope.Skip).Take(scope.Take).ToArray();
         scope.QueueVideos(videoIds);
         var indexedVideoIds = index.GetIndexed(videoIds);
 
@@ -147,7 +147,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
         try
         {
             // load and update videos in playlist while keeping existing video info
-            var freshVideos = await GetVideos(scope, cancellation).CollectAsync(scope.Take);
+            var freshVideos = await GetVideos(scope, cancellation).CollectAsync(scope.Skip + scope.Take);
             playlist.Loaded = DateTime.UtcNow;
             playlist.AddVideoIds(freshVideos.Select(v => v.Id.Value).ToArray());
             await dataStore.SetAsync(scope.StorageKey, playlist);
@@ -307,7 +307,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
             Task.Run(async () =>
             {
                 var playlist = await RefreshPlaylistAsync(scope, cancellation);
-                var videoIds = playlist.GetVideoIds().Take(scope.Take).ToArray();
+                var videoIds = playlist.GetVideoIds().Skip(scope.Skip).Take(scope.Take).ToArray();
                 scope.QueueVideos(videoIds);
                 scope.Report(VideoList.Status.searching);
                 foreach (var videoId in videoIds) await GetKeywords(videoId, scope);

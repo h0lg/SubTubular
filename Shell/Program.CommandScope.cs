@@ -19,12 +19,12 @@ static partial class Program
         }
 
         private static ChannelScope[]? CreateChannelScopes(InvocationContext ctx, Option<IEnumerable<string>> aliases,
-            Option<ushort> take, Option<float> cacheHours)
-            => ctx.Parsed(aliases)?.Select(alias => new ChannelScope(alias, ctx.Parsed(take), ctx.Parsed(cacheHours))).ToArray();
+            Option<ushort> skip, Option<ushort> take, Option<float> cacheHours)
+            => ctx.Parsed(aliases)?.Select(alias => new ChannelScope(alias, ctx.Parsed(skip), ctx.Parsed(take), ctx.Parsed(cacheHours))).ToArray();
 
         private static PlaylistScope[]? CreatePlaylistScopes(InvocationContext ctx, Option<IEnumerable<string>> playlists,
-            Option<ushort> take, Option<float> cacheHours)
-            => ctx.Parsed(playlists)?.Select(playlist => new PlaylistScope(playlist, ctx.Parsed(take), ctx.Parsed(cacheHours))).ToArray();
+            Option<ushort> skip, Option<ushort> take, Option<float> cacheHours)
+            => ctx.Parsed(playlists)?.Select(playlist => new PlaylistScope(playlist, ctx.Parsed(skip), ctx.Parsed(take), ctx.Parsed(cacheHours))).ToArray();
 
         private static VideosScope? CreateVideosScope(InvocationContext ctx, Option<IEnumerable<string>> videos)
         {
@@ -32,8 +32,12 @@ static partial class Program
             return ids == null ? null : new(ids.ToList());
         }
 
-        private static (Option<ushort> take, Option<float> cacheHours) AddPlaylistLikeCommandOptions(Command command)
+        private static (Option<ushort> skip, Option<ushort> take, Option<float> cacheHours) AddPlaylistLikeCommandOptions(Command command)
         {
+            Option<ushort> skip = new([skipName, "-sk"], () => 0,
+                "The number of videos to skip, counted from the top of the playlist;"
+                + " effectively limiting the search scope to the part after it.");
+
             Option<ushort> take = new([takeName, "-t"], () => 50,
                 "The number of videos to search, counted from the top of the playlist;"
                 + " effectively limiting the search scope to the top partition of it."
@@ -48,9 +52,10 @@ static partial class Program
                 + " Note this doesn't apply to the videos themselves because their contents rarely change after upload."
                 + $" Use '--{clearCacheCommand}' to clear videos associated with a playlist or channel if that's what you're after.");
 
+            command.AddOption(skip);
             command.AddOption(take);
             command.AddOption(cacheHours);
-            return (take, cacheHours);
+            return (skip, take, cacheHours);
         }
     }
 }
