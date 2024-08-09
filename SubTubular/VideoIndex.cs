@@ -144,7 +144,7 @@ internal sealed class VideoIndex : IDisposable
         IEnumerable<SearchResult<string>> results;
 
         try { results = Index.Search(command.Query!); }
-        catch (QueryParserException ex) { throw new InputException("Error parsing query from --for | -f parameter: " + ex.Message, ex); }
+        catch (QueryParserException ex) { throw new InputException("Error parsing query: " + ex.Message, ex); }
 
         // make sure to only return results for the requested videos if specified; playlist or channel indexes may contain more
         var matches = results.Where(m => relevantVideos?.ContainsKey(m.Key) != false).ToList();
