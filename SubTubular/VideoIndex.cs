@@ -180,7 +180,7 @@ internal sealed class VideoIndex : IDisposable
                     ? matches.OrderBy(m => orderByUploaded ? relevantVideos![m.Key] : m.Score as object)
                     : matches.OrderByDescending(m => orderByUploaded ? relevantVideos![m.Key] : m.Score as object);
 
-                matches = orderded.ToList();
+                matches = [.. orderded];
             }
         }
 
@@ -268,14 +268,14 @@ internal sealed class VideoIndex : IDisposable
             // consider results for un-cached videos stale and re-index them
             await UpdateAsync(unIndexedVideos, cancellation);
 
-            // re-trigger search for re-indexed videos only
-            Func<string, CancellationToken, Task<Video>> getReIndexedVideoAsync = async (id, cancellation)
-                => unIndexedVideos.SingleOrDefault(v => v.Id == id) ?? await getVideoAsync(id, cancellation);
-
-            await foreach (var result in SearchAsync(command, getReIndexedVideoAsync,
+            await foreach (var result in SearchAsync(command, GetReIndexedVideoAsync,
                 unIndexedVideos.ToDictionary(v => v.Id, v => v.Uploaded as DateTime?),
                 updatePlaylistVideosUploaded, cancellation))
                 yield return result;
+
+            // re-trigger search for re-indexed videos only
+            async Task<Video> GetReIndexedVideoAsync(string id, CancellationToken cancellation)
+                => unIndexedVideos.SingleOrDefault(v => v.Id == id) ?? await getVideoAsync(id, cancellation);
         }
     }
 

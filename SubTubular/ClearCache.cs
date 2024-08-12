@@ -21,7 +21,7 @@ public static class CacheClearer
     public static async Task<(IEnumerable<string> cachesDeleted, IEnumerable<string> indexesDeleted)> Process(
         ClearCache command, DataStore cacheDataStore, VideoIndexRepository videoIndexRepo)
     {
-        List<string> cachesDeleted = new(), indexesDeleted = new();
+        List<string> cachesDeleted = [], indexesDeleted = [];
         var simulate = command.Mode == ClearCache.Modes.simulate;
 
         switch (command.Scope)

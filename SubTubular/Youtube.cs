@@ -10,7 +10,7 @@ using Pipe = System.Threading.Channels.Channel; // to avoid conflict with Youtub
 
 namespace SubTubular;
 
-public sealed class Youtube
+public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndexRepo)
 {
     public static string GetVideoUrl(string videoId) => "https://youtu.be/" + videoId;
 
@@ -24,14 +24,6 @@ public sealed class Youtube
     }
 
     public readonly YoutubeClient Client = new();
-    private readonly DataStore dataStore;
-    private readonly VideoIndexRepository videoIndexRepo;
-
-    public Youtube(DataStore dataStore, VideoIndexRepository videoIndexRepo)
-    {
-        this.dataStore = dataStore;
-        this.videoIndexRepo = videoIndexRepo;
-    }
 
     public async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command, [EnumeratorCancellation] CancellationToken cancellation = default)
     {
@@ -405,7 +397,7 @@ public sealed class Youtube
         Id = video.Id.Value,
         Title = video.Title,
         Description = video.Description,
-        Keywords = video.Keywords.ToArray(),
+        Keywords = [.. video.Keywords],
         Uploaded = video.UploadDate.UtcDateTime,
         Channel = video.Author.ChannelTitle,
         Thumbnail = SelectUrl(video.Thumbnails)
