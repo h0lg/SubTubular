@@ -74,7 +74,7 @@ public sealed class VideoIndexRepository
             await index.AccessToken.WaitAsync();
 
             // see https://mikegoatly.github.io/lifti/docs/serialization/
-            using (var reader = file.OpenRead())
+            await using (var reader = file.OpenRead())
                 await serializer.DeserializeAsync(index.Index, reader, disposeStream: false);
 
             return index;
@@ -93,7 +93,7 @@ public sealed class VideoIndexRepository
     private async Task SaveAsync(IIndexSnapshot<string> indexSnapshot, string key)
     {
         // see https://mikegoatly.github.io/lifti/docs/serialization/
-        using var writer = new FileStream(GetPath(key), FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
+        await using var writer = new FileStream(GetPath(key), FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
         await serializer.SerializeAsync(indexSnapshot, writer, disposeStream: false);
     }
 
