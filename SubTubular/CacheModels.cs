@@ -164,7 +164,7 @@ public sealed class ChannelAliasMap
                 }
             }
 
-            return localCache.Values.ToHashSet();
+            return [.. localCache.Values];
         }
         finally
         {
