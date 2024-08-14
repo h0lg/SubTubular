@@ -19,12 +19,12 @@ static partial class Program
         }
 
         private static ChannelScope[]? CreateChannelScopes(InvocationContext ctx, Option<IEnumerable<string>> aliases,
-            Option<ushort> top, Option<float> cacheHours)
-            => ctx.Parsed(aliases)?.Select(alias => new ChannelScope(alias, ctx.Parsed(top), ctx.Parsed(cacheHours))).ToArray();
+            Option<ushort> take, Option<float> cacheHours)
+            => ctx.Parsed(aliases)?.Select(alias => new ChannelScope(alias, ctx.Parsed(take), ctx.Parsed(cacheHours))).ToArray();
 
         private static PlaylistScope[]? CreatePlaylistScopes(InvocationContext ctx, Option<IEnumerable<string>> playlists,
-            Option<ushort> top, Option<float> cacheHours)
-            => ctx.Parsed(playlists)?.Select(playlist => new PlaylistScope(playlist, ctx.Parsed(top), ctx.Parsed(cacheHours))).ToArray();
+            Option<ushort> take, Option<float> cacheHours)
+            => ctx.Parsed(playlists)?.Select(playlist => new PlaylistScope(playlist, ctx.Parsed(take), ctx.Parsed(cacheHours))).ToArray();
 
         private static VideosScope? CreateVideosScope(InvocationContext ctx, Option<IEnumerable<string>> videos)
         {
@@ -32,9 +32,9 @@ static partial class Program
             return ids == null ? null : new(ids.ToList());
         }
 
-        private static (Option<ushort> top, Option<float> cacheHours) AddPlaylistLikeCommandOptions(Command command)
+        private static (Option<ushort> take, Option<float> cacheHours) AddPlaylistLikeCommandOptions(Command command)
         {
-            Option<ushort> top = new([topName, "-t"], () => 50,
+            Option<ushort> take = new([takeName, "-t"], () => 50,
                 "The number of videos to search, counted from the top of the playlist;"
                 + " effectively limiting the search scope to the top partition of it."
                 + " You may want to gradually increase this to include all videos in the list while you're refining your query."
@@ -48,9 +48,9 @@ static partial class Program
                 + " Note this doesn't apply to the videos themselves because their contents rarely change after upload."
                 + $" Use '--{clearCacheCommand}' to clear videos associated with a playlist or channel if that's what you're after.");
 
-            command.AddOption(top);
+            command.AddOption(take);
             command.AddOption(cacheHours);
-            return (top, cacheHours);
+            return (take, cacheHours);
         }
     }
 }
