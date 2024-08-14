@@ -156,7 +156,7 @@ module Scope =
         | ValidationSucceeded
         | ValidationFailed of exn
         | ToggleSettings of bool
-        | TopChanged of float option
+        | TakeChanged of float option
         | CacheHoursChanged of float option
         | Remove
         | RemoveVideo of string
@@ -238,13 +238,13 @@ module Scope =
     /// creates a scope on user command, marking it as Added for it to be focused
     let add scopeType =
         let aliases = ""
-        let top = uint16 50
+        let take = uint16 50
         let cacheHours = float32 24
 
         let scope =
             match scopeType with
-            | IsChannel -> ChannelScope(aliases, top, cacheHours) :> CommandScope
-            | IsPlaylist -> PlaylistScope(aliases, top, cacheHours)
+            | IsChannel -> ChannelScope(aliases, take, cacheHours) :> CommandScope
+            | IsPlaylist -> PlaylistScope(aliases, take, cacheHours)
             | IsVideos -> VideosScope(VideosInput.splitAndClean aliases)
 
         init scope aliases true
@@ -286,9 +286,9 @@ module Scope =
         | ValidationSucceeded -> { model with Error = null }, Cmd.none, DoNothing
         | ValidationFailed exn -> { model with Error = exn.Message }, Cmd.none, DoNothing
 
-        | TopChanged top ->
+        | TakeChanged take ->
             match model.Scope with
-            | PlaylistLike scope -> scope.Top <- top |> Option.defaultValue 50 |> uint16
+            | PlaylistLike scope -> scope.Take <- take |> Option.defaultValue 50 |> uint16
             | _ -> ()
 
             model, Cmd.none, DoNothing
@@ -455,7 +455,7 @@ module Scope =
                     (HStack(5) {
                         Label "search top"
 
-                        NumericUpDown(0, float UInt16.MaxValue, Some(float playlistLike.Top), TopChanged)
+                        NumericUpDown(0, float UInt16.MaxValue, Some(float playlistLike.Take), TakeChanged)
                             .formatString("F0")
                             .tooltip ("number of videos to search")
 
