@@ -28,16 +28,16 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
     public async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command, [EnumeratorCancellation] CancellationToken cancellation = default)
     {
         List<IAsyncEnumerable<VideoSearchResult>> searches = [];
-
-        if (command.Channels.HasAny()) searches.AddRange(command.Channels!.GetValid().DistinctBy(c => c.SingleValidated.Id)
-            .Select(channel => SearchPlaylistAsync(command, channel, cancellation)));
-
-        if (command.Playlists.HasAny()) searches.AddRange(command.Playlists!.GetValid().DistinctBy(c => c.SingleValidated.Id)
-            .Select(playlist => SearchPlaylistAsync(command, playlist, cancellation)));
-
+        SearchPlaylistLikeScopes(command.Channels);
+        SearchPlaylistLikeScopes(command.Playlists);
         if (command.Videos?.IsValid == true) searches.Add(SearchVideosAsync(command, cancellation));
-
         await foreach (var result in searches.Parallelize(cancellation)) yield return result;
+
+        void SearchPlaylistLikeScopes(PlaylistLikeScope[]? scopes)
+        {
+            if (scopes.HasAny()) searches.AddRange(scopes!.GetValid().DistinctBy(c => c.SingleValidated.Id)
+                .Select(scope => SearchPlaylistAsync(command, scope, cancellation)));
+        }
     }
 
     /// <summary>Searches videos defined by a playlist.</summary>
