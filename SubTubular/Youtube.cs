@@ -10,6 +10,15 @@ using Pipe = System.Threading.Channels.Channel; // to avoid conflict with Youtub
 
 namespace SubTubular;
 
+//TODO flesh out and pass to Youtube from outside
+public sealed record YoutubeSettings
+{
+    //TODO use in a Semaphore across all searches
+    public ushort MaxConcurrentRequests { get; set; }
+    public ushort AssumePlaylistFreshAfterKnownVideos { get; set; }
+    public ushort MaxUnindexedVideoBatchSize { get; set; }
+}
+
 public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndexRepo)
 {
     public static string GetVideoUrl(string videoId) => "https://youtu.be/" + videoId;
