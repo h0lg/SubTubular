@@ -51,7 +51,7 @@ public sealed class VideoIndexRepository
             }
             finally
             {
-                videoIndex!.AccessToken.Release();
+                videoIndex?.AccessToken.Release();
             }
         }).Build();
 
