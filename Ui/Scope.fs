@@ -289,14 +289,14 @@ module Scope =
 
         | TopChanged top ->
             match model.Scope with
-            | PlaylistLike scope -> scope.Top <- uint16 top.Value
+            | PlaylistLike scope -> scope.Top <- top |> Option.defaultValue 50 |> uint16
             | _ -> ()
 
             model, Cmd.none, DoNothing
 
         | CacheHoursChanged hours ->
             match model.Scope with
-            | PlaylistLike scope -> scope.CacheHours <- float32 hours.Value
+            | PlaylistLike scope -> scope.CacheHours <- hours |> Option.defaultValue 24 |> float32
             | _ -> ()
 
             model, Cmd.none, DoNothing
