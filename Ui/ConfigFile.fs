@@ -60,7 +60,7 @@ module ConfigFile =
                 (Grid(coldefs = [ Star; Auto; Auto ], rowdefs = [ Auto ]) {
                     TextBlock(config.Description)
                         .tappable(Load config.Command, "load this command")
-                        .textWrapping (TextWrapping.Wrap)
+                        .wrap ()
 
                     TextBlock(config.LastRun.ToString()).tooltip("last run").gridColumn (1)
                     Button("❌", Remove config).tooltip("forget about this").gridColumn (2)

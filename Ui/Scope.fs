@@ -6,7 +6,6 @@ open System.Threading
 open System.Threading.Tasks
 open Avalonia.Animation
 open Avalonia.Controls
-open Avalonia.Layout
 open Avalonia.Interactivity
 open Avalonia.Media
 open Fabulous
@@ -338,8 +337,7 @@ module Scope =
           | IsPlaylist -> "playlist"
           | IsChannel -> "channel"
 
-    let private progressText text =
-        TextBlock(text).horizontalAlignment(HorizontalAlignment.Right).smallDemoted ()
+    let private progressText text = TextBlock(text).right().smallDemoted ()
 
     let private validated thumbnailUrl navigateUrl title channel (scope: CommandScope) progress videoId =
         Grid(coldefs = [ Auto; Auto; Auto; Auto ], rowdefs = [ Auto; Auto ]) {
@@ -516,7 +514,7 @@ module Scope =
 
             TextBlock(model.Error)
                 .foreground(Colors.Red)
-                .textWrapping(TextWrapping.Wrap)
+                .wrap()
                 .isVisible (model.Error <> null) // && not model.Scope.IsValid)
 
             ProgressBar(0, model.Scope.Progress.AllJobs, model.Scope.Progress.CompletedJobs, ProgressValueChanged)

@@ -4,7 +4,6 @@ open System
 open System.Collections.Generic
 open System.Threading
 open Avalonia.Controls
-open Avalonia.Layout
 open Avalonia.Media
 open Fabulous
 open Fabulous.Avalonia
@@ -342,12 +341,12 @@ module Search =
                 TextBlock("The full-text search is powered by LIFTI.").margin (0, 0, 0, 10)
 
                 for hint in SearchCommand.QueryHints do
-                    TextBlock("▪ " + hint).textWrapping (TextWrapping.Wrap)
+                    TextBlock("▪ " + hint).wrap ()
 
                 TextBlock("Read more about the syntax ➽")
                     .background(ThemeAware.With(Colors.Thistle, Colors.Purple))
                     .margin(0, 10, 0, 0)
-                    .horizontalAlignment(HorizontalAlignment.Right)
+                    .right()
                     .tappable (
                         Common(OpenUrl "https://mikegoatly.github.io/lifti/docs/searching/lifti-query-syntax/"),
                         "Open the LIFTI query syntax help page in your browser"

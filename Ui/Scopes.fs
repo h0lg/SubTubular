@@ -3,7 +3,6 @@
 open System
 open System.Linq
 open Avalonia.Controls
-open Avalonia.Layout
 open Avalonia.Media
 open Fabulous
 open Fabulous.Avalonia
@@ -108,7 +107,7 @@ module Scopes =
 
                 for scope in model.List do
                     (Border(View.map (fun scopeMsg -> ScopeMsg(scope, scopeMsg)) (Scope.view scope maxWidth)))
-                        .verticalAlignment(VerticalAlignment.Top)
+                        .top()
                         .padding(2)
                         .margin(0, 0, 5, 5)
                         .cornerRadius(2)
@@ -132,8 +131,8 @@ module Scopes =
             ))
                 .padding(2)
                 .reference(addScopeStack)
-                .verticalAlignment(VerticalAlignment.Bottom)
-                .horizontalAlignment(HorizontalAlignment.Right)
+                .bottom()
+                .right()
                 .cornerRadius(2)
                 .background (ThemeAware.With(Colors.Wheat, Colors.DarkBlue))
         })

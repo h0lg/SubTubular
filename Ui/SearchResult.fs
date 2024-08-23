@@ -34,7 +34,7 @@ module SearchResult =
         let content =
             Seq.fold (fun agg cont -> tb.Combine(agg, cont)) contents.Head contents.Tail
 
-        (tb.Run content).textWrapping (TextWrapping.WrapWithOverflow)
+        (tb.Run content).wrap ()
 
     let render (matchPadding: uint32) (result: VideoSearchResult) =
         let videoUrl = Youtube.GetVideoUrl result.Video.Id

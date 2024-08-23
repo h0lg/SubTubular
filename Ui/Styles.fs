@@ -4,6 +4,7 @@ open System.Runtime.CompilerServices
 open Avalonia.Controls
 open Avalonia.Input
 open Avalonia.Interactivity
+open Avalonia.Layout
 open Avalonia.Media
 open Avalonia.Styling
 open Fabulous
@@ -25,7 +26,22 @@ module Styles =
             this.margin (0, 0, 0, (getFactor bottomFactor) * float 5)
 
         [<Extension>]
+        static member inline right(this: WidgetBuilder<'msg, #IFabLayoutable>) =
+            this.horizontalAlignment (HorizontalAlignment.Right)
+
+        [<Extension>]
+        static member inline top(this: WidgetBuilder<'msg, #IFabLayoutable>) =
+            this.verticalAlignment (VerticalAlignment.Top)
+
+        [<Extension>]
+        static member inline bottom(this: WidgetBuilder<'msg, #IFabLayoutable>) =
+            this.verticalAlignment (VerticalAlignment.Bottom)
+
+        [<Extension>]
         static member card(this: WidgetBuilder<'msg, #IFabControl>) = Border(this).classes ("card")
+
+        [<Extension>]
+        static member inline wrap(this: WidgetBuilder<'msg, #IFabTextBlock>) = this.textWrapping (TextWrapping.Wrap)
 
         [<Extension>]
         static member inline demoted(this: WidgetBuilder<'msg, IFabTextBlock>) = this.foreground (Colors.Gray)
