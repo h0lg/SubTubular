@@ -2,7 +2,6 @@
 
 open System
 open System.IO
-open Avalonia.Layout
 open Fabulous
 open Fabulous.Avalonia
 open SubTubular
@@ -139,7 +138,7 @@ module Cache =
         let mbs = (files |> List.map _.Length |> List.sum |> float32) / 1024f / 1024f
 
         TextBlock($"{files.Length} {label} ({mbs:f2} Mb)")
-            .horizontalAlignment(HorizontalAlignment.Right)
+            .right()
             .isVisible (files.Length > 0)
 
     let view model =
@@ -183,7 +182,7 @@ module Cache =
                 )
             )
                 .onExpanding(fun _ -> ExpandingByLastAccess)
-                .verticalAlignment (VerticalAlignment.Top)
+                .top ()
 
             Expander(
                 "Locations",
@@ -201,6 +200,6 @@ module Cache =
                 )
             )
                 .onExpanding(fun _ -> ExpandingFolders)
-                .verticalAlignment(VerticalAlignment.Top)
+                .top()
                 .gridColumn (1)
         }
