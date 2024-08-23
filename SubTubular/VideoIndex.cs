@@ -19,10 +19,9 @@ internal sealed class VideoIndexRepository
         serializer = new BinarySerializer<string>();
     }
 
-    private FullTextIndexBuilder<string> CreateIndexBuilder()
-    {
+    private static FullTextIndexBuilder<string> CreateIndexBuilder()
         //see https://mikegoatly.github.io/lifti/docs/getting-started/indexing-objects/
-        return new FullTextIndexBuilder<string>()
+        => new FullTextIndexBuilder<string>()
             .WithDefaultTokenization(o => o.AccentInsensitive().CaseInsensitive())
             // see https://mikegoatly.github.io/lifti/docs/index-construction/withobjecttokenization/
             .WithObjectTokenization<Video>(itemOptions => itemOptions
@@ -37,7 +36,6 @@ internal sealed class VideoIndexRepository
                 maxEditDistance: termLength => (ushort)(termLength / 3),
                 // avoid returning zero here to allow for edits in the first place
                 maxSequentialEdits: termLength => (ushort)(termLength < 6 ? 1 : termLength / 6)));
-    }
 
     internal VideoIndex Build(string key)
     {
