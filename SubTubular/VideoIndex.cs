@@ -10,16 +10,18 @@ internal sealed class VideoIndexRepository
     internal const string FileExtension = ".idx";
 
     private readonly string directory;
-    private readonly FullTextIndexBuilder<string> builder;
     private readonly IIndexSerializer<string> serializer;
 
     internal VideoIndexRepository(string directory)
     {
         this.directory = directory;
         if (!Directory.Exists(directory)) Directory.CreateDirectory(directory);
+        serializer = new BinarySerializer<string>();
+    }
 
+    private static FullTextIndexBuilder<string> CreateIndexBuilder()
         //see https://mikegoatly.github.io/lifti/docs/getting-started/indexing-objects/
-        builder = new FullTextIndexBuilder<string>()
+        => new FullTextIndexBuilder<string>()
             .WithDefaultTokenization(o => o.AccentInsensitive().CaseInsensitive())
             // see https://mikegoatly.github.io/lifti/docs/index-construction/withobjecttokenization/
             .WithObjectTokenization<Video>(itemOptions => itemOptions
@@ -35,15 +37,12 @@ internal sealed class VideoIndexRepository
                 // avoid returning zero here to allow for edits in the first place
                 maxSequentialEdits: termLength => (ushort)(termLength < 6 ? 1 : termLength / 6)));
 
-        serializer = new BinarySerializer<string>();
-    }
-
     internal VideoIndex Build(string key)
     {
         VideoIndex videoIndex = null;
 
         // see https://mikegoatly.github.io/lifti/docs/index-construction/withindexmodificationaction/
-        FullTextIndex<string> index = builder.WithIndexModificationAction(async idx => await SaveAsync(videoIndex, key)).Build();
+        FullTextIndex<string> index = CreateIndexBuilder().WithIndexModificationAction(async idx => await SaveAsync(videoIndex, key)).Build();
 
         videoIndex = new VideoIndex(index);
         return videoIndex;
