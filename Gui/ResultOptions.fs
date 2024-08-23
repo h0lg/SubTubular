@@ -47,7 +47,7 @@ module ResultOptions =
 
         | PaddingChanged padding ->
             { model with
-                Padding = int padding.Value }
+                Padding = padding |> Option.defaultValue 0 |> int }
 
     let private getOrderDirection model =
         match (model.OrderByScore, model.OrderDesc) with
