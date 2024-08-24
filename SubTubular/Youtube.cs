@@ -468,8 +468,11 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
         else keywordsByScope.Add(scope, new Dictionary<string, List<string>> { { keyword, [videoId] } });
     }
 
-    public static IOrderedEnumerable<KeyValuePair<string, List<string>>> OrderKeywords(Dictionary<string, List<string>> keywordsByScope)
-        => keywordsByScope.OrderByDescending(pair => pair.Value.Count).ThenBy(pair => pair.Key);
+    public static Dictionary<CommandScope, (string keyword, int foundInVideos)[]> CountKeywordVideos(
+        Dictionary<CommandScope, Dictionary<string, List<string>>> keywordsByScope)
+        => keywordsByScope.ToDictionary(s => s.Key,
+            s => s.Value.OrderByDescending(pair => pair.Value.Count).ThenBy(pair => pair.Key)
+                .Select(p => (p.Key, p.Value.Count)).ToArray());
 
     internal async Task<Video> GetVideoAsync(string videoId, CancellationToken cancellation,
         CommandScope scope, bool downloadCaptionTracksAndSave = true)

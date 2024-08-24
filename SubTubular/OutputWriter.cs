@@ -196,7 +196,7 @@ public abstract class OutputWriter(OutputCommand command)
     /// <summary>Displays the <paramref name="keywordsByScope"/> on the <see cref="Console"/>,
     /// most often occurring keyword first.</summary>
     /// <param name="keywordsByScope">The keywords and their corresponding number of occurrences.</param>
-    public void ListKeywords(Dictionary<CommandScope, Dictionary<string, List<string>>> keywordsByScope)
+    public void ListKeywords(Dictionary<CommandScope, (string keyword, int foundInVideos)[]> keywordsByScope)
     {
         const string separator = " | ";
         var width = GetWidth();
@@ -204,16 +204,16 @@ public abstract class OutputWriter(OutputCommand command)
 
         foreach (var scope in keywordsByScope)
         {
-            if (scope.Value.Count == 0) continue;
+            if (scope.Value.Length == 0) continue;
             Describe(scope.Key, indent);
 
             var line = string.Empty;
 
             /*  prevent breaking line mid-keyword on Console and breaks output into multiple lines for file
                 without adding unnecessary separators at the start or end of lines */
-            foreach (var tag in Youtube.OrderKeywords(scope.Value))
+            foreach (var tag in scope.Value)
             {
-                var keyword = tag.Value.Count + "x " + tag.Key;
+                var keyword = tag.foundInVideos + "x " + tag.keyword;
 
                 // does keyword still fit into the current line?
                 if ((line.Length + separator.Length + keyword.Length) < width)

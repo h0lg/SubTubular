@@ -32,6 +32,7 @@ module Search =
 
             /// video IDs by keyword by scope
             KeywordResults: Dictionary<CommandScope, Dictionary<string, List<string>>>
+            DisplayedKeywords: Dictionary<CommandScope, struct (string * int) array>
 
             DisplayOutputOptions: bool
             FileOutput: FileOutput.Model
@@ -184,7 +185,7 @@ module Search =
 
             | :? ListKeywords as listKeywords ->
                 Prevalidate.Scopes listKeywords
-                let! path = FileOutput.saveAsync listKeywords _.ListKeywords(model.KeywordResults)
+                let! path = FileOutput.saveAsync listKeywords _.ListKeywords(model.DisplayedKeywords)
                 return SavedOutput path |> Some
 
             | _ -> return None
@@ -205,7 +206,8 @@ module Search =
 
           Running = null
           SearchResults = []
-          KeywordResults = null }
+          KeywordResults = null
+          DisplayedKeywords = null }
 
     let load (cmd: OutputCommand) model =
         let updated =
@@ -335,7 +337,9 @@ module Search =
             for (keyword, videoId, scope) in list do
                 Youtube.AggregateKeywords(keyword, videoId, scope, model.KeywordResults)
 
-            model, Cmd.none
+            { model with
+                DisplayedKeywords = Youtube.CountKeywordVideos model.KeywordResults },
+            Cmd.none
 
         | CommandCompleted ->
             if model.Running <> null then
@@ -391,7 +395,7 @@ module Search =
                 if isSearch then
                     not model.SearchResults.IsEmpty
                 else
-                    model.KeywordResults <> null && model.KeywordResults.Count > 0
+                    model.DisplayedKeywords <> null && model.DisplayedKeywords.Count > 0
 
             // scopes
             ScrollViewer(View.map ScopesMsg (Scopes.view model.Scopes)).card().isVisible (model.ShowScopes)
@@ -483,15 +487,16 @@ module Search =
             ScrollViewer(
                 (VStack() {
                     if not isSearch && hasResults then
-                        for scope in model.KeywordResults do
+                        for scope in model.DisplayedKeywords do
                             (VStack() {
                                 TextBlock(scope.Key.Describe().Join(" "))
 
                                 HWrap() {
-                                    for keyword in Youtube.OrderKeywords scope.Value do
-                                        TextBlock(keyword.Value.Count.ToString() + "x")
+                                    for pair in scope.Value do
+                                        let keyword, videoCount = pair.ToTuple()
+                                        TextBlock(videoCount.ToString() + "x")
 
-                                        Border(TextBlock(keyword.Key))
+                                        Border(TextBlock(keyword))
                                             .background(ThemeAware.With(Colors.Thistle, Colors.Purple))
                                             .cornerRadius(2)
                                             .padding(3, 0, 3, 0)

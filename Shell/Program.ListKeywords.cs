@@ -15,7 +15,11 @@ static partial class Program
             await foreach (var (keyword, videoId, scope) in youtube.ListKeywordsAsync(command, cancellation))
                 Youtube.AggregateKeywords(keyword, videoId, scope, scopes);
 
-            if (scopes.Any()) outputs.ForEach(o => o.ListKeywords(scopes));
+            if (scopes.Any())
+            {
+                var countedKeywords = Youtube.CountKeywordVideos(scopes);
+                outputs.ForEach(o => o.ListKeywords(countedKeywords));
+            }
             else Console.WriteLine("Found no keywords."); // any file output wouldn't be saved without results anyway
         });
     }
