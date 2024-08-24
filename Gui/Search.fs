@@ -491,17 +491,22 @@ module Search =
                             (VStack() {
                                 TextBlock(scope.Key.Describe().Join(" "))
 
-                                HWrap() {
-                                    for pair in scope.Value do
+                                ListBox(
+                                    scope.Value,
+                                    (fun pair ->
                                         let keyword, videoCount = pair.ToTuple()
-                                        TextBlock(videoCount.ToString() + "x")
 
-                                        Border(TextBlock(keyword))
-                                            .background(ThemeAware.With(Colors.Thistle, Colors.Purple))
-                                            .cornerRadius(2)
-                                            .padding(3, 0, 3, 0)
-                                            .margin (3)
-                                }
+                                        HStack() {
+                                            TextBlock(videoCount.ToString() + "x")
+
+                                            Border(TextBlock(keyword))
+                                                .background(ThemeAware.With(Colors.Thistle, Colors.Purple))
+                                                .cornerRadius(2)
+                                                .padding(3, 0, 3, 0)
+                                                .margin (3)
+                                        })
+                                )
+                                    .itemsPanel (HWrapEmpty())
                             })
                                 .trailingMargin ()
 
