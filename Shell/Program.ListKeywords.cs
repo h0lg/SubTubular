@@ -18,7 +18,8 @@ static partial class Program
 
             if (scopes.Any())
             {
-                outputs.ForEach(o => o.ListKeywords(scopes));
+                var countedKeywords = Youtube.CountKeywordVideos(scopes);
+                outputs.ForEach(o => o.ListKeywords(countedKeywords));
                 resultDisplayed = true;
             }
             else Console.WriteLine("Found no keywords."); // any file output wouldn't be saved without results anyway
