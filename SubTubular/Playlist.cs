@@ -92,7 +92,7 @@ public sealed class Playlist
         finally { changeToken.Release(); }
     }
 
-    internal bool SetUploaded(Video loadedVideo)
+    internal bool SetUploadedAndKeywords(Video loadedVideo)
     {
         changeToken!.Wait();
 
@@ -111,9 +111,11 @@ public sealed class Playlist
 
             bool madeChanges = false;
 
-            if (video.Uploaded != loadedVideo.Uploaded)
+            if (video.Uploaded != loadedVideo.Uploaded
+                || video.Keywords == null || !loadedVideo.Keywords.ToHashSet().SetEquals(video.Keywords))
             {
                 video.Uploaded = loadedVideo.Uploaded;
+                video.Keywords = loadedVideo.Keywords;
                 hasUnsavedChanges = true;
                 madeChanges = true;
             }
@@ -181,6 +183,8 @@ public sealed class Playlist
 
         //set if included, null if dropped
         [JP("n")] public uint? PlaylistIndex { get; set; }
+
+        [JP("k")] public string[]? Keywords { get; set; }
 
         // used for debugging
         public override string ToString()

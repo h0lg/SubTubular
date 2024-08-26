@@ -179,7 +179,7 @@ internal sealed class VideoIndex : IDisposable
                     {
                         Video video = videosWithoutUploadDate.Single(v => v.Id == match.Key);
                         relevantVideos[match.Key] = video.Uploaded;
-                        playlist?.SetUploaded(video);
+                        playlist?.SetUploadedAndKeywords(video);
                     }
                 }
             }
