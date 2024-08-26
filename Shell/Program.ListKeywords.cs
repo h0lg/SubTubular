@@ -12,8 +12,8 @@ static partial class Program
         {
             Dictionary<CommandScope, Dictionary<string, List<string>>> scopes = [];
 
-            await foreach (var (keyword, videoId, scope) in youtube.ListKeywordsAsync(command, cancellation))
-                Youtube.AggregateKeywords(keyword, videoId, scope, scopes);
+            await foreach (var (keywords, videoId, scope) in youtube.ListKeywordsAsync(command, cancellation))
+                Youtube.AggregateKeywords(keywords, videoId, scope, scopes);
 
             if (scopes.Any())
             {

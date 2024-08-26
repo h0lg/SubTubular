@@ -54,7 +54,7 @@ module Search =
         | Run of bool
         | CommandValidated of OutputCommand
         | SearchResults of VideoSearchResult list
-        | KeywordResults of (string * string * CommandScope) list
+        | KeywordResults of (string array * string * CommandScope) list
         | CommandCompleted
         | SearchResultMsg of SearchResult.Msg
         | Common of CommonMsg
@@ -334,8 +334,8 @@ module Search =
             Cmd.none
 
         | KeywordResults list ->
-            for (keyword, videoId, scope) in list do
-                Youtube.AggregateKeywords(keyword, videoId, scope, model.KeywordResults)
+            for (keywords, videoId, scope) in list do
+                Youtube.AggregateKeywords(keywords, videoId, scope, model.KeywordResults)
 
             { model with
                 DisplayedKeywords = Youtube.CountKeywordVideos model.KeywordResults },
