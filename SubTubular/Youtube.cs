@@ -298,7 +298,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                     Video? video = command.Videos?.Validated.SingleOrDefault(v => v.Id == id)?.Video;
                     video ??= await GetVideoAsync(id, cancellation, scope, downloadCaptionTracksAndSave: false);
                     if (video.CaptionTracks.Count == 0) await DownloadCaptionTracksAndSaveAsync(video, cancellation);
-                    playlist?.SetUploaded(video);
+                    playlist?.SetUploadedAndKeywords(video);
 
                     await unIndexedVideos.Writer.WriteAsync(video);
                     scope.Report(id, VideoList.Status.indexing);
@@ -389,16 +389,14 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
     public async IAsyncEnumerable<(string[] keywords, string videoId, CommandScope scope)> ListKeywordsAsync(ListKeywords command,
         [EnumeratorCancellation] CancellationToken cancellation = default)
     {
-        var channel = Pipe.CreateBounded<(string[] keywords, string videoId, CommandScope scope)>(
-            new BoundedChannelOptions(5) { SingleReader = true });
+        var channel = Pipe.CreateUnbounded<(string[] keywords, string videoId, CommandScope scope)>(
+            new UnboundedChannelOptions { SingleReader = true });
 
         async Task GetKeywords(string videoId, CommandScope scope)
         {
-            var video = await GetVideoAsync(videoId, cancellation, scope);
             scope.Report(videoId, VideoList.Status.searching);
-
+            var video = await GetVideoAsync(videoId, cancellation, scope);
             await channel.Writer.WriteAsync((video.Keywords, videoId, scope));
-
             scope.Report(videoId, VideoList.Status.searched);
         }
 
@@ -417,10 +415,19 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                             continue; // don't automatically repeat the search on the updated playlist
                         }
 
-                        var videoIds = playlist.GetVideoIds().Skip(scope.Skip).Take(scope.Take).ToArray();
+                        var videos = playlist.GetVideos().Skip(scope.Skip).Take(scope.Take).ToArray();
+                        var videoIds = videos.Select(video => video.Id).ToArray();
                         scope.QueueVideos(videoIds);
                         scope.Report(VideoList.Status.searching);
-                        foreach (var videoId in videoIds) await GetKeywords(videoId, scope);
+
+                        foreach (var video in videos)
+                        {
+                            if (video.Keywords?.Length > 0)
+                                await channel.Writer.WriteAsync((video.Keywords, video.Id, scope));
+
+                            scope.Report(video.Id, VideoList.Status.searched);
+                        }
+
                         scope.Report(VideoList.Status.searched);
                     }
                 }
@@ -451,7 +458,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
         }).WithAggregateException();
 
         // start reading
-        await foreach (var keyword in channel.Reader.ReadAllAsync(cancellation)) yield return keyword;
+        await foreach (var keywords in channel.Reader.ReadAllAsync(cancellation)) yield return keywords;
 
         await lookups; // to propagate exceptions
     }
