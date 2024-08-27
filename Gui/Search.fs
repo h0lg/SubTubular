@@ -490,9 +490,16 @@ module Search =
                         for scope in model.DisplayedKeywords do
                             (VStack() {
                                 TextBlock(scope.Key.Describe().Join(" "))
+                                let maxDisplay = 128
+
+                                let keywords, moreCount =
+                                    if scope.Value.Length > maxDisplay then
+                                        (scope.Value |> Array.take maxDisplay, scope.Value.Length - maxDisplay)
+                                    else
+                                        (scope.Value, 0)
 
                                 HWrap() {
-                                    for pair in scope.Value do
+                                    for pair in keywords do
                                         let keyword, videoCount = pair.ToTuple()
                                         TextBlock(videoCount.ToString() + "x")
 
@@ -502,6 +509,9 @@ module Search =
                                             .padding(3, 0, 3, 0)
                                             .margin (3)
                                 }
+
+                                if moreCount > 0 then
+                                    Label($"and {moreCount} more")
                             })
                                 .trailingMargin ()
 
