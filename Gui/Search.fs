@@ -1,6 +1,7 @@
 ﻿namespace SubTubular.Gui
 
 open System
+open System.Linq
 open System.Collections.Generic
 open System.Threading
 open Avalonia.Controls
@@ -17,6 +18,10 @@ module Search =
         | ListKeywords = 1
         | Search = 0
 
+    type PagedKeywords =
+        { Keywords: struct (string * int) array
+          Page: uint16 }
+
     type Model =
         {
             Command: Commands
@@ -32,7 +37,7 @@ module Search =
 
             /// video IDs by keyword by scope
             KeywordResults: Dictionary<CommandScope, Dictionary<string, List<string>>>
-            DisplayedKeywords: Dictionary<CommandScope, struct (string * int) array>
+            DisplayedKeywords: Dictionary<CommandScope, PagedKeywords>
 
             DisplayOutputOptions: bool
             FileOutput: FileOutput.Model
@@ -55,6 +60,7 @@ module Search =
         | CommandValidated of OutputCommand
         | SearchResults of VideoSearchResult list
         | KeywordResults of (string array * string * CommandScope) list
+        | GoToKeywordPage of (CommandScope * uint16)
         | CommandCompleted
         | SearchResultMsg of SearchResult.Msg
         | Common of CommonMsg
@@ -185,7 +191,8 @@ module Search =
 
             | :? ListKeywords as listKeywords ->
                 Prevalidate.Scopes listKeywords
-                let! path = FileOutput.saveAsync listKeywords _.ListKeywords(model.DisplayedKeywords)
+                let counted = Youtube.CountKeywordVideos model.KeywordResults
+                let! path = FileOutput.saveAsync listKeywords _.ListKeywords(counted)
                 return SavedOutput path |> Some
 
             | _ -> return None
@@ -337,9 +344,18 @@ module Search =
             for (keywords, videoId, scope) in list do
                 Youtube.AggregateKeywords(keywords, videoId, scope, model.KeywordResults)
 
+            let counted = Youtube.CountKeywordVideos model.KeywordResults
+
             { model with
-                DisplayedKeywords = Youtube.CountKeywordVideos model.KeywordResults },
+                DisplayedKeywords = counted.ToDictionary(_.Key, (fun pair -> { Keywords = pair.Value; Page = 0us })) },
             Cmd.none
+
+        | GoToKeywordPage(scope, page) ->
+            model.DisplayedKeywords[scope] <-
+                { model.DisplayedKeywords[scope] with
+                    Page = page }
+
+            model, Cmd.none
 
         | CommandCompleted ->
             if model.Running <> null then
@@ -490,16 +506,17 @@ module Search =
                         for scope in model.DisplayedKeywords do
                             (VStack() {
                                 TextBlock(scope.Key.Describe().Join(" "))
-                                let maxDisplay = 128
-
-                                let keywords, moreCount =
-                                    if scope.Value.Length > maxDisplay then
-                                        (scope.Value |> Array.take maxDisplay, scope.Value.Length - maxDisplay)
-                                    else
-                                        (scope.Value, 0)
+                                let keywordPageSize = 100
+                                let lastPage = scope.Value.Keywords.Length / keywordPageSize |> uint16
+                                let page = scope.Value.Page
 
                                 HWrap() {
-                                    for pair in keywords do
+                                    let offset = keywordPageSize * (int) page
+
+                                    let keywordsOnPage =
+                                        scope.Value.Keywords |> Array.skip offset |> Array.truncate keywordPageSize
+
+                                    for pair in keywordsOnPage do
                                         let keyword, videoCount = pair.ToTuple()
                                         TextBlock(videoCount.ToString() + "x")
 
@@ -510,8 +527,22 @@ module Search =
                                             .margin (3)
                                 }
 
-                                if moreCount > 0 then
-                                    Label($"and {moreCount} more")
+                                HStack(5) {
+                                    Label "page"
+                                    Button("⏮", GoToKeywordPage(scope.Key, 0us)).tapCursor().tooltip ("first page")
+
+                                    Button("◀", GoToKeywordPage(scope.Key, page - 1us))
+                                        .tapCursor()
+                                        .tooltip ("previous page")
+
+                                    Button("▶", GoToKeywordPage(scope.Key, page + 1us))
+                                        .tapCursor()
+                                        .tooltip ("next page")
+
+                                    Button("⏭", GoToKeywordPage(scope.Key, lastPage))
+                                        .tapCursor()
+                                        .tooltip ("last page")
+                                }
                             })
                                 .trailingMargin ()
 
