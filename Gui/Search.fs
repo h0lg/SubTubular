@@ -535,6 +535,21 @@ module Search =
                                         .tapCursor()
                                         .tooltip ("previous page")
 
+                                    NumericUpDown(
+                                        1,
+                                        lastPage + 1us |> float,
+                                        page + 1us |> float |> Some,
+                                        fun p ->
+                                            GoToKeywordPage(
+                                                scope.Key,
+                                                match p with
+                                                | Some p -> uint16 p - 1us
+                                                | None -> page
+                                            )
+                                    )
+                                        .showButtonSpinner(false)
+                                        .tooltip ("spin using mouse wheel or enter page")
+
                                     Button("▶", GoToKeywordPage(scope.Key, page + 1us))
                                         .tapCursor()
                                         .tooltip ("next page")
