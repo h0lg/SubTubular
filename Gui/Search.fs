@@ -504,13 +504,32 @@ module Search =
                 (VStack() {
                     if not isSearch && hasResults then
                         for scope in model.DisplayedKeywords do
-                            (VStack() {
-                                TextBlock(scope.Key.Describe().Join(" "))
-                                let keywordPageSize = 100
-                                let lastPage = scope.Value.Keywords.Length / keywordPageSize |> uint16
-                                let page = scope.Value.Page
+                            let keywordPageSize = 100
+                            let lastPage = scope.Value.Keywords.Length / keywordPageSize |> uint16
+                            let page = scope.Value.Page
 
-                                HWrap() {
+                            (Grid(coldefs = [ Star; Auto; Auto ], rowdefs = [ Auto; Auto ]) {
+                                TextBlock(scope.Key.Describe().Join(" ")).header ()
+                                Label("page").gridColumn (1)
+
+                                NumericUpDown(
+                                    1,
+                                    lastPage + 1us |> float,
+                                    page + 1us |> float |> Some,
+                                    fun p ->
+                                        GoToKeywordPage(
+                                            scope.Key,
+                                            match p with
+                                            | Some p -> uint16 p - 1us
+                                            | None -> page
+                                        )
+                                )
+                                    .formatString("F0")
+                                    .tapCursor()
+                                    .tooltip("enter page, spin using mouse wheel, click or hold buttons")
+                                    .gridColumn (2)
+
+                                (HWrap() {
                                     let offset = keywordPageSize * (int) page
 
                                     let keywordsOnPage =
@@ -525,39 +544,9 @@ module Search =
                                             .cornerRadius(2)
                                             .padding(3, 0, 3, 0)
                                             .margin (3)
-                                }
-
-                                HStack(5) {
-                                    Label "page"
-                                    Button("⏮", GoToKeywordPage(scope.Key, 0us)).tapCursor().tooltip ("first page")
-
-                                    Button("◀", GoToKeywordPage(scope.Key, page - 1us))
-                                        .tapCursor()
-                                        .tooltip ("previous page")
-
-                                    NumericUpDown(
-                                        1,
-                                        lastPage + 1us |> float,
-                                        page + 1us |> float |> Some,
-                                        fun p ->
-                                            GoToKeywordPage(
-                                                scope.Key,
-                                                match p with
-                                                | Some p -> uint16 p - 1us
-                                                | None -> page
-                                            )
-                                    )
-                                        .showButtonSpinner(false)
-                                        .tooltip ("spin using mouse wheel or enter page")
-
-                                    Button("▶", GoToKeywordPage(scope.Key, page + 1us))
-                                        .tapCursor()
-                                        .tooltip ("next page")
-
-                                    Button("⏭", GoToKeywordPage(scope.Key, lastPage))
-                                        .tapCursor()
-                                        .tooltip ("last page")
-                                }
+                                })
+                                    .gridRow(1)
+                                    .gridColumnSpan (3)
                             })
                                 .trailingMargin ()
 
