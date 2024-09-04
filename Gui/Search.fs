@@ -504,37 +504,15 @@ module Search =
                 (VStack() {
                     if not isSearch && hasResults then
                         for scope in model.DisplayedKeywords do
-                            let keywordPageSize = 100
-                            let lastPage = scope.Value.Keywords.Length / keywordPageSize |> uint16
-                            let page = scope.Value.Page
+                            let keywordsOnPage, pager =
+                                Pager.render scope.Value.Keywords (int scope.Value.Page) 100 (fun page ->
+                                    GoToKeywordPage(scope.Key, uint16 page))
 
-                            (Grid(coldefs = [ Star; Auto; Auto ], rowdefs = [ Auto; Auto ]) {
+                            (Grid(coldefs = [ Star; Auto ], rowdefs = [ Auto; Auto ]) {
                                 TextBlock(scope.Key.Describe().Join(" ")).header ()
-                                Label("page").gridColumn (1)
-
-                                NumericUpDown(
-                                    1,
-                                    lastPage + 1us |> float,
-                                    page + 1us |> float |> Some,
-                                    fun p ->
-                                        GoToKeywordPage(
-                                            scope.Key,
-                                            match p with
-                                            | Some p -> uint16 p - 1us
-                                            | None -> page
-                                        )
-                                )
-                                    .formatString("F0")
-                                    .tapCursor()
-                                    .tooltip("enter page, spin using mouse wheel, click or hold buttons")
-                                    .gridColumn (2)
+                                pager.gridColumn (1)
 
                                 (HWrap() {
-                                    let offset = keywordPageSize * (int) page
-
-                                    let keywordsOnPage =
-                                        scope.Value.Keywords |> Array.skip offset |> Array.truncate keywordPageSize
-
                                     for pair in keywordsOnPage do
                                         let keyword, videoCount = pair.ToTuple()
                                         TextBlock(videoCount.ToString() + "x")
@@ -546,7 +524,7 @@ module Search =
                                             .margin (3)
                                 })
                                     .gridRow(1)
-                                    .gridColumnSpan (3)
+                                    .gridColumnSpan (2)
                             })
                                 .trailingMargin ()
 
