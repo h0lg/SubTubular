@@ -43,6 +43,7 @@
     <Compile Include="ConfigFile.fs" />
     <Compile Include="Scope.fs" />
     <Compile Include="Scopes.fs" />
+    <Compile Include="Pager.fs" />
     <Compile Include="SearchResult.fs" />
     <Compile Include="ResultOptions.fs" />
     <Compile Include="FileOutput.fs" />
