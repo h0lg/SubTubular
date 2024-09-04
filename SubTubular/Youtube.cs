@@ -28,6 +28,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
     public async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command,
         [EnumeratorCancellation] CancellationToken cancellation = default)
     {
+        ResourceMonitor resourceMonitor = new();
         List<IAsyncEnumerable<VideoSearchResult>> searches = [];
         SearchPlaylistLikeScopes(command.Channels);
         SearchPlaylistLikeScopes(command.Playlists);
@@ -43,7 +44,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
         void SearchPlaylistLikeScopes(PlaylistLikeScope[]? scopes)
         {
             if (scopes.HasAny()) searches.AddRange(scopes!.GetValid().DistinctBy(c => c.SingleValidated.Id)
-                .Select(scope => SearchPlaylistAsync(command, scope, cancellation)));
+                .Select(scope => SearchPlaylistAsync(command, scope, resourceMonitor, cancellation)));
         }
     }
 
@@ -51,7 +52,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
     /// <param name="cancellation">Passed in either explicitly or by the IAsyncEnumerable.WithCancellation() extension,
     /// see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables</param>
     private async IAsyncEnumerable<VideoSearchResult> SearchPlaylistAsync(SearchCommand command, PlaylistLikeScope scope,
-        [EnumeratorCancellation] CancellationToken cancellation = default)
+        ResourceMonitor resourceMonitor, [EnumeratorCancellation] CancellationToken cancellation = default)
     {
         cancellation.ThrowIfCancellationRequested();
         var storageKey = scope.StorageKey;
@@ -73,63 +74,67 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                 scope.QueueVideos(videoIds);
 
                 var results = Pipe.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions { SingleReader = true });
+                var runningTasks = 0;
 
-                List<Task> searches = videos.GroupBy(v => v.ShardNumber).Select(async group =>
+                List<Task> searches = videos.GroupBy(v => v.ShardNumber).Select(async (group, index) =>
                 {
-                    List<Task> subSearches = new();
-                    var containedVideoIds = group.Select(v => v.Id).ToArray();
-                    var shard = await videoIndexRepo.GetIndexShardAsync(storageKey, group.Key!.Value);
-                    ushort shardConsumers = 0; // counts shard consumer registrations for DisposeUnusedShard below
-                    var indexedVideoIds = shard.GetIndexed(containedVideoIds);
+                    await Task.Delay(index * 1000); // spread out start of hot parallel tasks
 
-                    if (indexedVideoIds.Length != 0)
+                    // but delay the heavy lifting until we have enough resources to avoid overloading the system
+                    while (runningTasks > 0 && !resourceMonitor.HasSufficient())
                     {
-                        var indexedVideoInfos = indexedVideoIds.ToDictionary(id => id, id => group.Single(v => v.Id == id).Uploaded);
-                        shardConsumers++;
-
-                        // search already indexed videos in one go - but on background task to start downloading and indexing videos in parallel
-                        subSearches.Add(SearchIndexedVideos());
-
-                        async Task SearchIndexedVideos()
-                        {
-                            foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searching);
-
-                            await foreach (var result in shard.SearchAsync(command, CreateVideoLookup(scope), indexedVideoInfos, playlist, cancellation))
-                                await results.Writer.WriteAsync(result);
-
-                            foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searched);
-                            DisposeUnusedShard();
-                        }
+                        cancellation.ThrowIfCancellationRequested();
+                        await Task.Delay(1000);
                     }
 
-                    var unIndexedVideoIds = containedVideoIds.Except(indexedVideoIds).ToArray();
+                    Interlocked.Increment(ref runningTasks);
 
-                    // load, index and search not yet indexed videos
-                    if (unIndexedVideoIds.Length > 0)
+                    try
                     {
-                        shardConsumers++;
-                        subSearches.Add(SearchUnindexedVids());
+                        List<Task> shardSearches = [];
+                        var containedVideoIds = group.Select(v => v.Id).ToArray();
+                        var shard = await videoIndexRepo.GetIndexShardAsync(storageKey, group.Key!.Value);
+                        var indexedVideoIds = shard.GetIndexed(containedVideoIds);
 
-                        async Task SearchUnindexedVids()
+                        if (indexedVideoIds.Length != 0)
                         {
-                            await foreach (var result in SearchUnindexedVideos(command, unIndexedVideoIds, shard, scope, cancellation, playlist))
-                                await results.Writer.WriteAsync(result);
+                            var indexedVideoInfos = indexedVideoIds.ToDictionary(id => id, id => group.Single(v => v.Id == id).Uploaded);
 
-                            DisposeUnusedShard();
+                            // search already indexed videos in one go - but on background task to start downloading and indexing videos in parallel
+                            shardSearches.Add(SearchIndexedVideos());
+
+                            async Task SearchIndexedVideos()
+                            {
+                                foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searching);
+
+                                await foreach (var result in shard.SearchAsync(command, CreateVideoLookup(scope), indexedVideoInfos, playlist, cancellation))
+                                    await results.Writer.WriteAsync(result);
+
+                                foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searched);
+                            }
                         }
-                    }
 
-                    await Task.WhenAll(subSearches).WithAggregateException();
+                        var unIndexedVideoIds = containedVideoIds.Except(indexedVideoIds).ToArray();
 
-                    // helps disposing of index shard as soon as possible to free resources
-                    void DisposeUnusedShard()
-                    {
-                        lock (shard) // safe-guards concurrent access to indexConsumers
+                        // load, index and search not yet indexed videos
+                        if (unIndexedVideoIds.Length > 0)
                         {
-                            shardConsumers--;
-                            if (shardConsumers == 0) shard.Dispose();
+                            shardSearches.Add(SearchUnindexedVids());
+
+                            async Task SearchUnindexedVids()
+                            {
+                                await foreach (var result in SearchUnindexedVideos(command, unIndexedVideoIds, shard, scope, cancellation, playlist))
+                                    await results.Writer.WriteAsync(result);
+                            }
                         }
+
+                        await Task.WhenAll(shardSearches).WithAggregateException().ContinueWith(t =>
+                        {
+                            shard.Dispose();
+                            if (t.IsFaulted) throw t.Exception;
+                        });
                     }
+                    finally { Interlocked.Decrement(ref runningTasks); }
                 }).ToList();
 
                 scope.Report(VideoList.Status.searching);
