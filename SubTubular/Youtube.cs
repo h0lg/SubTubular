@@ -72,10 +72,11 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                 var videoIds = videos.Select(v => v.Id).ToArray();
                 scope.QueueVideos(videoIds);
 
-                List<IAsyncEnumerable<VideoSearchResult>> searches = [];
+                var results = Pipe.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions { SingleReader = true });
 
-                foreach (var group in videos.GroupBy(v => v.ShardNumber))
+                List<Task> searches = videos.GroupBy(v => v.ShardNumber).Select(async group =>
                 {
+                    List<Task> subSearches = new();
                     var containedVideoIds = group.Select(v => v.Id).ToArray();
                     var shard = await videoIndexRepo.GetIndexShardAsync(storageKey, group.Key!.Value);
                     ushort shardConsumers = 0; // counts shard consumer registrations for DisposeUnusedShard below
@@ -87,14 +88,14 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                         shardConsumers++;
 
                         // search already indexed videos in one go - but on background task to start downloading and indexing videos in parallel
-                        searches.Add(SearchIndexedVideos());
+                        subSearches.Add(SearchIndexedVideos());
 
-                        async IAsyncEnumerable<VideoSearchResult> SearchIndexedVideos()
+                        async Task SearchIndexedVideos()
                         {
                             foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searching);
 
                             await foreach (var result in shard.SearchAsync(command, CreateVideoLookup(scope), indexedVideoInfos, playlist, cancellation))
-                                yield return result;
+                                await results.Writer.WriteAsync(result);
 
                             foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searched);
                             DisposeUnusedShard();
@@ -107,16 +108,18 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                     if (unIndexedVideoIds.Length > 0)
                     {
                         shardConsumers++;
-                        searches.Add(SearchUnindexedVids());
+                        subSearches.Add(SearchUnindexedVids());
 
-                        async IAsyncEnumerable<VideoSearchResult> SearchUnindexedVids()
+                        async Task SearchUnindexedVids()
                         {
                             await foreach (var result in SearchUnindexedVideos(command, unIndexedVideoIds, shard, scope, cancellation, playlist))
-                                yield return result;
+                                await results.Writer.WriteAsync(result);
 
                             DisposeUnusedShard();
                         }
                     }
+
+                    await Task.WhenAll(subSearches).WithAggregateException();
 
                     // helps disposing of index shard as soon as possible to free resources
                     void DisposeUnusedShard()
@@ -127,12 +130,18 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                             if (shardConsumers == 0) shard.Dispose();
                         }
                     }
-                }
+                }).ToList();
 
                 scope.Report(VideoList.Status.searching);
                 var spansMultipleIndexes = searches.Count > 0;
 
-                await foreach (var result in searches.Parallelize(cancellation))
+                // hook up writer completion before starting to read so reader knows when it's done
+                var searchCompletion = Task.WhenAll(searches).WithAggregateException()
+                   // complete writing after all download tasks finished
+                   .ContinueWith(t => results.Writer.Complete(t.Exception), cancellation);
+
+                // start reading
+                await foreach (var result in results.Reader.ReadAllAsync(cancellation))
                 {
                     result.Scope = scope;
                     if (spansMultipleIndexes) result.Rescore();
@@ -141,6 +150,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
 
                 scope.Report(VideoList.Status.searched);
                 await SavePlaylistAsync(playlist);
+                await searchCompletion; // to throw exceptions
             }
         }
 
