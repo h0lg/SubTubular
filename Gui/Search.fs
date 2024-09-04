@@ -33,7 +33,8 @@ module Search =
             ResultOptions: ResultOptions.Model
 
             Running: CancellationTokenSource
-            SearchResults: (VideoSearchResult * uint32) list
+            SearchResults: (VideoSearchResult * uint32) list // result with applied Padding
+            SearchResultPage: uint16
 
             /// video IDs by keyword by scope
             KeywordResults: Dictionary<CommandScope, Dictionary<string, List<string>>>
@@ -59,6 +60,7 @@ module Search =
         | Run of bool
         | CommandValidated of OutputCommand
         | SearchResults of VideoSearchResult list
+        | GoToSearchResultPage of uint16
         | KeywordResults of (string array * string * CommandScope) list
         | GoToKeywordPage of (CommandScope * uint16)
         | CommandCompleted
@@ -213,6 +215,7 @@ module Search =
 
           Running = null
           SearchResults = []
+          SearchResultPage = 0us
           KeywordResults = null
           DisplayedKeywords = null }
 
@@ -340,6 +343,8 @@ module Search =
                     |> addPadding model },
             Cmd.none
 
+        | GoToSearchResultPage page -> { model with SearchResultPage = page }, Cmd.none
+
         | KeywordResults list ->
             for (keywords, videoId, scope) in list do
                 Youtube.AggregateKeywords(keywords, videoId, scope, model.KeywordResults)
@@ -413,6 +418,16 @@ module Search =
                 else
                     model.DisplayedKeywords <> null && model.DisplayedKeywords.Count > 0
 
+            let searchResultsOnPage, resultPager =
+                match isSearch && hasResults with
+                | true ->
+                    let page, pager =
+                        Pager.render (model.SearchResults |> Array.ofList) (int model.SearchResultPage) 10 (fun page ->
+                            GoToSearchResultPage(uint16 page))
+
+                    Some page, Some pager
+                | false -> None, None
+
             // scopes
             ScrollViewer(View.map ScopesMsg (Scopes.view model.Scopes)).card().isVisible (model.ShowScopes)
 
@@ -473,7 +488,7 @@ module Search =
                 .gridRow (1)
 
             // result options
-            (Grid(coldefs = [ Auto; Star; Star; Auto ], rowdefs = [ Auto; Auto ]) {
+            (Grid(coldefs = [ Auto; Star; Star; Star; Auto ], rowdefs = [ Auto; Auto ]) {
                 TextBlock("Results")
 
                 (View.map ResultOptionsMsg (ResultOptions.orderBy model.ResultOptions))
@@ -487,13 +502,16 @@ module Search =
                     .isVisible(isSearch)
                     .gridColumn (2)
 
-                ToggleButton("to file 📄", model.DisplayOutputOptions, DisplayOutputOptionsChanged).gridColumn (3)
+                if resultPager.IsSome then
+                    resultPager.Value.gridColumn (3)
+
+                ToggleButton("to file 📄", model.DisplayOutputOptions, DisplayOutputOptionsChanged).gridColumn (4)
 
                 // output options
                 (View.map FileOutputMsg (FileOutput.view model.FileOutput))
                     .isVisible(model.DisplayOutputOptions)
                     .gridRow(1)
-                    .gridColumnSpan (4)
+                    .gridColumnSpan (5)
             })
                 .card()
                 .isVisible(hasResults)
@@ -528,9 +546,9 @@ module Search =
                             })
                                 .trailingMargin ()
 
-                    if isSearch && hasResults then
+                    if searchResultsOnPage.IsSome then
                         ListBox(
-                            model.SearchResults,
+                            searchResultsOnPage.Value,
                             (fun item ->
                                 let result, padding = item
                                 View.map SearchResultMsg (SearchResult.render padding result))
