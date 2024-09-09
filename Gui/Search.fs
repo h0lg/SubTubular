@@ -173,7 +173,7 @@ module Search =
                 dispatch CommandCompleted
             }
             |> Async.AwaitTask
-            |> Async.StartImmediate
+            |> Async.Start
         |> Cmd.ofEffect
 
     let private saveOutput model =
