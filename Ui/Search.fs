@@ -294,6 +294,10 @@ module Search =
         | SavedOutput path -> model, Notify("Saved results to " + path) |> Common |> Cmd.ofMsg
 
         | Run on ->
+            if not on && model.Running <> null then
+                model.Running.Cancel()
+                model.Running.Dispose()
+
             let updated =
                 { model with
                     Running = if on then new CancellationTokenSource() else null
