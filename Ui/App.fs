@@ -172,13 +172,23 @@ module App =
         let program =
             Program.statefulWithCmd init update
             |> Program.withTrace (fun (format, args) -> System.Diagnostics.Debug.WriteLine(format, box args))
+            //|> Program.withLogger (fun (logger, program) -> program)
             |> Program.withExceptionHandler (fun ex ->
 #if DEBUG
                 printfn $"Exception: %s{ex.ToString()}"
-                false
+                //false // not handled
 #else
-                true
+                let path, report =
+                    ErrorLog.WriteAsync(ex.ToString()).GetAwaiter().GetResult().ToTuple()
+
+                if path <> null then
+                    Notify.error "The following errors occurred and we were unable to write a log for them:" report
+                    |> ignore
+                else
+                    Notify.error "Errors occured and were logged" ("to " + path) |> ignore
+
 #endif
+                true // handled, try continuing to run
             )
             |> Program.withView app
 

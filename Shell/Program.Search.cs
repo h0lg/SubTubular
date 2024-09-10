@@ -30,7 +30,7 @@ static partial class Program
 
   {t.Url}
 
-  {t.Error}").Join(AssemblyInfo.OutputSpacing));
+  {t.Error}").Join(ErrorLog.OutputSpacing));
             }
 
             return resultDisplayed;

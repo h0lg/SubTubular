@@ -67,16 +67,16 @@ public static class ReleaseManager
                 var url = release.BinariesZip.DownloadUrl;
                 report($"Downloading {release.Version} from '{url}'{Environment.NewLine}to '{zipPath}' ... ");
                 await FileHelper.DownloadAsync(url, zipPath);
-                report("DONE" + AssemblyInfo.OutputSpacing);
+                report("DONE" + Environment.NewLine);
             }
 
             report($"Removing installed binaries from '{installInto}' ... ");
             foreach (var filePath in FileHelper.GetFilesExcluding(installInto, archiveFolder)) File.Delete(filePath);
-            report("DONE" + AssemblyInfo.OutputSpacing);
+            report("DONE" + Environment.NewLine);
 
             report($"Unpacking '{zipPath}'{Environment.NewLine}into '{installInto}' ... ");
             FileHelper.Unzip(zipPath, installInto);
-            report("DONE" + AssemblyInfo.OutputSpacing);
+            report("DONE" + Environment.NewLine);
 
             report($"The binaries in '{installInto}'" + Environment.NewLine
                 + $"have successfully been updated to {release.Version} - opening release notes.");
