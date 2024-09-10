@@ -1,5 +1,4 @@
-﻿using System.Runtime.InteropServices;
-using Lifti;
+﻿using Lifti;
 using SubTubular.Extensions;
 
 namespace SubTubular.Shell;
@@ -46,34 +45,21 @@ internal static partial class Program
 
     private static async Task WriteErrorLogAsync(string originalCommand, string errors, string? name = null)
     {
-        var productInfo = AssemblyInfo.Name + " " + AssemblyInfo.GetProductVersion();
+        (var path, var report) = await ErrorLog.WriteAsync(errors, header: originalCommand, fileNameDescription: name);
+        var fileWritten = path != null;
 
-        var environmentInfo = new[] { "on", Environment.OSVersion.VersionString,
-            RuntimeInformation.FrameworkDescription, productInfo }.Join(" ");
-
-        var report = (new[] { originalCommand, environmentInfo, errors }).Join(AssemblyInfo.OutputSpacing);
-        var fileWritten = false;
-
-        try
-        {
-            var fileSafeName = name == null ? null : (" " + name.ToFileSafe());
-            var path = Path.Combine(Folder.GetPath(Folders.errors), $"error {DateTime.Now:yyyy-MM-dd HHmmss}{fileSafeName}.txt");
-            await FileHelper.WriteTextAsync(report, path);
-            Console.WriteLine("Errors were logged to " + path);
-            fileWritten = true;
-        }
-        catch (Exception ex)
+        if (fileWritten) Console.WriteLine("Errors were logged to " + path);
+        else
         {
             Console.WriteLine("The following errors occurred and we were unable to write a log for them.");
             Console.WriteLine();
             Console.Error.WriteLine(report);
-            Console.WriteLine();
-            Console.Error.WriteLine("Error writing error log: " + ex);
         }
 
         Console.WriteLine();
 
-        Console.WriteLine($"Try 'release --list' or check {AssemblyInfo.ReleasesUrl} for a version newer than {productInfo} that may have fixed this"
+        Console.WriteLine($"Try 'release --list' or check {AssemblyInfo.ReleasesUrl} for a {AssemblyInfo.Name} version"
+            + $" newer than {AssemblyInfo.GetProductVersion()} that may have fixed this"
             + $" or {AssemblyInfo.IssuesUrl} for existing reports of this error and maybe a solution or work-around."
             + " If you can reproduce this error in the latest version, reporting it there is your best chance at getting it fixed."
             + " If you do, make sure to include the original command or parameters to reproduce it,"

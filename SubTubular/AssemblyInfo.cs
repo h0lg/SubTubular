@@ -10,7 +10,6 @@ public static class AssemblyInfo
 
     internal const string RepoOwner = "h0lg", RepoName = Name;
 
-    public static string OutputSpacing = Environment.NewLine + Environment.NewLine;
     public static readonly string Title, Copyright, InformationalVersion;
 
     internal static readonly string Location, Version;

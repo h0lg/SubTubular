@@ -174,13 +174,23 @@ module App =
         let program =
             Program.statefulWithCmd init update
             |> Program.withTrace (fun (format, args) -> System.Diagnostics.Debug.WriteLine(format, box args))
+            //|> Program.withLogger (fun (logger, program) -> program)
             |> Program.withExceptionHandler (fun ex ->
+                let notifyError title message = Notify.error title message |> ignore
+
 #if DEBUG
                 printfn $"Exception: %s{ex.ToString()}"
-                false
+                notifyError "An error occurred" (ex.ToString())
 #else
-                true
+                let path, report = ErrorLog.Write(ex.ToString()).ToTuple()
+
+                if path = null then
+                    notifyError "The following errors occurred and we were unable to write a log for them:" report
+                else
+                    notifyError "Errors occured and were logged" ("to " + path)
 #endif
+
+                true // handled, try continuing to run
             )
             |> Program.withView app
 
