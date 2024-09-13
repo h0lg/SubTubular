@@ -40,7 +40,7 @@ public enum Folders
     /// (unless explicitly specified using <see cref="SearchCommand.FileOutputPath"/>).</summary>
     output,
 
-    /// <summary>The directory that holds app data as well as hosting the <see cref="cache"/>,
+    /// <summary>The user-specific directory that holds app data as well as hosting the <see cref="cache"/>,
     /// <see cref="errors"/> and <see cref="output"/> folders.</summary>
     storage
 }

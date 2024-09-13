@@ -23,8 +23,14 @@ module Cache =
         | OpenFolder of string
 
     let private loadFolders () =
+        let label folder =
+            if folder = Folders.storage then
+                "user data"
+            else
+                folder.ToString()
+
         Enum.GetValues<Folders>()
-        |> Array.map (fun f -> f.ToString(), Folder.GetPath f)
+        |> Array.map (fun f -> label f, Folder.GetPath f)
         |> Array.appendOne ("other releases", ReleaseManager.GetArchivePath(Folder.GetPath(Folders.app)))
         |> Array.filter (fun pair -> snd pair |> Directory.Exists)
         |> Array.sortBy snd
