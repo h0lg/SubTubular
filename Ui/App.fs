@@ -15,7 +15,7 @@ open type Fabulous.Avalonia.View
 
 module App =
     type Model =
-        { Search: Search.Model
+        { Search: OutputCommands.Model
           Settings: Settings.Model
           Cache: Cache.Model
           Recent: ConfigFile.Model }
@@ -24,7 +24,7 @@ module App =
         | CacheMsg of Cache.Msg
         | RecentMsg of ConfigFile.Msg
         | SettingsMsg of Settings.Msg
-        | SearchMsg of Search.Msg
+        | SearchMsg of OutputCommands.Msg
 
         | AttachedToVisualTreeChanged of VisualTreeAttachmentEventArgs
         | Common of CommonMsg
@@ -33,7 +33,7 @@ module App =
         { Cache = Cache.initModel
           Settings = Settings.initModel
           Recent = ConfigFile.initModel
-          Search = Search.initModel }
+          Search = OutputCommands.initModel }
 
     // load settings on init, see https://docs.fabulous.dev/basics/application-state/commands#triggering-commands-on-initialization
     let private init () =
@@ -64,7 +64,7 @@ module App =
                 | ConfigFile.Msg.Load cmd ->
                     searchTab.Value.IsSelected <- true
                     let cmdClone = deepClone cmd // to avoid modifying the loaded recent command object itself
-                    let updated, cmd = Search.load cmdClone model.Search
+                    let updated, cmd = OutputCommands.load cmdClone model.Search
                     { model with Search = updated }, Cmd.map SearchMsg cmd
                 | _ -> model, Cmd.none
 
@@ -80,16 +80,16 @@ module App =
         | SearchMsg smsg ->
             let fwdCmd =
                 match smsg with
-                | Search.Msg.Common msg -> Common msg |> Cmd.ofMsg
-                | Search.Msg.CommandValidated cmd -> ConfigFile.CommandRun cmd |> RecentMsg |> Cmd.ofMsg
-                | Search.Msg.ResultOptionsChanged -> requestSaveSettings ()
-                | Search.Msg.FileOutputMsg fom ->
+                | OutputCommands.Msg.Common msg -> Common msg |> Cmd.ofMsg
+                | OutputCommands.Msg.CommandValidated cmd -> ConfigFile.CommandRun cmd |> RecentMsg |> Cmd.ofMsg
+                | OutputCommands.Msg.ResultOptionsChanged -> requestSaveSettings ()
+                | OutputCommands.Msg.FileOutputMsg fom ->
                     match fom with
                     | FileOutput.Msg.SaveOutput -> Cmd.none
                     | _ -> requestSaveSettings ()
                 | _ -> Cmd.none
 
-            let updated, cmd = Search.update smsg model.Search
+            let updated, cmd = OutputCommands.update smsg model.Search
             { model with Search = updated }, Cmd.batch [ fwdCmd; Cmd.map SearchMsg cmd ]
 
         | Common cmsg ->
