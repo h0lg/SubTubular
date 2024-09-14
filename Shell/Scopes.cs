@@ -3,7 +3,7 @@ using System.CommandLine.Invocation;
 
 namespace SubTubular.Shell;
 
-static partial class CommandHandler
+static partial class CommandInterpreter
 {
     private static (Option<IEnumerable<string>> channels, Option<IEnumerable<string>> playlists, Option<IEnumerable<string>> videos) AddScopes(Command outputCommand)
     {

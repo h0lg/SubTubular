@@ -19,7 +19,7 @@ internal static partial class Program
             // quote shell args including pipes to accurately represent the console command
             + args.Select(arg => arg.Contains('|') ? $"\"{arg.Replace("\"", "\"\"")}\"" : arg).Join(" ");
 
-        try { await CommandHandler.HandleArgs(args, originalCommand); }
+        try { await CommandInterpreter.ParseArgs(args, originalCommand); }
         catch (InputException ex) { Console.Error.WriteLine(ex.Message); }
         catch (HttpRequestException ex)
         {

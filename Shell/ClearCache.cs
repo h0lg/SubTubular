@@ -23,7 +23,7 @@ static partial class Program
     }
 }
 
-static partial class CommandHandler
+static partial class CommandInterpreter
 {
     private static Command ConfigureClearCache(Func<ClearCache, Task> handle)
     {

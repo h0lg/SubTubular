@@ -2,7 +2,7 @@
 
 namespace SubTubular.Shell;
 
-static partial class CommandHandler
+static partial class CommandInterpreter
 {
     private static Command ConfigureRelease()
     {
