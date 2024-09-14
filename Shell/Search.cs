@@ -34,7 +34,7 @@ static partial class Program
     }
 }
 
-static partial class CommandHandler
+static partial class CommandInterpreter
 {
     private static Command ConfigureSearch(Func<SearchCommand, Task> search)
     {

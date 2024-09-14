@@ -25,7 +25,7 @@ static partial class Program
     }
 }
 
-static partial class CommandHandler
+static partial class CommandInterpreter
 {
     private static Command ConfigureListKeywords(Func<ListKeywords, Task> listKeywords)
     {

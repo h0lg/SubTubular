@@ -6,13 +6,13 @@ using System.CommandLine.Parsing;
 
 namespace SubTubular.Shell;
 
-static partial class CommandHandler
+static partial class CommandInterpreter
 {
     private const string clearCacheCommand = "clear-cache", skipName = "--skip", takeName = "--take", orderByName = "--order-by",
         quoteIdsStartingWithDash = " Note that if the video ID starts with a dash, you have to quote it"
             + @" like ""-1a2b3c4d5e"" or use the entire URL to prevent it from being misinterpreted as a command option.";
 
-    internal static async Task HandleArgs(string[] args, string originalCommand)
+    internal static async Task ParseArgs(string[] args, string originalCommand)
     {
         Task search(SearchCommand cmd) => Program.SearchAsync(cmd, originalCommand);
         Task listKeywords(ListKeywords cmd) => Program.ListKeywordsAsync(cmd, originalCommand);
