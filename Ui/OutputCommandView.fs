@@ -59,6 +59,87 @@ module OutputCommandView =
         })
             .trailingMargin ()
 
+    let private renderCommandOptions model isSearch =
+        Grid(coldefs = [ Auto; Star; Auto; Auto; Auto; Auto ], rowdefs = [ Auto ]) {
+            Menu() {
+                MenuItem("🏷 List _keywords", CommandChanged Commands.ListKeywords)
+                    .tooltip(ListKeywords.Description)
+                    .tapCursor()
+                    .asToggle (not isSearch)
+
+                MenuItem("🔍 _Search for", CommandChanged Commands.Search)
+                    .tooltip(SearchCommand.Description)
+                    .tapCursor()
+                    .asToggle (isSearch)
+            }
+
+            TextBox(model.Query, QueryChanged)
+                .watermark("what to find")
+                .isVisible(isSearch)
+                .focus(model.FocusQuery)
+                .tooltip("focus using Alt+F")
+                .onLostFocus(fun _ -> FocusQuery false)
+                .gridColumn (1)
+
+            // invisible helper to focus query input
+            Button("_focus Query", FocusQuery true).width (0)
+
+            TextBlock("ⓘ")
+                .attachedFlyout(queryFlyout ())
+                .tappable(ToggleFlyout >> Common, "read about the query syntax")
+                .padding(5, -5)
+                .fontSize(30)
+                .isVisible(isSearch)
+                .gridColumn (2)
+
+            Label("in").centerVertical().gridColumn (3)
+
+            ToggleButton(
+                (if model.ShowScopes then
+                     "👆 these scopes"
+                 else
+                     $"✊ {model.Scopes.List.Length} scopes"),
+                model.ShowScopes,
+                ShowScopesChanged
+            )
+                .gridColumn (4)
+
+            let isRunning = model.Running <> null
+
+            ToggleButton((if isRunning then "✋ _Hold up!" else "👉 _Hit it!"), isRunning, Run)
+                .fontSize(16)
+                .margin(10, 0)
+                .gridColumn (5)
+        }
+
+    let private renderResultOptions model isSearch (resultPager: WidgetBuilder<Msg, IFabReversibleStackPanel> option) =
+        Grid(coldefs = [ Auto; Star; Star; Star; Auto ], rowdefs = [ Auto; Auto ]) {
+            TextBlock("Results").header ()
+
+            (View.map ResultOptionsMsg (ResultOptions.orderBy model.ResultOptions))
+                .centerVertical()
+                .centerHorizontal()
+                .isVisible(isSearch)
+                .gridColumn (1)
+
+            (View.map ResultOptionsMsg (ResultOptions.padding model.ResultOptions))
+                .centerHorizontal()
+                .isVisible(isSearch)
+                .gridColumn (2)
+
+            if resultPager.IsSome then
+                resultPager.Value.gridColumn (3)
+
+            ToggleButton("to file 📄", model.DisplayOutputOptions, DisplayOutputOptionsChanged)
+                .gridColumn (4)
+
+            // output options
+            (View.map FileOutputMsg (FileOutput.view model.FileOutput))
+                .isVisible(model.DisplayOutputOptions)
+                .gridRow(1)
+                .gridColumnSpan (5)
+        }
+
     (*  see for F#
             https://fsharp.org/learn/
             https://github.com/knocte/2fsharp/blob/master/csharp2fsharp.md
@@ -95,89 +176,11 @@ module OutputCommandView =
                 .card()
                 .isVisible (model.ShowScopes)
 
-            // see https://usecasepod.github.io/posts/mvu-composition.html
-            // and https://github.com/TimLariviere/FabulousContacts/blob/0d5024c4bfc7a84f02c0788a03f63ff946084c0b/FabulousContacts/ContactsListPage.fs#L89C17-L89C31
-            // search options
-            (Grid(coldefs = [ Auto; Star; Auto; Auto; Auto; Auto ], rowdefs = [ Auto ]) {
-                Menu() {
-                    MenuItem("🏷 List _keywords", CommandChanged Commands.ListKeywords)
-                        .tooltip(ListKeywords.Description)
-                        .tapCursor()
-                        .asToggle (not isSearch)
-
-                    MenuItem("🔍 _Search for", CommandChanged Commands.Search)
-                        .tooltip(SearchCommand.Description)
-                        .tapCursor()
-                        .asToggle (isSearch)
-                }
-
-                TextBox(model.Query, QueryChanged)
-                    .watermark("what to find")
-                    .isVisible(isSearch)
-                    .focus(model.FocusQuery)
-                    .tooltip("focus using Alt+F")
-                    .onLostFocus(fun _ -> FocusQuery false)
-                    .gridColumn (1)
-
-                TextBlock("ⓘ")
-                    .attachedFlyout(queryFlyout ())
-                    .tappable(ToggleFlyout >> Common, "read about the query syntax")
-                    .fontSize(20)
-                    .isVisible(isSearch)
-                    .gridColumn (2)
-
-                // invisible helper to focus query input
-                Button("_focus Query", FocusQuery true).width (0)
-
-                Label("in").centerVertical().gridColumn (3)
-
-                ToggleButton(
-                    (if model.ShowScopes then
-                         "👆 these scopes"
-                     else
-                         $"✊ {model.Scopes.List.Length} scopes"),
-                    model.ShowScopes,
-                    ShowScopesChanged
-                )
-                    .gridColumn (4)
-
-                let isRunning = model.Running <> null
-
-                ToggleButton((if isRunning then "✋ _Hold up!" else "👉 _Hit it!"), isRunning, Run)
-                    .fontSize(16)
-                    .margin(10, 0)
-                    .gridColumn (5)
-            })
-                .card()
-                .gridRow (1)
+            // command options
+            (renderCommandOptions model isSearch).card().gridRow (1)
 
             // result options
-            (Grid(coldefs = [ Auto; Star; Star; Star; Auto ], rowdefs = [ Auto; Auto ]) {
-                TextBlock("Results")
-
-                (View.map ResultOptionsMsg (ResultOptions.orderBy model.ResultOptions))
-                    .centerVertical()
-                    .centerHorizontal()
-                    .isVisible(isSearch)
-                    .gridColumn (1)
-
-                (View.map ResultOptionsMsg (ResultOptions.padding model.ResultOptions))
-                    .centerHorizontal()
-                    .isVisible(isSearch)
-                    .gridColumn (2)
-
-                if resultPager.IsSome then
-                    resultPager.Value.gridColumn (3)
-
-                ToggleButton("to file 📄", model.DisplayOutputOptions, DisplayOutputOptionsChanged)
-                    .gridColumn (4)
-
-                // output options
-                (View.map FileOutputMsg (FileOutput.view model.FileOutput))
-                    .isVisible(model.DisplayOutputOptions)
-                    .gridRow(1)
-                    .gridColumnSpan (5)
-            })
+            (renderResultOptions model isSearch resultPager)
                 .card()
                 .isVisible(hasResults)
                 .gridRow (2)
