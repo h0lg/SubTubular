@@ -4,7 +4,7 @@ namespace SubTubular.Shell;
 
 static partial class Program
 {
-    private static async Task ListKeywordsAsync(ListKeywords command, string originalCommand)
+    internal static async Task ListKeywordsAsync(ListKeywords command, string originalCommand)
     {
         Prevalidate.Scopes(command);
 
@@ -23,30 +23,30 @@ static partial class Program
             else Console.WriteLine("Found no keywords."); // any file output wouldn't be saved without results anyway
         });
     }
+}
 
-    static partial class CommandHandler
+static partial class CommandHandler
+{
+    private static Command ConfigureListKeywords(Func<ListKeywords, Task> listKeywords)
     {
-        private static Command ConfigureListKeywords(Func<ListKeywords, Task> listKeywords)
-        {
-            Command command = new(Actions.listKeywords, ListKeywords.Description);
-            command.AddAlias(Actions.listKeywords[..1]); // first character
+        Command command = new(Actions.listKeywords, ListKeywords.Description);
+        command.AddAlias(Actions.listKeywords[..1]); // first character
 
-            var (channels, playlists, videos) = AddScopes(command);
-            (Option<ushort> skip, Option<ushort> take, Option<float> cacheHours) = AddPlaylistLikeCommandOptions(command);
-            (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(command);
-            Option<bool> saveAsRecent = AddSaveAsRecent(command);
+        var (channels, playlists, videos) = AddScopes(command);
+        (Option<ushort> skip, Option<ushort> take, Option<float> cacheHours) = AddPlaylistLikeCommandOptions(command);
+        (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(command);
+        Option<bool> saveAsRecent = AddSaveAsRecent(command);
 
-            command.SetHandler(async (ctx) => await listKeywords(
-                new ListKeywords
-                {
-                    Channels = CreateChannelScopes(ctx, channels, skip, take, cacheHours),
-                    Playlists = CreatePlaylistScopes(ctx, playlists, skip, take, cacheHours),
-                    Videos = CreateVideosScope(ctx, videos)
-                }
-                .BindOuputOptions(ctx, html, fileOutputPath, show)
-                .BindSaveAsRecent(ctx, saveAsRecent)));
+        command.SetHandler(async (ctx) => await listKeywords(
+            new ListKeywords
+            {
+                Channels = CreateChannelScopes(ctx, channels, skip, take, cacheHours),
+                Playlists = CreatePlaylistScopes(ctx, playlists, skip, take, cacheHours),
+                Videos = CreateVideosScope(ctx, videos)
+            }
+            .BindOuputOptions(ctx, html, fileOutputPath, show)
+            .BindSaveAsRecent(ctx, saveAsRecent)));
 
-            return command;
-        }
+        return command;
     }
 }

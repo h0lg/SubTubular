@@ -5,7 +5,7 @@ namespace SubTubular.Shell;
 
 internal static partial class Program
 {
-    private const string asciiHeading = @"
+    internal const string AsciiHeading = @"
    _____       __  ______      __          __
   / ___/__  __/ /_/_  __/_  __/ /_  __  __/ /___ ______
   \__ \/ / / / __ \/ / / / / / __ \/ / / / / __ `/ ___/
@@ -40,7 +40,7 @@ internal static partial class Program
     }
 
     private static readonly string cacheFolder = Folder.GetPath(Folders.cache);
-    private static DataStore CreateDataStore() => new JsonFileDataStore(cacheFolder);
+    internal static DataStore CreateDataStore() => new JsonFileDataStore(cacheFolder);
     private static VideoIndexRepository CreateVideoIndexRepo() => new(cacheFolder);
 
     private static async Task WriteErrorLogAsync(string originalCommand, string errors, string? name = null)

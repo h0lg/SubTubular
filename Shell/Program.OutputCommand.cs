@@ -91,40 +91,40 @@ static partial class Program
         running = false; // to let the cancel task complete if operation did before it
         await cancel; // just to rethrow possible exceptions
     }
+}
 
-    static partial class CommandHandler
+static partial class CommandHandler
+{
+    private static Option<bool> AddSaveAsRecent(Command command)
     {
-        private static Option<bool> AddSaveAsRecent(Command command)
-        {
-            Option<bool> saveAsRecent = new(["--recent", "-rc"], "Unless set to false, saves this command into the recent list for later.");
-            saveAsRecent.SetDefaultValue(true);
-            command.AddOption(saveAsRecent);
-            return saveAsRecent;
-        }
+        Option<bool> saveAsRecent = new(["--recent", "-rc"], "Unless set to false, saves this command into the recent list for later.");
+        saveAsRecent.SetDefaultValue(true);
+        command.AddOption(saveAsRecent);
+        return saveAsRecent;
+    }
 
-        private static (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) AddOutputOptions(Command command)
-        {
-            const string htmlName = "--html", outputPathName = "--out",
-                existingFilesAreOverWritten = " Existing files with the same name will be overwritten.";
+    private static (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) AddOutputOptions(Command command)
+    {
+        const string htmlName = "--html", outputPathName = "--out",
+            existingFilesAreOverWritten = " Existing files with the same name will be overwritten.";
 
-            Option<bool> html = new([htmlName, "-m"],
-                "If set, outputs the highlighted search result in an HTML file including hyperlinks for easy navigation."
-                + $" The output path can be configured in the '{outputPathName}' parameter."
-                + " Omitting it will save the file into the default 'output' folder - named according to your search parameters."
-                + existingFilesAreOverWritten);
+        Option<bool> html = new([htmlName, "-m"],
+            "If set, outputs the highlighted search result in an HTML file including hyperlinks for easy navigation."
+            + $" The output path can be configured in the '{outputPathName}' parameter."
+            + " Omitting it will save the file into the default 'output' folder - named according to your search parameters."
+            + existingFilesAreOverWritten);
 
-            Option<string> fileOutputPath = new([outputPathName, "-o"],
-                $"Writes the search results to a file, the format of which is either text or HTML depending on the '{htmlName}' flag."
-                + " Supply either a file or folder path. If the path doesn't contain a file name, the file will be named according to your search parameters."
-                + existingFilesAreOverWritten);
+        Option<string> fileOutputPath = new([outputPathName, "-o"],
+            $"Writes the search results to a file, the format of which is either text or HTML depending on the '{htmlName}' flag."
+            + " Supply either a file or folder path. If the path doesn't contain a file name, the file will be named according to your search parameters."
+            + existingFilesAreOverWritten);
 
-            Option<OutputCommand.Shows?> show = new(["--show", "-s"], "The output to open if a file was written.");
+        Option<OutputCommand.Shows?> show = new(["--show", "-s"], "The output to open if a file was written.");
 
-            command.AddOption(html);
-            command.AddOption(fileOutputPath);
-            command.AddOption(show);
-            return (html, fileOutputPath, show);
-        }
+        command.AddOption(html);
+        command.AddOption(fileOutputPath);
+        command.AddOption(show);
+        return (html, fileOutputPath, show);
     }
 }
 
