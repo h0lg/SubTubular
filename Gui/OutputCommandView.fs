@@ -34,6 +34,31 @@ module OutputCommandView =
             .showMode (FlyoutShowMode.Standard)
     //.placement (PlacementMode.RightEdgeAlignedTop)
 
+    let private renderKeyWordPage scope pagedKeywords =
+        let keywordsOnPage, pager =
+            Pager.render pagedKeywords.Keywords (int pagedKeywords.Page) 100 (fun page ->
+                GoToKeywordPage(scope, uint16 page))
+
+        (Grid(coldefs = [ Star; Auto ], rowdefs = [ Auto; Auto ]) {
+            TextBlock(scope.Describe().Join(" ")).header ()
+            pager.gridColumn (1)
+
+            (HWrap() {
+                for pair in keywordsOnPage do
+                    let keyword, videoCount = pair.ToTuple()
+                    TextBlock(videoCount.ToString() + "x")
+
+                    Border(TextBlock(keyword))
+                        .background(ThemeAware.With(Colors.Thistle, Colors.Purple))
+                        .cornerRadius(2)
+                        .padding(3, 0, 3, 0)
+                        .margin (3)
+            })
+                .gridRow(1)
+                .gridColumnSpan (2)
+        })
+            .trailingMargin ()
+
     let render model =
         (Grid(coldefs = [ Star ], rowdefs = [ Auto; Auto; Auto; Auto; Star ]) {
             let isSearch = model.Command = Commands.Search
@@ -148,29 +173,7 @@ module OutputCommandView =
                 (VStack() {
                     if not isSearch && hasResults then
                         for scope in model.DisplayedKeywords do
-                            let keywordsOnPage, pager =
-                                Pager.render scope.Value.Keywords (int scope.Value.Page) 100 (fun page ->
-                                    GoToKeywordPage(scope.Key, uint16 page))
-
-                            (Grid(coldefs = [ Star; Auto ], rowdefs = [ Auto; Auto ]) {
-                                TextBlock(scope.Key.Describe().Join(" ")).header ()
-                                pager.gridColumn (1)
-
-                                (HWrap() {
-                                    for pair in keywordsOnPage do
-                                        let keyword, videoCount = pair.ToTuple()
-                                        TextBlock(videoCount.ToString() + "x")
-
-                                        Border(TextBlock(keyword))
-                                            .background(ThemeAware.With(Colors.Thistle, Colors.Purple))
-                                            .cornerRadius(2)
-                                            .padding(3, 0, 3, 0)
-                                            .margin (3)
-                                })
-                                    .gridRow(1)
-                                    .gridColumnSpan (2)
-                            })
-                                .trailingMargin ()
+                            renderKeyWordPage scope.Key scope.Value
 
                     if searchResultsOnPage.IsSome then
                         ListBox(
