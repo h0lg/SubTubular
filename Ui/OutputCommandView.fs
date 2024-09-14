@@ -10,7 +10,7 @@ open SubTubular.Extensions
 open type Fabulous.Avalonia.View
 open OutputCommands
 
-module Search =
+module OutputCommandView =
     let private queryFlyout () =
         Flyout(
             (VStack() {
@@ -45,7 +45,7 @@ module Search =
         see for widgets
             https://github.com/fabulous-dev/Fabulous.Avalonia/tree/main/src/Fabulous.Avalonia/Views
             https://play.avaloniaui.net/ *)
-    let view model =
+    let render model =
         (Grid(coldefs = [ Star ], rowdefs = [ Auto; Auto; Auto; Auto; Star ]) {
             let isSearch = model.Command = Commands.Search
 
