@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using SubTubular.Extensions;
+using SubTubular.Shell;
 
 namespace SubTubular;
 
@@ -78,6 +79,32 @@ public abstract class OutputCommand
     public override bool Equals(object? obj)
         => obj != null && obj.GetType() == GetType() && obj.GetHashCode() == GetHashCode();
 
+    protected string FormatShellCommand(string action, string? extraParameters = null)
+    {
+        string shellCmd = $"{AssemblyInfo.Name}.exe {action}";
+
+        if (Channels?.Length > 0) shellCmd += $" {Scopes.channels} {Channels.Select(c => c.Alias).Join(" ")}";
+        if (Playlists?.Length > 0) shellCmd += $" {Scopes.playlists} {Playlists.Select(pl => pl.Alias).Join(" ")}";
+        if (Videos != null) shellCmd += $" {Scopes.videos} {Videos.Videos.Join(" ")}";
+
+        if (extraParameters != null) shellCmd += extraParameters;
+        var playlistLike = GetPlaylistLikeScopes().ToArray();
+
+        if (playlistLike.Length != 0)
+        {
+            var skip = playlistLike.Max(s => s.Skip);
+            var take = playlistLike.Max(s => s.Take);
+            var cacheHours = playlistLike.Max(s => s.CacheHours);
+            if (skip > 0) shellCmd += $" {Args.skip} {skip}";
+            if (take > 0) shellCmd += $" {Args.take} {take}";
+            if (cacheHours > 0) shellCmd += $" {Args.cacheHours} {cacheHours}";
+        }
+
+        return shellCmd;
+    }
+
+    public abstract string ToShellCommand();
+
     public enum Shows { file, folder }
 }
 
@@ -107,6 +134,9 @@ public sealed class SearchCommand : OutputCommand
 
     public static string GetQueryHint() => QueryHints.Join(" ");
 
+    public override string ToShellCommand()
+        => FormatShellCommand(Actions.search, $" {Args.@for} {Query} {Args.pad} {Padding} {Args.orderBy} {OrderBy.Select(o => o.ToString()).Join(" ")}");
+
     /// <summary>Mutually exclusive <see cref="OrderOptions"/>.</summary>
     internal static OrderOptions[] Orders = [OrderOptions.uploaded, OrderOptions.score];
 
@@ -120,4 +150,6 @@ public sealed class ListKeywords : OutputCommand
 
     public override string Describe(bool withScopes = true)
         => "listing keywords in" + (withScopes ? " " + DescribeScopes() : null);
+
+    public override string ToShellCommand() => FormatShellCommand(Actions.listKeywords);
 }

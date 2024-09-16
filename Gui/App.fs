@@ -66,6 +66,8 @@ module App =
                     let cmdClone = deepClone cmd // to avoid modifying the loaded recent command object itself
                     let updated, cmd = OutputCommands.load cmdClone model.Search
                     { model with Search = updated }, Cmd.map SearchMsg cmd
+
+                | ConfigFile.Msg.Common msg -> model, Common msg |> Cmd.ofMsg
                 | _ -> model, Cmd.none
 
             let recent, rCmd = ConfigFile.update rmsg model.Recent
