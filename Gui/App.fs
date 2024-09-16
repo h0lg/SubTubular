@@ -148,6 +148,7 @@ module App =
             TabItem("🗃 Storage", View.map CacheMsg (Cache.view model.Cache))
             TabItem("⚙ Settings", View.map SettingsMsg (Settings.view model.Settings))
         })
+            .margin(10) // to allow dragging the Window while using extendClientAreaToDecorationsHint
             .onAttachedToVisualTree (AttachedToVisualTreeChanged)
 
 #if MOBILE
@@ -158,6 +159,7 @@ module App =
             Window(view model)
                 .icon(avaloniaResourceUri ("SubTubular.ico"))
                 .title("SubTubular")
+                .extendClientAreaToDecorationsHint(true)
                 .background (ThemeAware.With(Colors.BlanchedAlmond, Colors.MidnightBlue))
 
         DesktopApplication(window)
