@@ -203,3 +203,14 @@ internal static class ChannelAliasMapExtensions
             && known.Value.Equals(value, StringComparison.OrdinalIgnoreCase));
     }
 }
+
+public static class CaptionTrackExtensions
+{
+    public static string FormatErrors(this IEnumerable<CaptionTrack> tracksWithErrors)
+        => tracksWithErrors.Select(t =>
+@$"{t.LanguageName}: {t.ErrorMessage}
+
+  {t.Url}
+
+  {t.Error}").Join(ErrorLog.OutputSpacing);
+}

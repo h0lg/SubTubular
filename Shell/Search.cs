@@ -23,15 +23,7 @@ static partial class Program
             }
 
             if (tracksWithErrors.Count > 0)
-            {
-                await WriteErrorLogAsync(originalCommand, name: command.Describe(),
-                    errors: tracksWithErrors.Select(t =>
-@$"{t.LanguageName}: {t.ErrorMessage}
-
-  {t.Url}
-
-  {t.Error}").Join(ErrorLog.OutputSpacing));
-            }
+                await WriteErrorLogAsync(originalCommand, tracksWithErrors.FormatErrors(), name: command.Describe());
 
             return resultDisplayed;
         });
