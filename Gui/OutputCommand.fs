@@ -46,6 +46,7 @@ module OutputCommands =
         | QueryChanged of string
         | ScopesMsg of Scopes.Msg
         | ShowScopesChanged of bool
+        | CopyAsShellCmd
         | ResultOptionsMsg of ResultOptions.Msg
         | ResultOptionsChanged
 
@@ -276,6 +277,7 @@ module OutputCommands =
             { model with Scopes = scopes }, Cmd.batch [ fwdCmd; Cmd.map ScopesMsg cmd ]
 
         | ShowScopesChanged show -> { model with ShowScopes = show }, Cmd.none
+        | CopyAsShellCmd -> model, mapToCommand model |> CopyShellCmd |> Common |> Cmd.ofMsg
 
         // udpate ResultOptions and debounce applying them to SearchResults
         | ResultOptionsMsg ext ->

@@ -15,7 +15,6 @@ module ConfigFile =
         | RecentsLoaded of RecentCommands.Item list
         | CommandRun of OutputCommand
         | Load of OutputCommand
-        | CopyShellCmd of RecentCommands.Item
         | Remove of RecentCommands.Item
         | Save
         | Common of CommonMsg
@@ -30,14 +29,6 @@ module ConfigFile =
         task {
             do! RecentCommands.SaveAsync(model.Recent)
             return None
-        }
-
-    let private copyShellCmd (command: OutputCommand) =
-        task {
-            let clipboard = FabApplication.Current.Clipboard
-            let text = command.ToShellCommand()
-            do! clipboard.SetTextAsync(text)
-            return NotifyLong("In the clipboard:", text) |> Common
         }
 
     let initModel = { Recent = [] }
@@ -59,7 +50,6 @@ module ConfigFile =
 
             model, save model |> Cmd.OfTask.msgOption
 
-        | CopyShellCmd cmd -> model, copyShellCmd cmd.Command |> Cmd.OfTask.msg
         | Save -> model, Cmd.none
         | Load _ -> model, Cmd.none
         | Common _ -> model, Cmd.none
@@ -73,7 +63,7 @@ module ConfigFile =
                         .tappable(Load config.Command, "load this command")
                         .wrap ()
 
-                    Button("📋", CopyShellCmd config)
+                    Button("📋", CopyShellCmd config.Command |> Common)
                         .tooltip("copy shell command to clipboard")
                         .gridColumn (1)
 

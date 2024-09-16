@@ -4,8 +4,9 @@ open System
 open System.Text.Json
 open Avalonia.Controls.Notifications
 open Avalonia.Interactivity
-open SubTubular
 open Fabulous
+open Fabulous.Avalonia
+open SubTubular
 
 [<AutoOpen>]
 module Shared =
@@ -16,10 +17,19 @@ module Shared =
         | NotifyLong of string * string
         | Fail of string
         | FailLong of string * string
+        | CopyShellCmd of OutputCommand
 
     let deepClone (obj: 'T) =
         let json = JsonSerializer.Serialize(obj)
         JsonSerializer.Deserialize<'T>(json)
+
+    let copyShellCmd (command: OutputCommand) =
+        task {
+            let clipboard = FabApplication.Current.Clipboard
+            let text = command.ToShellCommand()
+            do! clipboard.SetTextAsync(text)
+            return NotifyLong("In the clipboard:", text)
+        }
 
 module Services =
     let CacheFolder = Folder.GetPath Folders.cache

@@ -100,6 +100,7 @@ module App =
             | NotifyLong(title, message) -> model, Notify.info title message Notify.nonExpiring
             | Fail title -> model, Notify.error title ""
             | FailLong(title, message) -> model, Notify.error title message
+            | CopyShellCmd cmd -> model, copyShellCmd cmd |> Cmd.OfTask.msg |> Cmd.map Common
 
             | OpenUrl url ->
                 ShellCommands.OpenUri url
