@@ -1,7 +1,6 @@
 ﻿namespace Ui
 
 open System.Collections.Generic
-open Avalonia.Media
 open Fabulous
 open Fabulous.Avalonia
 open FSharp.Control
@@ -16,8 +15,10 @@ module ConfigFile =
         | RecentsLoaded of RecentCommands.Item list
         | CommandRun of OutputCommand
         | Load of OutputCommand
+        | CopyShellCmd of RecentCommands.Item
         | Remove of RecentCommands.Item
         | Save
+        | Common of CommonMsg
 
     let loadRecent =
         task {
@@ -29,6 +30,14 @@ module ConfigFile =
         task {
             do! RecentCommands.SaveAsync(model.Recent)
             return None
+        }
+
+    let private copyShellCmd (command: OutputCommand) =
+        task {
+            let clipboard = FabApplication.Current.Clipboard
+            let text = command.ToShellCommand()
+            do! clipboard.SetTextAsync(text)
+            return NotifyLong("In the clipboard:", text) |> Common
         }
 
     let initModel = { Recent = [] }
@@ -50,19 +59,25 @@ module ConfigFile =
 
             model, save model |> Cmd.OfTask.msgOption
 
+        | CopyShellCmd cmd -> model, copyShellCmd cmd.Command |> Cmd.OfTask.msg
         | Save -> model, Cmd.none
         | Load _ -> model, Cmd.none
+        | Common _ -> model, Cmd.none
 
     let view model =
         ListBox(
             model.Recent,
             (fun config ->
-                (Grid(coldefs = [ Star; Auto; Auto ], rowdefs = [ Auto ]) {
+                (Grid(coldefs = [ Star; Auto; Auto; Auto ], rowdefs = [ Auto ]) {
                     TextBlock(config.Description)
                         .tappable(Load config.Command, "load this command")
                         .wrap ()
 
-                    TextBlock(config.LastRun.ToString()).tooltip("last run").gridColumn (1)
-                    Button("❌", Remove config).tooltip("forget about this").gridColumn (2)
+                    Button("📋", CopyShellCmd config)
+                        .tooltip("copy shell command to clipboard")
+                        .gridColumn (1)
+
+                    TextBlock(config.LastRun.ToString()).tooltip("last run").gridColumn (2)
+                    Button("❌", Remove config).tooltip("forget about this").gridColumn (3)
                 }))
         )

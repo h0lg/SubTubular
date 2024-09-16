@@ -8,7 +8,7 @@ namespace SubTubular.Shell;
 
 static partial class CommandInterpreter
 {
-    private const string clearCacheCommand = "clear-cache", skipName = "--skip", takeName = "--take", orderByName = "--order-by",
+    private const string clearCacheCommand = "clear-cache",
         quoteIdsStartingWithDash = " Note that if the video ID starts with a dash, you have to quote it"
             + @" like ""-1a2b3c4d5e"" or use the entire URL to prevent it from being misinterpreted as a command option.";
 
@@ -62,11 +62,6 @@ static partial class CommandInterpreter
 
         open.SetHandler(folder => ShellCommands.ExploreFolder(Folder.GetPath(folder)), folder);
         return open;
-    }
-
-    private static class Actions
-    {
-        internal const string search = "search", listKeywords = "keywords";
     }
 }
 
