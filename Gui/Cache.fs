@@ -24,6 +24,7 @@ module Cache =
     type Msg =
         | ExpandingByLastAccess
         | RemoveByLastAccess of LastAccessGroup
+        | RemoveFromLastAccessGroup of LastAccessGroup * FileInfo list
         | ExpandingFolders
         | OpenFolder of string
 
@@ -117,6 +118,22 @@ module Cache =
                 ByLastAccess = model.ByLastAccess.Value |> List.except ([ group ]) |> Some },
             Cmd.none
 
+        | RemoveFromLastAccessGroup(group, files) ->
+            for file in files do
+                file.Delete()
+
+            { model with
+                ByLastAccess =
+                    model.ByLastAccess.Value
+                    |> List.map (fun g ->
+                        if g = group then
+                            { group with
+                                Files = group.Files |> List.except files }
+                        else
+                            g)
+                    |> Some },
+            Cmd.none
+
         | ExpandingFolders ->
             let model =
                 if model.Folders.IsSome then
@@ -134,10 +151,15 @@ module Cache =
     let private filterFilesByExtension extension group =
         group.Files |> List.filter (fun f -> f.Extension = extension)
 
-    let private reportFiles label (files: FileInfo list) =
+    let private reportFiles label group (files: FileInfo list) =
         let mbs = (files |> List.map _.Length |> List.sum |> float32) / 1024f / 1024f
 
-        TextBlock($"{files.Length} {label} ({mbs:f2} Mb)")
+        (HStack(5) {
+            TextBlock($"{files.Length} {label} ({mbs:f2} Mb)").centerVertical ()
+
+            Button("🗑", RemoveFromLastAccessGroup(group, files))
+                .tooltip ("clear these files")
+        })
             .right()
             .isVisible (files.Length > 0)
 
@@ -168,11 +190,11 @@ module Cache =
 
                                     group
                                     |> filterFilesByExtension VideoIndexRepository.FileExtension
-                                    |> reportFiles "full-text indexes"
+                                    |> reportFiles "full-text indexes" group
 
-                                    reportFiles "playlist and channel caches" playlistsAndChannels
-                                    reportFiles "video caches" videos
-                                    group |> filterFilesByExtension "" |> reportFiles "thumbnails"
+                                    reportFiles "playlist and channel caches" group playlistsAndChannels
+                                    reportFiles "video caches" group videos
+                                    group |> filterFilesByExtension "" |> reportFiles "thumbnails" group
                                 })
                                     .gridRowSpan(2)
                                     .gridColumn (1)
