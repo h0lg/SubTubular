@@ -99,6 +99,7 @@ module App =
             | Notify title -> model, Notify.info title "" (TimeSpan.FromSeconds 3)
             | NotifyLong(title, message) -> model, Notify.info title message Notify.nonExpiring
             | Fail title -> model, Notify.error title ""
+            | CopyShellCmd cmd -> model, copyShellCmd cmd |> Cmd.OfTask.msg |> Cmd.map Common
 
             | OpenUrl url ->
                 ShellCommands.OpenUri url

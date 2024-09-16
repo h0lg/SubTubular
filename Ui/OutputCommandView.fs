@@ -60,7 +60,7 @@ module OutputCommandView =
             .trailingMargin ()
 
     let private renderCommandOptions model isSearch =
-        Grid(coldefs = [ Auto; Star; Auto; Auto; Auto; Auto ], rowdefs = [ Auto ]) {
+        Grid(coldefs = [ Auto; Star; Auto; Auto; Auto; Auto; Auto ], rowdefs = [ Auto ]) {
             Menu() {
                 MenuItem("🏷 List _keywords", CommandChanged Commands.ListKeywords)
                     .tooltip(ListKeywords.Description)
@@ -104,12 +104,16 @@ module OutputCommandView =
             )
                 .gridColumn (4)
 
+            Button("📋", CopyAsShellCmd)
+                .tooltip("copy shell command to clipboard")
+                .gridColumn (5)
+
             let isRunning = model.Running <> null
 
             ToggleButton((if isRunning then "✋ _Hold up!" else "👉 _Hit it!"), isRunning, Run)
                 .fontSize(16)
                 .margin(10, 0)
-                .gridColumn (5)
+                .gridColumn (6)
         }
 
     let private renderResultOptions model isSearch (resultPager: WidgetBuilder<Msg, IFabReversibleStackPanel> option) =
