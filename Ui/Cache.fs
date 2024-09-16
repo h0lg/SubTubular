@@ -23,7 +23,7 @@ module Cache =
 
     type Msg =
         | ExpandingCacheByLastAccess
-        | Remove of LastAccessGroup
+        | RemoveByLastAccess of LastAccessGroup
         | ExpandingFolders
         | OpenFolder of string
 
@@ -111,7 +111,7 @@ module Cache =
 
             model, Cmd.none
 
-        | Remove group ->
+        | RemoveByLastAccess group ->
             for file in group.Files do
                 file.Delete()
 
@@ -154,7 +154,7 @@ module Cache =
                         fun group ->
                             (Grid(coldefs = [ Auto; Star ], rowdefs = [ Auto; Star ]) {
                                 TextBlock(group.Name).header ()
-                                Button("🗑", Remove group).tooltip("clear this data").fontSize(20).gridRow (1)
+                                Button("🗑", RemoveByLastAccess group).tooltip("clear this data").fontSize(20).gridRow (1)
 
                                 (VStack(5) {
                                     let jsonFiles = group |> filterFilesByExtension JsonFileDataStore.FileExtension
