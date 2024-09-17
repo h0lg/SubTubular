@@ -1,12 +1,9 @@
 ﻿using System.Diagnostics;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Diagnostics.ResourceMonitoring;
 
 namespace SubTubular;
 
-internal class ResourceMonitor(IResourceMonitor resources)
+internal class ResourceMonitor
 {
-    internal static readonly TimeSpan MaxCollectionWindow = TimeSpan.FromSeconds(5);
     private TimeSpan lastProcessorTime = GetTotalProcessorTime();
     private DateTime snapshotTaken = DateTime.UtcNow;
 
@@ -14,30 +11,22 @@ internal class ResourceMonitor(IResourceMonitor resources)
 
     internal bool HasSufficient()
     {
+        double cpuUsage = GetCpuUsagePercentage();
         var memoryPressure = GcMemoryPressure.GetLevel();
-        double cpuUsage = GetCpuUsagePercentage(memoryPressure);
         return cpuUsage < 80 && memoryPressure < GcMemoryPressure.Level.High;
     }
 
     /// <summary>Calculates the average CPU usage percentage since the <see cref="lastProcessorTime"/> at <see cref="snapshotTaken"/> using the algorithm from
     /// https://github.com/AppMetrics/AppMetrics/blob/main/src/Extensions/src/App.Metrics.Extensions.Collectors/HostedServices/SystemUsageCollectorHostedService.cs
     /// and takes another snapshot.</summary>
-    private double GetCpuUsagePercentage(GcMemoryPressure.Level memoryPressureForComparison)
+    private double GetCpuUsagePercentage()
     {
-        var process = Process.GetCurrentProcess();
-        var newProcTime = process.TotalProcessorTime;
+        var newProcTime = GetTotalProcessorTime();
         var totalCpuTimeUsed = newProcTime.TotalMilliseconds - lastProcessorTime.TotalMilliseconds;
         lastProcessorTime = newProcTime;
-        TimeSpan elapsed = DateTime.UtcNow - snapshotTaken;
-        /*TODO        see https://learn.microsoft.com/en-us/dotnet/core/diagnostics/diagnostic-resource-monitoring */
-        var utilization = resources.GetUtilization(new[] { elapsed, MaxCollectionWindow }.Min());
-        var system = utilization.SystemResources;
-        var cpuTimeElapsed = elapsed.TotalMilliseconds * Environment.ProcessorCount;
+        var cpuTimeElapsed = (DateTime.UtcNow - snapshotTaken).TotalMilliseconds * Environment.ProcessorCount;
         snapshotTaken = DateTime.UtcNow;
-        double percentUsed = totalCpuTimeUsed * 100 / cpuTimeElapsed;
-        Debug.WriteLine($"### resmon ######## CPU used custom/system {percentUsed}% | process {utilization.CpuUsedPercentage}%");
-        Debug.WriteLine($"### resmon ######## RAM level custom/system {memoryPressureForComparison} | proc {utilization.MemoryUsedPercentage}% {utilization.MemoryUsedInBytes} Bytes | process.WorkingSet64 {process.WorkingSet64} bytes");
-        return percentUsed;
+        return totalCpuTimeUsed * 100 / cpuTimeElapsed;
     }
 
     /// <summary>Helps determining the GC memory pressure.
@@ -67,11 +56,4 @@ internal class ResourceMonitor(IResourceMonitor resources)
             return Level.Low;
         }
     }
-}
-
-public static class Services
-{
-    public static IServiceCollection AddSubTubular(this IServiceCollection services)
-        => services.AddLogging().AddResourceMonitoring(b =>
-            b.ConfigureMonitor(o => o.CollectionWindow = ResourceMonitor.MaxCollectionWindow));
 }

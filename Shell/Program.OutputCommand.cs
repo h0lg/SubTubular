@@ -1,7 +1,5 @@
 ﻿using System.CommandLine;
 using System.CommandLine.Invocation;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Diagnostics.ResourceMonitoring;
 
 namespace SubTubular.Shell;
 
@@ -28,11 +26,7 @@ static partial class Program
         });
 
         DataStore dataStore = CreateDataStore();
-        var services = new ServiceCollection();
-        services.AddSubTubular();
-        var serviceProvider = services.BuildServiceProvider();
-        var resources = serviceProvider.GetService<IResourceMonitor>()!;
-        var youtube = new Youtube(dataStore, CreateVideoIndexRepo(), resources);
+        var youtube = new Youtube(dataStore, CreateVideoIndexRepo());
         await RemoteValidate.ScopesAsync(command, youtube, dataStore, cancellation.Token);
 
         if (command.SaveAsRecent)
