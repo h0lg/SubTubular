@@ -4,10 +4,8 @@ open System
 open System.Text.Json
 open Avalonia.Controls.Notifications
 open Avalonia.Interactivity
-open Fabulous
-open Microsoft.Extensions.DependencyInjection
-open Microsoft.Extensions.Diagnostics.ResourceMonitoring
 open SubTubular
+open Fabulous
 
 [<AutoOpen>]
 module Shared =
@@ -26,12 +24,7 @@ module Shared =
 module Services =
     let CacheFolder = Folder.GetPath Folders.cache
     let DataStore = JsonFileDataStore CacheFolder
-
-    let Youtube =
-        let services = ServiceCollection().AddSubTubular()
-        let serviceProvider = services.BuildServiceProvider()
-        let resources = serviceProvider.GetService<IResourceMonitor>()
-        Youtube(DataStore, VideoIndexRepository CacheFolder, resources)
+    let Youtube = Youtube(DataStore, VideoIndexRepository CacheFolder)
 
 module Notify =
     let mutable via: WindowNotificationManager = null
