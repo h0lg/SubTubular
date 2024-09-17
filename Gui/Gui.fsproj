@@ -49,6 +49,7 @@
     <PackageReference Include="FSharp.Core" Version="9.0.101" />
     <PackageReference Include="Fabulous" Version="3.0.0-pre5" />
     <PackageReference Include="Fabulous.Avalonia" Version="3.0.0-pre6" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0-rc.1.24431.7" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\SubTubular\SubTubular.csproj" />
