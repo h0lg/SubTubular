@@ -95,6 +95,7 @@ module App =
         | Common cmsg ->
             match cmsg with
             | Notify title -> model, Notify.info title "" (TimeSpan.FromSeconds 3)
+            | NotifyLong(title, message) -> model, Notify.info title message Notify.nonExpiring
             | Fail title -> model, Notify.error title ""
 
             | OpenUrl url ->
