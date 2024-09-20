@@ -92,26 +92,6 @@ public static class EnumerableExtensions
     public static bool HasAny<T>(this IEnumerable<T>? collection) => collection?.Any() == true;
 }
 
-/// <summary>Extension methods for <see cref="IComparable"/> types.</summary>
-internal static class ComparableExtensions
-{
-    /// <summary>Determines whether <paramref name="other"/> is greater than
-    /// <paramref name="orEqualTo"/> the <paramref name="other"/>.</summary>
-    internal static bool IsGreaterThan(this IComparable comparable, IComparable other, bool orEqualTo = false)
-    {
-        var position = comparable.CompareTo(other);
-        return orEqualTo ? position >= 0 : position > 0;
-    }
-
-    /// <summary>Determines whether <paramref name="other"/> is less than
-    /// <paramref name="orEqualTo"/> the <paramref name="other"/>.</summary>
-    internal static bool IsLessThan(this IComparable comparable, IComparable other, bool orEqualTo = false)
-    {
-        var position = comparable.CompareTo(other);
-        return orEqualTo ? position <= 0 : position < 0;
-    }
-}
-
 internal static class AsyncEnumerableExtensions
 {
     /// <summary>Enumerates the <paramref name="asyncEnumerable"/> and returns a list with all results.

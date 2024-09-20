@@ -17,7 +17,7 @@ static partial class Program
 
             await foreach (var result in youtube.SearchAsync(command, cancellation))
             {
-                output.DisplayVideoResult(result);
+                output.DisplayVideoResult(result, command.Padding);
                 resultDisplayed = true;
                 tracksWithErrors.AddRange(result.Video.CaptionTracks.Where(t => t.Error != null));
             }
