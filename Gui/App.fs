@@ -74,7 +74,7 @@ module App =
         | AttachedToVisualTreeChanged args ->
             let notifier = FabApplication.Current.WindowNotificationManager
             notifier.Position <- NotificationPosition.BottomRight
-            Services.Notifier <- notifier
+            Notify.via <- notifier
             model, Cmd.none
 
         | SearchMsg smsg ->
@@ -94,8 +94,8 @@ module App =
 
         | Common cmsg ->
             match cmsg with
-            | Notify title -> model, Services.notifyInfo title
-            | Fail title -> model, Services.notifyError title ""
+            | Notify title -> model, Notify.info title "" (TimeSpan.FromSeconds 3)
+            | Fail title -> model, Notify.error title ""
 
             | OpenUrl url ->
                 ShellCommands.OpenUri url

@@ -283,7 +283,7 @@ module Search =
 
             updated, cmd
 
-        | SavedOutput path -> model, Services.notifyInfo ("Saved results to " + path)
+        | SavedOutput path -> model, Notify("Saved results to " + path) |> Common |> Cmd.ofMsg
 
         | Run on ->
             let updated =
@@ -334,7 +334,7 @@ module Search =
             { model with
                 Running = null
                 ShowScopes = false },
-            Services.notifyInfo (cmd + " completed")
+            Notify(cmd + " completed") |> Common |> Cmd.ofMsg
 
         | SearchResultMsg srm ->
             let cmd =
