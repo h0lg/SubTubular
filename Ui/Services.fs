@@ -11,6 +11,7 @@ module Shared =
     type CommonMsg =
         | OpenUrl of string
         | Notify of string
+        | Fail of string
 
     let deepClone (obj: 'T) =
         let json = JsonSerializer.Serialize(obj)
@@ -27,4 +28,8 @@ module Services =
 
     let notifyInfo title =
         notify (Notification(title, "", NotificationType.Information, TimeSpan.FromSeconds 3))
+        Cmd.none
+
+    let notifyError title message =
+        notify (Notification(title, message, NotificationType.Error))
         Cmd.none

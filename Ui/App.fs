@@ -146,8 +146,8 @@ module App =
 
                     | _ -> failwith ("Unknown command type " + command.GetType().ToString())
                 with
-                | :? InputException as exn -> Notify exn.Message |> Common |> dispatch
-                | exn -> Notify exn.Message |> Common |> dispatch
+                | :? InputException as exn -> Fail exn.Message |> Common |> dispatch
+                | exn -> Fail exn.Message |> Common |> dispatch
 
                 dispatch CommandCompleted
             }
@@ -385,6 +385,7 @@ module App =
         | Common cmsg ->
             match cmsg with
             | Notify title -> model, Services.notifyInfo title
+            | Fail title -> model, Services.notifyError title ""
 
             | OpenUrl url ->
                 ShellCommands.OpenUri url
