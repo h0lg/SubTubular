@@ -13,7 +13,9 @@ module Shared =
         | ToggleFlyout of RoutedEventArgs
         | OpenUrl of string
         | Notify of string
+        | NotifyLong of string * string
         | Fail of string
+        | FailLong of string * string
 
     let deepClone (obj: 'T) =
         let json = JsonSerializer.Serialize(obj)
