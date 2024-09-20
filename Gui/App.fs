@@ -100,6 +100,8 @@ module App =
     let private runCmd model =
         fun dispatch ->
             task {
+                let dispatchCommon msg = Common msg |> dispatch
+
                 try
                     let command = mapToCommand model
                     let cancellation = model.Running.Token
@@ -144,9 +146,15 @@ module App =
                                 )
 
                     | _ -> failwith ("Unknown command type " + command.GetType().ToString())
-                with
-                | :? InputException as exn -> Notify exn.Message |> Common |> dispatch
-                | exn -> Notify exn.Message |> Common |> dispatch
+                with exn ->
+                    let dispatchError (exn: exn) = Fail exn.Message |> dispatchCommon
+
+                    match exn with
+                    | :? OperationCanceledException -> Notify "The op was canceled" |> dispatchCommon
+                    | :? AggregateException as exns ->
+                        for inner in exns.Flatten().InnerExceptions do
+                            dispatchError inner
+                    | _ -> dispatchError exn
 
                 dispatch CommandCompleted
             }
@@ -386,6 +394,7 @@ module App =
         | Common cmsg ->
             match cmsg with
             | Notify title -> model, Services.notifyInfo title
+            | Fail title -> model, Services.notifyError title ""
 
             | OpenUrl url ->
                 ShellCommands.OpenUri url
