@@ -1,16 +1,19 @@
-﻿namespace SubTubular;
+﻿using System.Text.Json.Serialization;
 
-[Serializable]
+namespace SubTubular;
+
+using JP = JsonPropertyNameAttribute;
+
 public sealed class Playlist
 {
-    public required string Title { get; set; }
-    public required string ThumbnailUrl { get; set; }
-    public string? Channel { get; set; }
-    public DateTime Loaded { get; set; }
+    [JP("t")] public required string Title { get; set; }
+    [JP("u")] public required string ThumbnailUrl { get; set; }
+    [JP("c")] public string? Channel { get; set; }
+    [JP("l")] public DateTime Loaded { get; set; }
 
     /// <summary>The <see cref="Video.Id"/>s and (optional) upload dates
     /// of the videos included in the <see cref="Playlist" />.</summary>
-    public IDictionary<string, DateTime?> Videos { get; set; } = new Dictionary<string, DateTime?>();
+    [JP("v")] public IDictionary<string, DateTime?> Videos { get; set; } = new Dictionary<string, DateTime?>();
 
     internal IEnumerable<string> GetVideoIds() => Videos.Keys;
     internal DateTime? GetVideoUploaded(string id) => Videos.TryGetValue(id, out var uploaded) ? uploaded : null;
