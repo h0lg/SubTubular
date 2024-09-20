@@ -114,83 +114,69 @@ internal sealed class OutputWriter : IDisposable
         else textOut.Write(url);
     }
 
-    private void WriteHighlightingMatches(PaddedMatch paddedMatch, IndentedText indent = null)
+    private void WriteHighlightingMatches(MatchedText matched, IndentedText indent = null, uint? padding = null)
     {
-        var charsWritten = 0; // counts characters written
-        var text = new string(paddedMatch.Value);
-
-        if (indent != null)
+        if (indent == null)
         {
-            text = indent.Wrap(text); // inserts line breaks to wrap and spaces to indent into block
+            matched.WriteHighlightingMatches(Write, WriteHighlighted, padding);
+            return;
+        }
 
-            #region accumulate info about wrapped lines for mapping padded matches (relative to unwrapped text)
+        var text = matched.Text;
+        text = indent.Wrap(text); // inserts line breaks to wrap and spaces to indent into block
 
-            /*  a list of infos about each wrapped line with each item containing:
-                1 number of characters inserted before text in wrapped line compared to unwrapped text
-                    (index diff between wrapped and unwrapped text)
-                2 first index of line in unwrapped text
-                3 last index of line in unwrapped text */
-            var lineInfos = new List<(int charOffset, int firstIndex, int lastIndex)>();
+        #region accumulate info about wrapped lines for mapping padded matches (relative to unwrapped text)
 
-            foreach (var line in text.Split(Environment.NewLine).Select(line => line.Trim()))
+        /*  a list of infos about each wrapped line with each item containing:
+            1 number of characters inserted before text in wrapped line compared to unwrapped text
+                (index diff between wrapped and unwrapped text)
+            2 first index of line in unwrapped text
+            3 last index of line in unwrapped text */
+        var lineInfos = new List<(int charOffset, int firstIndex, int lastIndex)>();
+
+        foreach (var line in text.Split(Environment.NewLine).Select(line => line.Trim()))
+        {
+            var previousLine = lineInfos.LastOrDefault();
+
+            if (previousLine == default) lineInfos.Add((0, 0, line.Length)); // first line
+            else
             {
-                var previousLine = lineInfos.LastOrDefault();
+                // start search from previous line's end index to avoid accidental matches in duplicate lines
+                var previousLineEnd = previousLine.lastIndex; // in unwrapped text
+                var startInWrappedText = text.IndexOf(line, startIndex: previousLine.charOffset + previousLineEnd);
+                var startInUnwrappedText = matched.Text.IndexOf(line, startIndex: previousLineEnd);
 
-                if (previousLine == default) lineInfos.Add((0, 0, line.Length)); // first line
-                else
-                {
-                    // start search from previous line's end index to avoid accidental matches in duplicate lines
-                    var previousLineEnd = previousLine.lastIndex; // in unwrapped text
-                    var startInWrappedText = text.IndexOf(line, startIndex: previousLine.charOffset + previousLineEnd);
-                    var startInUnwrappedText = paddedMatch.Value.IndexOf(line, startIndex: previousLineEnd);
-
-                    lineInfos.Add((startInWrappedText - startInUnwrappedText,
-                        startInUnwrappedText, startInUnwrappedText + line.Length));
-                }
-            }
-            #endregion
-
-            foreach (var match in paddedMatch.Included)
-            {
-                /*  shift match Length the number of chars inserted between
-                    line containing Start and line containing end of match
-                    and do so before modifying match Start */
-                var end = match.Start + match.Length;
-                var lineContainingMatchEnd = lineInfos.LastOrDefault(x => x.firstIndex <= end);
-
-                // shift match Start the number of characters inserted in wrapped text before line
-                var lineContainingMatchStart = lineInfos.LastOrDefault(x => x.firstIndex <= match.Start);
-                if (lineContainingMatchStart != default) match.Start += lineContainingMatchStart.charOffset;
-
-                if (lineContainingMatchEnd != lineContainingMatchStart)
-                    match.Length += lineContainingMatchEnd.charOffset - lineContainingMatchStart.charOffset;
+                lineInfos.Add((startInWrappedText - startInUnwrappedText,
+                    startInUnwrappedText, startInUnwrappedText + line.Length));
             }
         }
+        #endregion
 
-        void writeCounting(int length, bool highlight = false)
+        List<MatchedText.Match> indentedMatches = new();
+
+        foreach (var match in matched.Matches)
         {
-            var phrase = text.Substring(charsWritten, length);
+            /*  shift match Length the number of chars inserted between
+                line containing Start and line containing end of match
+                and do so before modifying match Start */
+            var end = match.Start + match.Length;
+            var lineContainingMatchEnd = lineInfos.LastOrDefault(x => x.firstIndex <= end);
 
-            if (highlight) WriteHighlighted(phrase);
-            else Write(phrase);
+            // shift match Start the number of characters inserted in wrapped text before line
+            var lineContainingMatchStart = lineInfos.LastOrDefault(x => x.firstIndex <= match.Start);
+            var start = lineContainingMatchStart == default ? match.Start : match.Start + lineContainingMatchStart.charOffset;
 
-            charsWritten += length;
+            var length = lineContainingMatchEnd == lineContainingMatchStart ? match.Length
+                : match.Length + lineContainingMatchEnd.charOffset - lineContainingMatchStart.charOffset;
+
+            indentedMatches.Add(new MatchedText.Match(start, length));
         }
 
-        foreach (var match in paddedMatch.Included.OrderBy(m => m.Start))
-        {
-            if (charsWritten < match.Start) writeCounting(match.Start - charsWritten); // write text preceding match
-
-            // matched characters are already written; this may happen if included matches overlap each other
-            if (match.Start < charsWritten && match.Start <= charsWritten - match.Length) continue;
-
-            writeCounting(match.Length - (charsWritten - match.Start), true); // write (remaining) matched characters
-        }
-
-        if (charsWritten < text.Length) writeCounting(text.Length - charsWritten); // write text trailing last included match
+        var indented = new MatchedText(text, indentedMatches.ToArray());
+        indented.WriteHighlightingMatches(Write, WriteHighlighted, padding);
     }
 
-    internal void DisplayVideoResult(VideoSearchResult result)
+    internal void DisplayVideoResult(VideoSearchResult result, uint matchPadding)
     {
         var videoUrl = Youtube.GetVideoUrl(result.Video.Id);
 
@@ -204,16 +190,18 @@ internal sealed class OutputWriter : IDisposable
         WriteUrl(videoUrl);
         WriteLine();
 
-        if (result.DescriptionMatches.HasAny())
+        if (result.DescriptionMatches != null)
         {
             Write("  in description: ");
 
-            for (int i = 0; i < result.DescriptionMatches.Length; i++)
+            var splitMatches = result.DescriptionMatches.SplitIntoPaddedGroups(matchPadding).ToArray();
+
+            for (int i = 0; i < splitMatches.Length; i++)
             {
                 if (i > 0) Write("    ");
 
                 using (var indent = new IndentedText())
-                    WriteHighlightingMatches(result.DescriptionMatches[i], indent);
+                    WriteHighlightingMatches(splitMatches[i], indent, matchPadding);
 
                 WriteLine();
             }
@@ -233,27 +221,33 @@ internal sealed class OutputWriter : IDisposable
             }
         }
 
-        foreach (var trackResult in result.MatchingCaptionTracks)
+        if (result.MatchingCaptionTracks.HasAny())
         {
-            WriteLine("  " + trackResult.Track.LanguageName);
-            var displaysHour = trackResult.Matches.Any(c => c.Item2.At > 3600);
-
-            foreach (var (match, caption) in trackResult.Matches)
+            foreach (var trackResult in result.MatchingCaptionTracks)
             {
-                var offset = TimeSpan.FromSeconds(caption.At).FormatWithOptionalHours().PadLeft(displaysHour ? 7 : 5);
-                Write($"    {offset} ");
+                WriteLine("  " + trackResult.Track.LanguageName);
 
-                using var indent = new IndentedText();
-                WriteHighlightingMatches(match, indent);
+                var displaysHour = trackResult.HasMatchesWithHours(matchPadding);
+                var splitMatches = trackResult.Matches.SplitIntoPaddedGroups(matchPadding);
 
-                const string padding = "    ";
-                var url = $"{videoUrl}?t={caption.At}";
+                foreach (var matched in splitMatches)
+                {
+                    var (synced, captionAt) = trackResult.SyncWithCaptions(matched, matchPadding);
+                    var offset = TimeSpan.FromSeconds(captionAt).FormatWithOptionalHours().PadLeft(displaysHour ? 7 : 5);
+                    Write($"    {offset} ");
 
-                if (indent.FitsCurrentLine(padding.Length + url.Length)) Write(padding);
-                else indent.StartNewLine(this);
+                    using var indent = new IndentedText();
+                    WriteHighlightingMatches(synced, indent, matchPadding);
 
-                WriteUrl(url);
-                WriteLine();
+                    const string urlPadding = "    ";
+                    var url = $"{videoUrl}?t={captionAt}";
+
+                    if (indent.FitsCurrentLine(urlPadding.Length + url.Length)) Write(urlPadding);
+                    else indent.StartNewLine(this);
+
+                    WriteUrl(url);
+                    WriteLine();
+                }
             }
         }
 

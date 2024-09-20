@@ -195,20 +195,15 @@ internal sealed class VideoIndex
 
             var titleMatches = match.FieldMatches.Where(m => m.FoundIn == nameof(Video.Title));
 
-            if (titleMatches.Any()) result.TitleMatches = new PaddedMatch(video.Title,
-                titleMatches.SelectMany(m => m.Locations)
-                    .Select(m => new PaddedMatch.IncludedMatch { Start = m.Start, Length = m.Length }).ToArray());
+            if (titleMatches.Any()) result.TitleMatches = new MatchedText(video.Title,
+                titleMatches.SelectMany(m => m.Locations).Select(m => new MatchedText.Match(m.Start, m.Length)).ToArray());
 
-            result.DescriptionMatches = match.FieldMatches
-                .Where(m => m.FoundIn == nameof(Video.Description))
-                .SelectMany(m => m.Locations)
-                .Select(l => new PaddedMatch(l.Start, l.Length, command.Padding, video.Description))
-                .MergeOverlapping(video.Description)
-                .ToArray();
+            var descriptionMatches = match.FieldMatches.Where(m => m.FoundIn == nameof(Video.Description));
 
-            var keywordMatches = match.FieldMatches
-                .Where(m => m.FoundIn == nameof(Video.Keywords))
-                .ToArray();
+            if (descriptionMatches.Any()) result.DescriptionMatches = new MatchedText(video.Description,
+                descriptionMatches.SelectMany(m => m.Locations).Select(l => new MatchedText.Match(l.Start, l.Length)).ToArray());
+
+            var keywordMatches = match.FieldMatches.Where(m => m.FoundIn == nameof(Video.Keywords));
 
             if (keywordMatches.Any())
             {
@@ -231,51 +226,23 @@ internal sealed class VideoIndex
                     })
                     .GroupBy(x => x.keywordInfo.index) // group matches by keyword
                     .OrderBy(g => g.Key)
-                    .Select(g => new PaddedMatch(video.Keywords[g.Key],
-                        g.Select(x => new PaddedMatch.IncludedMatch
-                        {
+                    .Select(g => new MatchedText(video.Keywords[g.Key],
+                        g.Select(x => new MatchedText.Match(
                             // recalculate match index relative to keyword start
-                            Start = x.location.Start - x.keywordInfo.Start,
-                            Length = x.location.Length
-                        }).ToArray()))
+                            start: x.location.Start - x.keywordInfo.Start,
+                            length: x.location.Length)).ToArray()))
                     .ToArray();
             }
 
-            result.MatchingCaptionTracks = match.FieldMatches.Where(m => !nonDynamicVideoFieldNames.Contains(m.FoundIn)).Select(m =>
+            var captionTrackMatches = match.FieldMatches.Where(m => !nonDynamicVideoFieldNames.Contains(m.FoundIn));
+
+            if (captionTrackMatches.Any()) result.MatchingCaptionTracks = captionTrackMatches.Select(m =>
             {
                 var track = video.CaptionTracks.SingleOrDefault(t => t.LanguageName == m.FoundIn);
                 if (track == null) return null;
-                var fullText = track.GetFullText();
-                var captionAtFullTextIndex = track.GetCaptionAtFullTextIndex();
 
-                var matches = m.Locations
-                    // use a temporary/transitory PaddedMatch to ensure the minimum configured padding
-                    .Select(l => new PaddedMatch(l.Start, l.Length, command.Padding, fullText))
-                    .MergeOverlapping(fullText)
-                    /*  map transitory padded match to captions containing it and a new padded match
-                        with adjusted included matches containing the joined text of the matched caption */
-                    .Select(match =>
-                    {
-                        // find first and last captions containing parts of the padded match
-                        var first = captionAtFullTextIndex.Last(x => x.Key <= match.Start);
-                        var last = captionAtFullTextIndex.Last(x => first.Key <= x.Key && x.Key <= match.End);
-
-                        var captions = captionAtFullTextIndex // span of captions containing the padded match
-                            .Where(x => first.Key <= x.Key && x.Key <= last.Key).ToArray();
-
-                        // return a single caption for all captions containing the padded match
-                        var joinedCaption = new Caption
-                        {
-                            At = first.Value.At,
-                            Text = captions.Select(x => x.Value.Text)
-                                .Where(text => !string.IsNullOrWhiteSpace(text)) // skip included line breaks
-                                .Select(text => text.NormalizeWhiteSpace(CaptionTrack.FullTextSeperator)) // replace included line breaks
-                                .Join(CaptionTrack.FullTextSeperator)
-                        };
-
-                        return (new PaddedMatch(match, joinedCaption, first.Key), joinedCaption);
-                    })
-                    .OrderBy(tuple => tuple.Item2.At).ToList(); // return captions in order
+                var matches = new MatchedText(track.GetFullText(), m.Locations
+                    .Select(match => new MatchedText.Match(match.Start, match.Length)).ToArray());
 
                 return new VideoSearchResult.CaptionTrackResult { Track = track, Matches = matches };
             }).Where(t => t != null).Cast<VideoSearchResult.CaptionTrackResult>().ToArray();
