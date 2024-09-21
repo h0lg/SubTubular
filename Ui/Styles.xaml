@@ -1,0 +1,45 @@
+<Styles
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key='Default'>
+          <Color x:Key="Glass">#55dddddd</Color>
+          <Color x:Key="ThickGlass">#77dddddd</Color>
+
+          <!-- overriding https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Themes.Fluent/Accents/FluentControlResources.xaml -->
+          <StaticResource x:Key="ExpanderHeaderBackground" ResourceKey="ThickGlass" />
+          <StaticResource x:Key="ExpanderHeaderBackgroundPointerOver" ResourceKey="ThickGlass" />
+          <StaticResource x:Key="ExpanderHeaderBackgroundPressed" ResourceKey="ThickGlass" />
+          <StaticResource x:Key="ExpanderHeaderBackgroundDisabled" ResourceKey="ThickGlass" />
+          <StaticResource x:Key="ExpanderContentBackground" ResourceKey="Glass" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key='Dark'>
+          <Color x:Key="Glass">#55222222</Color>
+          <Color x:Key="ThickGlass">#77222222</Color>
+
+          <!-- overriding https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Themes.Fluent/Accents/FluentControlResources.xaml -->
+          <StaticResource x:Key="ExpanderHeaderBackground" ResourceKey="ThickGlass" />
+          <StaticResource x:Key="ExpanderHeaderBackgroundPointerOver" ResourceKey="ThickGlass" />
+          <StaticResource x:Key="ExpanderHeaderBackgroundPressed" ResourceKey="ThickGlass" />
+          <StaticResource x:Key="ExpanderHeaderBackgroundDisabled" ResourceKey="ThickGlass" />
+          <StaticResource x:Key="ExpanderContentBackground" ResourceKey="Glass" />
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
+
+    <!-- overriding https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Themes.Fluent/Controls/Expander.xaml -->
+    <Thickness x:Key="ExpanderHeaderBorderThickness">0</Thickness>
+    <Thickness x:Key="ExpanderContentDownBorderThickness">0</Thickness>
+    <CornerRadius x:Key="ControlCornerRadius">10</CornerRadius>
+  </Styles.Resources>
+
+  <FluentTheme />
+
+  <!-- overriding https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Themes.Fluent/Controls/ListBox.xaml -->
+  <Style Selector="ListBox">
+    <Setter Property="Background" Value="{DynamicResource Glass}" />
+    <Setter Property="CornerRadius" Value="10" />
+  </Style>
+</Styles>

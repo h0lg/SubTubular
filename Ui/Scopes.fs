@@ -112,7 +112,7 @@ module Scopes =
                         .padding(2)
                         .margin(0, 0, 5, 5)
                         .cornerRadius(2)
-                        .background (Colors.DarkSlateGray)
+                        .background (ThemeAware.With(Colors.Khaki, Colors.Indigo))
 
                 (*  Render an empty spacer the size of the add scope control stack,
                     effectively creating an empty line in the HWrap if they don't fit the current one.
@@ -135,6 +135,6 @@ module Scopes =
                 .verticalAlignment(VerticalAlignment.Bottom)
                 .horizontalAlignment(HorizontalAlignment.Right)
                 .cornerRadius(2)
-                .background (Colors.Gray)
+                .background (ThemeAware.With(Colors.Wheat, Colors.DarkBlue))
         })
             .reference (container)

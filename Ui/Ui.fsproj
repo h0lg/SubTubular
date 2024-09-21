@@ -28,6 +28,7 @@
     <DisableCodesignVerification>true</DisableCodesignVerification>
   </PropertyGroup>
   <ItemGroup>
+    <AvaloniaResource Include="Styles.xaml" />
     <AvaloniaResource Include="SubTubular.ico" />
     <Compile Include="Application.fs" />
     <Compile Include="WrapPanel.fs" />
