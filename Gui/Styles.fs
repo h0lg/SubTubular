@@ -14,6 +14,8 @@ module Cursors =
 
 [<AutoOpen>]
 module Styles =
+    let avaloniaResourceUri fileName = "avares://SubTubular.Gui/" + fileName
+
     let private getFactor (factor: float option) = factor |> Option.defaultValue 1
 
     // see https://docs.fabulous.dev/basics/user-interface/styling

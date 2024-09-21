@@ -13,6 +13,7 @@
     <RootNamespace>SubTubular.Gui</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <AvaloniaResource Include="Styles.xaml" />
     <AvaloniaResource Include="SubTubular.ico" />
     <Compile Include="Application.fs" />
     <Compile Include="WrapPanel.fs" />
