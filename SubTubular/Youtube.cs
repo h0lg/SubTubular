@@ -315,13 +315,6 @@ internal sealed class Youtube
             { throw new InputException($"Video '{videoId}' could not be found.", ex); }
         }
 
-        /* Sanitize captions, making sure cached captions as well as downloaded
-            are cleaned of duplicates and ordered by time.
-            This may be moved into DownloadCaptionTracksAsync() in a future version
-            when we can be reasonably sure caches in the wild are sanitized. */
-        foreach (var track in video.CaptionTracks)
-            track.Captions = track.Captions.Distinct().OrderBy(c => c.At).ToList();
-
         return video;
     }
 
@@ -352,7 +345,8 @@ internal sealed class Youtube
 
                 captionTrack.Captions = track.Captions
                     .Select(c => new Caption { At = Convert.ToInt32(c.Offset.TotalSeconds), Text = c.Text })
-                    .ToList();
+                    // Sanitize captions, making sure cached captions as well as downloaded are cleaned of duplicates and ordered by time.
+                    .Distinct().OrderBy(c => c.At).ToList();
             }
             catch (Exception ex)
             {
