@@ -33,19 +33,17 @@ public sealed class Youtube
         this.videoIndexRepo = videoIndexRepo;
     }
 
-    public async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command,
-        IProgress<BatchProgress>? progressReporter = default, [EnumeratorCancellation] CancellationToken cancellation = default)
+    public async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command, [EnumeratorCancellation] CancellationToken cancellation = default)
     {
-        BatchProgressReporter? progress = CreateBatchProgress(command, progressReporter);
         List<IAsyncEnumerable<VideoSearchResult>> searches = [];
 
         if (command.Channels.HasAny()) searches.AddRange(command.Channels!.GetValid()
-            .Select(channel => SearchPlaylistAsync(command, channel, progress?.CreateVideoListProgress(channel), cancellation)));
+            .Select(channel => SearchPlaylistAsync(command, channel, command.ProgressReporter?.CreateVideoListProgress(channel), cancellation)));
 
         if (command.Playlists.HasAny()) searches.AddRange(command.Playlists!.GetValid()
-            .Select(playlist => SearchPlaylistAsync(command, playlist, progress?.CreateVideoListProgress(playlist), cancellation)));
+            .Select(playlist => SearchPlaylistAsync(command, playlist, command.ProgressReporter?.CreateVideoListProgress(playlist), cancellation)));
 
-        if (command.Videos?.IsValid == true) searches.Add(SearchVideosAsync(command, progress?.CreateVideoListProgress(command.Videos), cancellation));
+        if (command.Videos?.IsValid == true) searches.Add(SearchVideosAsync(command, command.ProgressReporter?.CreateVideoListProgress(command.Videos), cancellation));
 
         await foreach (var result in searches.Parallelize(cancellation)) yield return result;
     }
@@ -259,11 +257,8 @@ public sealed class Youtube
     /// <summary>Returns the <see cref="Video.Keywords"/> and their corresponding number of occurrences
     /// from the videos scoped by <paramref name="command"/>.</summary>
     public async IAsyncEnumerable<(string keyword, string videoId, CommandScope scope)> ListKeywordsAsync(ListKeywords command,
-        IProgress<BatchProgress>? progressReporter = default,
         [EnumeratorCancellation] CancellationToken cancellation = default)
     {
-        BatchProgressReporter? progress = CreateBatchProgress(command, progressReporter);
-
         var channel = Pipe.CreateBounded<(string keyword, string videoId, CommandScope scope)>(
             new BoundedChannelOptions(5) { SingleReader = true });
 
@@ -281,7 +276,7 @@ public sealed class Youtube
         var lookupTasks = command.GetPlaylistLikeScopes().GetValid().Select(scope =>
             Task.Run(async () =>
             {
-                var listProgress = progress?.CreateVideoListProgress(scope);
+                var listProgress = command.ProgressReporter?.CreateVideoListProgress(scope);
                 var playlist = await RefreshPlaylistAsync(scope, cancellation, listProgress);
                 var videoIds = playlist.Videos.Keys.Take(scope.Top).ToArray();
                 listProgress?.SetVideos(videoIds);
@@ -293,7 +288,7 @@ public sealed class Youtube
 
         if (command.Videos?.IsValid == true)
         {
-            var listProgress = progress?.CreateVideoListProgress(command.Videos);
+            var listProgress = command.ProgressReporter?.CreateVideoListProgress(command.Videos);
             listProgress?.SetVideos(command.Videos.ValidIds!);
 
             lookupTasks.Add(Task.Run(async () =>
@@ -388,13 +383,6 @@ public sealed class Youtube
 
             yield return captionTrack;
         }
-    }
-
-    private static BatchProgressReporter? CreateBatchProgress(OutputCommand command, IProgress<BatchProgress>? progressReporter)
-    {
-        if (progressReporter == default) return default;
-        var playlists = command.GetValidScopes().ToDictionary(scope => scope, _ => new BatchProgress.VideoList());
-        return new(progressReporter!, new BatchProgress() { VideoLists = playlists });
     }
 
     /// <summary>Returns a curried <see cref="GetVideoAsync(string, CancellationToken, BatchProgressReporter.VideoListProgress?)"/>

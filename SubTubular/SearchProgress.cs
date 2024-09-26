@@ -3,7 +3,7 @@
 /// <summary>Tracks the progress of distinct <see cref="CommandScope"/>s in an <see cref="OutputCommand"/>.</summary>
 public sealed class BatchProgress
 {
-    public required Dictionary<CommandScope, VideoList> VideoLists { get; set; }
+    public Dictionary<CommandScope, VideoList> VideoLists { get; set; } = [];
 
     /// <summary>Represents the progress of a <see cref="CommandScope"/>.</summary>
     public sealed class VideoList
@@ -19,10 +19,14 @@ public sealed class BatchProgress
 
 /// <summary>A <see cref="VideoListProgress"/> factory for the <see cref="BatchProgress.VideoLists"/> of <paramref name="batchProgress"/>
 /// delegating to the <paramref name="reporter"/> to bundle all progress reports in it.</summary>
-internal class BatchProgressReporter(IProgress<BatchProgress> reporter, BatchProgress batchProgress)
+internal class BatchProgressReporter(BatchProgress batchProgress, IProgress<BatchProgress> reporter)
 {
     internal VideoListProgress CreateVideoListProgress(CommandScope scope)
-        => new(batchProgress.VideoLists[scope], new Progress<BatchProgress.VideoList>(listProgress =>
+    {
+        if (!batchProgress.VideoLists.TryGetValue(scope, out var videoList))
+            videoList = new BatchProgress.VideoList();
+
+        return new(videoList, new Progress<BatchProgress.VideoList>(listProgress =>
         {
             batchProgress.VideoLists[scope] = listProgress;
             reporter.Report(batchProgress);
@@ -30,6 +34,7 @@ internal class BatchProgressReporter(IProgress<BatchProgress> reporter, BatchPro
             //playlist.State = listProgress.State;
             //playlist.Videos = listProgress.Videos;
         }));
+    }
 
     /// <summary>Pairs the <paramref name="videoList"/> with the <paramref name="reporter"/> for convenient progress reporting.</summary>
     internal class VideoListProgress(BatchProgress.VideoList videoList, IProgress<BatchProgress.VideoList> reporter)
