@@ -1,18 +1,24 @@
 ﻿namespace SubTubular;
 
+/// <summary>Tracks the progress of distinct <see cref="CommandScope"/>s in an <see cref="OutputCommand"/>.</summary>
 public sealed class BatchProgress
 {
     public required Dictionary<CommandScope, VideoList> VideoLists { get; set; }
 
+    /// <summary>Represents the progress of a <see cref="CommandScope"/>.</summary>
     public sealed class VideoList
     {
         public Status State { get; set; } = Status.queued;
+
+        /// <summary>Represents the progress of individual <see cref="Video.Id"/>s in a <see cref="CommandScope"/>s.</summary>
         public Dictionary<string, Status>? Videos { get; set; }
     }
 
     public enum Status { queued, downloading, indexing, searching, indexingAndSearching, searched }
 }
 
+/// <summary>A <see cref="VideoListProgress"/> factory for the <see cref="BatchProgress.VideoLists"/> of <paramref name="batchProgress"/>
+/// delegating to the <paramref name="reporter"/> to bundle all progress reports in it.</summary>
 internal class BatchProgressReporter(IProgress<BatchProgress> reporter, BatchProgress batchProgress)
 {
     internal VideoListProgress CreateVideoListProgress(CommandScope scope)
@@ -25,6 +31,7 @@ internal class BatchProgressReporter(IProgress<BatchProgress> reporter, BatchPro
             //playlist.Videos = listProgress.Videos;
         }));
 
+    /// <summary>Pairs the <paramref name="videoList"/> with the <paramref name="reporter"/> for convenient progress reporting.</summary>
     internal class VideoListProgress(BatchProgress.VideoList videoList, IProgress<BatchProgress.VideoList> reporter)
     {
         public BatchProgress.VideoList VideoList { get; } = videoList;

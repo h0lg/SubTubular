@@ -32,7 +32,7 @@ internal static class ScopeExtensions
 
 public class VideosScope : CommandScope
 {
-    /// <summary>Video IDs or URLs.</summary>
+    /// <summary>Input video IDs or URLs.</summary>
     public IEnumerable<string> Videos { get; set; }
 
     /// <summary>Validated video IDs from <see cref="Videos"/>.</summary>

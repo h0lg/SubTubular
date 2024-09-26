@@ -129,7 +129,7 @@ internal sealed class VideoIndex
         try { results = Index.Search(command.Query!); }
         catch (QueryParserException ex) { throw new InputException("Error parsing query from --for | -f parameter: " + ex.Message, ex); }
 
-        // make sure to only return results for the requested videos if specified; index may contain more
+        // make sure to only return results for the requested videos if specified; playlist or channel indexes may contain more
         var matches = results.Where(m => relevantVideos?.ContainsKey(m.Key) != false).ToList();
 
         Video[]? videosWithoutUploadDate = null;
