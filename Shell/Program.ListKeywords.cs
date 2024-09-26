@@ -12,7 +12,7 @@ static partial class Program
         {
             Dictionary<string, ushort> keywords = [];
 
-            await foreach (var (keyword, videoId, scope) in youtube.ListKeywordsAsync(command, cancellation: cancellation))
+            await foreach (var (keyword, videoId, scope) in youtube.ListKeywordsAsync(command, cancellation))
                 if (keywords.ContainsKey(keyword)) keywords[keyword]++;
                 else keywords.Add(keyword, 1);
 
