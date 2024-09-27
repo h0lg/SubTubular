@@ -177,7 +177,7 @@ internal static class HttpRequestExceptionExtensions
 
 internal static class ChannelAliasMapExtensions
 {
-    internal static ChannelAliasMap? ForAlias(this List<ChannelAliasMap> maps, object alias)
+    internal static ChannelAliasMap? ForAlias(this ISet<ChannelAliasMap> maps, object alias)
     {
         var (type, value) = ChannelAliasMap.GetTypeAndValue(alias);
 
