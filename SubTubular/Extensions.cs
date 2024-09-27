@@ -26,7 +26,7 @@ public static class StringExtensions
     internal static bool IsNullOrWhiteSpace(this string? input) => string.IsNullOrWhiteSpace(input);
 
     /// <summary>Determines whether <paramref name="input"/> NOT <see cref="string.IsNullOrWhiteSpace(string?)"/>.</summary>
-    internal static bool IsNonWhiteSpace(this string? input) => !string.IsNullOrWhiteSpace(input);
+    public static bool IsNonWhiteSpace(this string? input) => !string.IsNullOrWhiteSpace(input);
 
     /// <summary>Replaces all consecutive white space characters in
     /// <paramref name="input"/> with <paramref name="normalizeTo"/>.</summary>
