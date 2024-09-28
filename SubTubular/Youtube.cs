@@ -138,7 +138,7 @@ public sealed class Youtube
     private IAsyncEnumerable<PlaylistVideo> GetVideosAsync(PlaylistLikeScope scope, CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
-        if (scope is ChannelScope searchChannel) return Client.Channels.GetUploadsAsync(searchChannel.ValidId!, cancellation);
+        if (scope is ChannelScope searchChannel) return Client.Channels.GetUploadsAsync(searchChannel.GetValidatedId(), cancellation);
         if (scope is PlaylistScope searchPlaylist) return Client.Playlists.GetVideosAsync(searchPlaylist.Alias, cancellation);
         throw new NotImplementedException($"Getting videos for the {scope.GetType()} is not implemented.");
     }
@@ -231,7 +231,7 @@ public sealed class Youtube
         BatchProgressReporter.VideoListProgress? progress, [EnumeratorCancellation] CancellationToken cancellation = default)
     {
         cancellation.ThrowIfCancellationRequested();
-        var videoIds = command.Videos!.ValidIds!;
+        var videoIds = command.Videos!.GetValidatedIds();
         progress?.SetVideos(videoIds);
         var storageKey = Video.StorageKeyPrefix + videoIds.Order().Join(" ");
         var index = await videoIndexRepo.GetAsync(storageKey);
@@ -289,13 +289,14 @@ public sealed class Youtube
         if (command.Videos?.IsValid == true)
         {
             var listProgress = command.ProgressReporter?.CreateVideoListProgress(command.Videos);
-            listProgress?.SetVideos(command.Videos.ValidIds!);
+            IEnumerable<string> videoIds = command.Videos.GetValidatedIds();
+            listProgress?.SetVideos(videoIds);
 
             lookupTasks.Add(Task.Run(async () =>
             {
                 listProgress?.Report(BatchProgress.Status.searching);
 
-                foreach (var videoId in command.Videos.ValidIds!)
+                foreach (var videoId in videoIds)
                     await GetKeywords(videoId, command.Videos, listProgress);
 
                 listProgress?.Report(BatchProgress.Status.searched);

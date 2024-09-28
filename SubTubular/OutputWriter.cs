@@ -36,7 +36,7 @@ public abstract class OutputWriter(OutputCommand command)
 
             foreach (var scope in validScopes)
             {
-                Write(scope.ValidUrls!.Join(" "));
+                Write(scope.Describe());
                 indent.StartNewLine(this);
             }
         }
