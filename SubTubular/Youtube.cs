@@ -99,48 +99,62 @@ public sealed class Youtube
         }
     }
 
-    private async Task<Playlist> RefreshPlaylistAsync(PlaylistLikeScope command,
-        CancellationToken cancellation, BatchProgressReporter.VideoListProgress? progress)
+    internal Task<Playlist?> GetPlaylistAsync(PlaylistScope scope, CancellationToken cancellation, BatchProgressReporter.VideoListProgress? progress) =>
+        GetPlaylistAsync(scope, progress);
+
+    internal Task<Playlist?> GetPlaylistAsync(ChannelScope scope, CancellationToken cancellation, BatchProgressReporter.VideoListProgress? progress) =>
+        GetPlaylistAsync(scope, progress);
+
+    private async Task<Playlist?> GetPlaylistAsync(PlaylistLikeScope scope, BatchProgressReporter.VideoListProgress? progress)
     {
-        var storageKey = command.StorageKey;
-        var playlist = await dataStore.GetAsync<Playlist>(storageKey); //get cached
+        var playlist = await dataStore.GetAsync<Playlist>(scope.StorageKey); // get cached
+        if (playlist != null) return playlist;
 
-        if (playlist == null //playlist cache is missing, outdated or lacking sufficient videos
-            || playlist.Loaded < DateTime.UtcNow.AddHours(-Math.Abs(command.CacheHours))
-            || playlist.Videos.Count < command.Top)
-        {
-            progress?.Report(BatchProgress.Status.downloading);
-            if (playlist == null) playlist = new Playlist();
-
-            try
-            {
-                // load and update videos in playlist while keeping existing video info
-                var freshVideos = await GetVideosAsync(command, cancellation).CollectAsync(command.Top);
-                playlist.Loaded = DateTime.UtcNow;
-
-                // use new order but append older entries; note that this leaves remotely deleted videos in the playlist
-                var freshKeys = freshVideos.Select(v => v.Id.Value).ToArray();
-
-                playlist.Videos = freshKeys.Concat(playlist.Videos.Keys.Except(freshKeys))
-                    .ToDictionary(id => id, id => playlist.Videos.TryGetValue(id, out var uploaded) ? uploaded : null);
-
-                await dataStore.SetAsync(storageKey, playlist);
-            }
-            /*  treat playlist identified by user input not being available as input error
-                and re-throw otherwise; the uploads playlist of a channel being unavailable is unexpected */
-            catch (PlaylistUnavailableException ex) when (command is PlaylistScope searchPlaylist)
-            { throw new InputException($"Could not find {searchPlaylist.Describe()}.", ex); }
-        }
-
+        progress?.Report(BatchProgress.Status.downloading);
+        playlist = new Playlist();
+        await dataStore.SetAsync(scope.StorageKey, playlist);
         return playlist;
     }
 
-    private IAsyncEnumerable<PlaylistVideo> GetVideosAsync(PlaylistLikeScope scope, CancellationToken cancellation)
+    private async Task<Playlist> RefreshPlaylistAsync(PlaylistLikeScope scope,
+        CancellationToken cancellation, BatchProgressReporter.VideoListProgress? progress)
     {
-        cancellation.ThrowIfCancellationRequested();
-        if (scope is ChannelScope searchChannel) return Client.Channels.GetUploadsAsync(searchChannel.GetValidatedId(), cancellation);
-        if (scope is PlaylistScope searchPlaylist) return Client.Playlists.GetVideosAsync(searchPlaylist.Alias, cancellation);
-        throw new NotImplementedException($"Getting videos for the {scope.GetType()} is not implemented.");
+        var playlist = scope.SingleValidated.Playlist!;
+
+        // return fresh playlist with sufficient videos loaded
+        if (DateTime.UtcNow.AddHours(-Math.Abs(scope.CacheHours)) <= playlist.Loaded
+            && scope.Top <= playlist.Videos.Count) return playlist;
+
+        // playlist cache is outdated or lacking sufficient videos
+        progress?.Report(BatchProgress.Status.refreshing);
+
+        try
+        {
+            // load and update videos in playlist while keeping existing video info
+            var freshVideos = await GetVideos(scope, cancellation).CollectAsync(scope.Top);
+            playlist.Loaded = DateTime.UtcNow;
+
+            // use new order but append older entries; note that this leaves remotely deleted videos in the playlist
+            var freshKeys = freshVideos.Select(v => v.Id.Value).ToArray();
+
+            playlist.Videos = freshKeys.Concat(playlist.Videos.Keys.Except(freshKeys))
+                .ToDictionary(id => id, id => playlist.Videos.TryGetValue(id, out var uploaded) ? uploaded : null);
+
+            await dataStore.SetAsync(scope.StorageKey, playlist);
+        }
+        /*  treat playlist identified by user input not being available as input error
+            and re-throw otherwise; the uploads playlist of a channel being unavailable is unexpected */
+        catch (PlaylistUnavailableException ex) when (scope is PlaylistScope playlistScope)
+        { throw new InputException($"Could not find {playlistScope.Describe()}.", ex); }
+
+        return playlist;
+
+        IAsyncEnumerable<PlaylistVideo> GetVideos(PlaylistLikeScope scope, CancellationToken cancellation) => scope switch
+        {
+            ChannelScope searchChannel => Client.Channels.GetUploadsAsync(searchChannel.GetValidatedId(), cancellation),
+            PlaylistScope searchPlaylist => Client.Playlists.GetVideosAsync(searchPlaylist.Alias, cancellation),
+            _ => throw new NotImplementedException($"Getting videos for the {scope.GetType()} is not implemented.")
+        };
     }
 
     private async IAsyncEnumerable<VideoSearchResult> SearchUnindexedVideos(SearchCommand command,
@@ -170,7 +184,11 @@ public sealed class Youtube
                 try
                 {
                     cancellation.ThrowIfCancellationRequested();
-                    var video = await GetVideoAsync(id, cancellation, progress);
+
+                    Video? video = command.Videos?.Validated.SingleOrDefault(v => v.Id == id)?.Video;
+                    video ??= await GetVideoAsync(id, cancellation, progress, downloadCaptionTracksAndSave: false);
+                    if (video.CaptionTracks.Count == 0) await DownloadCaptionTracksAndSaveAsync(video, cancellation);
+
                     await unIndexedVideos.Writer.WriteAsync(video);
                     progress?.Report(id, BatchProgress.Status.indexing);
                 }
@@ -316,7 +334,8 @@ public sealed class Youtube
         await lookups; // to propagate exceptions
     }
 
-    private async Task<Video> GetVideoAsync(string videoId, CancellationToken cancellation, BatchProgressReporter.VideoListProgress? progress)
+    internal async Task<Video> GetVideoAsync(string videoId, CancellationToken cancellation,
+        BatchProgressReporter.VideoListProgress? progress = null, bool downloadCaptionTracksAndSave = true)
     {
         cancellation.ThrowIfCancellationRequested();
         var storageKey = Video.StorageKeyPrefix + videoId;
@@ -331,17 +350,21 @@ public sealed class Youtube
                 var vid = await Client.Videos.GetAsync(videoId, cancellation);
                 video = MapVideo(vid);
                 video.UnIndexed = true; // to re-index it if it was already indexed
-
-                await foreach (var track in DownloadCaptionTracksAsync(videoId, cancellation))
-                    video.CaptionTracks.Add(track);
-
-                await dataStore.SetAsync(storageKey, video);
+                if (downloadCaptionTracksAndSave) await DownloadCaptionTracksAndSaveAsync(video, cancellation);
             }
             catch (HttpRequestException ex) when (ex.IsNotFound())
             { throw new InputException($"Video '{videoId}' could not be found.", ex); }
         }
 
         return video;
+    }
+
+    private async Task DownloadCaptionTracksAndSaveAsync(Video video, CancellationToken cancellation)
+    {
+        await foreach (var track in DownloadCaptionTracksAsync(video.Id, cancellation))
+            video.CaptionTracks.Add(track);
+
+        await dataStore.SetAsync(Video.StorageKeyPrefix + video.Id, video);
     }
 
     private static Video MapVideo(YoutubeExplode.Videos.Video video) => new()

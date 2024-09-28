@@ -14,7 +14,7 @@ public sealed class BatchProgress
         public Dictionary<string, Status>? Videos { get; set; }
     }
 
-    public enum Status { queued, downloading, indexing, searching, indexingAndSearching, searched }
+    public enum Status { queued, loading, downloading, validated, refreshing, indexing, searching, indexingAndSearching, searched }
 }
 
 /// <summary>A <see cref="VideoListProgress"/> factory for the <see cref="BatchProgress.VideoLists"/> of <paramref name="batchProgress"/>
