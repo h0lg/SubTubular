@@ -129,7 +129,32 @@ public static class CommandValidator
             validations.Add(channelsValidated);
         }
 
+        if (command.Playlists.HasAny()) validations.AddRange(
+            command.Playlists!.Select(playlist => RemoteValidateAsync(playlist, youtube,
+                command.ProgressReporter?.CreateVideoListProgress(playlist), cancellation)));
+
+        if (command.Videos?.IsPrevalidated == true) validations.AddRange(
+            command.Videos!.Validated.Select(validationResult => RemoteValidateVideoAsync(validationResult, youtube, dataStore,
+                command.ProgressReporter?.CreateVideoListProgress(command.Videos!), cancellation)));
+
         await Task.WhenAll(validations).WithAggregateException();
+    }
+
+    private static async Task RemoteValidateVideoAsync(CommandScope.ValidationResult validationResult, Youtube youtube, DataStore dataStore,
+        BatchProgressReporter.VideoListProgress? progress, CancellationToken cancellation)
+    {
+        progress?.Report(validationResult.Id, BatchProgress.Status.downloading);
+        // video is not saved here without captiontracks so none in the cache means there probably are none - otherwise cached info is indeterminate
+        validationResult.Video = await youtube.GetVideoAsync(validationResult.Id, cancellation, downloadCaptionTracksAndSave: false);
+        progress?.Report(validationResult.Id, BatchProgress.Status.validated);
+    }
+
+    private static async Task RemoteValidateAsync(PlaylistScope scope, Youtube youtube,
+        BatchProgressReporter.VideoListProgress? progress, CancellationToken cancellation)
+    {
+        progress?.Report(BatchProgress.Status.loading);
+        scope.SingleValidated.Playlist = await youtube.GetPlaylistAsync(scope, cancellation, progress);
+        progress?.Report(BatchProgress.Status.validated);
     }
 
     private static async Task<ChannelAliasMap[]> RemoteValidateAsync(ChannelScope channel, HashSet<ChannelAliasMap> knownAliasMaps, Youtube youtube,
@@ -158,7 +183,9 @@ public static class CommandValidator
 
         string id = distinctChannels.Single().ChannelId!;
         channel.SingleValidated.Id = id;
+        channel.SingleValidated.Playlist = await youtube.GetPlaylistAsync(channel, cancellation, progress);
         channel.SingleValidated.Url = Youtube.GetChannelUrl((ChannelId)id);
+        progress?.Report(BatchProgress.Status.validated);
         return distinctChannels;
 
         async ValueTask<ChannelAliasMap> GetChannelAliasMap(object alias)

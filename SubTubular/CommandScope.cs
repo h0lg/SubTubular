@@ -9,20 +9,20 @@ public abstract class CommandScope
 
     /// <summary>A collection of validated URLs for the entities included in the scope.
     /// It translates non-URI identifiers in the scope of YouTube into URIs for <see cref="OutputCommand"/>s.</summary>
-    private readonly List<ValidationResult> validated = new();
+    internal readonly List<ValidationResult> Validated = new();
 
-    internal bool IsValid => validated.All(v => v.IsRemoteValidated);
-    internal bool IsPrevalidated => validated.Count > 0;
-    internal ValidationResult SingleValidated => validated.Single();
+    internal bool IsValid => Validated.All(v => v.IsRemoteValidated);
+    internal bool IsPrevalidated => Validated.Count > 0;
+    internal ValidationResult SingleValidated => Validated.Single();
 
     internal void AddPrevalidated(string id, string url) =>
-        validated.Add(new ValidationResult { Id = id, Url = url });
+        Validated.Add(new ValidationResult { Id = id, Url = url });
 
     internal void AddPrevalidated(string alias, object[] wellStructuredAliases) =>
-        validated.Add(new ValidationResult { Id = alias, WellStructuredAliases = wellStructuredAliases });
+        Validated.Add(new ValidationResult { Id = alias, WellStructuredAliases = wellStructuredAliases });
 
     /// <summary>Returns all pre-validated or validated <see cref="ValidationResult.Id"/> depending on <see cref="IsValid"/>.</summary>
-    internal string[] GetValidatedIds() => validated.Select(v => v.Id).ToArray();
+    internal string[] GetValidatedIds() => Validated.Select(v => v.Id).ToArray();
 
     internal string GetValidatedId() => GetValidatedIds().Single();
 
@@ -40,7 +40,13 @@ public abstract class CommandScope
         internal object[]? WellStructuredAliases { get; set; }
 
         // proper validation, including loading from YouTube if required.
-        internal bool IsRemoteValidated => Url != null;
+        internal bool IsRemoteValidated => Playlist != null || Video != null;
+
+        /// <summary>For <see cref="VideosScope"/>s only.</summary>
+        internal Video? Video { get; set; }
+
+        /// <summary>For <see cref="PlaylistLikeScope"/>s only.</summary>
+        internal Playlist? Playlist { get; set; }
     }
 }
 
