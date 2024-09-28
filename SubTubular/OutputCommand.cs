@@ -37,9 +37,7 @@ public abstract class OutputCommand
         }
     }
 
-    internal bool HasPreValidatedScopes() => Videos?.ValidIds.HasAny() == true
-        || Playlists?.Any(pl => pl.ValidId != null) == true
-        || Channels?.Any(ch => ch.ValidAliases.HasAny()) == true;
+    internal bool HasPreValidatedScopes() => GetScopes().Any(s => s.IsPrevalidated);
 
     internal IEnumerable<PlaylistLikeScope> GetPlaylistLikeScopes()
     {

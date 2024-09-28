@@ -59,17 +59,20 @@ public static class CommandValidator
     {
         /*  validate Alias locally to throw eventual InputException,
             but store result for RemoteValidateChannelAsync */
-        scope.ValidAliases = PrevalidateChannelAlias(scope.Alias);
+        object[] wellStructuredAliases = PrevalidateChannelAlias(scope.Alias);
+        if (!wellStructuredAliases.HasAny()) return scope.Alias; // return invalid
 
-        return scope.ValidAliases.HasAny() ? null : scope.Alias; // return invalid
+        scope.AddPrevalidated(scope.Alias, wellStructuredAliases);
+        return null;
     }
 
     private static string? Prevalidate(PlaylistScope scope)
     {
         var id = PlaylistId.TryParse(scope.Alias);
-        scope.ValidId = id;
-        scope.ValidUrls = ["https://www.youtube.com/playlist?list=" + id];
-        return id == null ? scope.Alias : null; // return invalid
+        if (id == null) return scope.Alias; // return invalid
+
+        scope.AddPrevalidated(id, "https://www.youtube.com/playlist?list=" + id);
+        return null;
     }
 
     private static IEnumerable<string> Prevalidate(VideosScope? scope)
@@ -77,8 +80,7 @@ public static class CommandValidator
         if (scope == null) return [];
         var idsToValid = scope.Videos.ToDictionary(id => id, id => VideoId.TryParse(id.Trim('"'))?.ToString());
         var validIds = idsToValid.Where(pair => pair.Value != null).Select(pair => pair.Value!).ToArray();
-        scope.ValidIds = validIds;
-        scope.ValidUrls = validIds.Select(Youtube.GetVideoUrl).ToArray();
+        foreach (var id in validIds) scope.AddPrevalidated(id, Youtube.GetVideoUrl(id));
         return scope.Videos.Except(validIds); // return invalid
     }
 
@@ -101,7 +103,7 @@ public static class CommandValidator
                 if (matchingChannels.Length > 1) error =
                     matchingChannels.Select(map =>
                     {
-                        var validUrl = Youtube.GetChannelUrl(channel.ValidAliases!.Single(id => id.GetType().Name == map.Type));
+                        var validUrl = Youtube.GetChannelUrl(channel.SingleValidated.WellStructuredAliases!.Single(id => id.GetType().Name == map.Type));
                         var channelUrl = Youtube.GetChannelUrl((ChannelId)map.ChannelId!);
                         return $"{validUrl} points to channel {channelUrl}";
                     })
@@ -137,7 +139,7 @@ public static class CommandValidator
 
         /*  generate tasks checking which of the validAliases are accessible
             (via knownAliasMaps cache or HTTP request) and execute them in parrallel */
-        var (matchingChannels, maybeExceptions) = await ValueTasks.WhenAll(channel.ValidAliases!.Select(GetChannelAliasMap));
+        var (matchingChannels, maybeExceptions) = await ValueTasks.WhenAll(channel.SingleValidated.WellStructuredAliases!.Select(GetChannelAliasMap));
 
         #region rethrow unexpected exceptions
         var exceptions = maybeExceptions.Where(ex => ex is not null).ToArray();
@@ -155,9 +157,8 @@ public static class CommandValidator
         if (distinctChannels.Length > 1) return distinctChannels;
 
         string id = distinctChannels.Single().ChannelId!;
-        var identifiedMap = distinctChannels.Single();
-        channel.ValidId = id;
-        channel.ValidUrls = [Youtube.GetChannelUrl((ChannelId)id)];
+        channel.SingleValidated.Id = id;
+        channel.SingleValidated.Url = Youtube.GetChannelUrl((ChannelId)id);
         return distinctChannels;
 
         async ValueTask<ChannelAliasMap> GetChannelAliasMap(object alias)
