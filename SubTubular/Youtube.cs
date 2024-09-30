@@ -206,9 +206,8 @@ public sealed class Youtube
 
         var uncommitted = new List<Video>(); // batch of loaded and indexed, but uncommitted video index changes
 
-        // local getter preferring to reuse already loaded video from uncommitted bag for better performance
-        Func<string, CancellationToken, Task<Video>> getVideoAsync = async (videoId, cancellation)
-            => uncommitted.SingleOrDefault(v => v.Id == videoId) ?? await GetVideoAsync(videoId, cancellation, progress);
+        // local getter reusing already loaded video from uncommitted bag for better performance
+        Func<string, CancellationToken, Task<Video>> getVideoAsync = CreateVideoLookup(uncommitted);
 
         // read synchronously from the channel because we're writing to the same video index
         await foreach (var video in unIndexedVideos.Reader.ReadAllAsync())
@@ -265,7 +264,10 @@ public sealed class Youtube
         {
             progress?.Report(BatchProgress.Status.searching);
 
-            await foreach (var result in index.SearchAsync(command, CreateVideoLookup(progress), cancellation: cancellation))
+            // indexed videos are assumed to have downloaded their caption tracks already
+            Video[] videos = command.Videos!.Validated.Select(v => v.Video!).ToArray();
+
+            await foreach (var result in index.SearchAsync(command, CreateVideoLookup(videos), cancellation: cancellation))
                 yield return result;
         }
 
@@ -408,6 +410,10 @@ public sealed class Youtube
             yield return captionTrack;
         }
     }
+
+    /// <summary>Returns a video lookup that used the local <paramref name="videos"/> collection for better performance.</summary>
+    private static Func<string, CancellationToken, Task<Video>> CreateVideoLookup(IEnumerable<Video> videos)
+        => (videoId, _cancellation) => Task.FromResult(videos.Single(v => v.Id == videoId));
 
     /// <summary>Returns a curried <see cref="GetVideoAsync(string, CancellationToken, BatchProgressReporter.VideoListProgress?)"/>
     /// with the <paramref name="progress"/> supplied.</summary>
