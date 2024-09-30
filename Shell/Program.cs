@@ -14,13 +14,17 @@ internal static partial class Program
 
 "; //from http://www.patorjk.com/software/taag/#p=display&f=Slant&t=SubTubular
 
-    private static async Task Main(string[] args)
+    private static async Task<int> Main(string[] args)
     {
         var originalCommand = $"> {AssemblyInfo.Name}.exe "
             // quote shell args including pipes to accurately represent the console command
             + args.Select(arg => arg.Contains('|') ? $"\"{arg.Replace("\"", "\"\"")}\"" : arg).Join(" ");
 
-        try { await CommandInterpreter.ParseArgs(args, originalCommand); }
+        try
+        {
+            var exitCode = await CommandInterpreter.ParseArgs(args, originalCommand);
+            return (int)exitCode;
+        }
         catch (Exception ex)
         {
             var causes = ex.GetRootCauses();
@@ -28,23 +32,32 @@ internal static partial class Program
             if (causes.AreAll<OperationCanceledException>())
             {
                 Console.WriteLine("The operation was canceled.");
-                return;
+                return (int)ExitCode.Canceled;
             }
 
             if (causes.All(c => c.IsInputError() || c is VideoUnavailableException))
             {
                 foreach (var cause in causes)
-                    Console.Error.WriteLine(cause.Message);
+                    WriteConsoleError(cause.Message);
 
-                return;
+                return (int)ExitCode.ValidationError;
             }
 
             if (causes.AreAll<HttpRequestException>())
-                Console.Error.WriteLine(causes.Select(c => c.Message)
+                WriteConsoleError(causes.Select(c => c.Message)
                     .Prepend("Unexpected errors occurred loading data from YouTube. Try again later or with an updated version. ")
                     .Join(Environment.NewLine));
             else await WriteErrorLogAsync(originalCommand, ex.ToString());
+
+            return (int)ExitCode.GenericError;
         }
+    }
+
+    private static void WriteConsoleError(string line)
+    {
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.Error.WriteLine(line);
+        Console.ResetColor();
     }
 
     private static readonly string cacheFolder = Folder.GetPath(Folders.cache);
@@ -56,12 +69,12 @@ internal static partial class Program
         (var path, var report) = await ErrorLog.WriteAsync(errors, header: originalCommand, fileNameDescription: name);
         var fileWritten = path != null;
 
-        if (fileWritten) Console.WriteLine("Errors were logged to " + path);
+        if (fileWritten) WriteConsoleError("Errors were logged to " + path);
         else
         {
-            Console.WriteLine("The following errors occurred and we were unable to write a log for them.");
+            WriteConsoleError("The following errors occurred and we were unable to write a log for them.");
             Console.WriteLine();
-            Console.Error.WriteLine(report);
+            WriteConsoleError(report);
         }
 
         Console.WriteLine();
@@ -75,3 +88,5 @@ internal static partial class Program
             + $" You'll find all that in the error {(fileWritten ? "log file" : "output above")}.");
     }
 }
+
+enum ExitCode { Success = 0, GenericError = 1, ValidationError = 2, Canceled = 3 }

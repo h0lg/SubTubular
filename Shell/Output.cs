@@ -68,8 +68,12 @@ static partial class Program
                 see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables */
             await runCommand(youtube, outputs, cancellation.Token);
         }
-        catch (OperationCanceledException) { Console.WriteLine("The operation was cancelled."); }
-        catch (Exception ex) { allErrors.Add(ex.ToString()); }
+        // record unexpected error here to have it in the same log file as the scope errors
+        catch (Exception ex) when (ex.GetRootCauses().Any(e => e is not OperationCanceledException && !e.IsInputError()))
+        {
+            allErrors.Add($"{DateTime.Now:O} {ex}");
+            throw new OperationCanceledException(); // throw an error ignored upstream to signal execution error without triggering duplicate logging
+        }
         finally // write output file even if exception occurs
         {
             if (outputs.Any(o => o.WroteResults)) // if we displayed a result before running into an error
@@ -87,13 +91,13 @@ static partial class Program
                     if (command.Show == OutputCommand.Shows.folder) ShellCommands.ExploreFolder(outputPath);
                 }
             }
+
+            if (!allErrors.IsEmpty) await WriteErrorLogAsync(originalCommand, allErrors.Join(ErrorLog.OutputSpacing), command.Describe());
+
+            foreach (var output in outputs.OfType<IDisposable>()) output.Dispose();
+            running = false; // to let the cancel task complete if operation did before it
+            await cancel; // just to rethrow possible exceptions
         }
-
-        if (!allErrors.IsEmpty) await WriteErrorLogAsync(originalCommand, allErrors.Join(ErrorLog.OutputSpacing), command.Describe());
-
-        foreach (var output in outputs.OfType<IDisposable>()) output.Dispose();
-        running = false; // to let the cancel task complete if operation did before it
-        await cancel; // just to rethrow possible exceptions
 
         void OnScopeNotified(CommandScope scope, CommandScope.Notification notification) => outputs.ForEach(output =>
         {
@@ -110,7 +114,8 @@ static partial class Program
             {
                 // collect error details for log
                 var errorDetails = notification.Errors!.Select(e => e.ToString())
-                    .Prepend(titleAndScope).Prepend(notification.Message)
+                    .Prepend(notification.Message)
+                    .Prepend($"{DateTime.Now:O} {titleAndScope}")
                     .WithValue().Join(ErrorLog.OutputSpacing);
 
                 allErrors.Add(errorDetails);

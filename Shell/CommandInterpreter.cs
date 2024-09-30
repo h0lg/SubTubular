@@ -13,7 +13,7 @@ static partial class CommandInterpreter
         quoteIdsStartingWithDash = " Note that if the video ID starts with a dash, you have to quote it"
             + @" like ""-1a2b3c4d5e"" or use the entire URL to prevent it from being misinterpreted as a command option.";
 
-    internal static async Task ParseArgs(string[] args, string originalCommand)
+    internal static async Task<ExitCode> ParseArgs(string[] args, string originalCommand)
     {
         Task search(SearchCommand cmd) => Program.SearchAsync(cmd, originalCommand);
         Task listKeywords(ListKeywords cmd) => Program.ListKeywordsAsync(cmd, originalCommand);
@@ -28,7 +28,16 @@ static partial class CommandInterpreter
         root.AddCommand(ConfigureOpen());
         root.AddCommand(ConfigureRecent(search, listKeywords));
 
-        Parser parser = new CommandLineBuilder(root).UseDefaults()
+        Parser parser = new CommandLineBuilder(root)
+            .UseVersionOption()
+            .UseEnvironmentVariableDirective()
+            .UseParseDirective()
+            .UseSuggestDirective()
+            .RegisterWithDotnetSuggest()
+            .UseTypoCorrections()
+            .UseParseErrorReporting(errorExitCode: (int)ExitCode.ValidationError)
+            .CancelOnProcessTermination()
+
             // see https://learn.microsoft.com/en-us/dotnet/standard/commandline/customize-help
             .UseHelp(ctx => ctx.HelpBuilder.CustomizeLayout(context =>
             {
@@ -50,7 +59,10 @@ static partial class CommandInterpreter
             }))
             .Build();
 
-        await parser.InvokeAsync(args);
+        var exit = await parser.InvokeAsync(args);
+
+        if (Enum.IsDefined(typeof(ExitCode), exit)) return (ExitCode)exit;
+        else return ExitCode.GenericError;
     }
 
     private static Command ConfigureOpen()
