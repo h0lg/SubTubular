@@ -70,8 +70,17 @@ public sealed class Youtube
             var indexedVideoInfos = indexedVideoIds.ToDictionary(id => id, id => playlist.Videos[id]);
 
             // search already indexed videos in one go - but on background task to start downloading and indexing videos in parallel
-            searches.Add(index.SearchAsync(command, CreateVideoLookup(progress), indexedVideoInfos, UpdatePlaylistVideosUploaded, cancellation));
-            progress?.Report(BatchProgress.Status.searching);
+            searches.Add(SearchIndexedVideos());
+
+            async IAsyncEnumerable<VideoSearchResult> SearchIndexedVideos()
+            {
+                foreach (var videoId in indexedVideoIds) progress?.Report(videoId, BatchProgress.Status.searching);
+
+                await foreach (var result in index.SearchAsync(command, CreateVideoLookup(progress), indexedVideoInfos, UpdatePlaylistVideosUploaded, cancellation))
+                    yield return result;
+
+                foreach (var videoId in indexedVideoIds) progress?.Report(videoId, BatchProgress.Status.searched);
+            }
         }
 
         var unIndexedVideoIds = videoIds.Except(indexedVideoIds).ToArray();
@@ -80,7 +89,9 @@ public sealed class Youtube
         if (unIndexedVideoIds.Length > 0) searches.Add(SearchUnindexedVideos(command,
             unIndexedVideoIds, index, progress, cancellation, UpdatePlaylistVideosUploaded));
 
+        progress?.Report(BatchProgress.Status.searching);
         await foreach (var result in searches.Parallelize(cancellation)) yield return result;
+        progress?.Report(BatchProgress.Status.searched);
 
         async Task UpdatePlaylistVideosUploaded(IEnumerable<Video> videos)
         {

@@ -86,6 +86,7 @@ module App =
         | Search of bool
         | SearchResult of VideoSearchResult
         | SearchProgress of BatchProgress
+        | ProgressChanged of float
         | SearchCompleted
 
         | AttachedToVisualTreeChanged of VisualTreeAttachmentEventArgs
@@ -171,10 +172,12 @@ module App =
         fun dispatch ->
             async {
                 let command = mapToSearchCommand model
-                CommandValidator.PrevalidateSearchCommand command
                 let cacheFolder = Folder.GetPath Folders.cache
                 let dataStore = JsonFileDataStore cacheFolder
                 let youtube = Youtube(dataStore, VideoIndexRepository cacheFolder)
+                let dispatchProgress = Cmd.debounce 100 (fun progress -> SearchProgress progress)
+                command.SetProgressReporter(Progress<BatchProgress>(fun progress -> dispatchProgress progress |> List.iter (fun effect -> effect dispatch)))
+                CommandValidator.PrevalidateSearchCommand command
                 use cts = new CancellationTokenSource()
                 do! CommandValidator.ValidateScopesAsync(command, youtube, dataStore, cts.Token) |> Async.AwaitTask
 
@@ -310,7 +313,6 @@ module App =
 
         | Search on -> { model with Searching = on; SearchResults = [] }, (if on then searchCmd model else Cmd.none)
         | SearchResult result -> { model with SearchResults = result::model.SearchResults }, Cmd.none
-        | SearchCompleted -> { model with Searching = false }, Notify "search completed" |> Cmd.ofMsg
 
         | SearchProgress progress ->
             let scopes = model.Scopes |> List.map(fun s ->
@@ -322,15 +324,20 @@ module App =
                     | _ -> failwith "quark"
 
                 let scopeProgress = progress.VideoLists |> Seq.tryFind (fun pair -> equals s pair.Key) |> Option.map (fun pair -> pair.Value)
-                if scopeProgress.IsSome then { s with Progress = scopeProgress } else s )
+                if scopeProgress.IsSome
+                then { s with Progress = scopeProgress }
+                else s )
 
             { model with Scopes = scopes }, Cmd.none
+
+        | ProgressChanged _value -> model, Cmd.none
+        | SearchCompleted -> { model with Searching = false }, Notify "search completed" |> Cmd.ofMsg
 
         | AttachedToVisualTreeChanged args -> 
             let notifier = FabApplication.Current.WindowNotificationManager
             notifier.Position <- NotificationPosition.BottomRight
             { model with Notifier = notifier }, Cmd.none
-        
+
         | Notify title -> model, notifyInfo model.Notifier title
         | OpenUrl url -> model, (fun _ -> ShellCommands.OpenUri(url); Cmd.none)()
         | CopyingToClipboard _args -> model, Cmd.none
@@ -474,37 +481,45 @@ module App =
                     Label "in"
 
                     for scope in model.Scopes do
-                        Label(displayScope scope.Type)
+                        VStack(5){
+                            HStack(5){
+                                Label(displayScope scope.Type)
 
-                        TextBox(scope.Aliases, fun value -> AliasesUpdated(scope, value))
-                            .watermark("by " + (if scope.Type = Scopes.videos then "space-separated IDs or URLs"
-                                elif scope.Type = Scopes.playlist then "ID or URL"
-                                else "handle, slug, user name, ID or URL"))
+                                TextBox(scope.Aliases, fun value -> AliasesUpdated(scope, value))
+                                    .watermark("by " + (if scope.Type = Scopes.videos then "space-separated IDs or URLs"
+                                        elif scope.Type = Scopes.playlist then "ID or URL"
+                                        else "handle, slug, user name, ID or URL"))
 
-                        (HStack(5) {
-                            Label "search top"
-                            NumericUpDown(0, float UInt16.MaxValue, scope.Top, fun value -> TopChanged(scope, value))
-                                .formatString("F0")
-                                .tip(ToolTip("number of videos to search"))
-                            Label "videos"
-                        }).centerHorizontal().isVisible(scope.DisplaysSettings)
+                                (HStack(5) {
+                                    Label "search top"
+                                    NumericUpDown(0, float UInt16.MaxValue, scope.Top, fun value -> TopChanged(scope, value))
+                                        .formatString("F0")
+                                        .tip(ToolTip("number of videos to search"))
+                                    Label "videos"
+                                }).centerHorizontal().isVisible(scope.DisplaysSettings)
 
-                        (HStack(5) {
-                            Label "and look for new ones after"
-                            NumericUpDown(0, float UInt16.MaxValue, scope.CacheHours, fun value -> CacheHoursChanged(scope, value))
-                                .formatString("F0")
-                                .tip(ToolTip("The info about which videos are in a playlist or channel is cached locally to speed up future searches."
-                                    + " This controls after how many hours such a cache is considered stale."
-                                    + Environment.NewLine + Environment.NewLine
-                                    + "Note that this doesn't concern the video data caches,"
-                                    + " which are not expected to change often and are stored until you explicitly clear them."))
-                            Label "hours"
-                        }).centerHorizontal().isVisible(scope.DisplaysSettings)
+                                (HStack(5) {
+                                    Label "and look for new ones after"
+                                    NumericUpDown(0, float UInt16.MaxValue, scope.CacheHours, fun value -> CacheHoursChanged(scope, value))
+                                        .formatString("F0")
+                                        .tip(ToolTip("The info about which videos are in a playlist or channel is cached locally to speed up future searches."
+                                            + " This controls after how many hours such a cache is considered stale."
+                                            + Environment.NewLine + Environment.NewLine
+                                            + "Note that this doesn't concern the video data caches,"
+                                            + " which are not expected to change often and are stored until you explicitly clear them."))
+                                    Label "hours"
+                                }).centerHorizontal().isVisible(scope.DisplaysSettings)
 
-                        ToggleButton("⚙", scope.DisplaysSettings, fun display -> DisplaySettingsChanged(scope, display))
-                            .tip(ToolTip("display settings"))
+                                ToggleButton("⚙", scope.DisplaysSettings, fun display -> DisplaySettingsChanged(scope, display))
+                                    .tip(ToolTip("display settings"))
 
-                        Button("❌", RemoveScope scope).tip(ToolTip("remove this scope"))
+                                Button("❌", RemoveScope scope).tip(ToolTip("remove this scope"))
+                            }
+
+                            if scope.Progress.IsSome then
+                                ProgressBar(0, scope.Progress.Value.AllJobs, scope.Progress.Value.CompletedJobs, ProgressChanged)
+                                    .progressTextFormat(scope.Progress.Value.ToString()).showProgressText(true)
+                        }
                 }
 
                 HStack(5){
