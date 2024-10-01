@@ -1,9 +1,14 @@
-﻿namespace SubTubular;
+﻿using SubTubular.Extensions;
+
+namespace SubTubular;
 
 /// <summary>Tracks the progress of distinct <see cref="CommandScope"/>s in an <see cref="OutputCommand"/>.</summary>
 public sealed class BatchProgress
 {
     public Dictionary<CommandScope, VideoList> VideoLists { get; set; } = [];
+
+    public override string ToString() =>
+        VideoLists.Select(list => list.Key.Describe() + " " + list.Value).Join(Environment.NewLine);
 
     /// <summary>Represents the progress of a <see cref="CommandScope"/>.</summary>
     public sealed class VideoList
@@ -12,9 +17,26 @@ public sealed class BatchProgress
 
         /// <summary>Represents the progress of individual <see cref="Video.Id"/>s in a <see cref="CommandScope"/>s.</summary>
         public Dictionary<string, Status>? Videos { get; set; }
+
+        public int AllJobs => Videos?.Count ?? 1; // default to one job for the VideoList itself
+        public int CompletedJobs => Videos?.Count(v => v.Value == Status.searched) ?? 0;
+
+        // used for display in UI
+        public override string ToString()
+        {
+            var videos = Videos?.Where(v => v.Value != State).GroupBy(v => v.Value).Select(g => $"{Display(g.Key)} " + g.Count()).Join(" | ");
+            return $"{Display(State)} {CompletedJobs}/{AllJobs}" + (videos.IsNullOrEmpty() ? null : (" - " + videos));
+        }
     }
 
     public enum Status { queued, loading, downloading, validated, refreshing, indexing, searching, indexingAndSearching, searched }
+
+    // used for display in UI
+    private static string Display(Status status) => status switch
+    {
+        Status.indexingAndSearching => "indexing and searching",
+        _ => status.ToString()
+    };
 }
 
 /// <summary>A <see cref="VideoListProgress"/> factory for the <see cref="BatchProgress.VideoLists"/> of <paramref name="batchProgress"/>
