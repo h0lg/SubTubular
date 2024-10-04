@@ -233,7 +233,7 @@ internal sealed class OutputWriter : IDisposable
 
         foreach (var trackResult in result.MatchingCaptionTracks)
         {
-            WriteLine("  " + trackResult.Track.LanguageName + " | " + trackResult.Track.FieldName);
+            WriteLine("  " + trackResult.Track.LanguageName);
             var displaysHour = trackResult.Matches.Any(c => c.Item2.At > 3600);
 
             foreach (var (match, caption) in trackResult.Matches)

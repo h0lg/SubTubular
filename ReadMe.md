@@ -275,45 +275,45 @@ To prevent them from burning churches, we may have to restrict their access to h
 ### Windows CMD <!-- omit in toc -->
 <pre>
 > SubTubular.exe <b>search-channel</b> https://www.youtube.com/@<b>bobross_thejoyofpainting</b>
-<b>--for</b> "EnglishAutoCaps= ( ""beat the devil out"" | ""happy little *"" )" <b>--top</b> 500 <b>--pad</b> 30
+<b>--for</b> "[English (auto-generated)]= ( ""beat the devil out"" | ""happy little *"" )" <b>--top</b> 500 <b>--pad</b> 30
 </pre>
 
 or shorter
 
 <pre>
 > SubTubular.exe <b>channel</b> bobross_thejoyofpainting
-<b>-f</b> "EnglishAutoCaps= ( ""beat the devil out"" | ""happy little *"" )" <b>-t</b> 500 <b>-p</b> 30
+<b>-f</b> "[English (auto-generated)]= ( ""beat the devil out"" | ""happy little *"" )" <b>-t</b> 500 <b>-p</b> 30
 </pre>
 
 ### PowerShell <!-- omit in toc -->
 <pre>
 PS > .\SubTubular.exe <b>search-channel</b> https://www.youtube.com/@<b>bobross_thejoyofpainting</b>
-<b>--for</b> 'EnglishAutoCaps= ( ""beat the devil out"" | ""happy little *"" )' <b>--top</b> 500 <b>--pad</b> 30
+<b>--for</b> '[English (auto-generated)]= ( ""beat the devil out"" | ""happy little *"" )' <b>--top</b> 500 <b>--pad</b> 30
 </pre>
 
 or shorter
 
 <pre>
 PS > .\SubTubular.exe <b>channel</b> bobross_thejoyofpainting
-<b>-f</b> 'EnglishAutoCaps= ( ""beat the devil out"" | ""happy little *"" )' <b>-t</b> 500 <b>-p</b> 30
+<b>-f</b> '[English (auto-generated)]= ( ""beat the devil out"" | ""happy little *"" )' <b>-t</b> 500 <b>-p</b> 30
 </pre>
 
 ### Bash <!-- omit in toc -->
 <pre>
 $ ./SubTubular.exe <b>search-channel</b> https://www.youtube.com/@<b>bobross_thejoyofpainting</b>
-<b>--for</b> 'EnglishAutoCaps= ( "beat the devil out" | "happy little *" )' <b>--top</b> 500 <b>--pad</b> 30
+<b>--for</b> '[English (auto-generated)]= ( "beat the devil out" | "happy little *" )' <b>--top</b> 500 <b>--pad</b> 30
 </pre>
 
 or shorter
 
 <pre>
 $ ./SubTubular.exe <b>channel</b> bobross_thejoyofpainting
-<b>-f</b> 'EnglishAutoCaps= ( "beat the devil out" | "happy little *" )' <b>-t</b> 500 <b>-p</b> 30
+<b>-f</b> '[English (auto-generated)]= ( "beat the devil out" | "happy little *" )' <b>-t</b> 500 <b>-p</b> 30
 </pre>
 
 will fill their prescription with results like below.
 
-Note how the `EnglishAutoCaps=(...)` expression excludes matches in title, description or keywords - since those wouldn't help our troubled kids.
+Note how the `[English (auto-generated)]=(...)` expression excludes matches in title, description or keywords - since those wouldn't help our troubled kids.
 
 <pre>
 "Beat the devil out of it, and we're ready."

@@ -77,20 +77,6 @@ public sealed class CaptionTrack
         fullText = writer.ToString();
     }
     #endregion
-
-    #region Indexing
-    /// <summary>The (constant) suffix of <see cref="FieldName"/>.</summary>
-    internal const string FieldSuffix = "Caps";
-
-    private string fieldName;
-
-    /// <summary>For indexing <see cref="CaptionTrack"/>s with a <see cref="Video"/>
-    /// as dynamic fields identifyable by <see cref="LanguageName"/>.</summary>
-    internal string FieldName => fieldName ??= LanguageName
-        .Replace(" (auto-generated)", "Auto") // to shorten field name
-        /* upper-case first letters to preserve word boundary and remove chars preventing use in field queries */
-        .UpperCaseFirstLetters().ReplaceNonWordCharacters() + FieldSuffix;
-    #endregion
 }
 
 [Serializable]

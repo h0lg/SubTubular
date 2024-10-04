@@ -30,7 +30,7 @@ internal sealed class VideoIndexRepository
                 .WithField(nameof(Video.Keywords), v => v.Keywords)
                 .WithField(nameof(Video.Description), v => v.Description)
                 .WithDynamicFields(nameof(Video.CaptionTracks), v => v.CaptionTracks,
-                    ct => ct.FieldName, ct => ct.GetFullText()))
+                    ct => ct.LanguageName, ct => ct.GetFullText()))
             .WithQueryParser(o => o.WithFuzzySearchDefaults(
                 maxEditDistance: termLength => (ushort)(termLength / 3),
                 // avoid returning zero here to allow for edits in the first place
@@ -82,6 +82,8 @@ internal sealed class VideoIndexRepository
 
 internal sealed class VideoIndex
 {
+    private static readonly string[] nonDynamicVideoFieldNames = [nameof(Video.Title), nameof(Video.Description), nameof(Video.Keywords)];
+
     internal FullTextIndex<string> Index { get; }
 
     internal VideoIndex(FullTextIndex<string> index) => Index = index;
@@ -237,9 +239,10 @@ internal sealed class VideoIndex
                     .ToArray();
             }
 
-            result.MatchingCaptionTracks = match.FieldMatches.Where(m => m.FoundIn.EndsWith(CaptionTrack.FieldSuffix)).Select(m =>
+            result.MatchingCaptionTracks = match.FieldMatches.Where(m => !nonDynamicVideoFieldNames.Contains(m.FoundIn)).Select(m =>
             {
-                var track = video.CaptionTracks.Single(t => t.FieldName == m.FoundIn);
+                var track = video.CaptionTracks.SingleOrDefault(t => t.LanguageName == m.FoundIn);
+                if (track == null) return null;
                 var fullText = track.GetFullText();
                 var captionAtFullTextIndex = track.GetCaptionAtFullTextIndex();
 
@@ -273,7 +276,7 @@ internal sealed class VideoIndex
                     .OrderBy(tuple => tuple.Item2.At).ToList(); // return captions in order
 
                 return new VideoSearchResult.CaptionTrackResult { Track = track, Matches = matches };
-            }).ToArray();
+            }).Where(t => t != null).Cast<VideoSearchResult.CaptionTrackResult>().ToArray();
 
             yield return result;
         }
