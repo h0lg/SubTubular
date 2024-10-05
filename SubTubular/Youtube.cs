@@ -31,7 +31,13 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
         SearchPlaylistLikeScopes(command.Channels);
         SearchPlaylistLikeScopes(command.Playlists);
         if (command.Videos?.IsValid == true) searches.Add(SearchVideosAsync(command, cancellation));
-        await foreach (var result in searches.Parallelize(cancellation)) yield return result;
+        var spansMultipleIndexes = searches.Count > 0;
+
+        await foreach (var result in searches.Parallelize(cancellation))
+        {
+            if (spansMultipleIndexes) result.Rescore();
+            yield return result;
+        }
 
         void SearchPlaylistLikeScopes(PlaylistLikeScope[]? scopes)
         {
@@ -82,10 +88,12 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
             unIndexedVideoIds, index, scope, cancellation, UpdatePlaylistVideosUploaded));
 
         scope.Report(VideoList.Status.searching);
+        var spansMultipleIndexes = searches.Count > 0;
 
         await foreach (var result in searches.Parallelize(cancellation))
         {
             result.Scope = scope;
+            if (spansMultipleIndexes) result.Rescore();
             yield return result;
         }
 

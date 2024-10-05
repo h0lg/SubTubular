@@ -34,7 +34,26 @@ public sealed class VideoSearchResult
     public MatchedText? DescriptionMatches { get; set; }
     public MatchedText[]? KeywordMatches { get; set; }
     public CaptionTrackResult[]? MatchingCaptionTracks { get; set; }
+
     public double Score { get; internal set; }
+    private bool wasRescored;
+
+    /// <summary>Re-calculates <see cref="Score"/> for searches spanning multiple <see cref="VideoIndex"/>es.
+    /// This is required because <see cref="Lifti.SearchResult{TKey}.Score"/> is currently calculated
+    /// on the metadata of a single index - so scores from different indexes can't be compared.
+    /// See https://github.com/mikegoatly/lifti/issues/32#issuecomment-2307362056 .
+    /// This is a work-around until a better scoring algorithm for searching multiple indexes is available.</summary>
+    internal void Rescore()
+    {
+        if (wasRescored) return; // to avoid unnecessary re-calculating
+
+        Score = TitleMatches?.Matches.Length ?? 0
+            + DescriptionMatches?.Matches.Length ?? 0
+            + KeywordMatches?.Sum(m => m.Matches.Length) ?? 0
+            + MatchingCaptionTracks?.Sum(t => t.Matches.Matches.Length) ?? 0;
+
+        wasRescored = true; // mark recalculated
+    }
 
     public sealed class CaptionTrackResult
     {
