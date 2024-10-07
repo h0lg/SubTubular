@@ -72,7 +72,8 @@ public abstract class PlaylistLikeScope : CommandScope
 
     public override IEnumerable<string> Describe()
     {
-        yield return IsValid ? SingleValidated.Playlist!.Title : Alias;
+        var range = Skip == default ? "First " + Take : $"{Skip + 1} to {Skip + Take + 1}";
+        yield return range + " of " + (IsValid ? SingleValidated.Playlist!.Title : Alias);
     }
 
     // for equality comparison of recent commands
