@@ -33,17 +33,12 @@ static partial class CommandInterpreter
         command.AddAlias(Actions.listKeywords[..1]); // first character
 
         var (channels, playlists, videos) = AddScopes(command);
-        (Option<ushort> skip, Option<ushort> take, Option<float> cacheHours) = AddPlaylistLikeCommandOptions(command);
+        (Option<IEnumerable<ushort>?> skip, Option<IEnumerable<ushort>?> take, Option<IEnumerable<float>?> cacheHours) = AddPlaylistLikeCommandOptions(command);
         (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(command);
         Option<bool> saveAsRecent = AddSaveAsRecent(command);
 
-        command.SetHandler(async (ctx) => await listKeywords(
-            new ListKeywords
-            {
-                Channels = CreateChannelScopes(ctx, channels, skip, take, cacheHours),
-                Playlists = CreatePlaylistScopes(ctx, playlists, skip, take, cacheHours),
-                Videos = CreateVideosScope(ctx, videos)
-            }
+        command.SetHandler(async (ctx) => await listKeywords(new ListKeywords()
+            .BindScopes(ctx, videos, channels, playlists, skip, take, cacheHours)
             .BindOuputOptions(ctx, html, fileOutputPath, show)
             .BindSaveAsRecent(ctx, saveAsRecent)));
 

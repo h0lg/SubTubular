@@ -1,4 +1,5 @@
-﻿using System.CommandLine;
+﻿using System.Collections;
+using System.CommandLine;
 using System.CommandLine.Builder;
 using System.CommandLine.Help;
 using System.CommandLine.Invocation;
@@ -71,5 +72,15 @@ internal static partial class BindingExtensions
         => context.ParseResult.GetValueForArgument(arg);
 
     internal static T? Parsed<T>(this InvocationContext context, Option<T> option)
-        => context.ParseResult.GetValueForOption(option);
+    {
+        var value = context.ParseResult.GetValueForOption(option);
+
+        // return null instead of an empty collection for enumerable options to make value checks easier
+        if (option.AllowMultipleArgumentsPerToken
+            && value is IEnumerable enumerable
+            && !enumerable.GetEnumerator().MoveNext()) // is empty
+            return default;
+
+        return value;
+    }
 }

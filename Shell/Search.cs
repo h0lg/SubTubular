@@ -35,17 +35,12 @@ static partial class CommandInterpreter
 
         var (channels, playlists, videos) = AddScopes(command);
         (Option<IEnumerable<string>> query, Option<ushort> padding, Option<IEnumerable<SearchCommand.OrderOptions>> orderBy) = AddSearchCommandOptions(command);
-        (Option<ushort> skip, Option<ushort> take, Option<float> cacheHours) = AddPlaylistLikeCommandOptions(command);
+        (Option<IEnumerable<ushort>?> skip, Option<IEnumerable<ushort>?> take, Option<IEnumerable<float>?> cacheHours) = AddPlaylistLikeCommandOptions(command);
         (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(command);
         Option<bool> saveAsRecent = AddSaveAsRecent(command);
 
-        command.SetHandler(async (ctx) => await search(
-            new SearchCommand
-            {
-                Channels = CreateChannelScopes(ctx, channels, skip, take, cacheHours),
-                Playlists = CreatePlaylistScopes(ctx, playlists, skip, take, cacheHours),
-                Videos = CreateVideosScope(ctx, videos)
-            }
+        command.SetHandler(async (ctx) => await search(new SearchCommand()
+            .BindScopes(ctx, videos, channels, playlists, skip, take, cacheHours)
             .BindSearchOptions(ctx, query, padding, orderBy)
             .BindOuputOptions(ctx, html, fileOutputPath, show)
             .BindSaveAsRecent(ctx, saveAsRecent)));

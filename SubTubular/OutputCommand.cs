@@ -92,12 +92,16 @@ public abstract class OutputCommand
 
         if (playlistLike.Length != 0)
         {
-            var skip = playlistLike.Max(s => s.Skip);
-            var take = playlistLike.Max(s => s.Take);
-            var cacheHours = playlistLike.Max(s => s.CacheHours);
-            if (skip > 0) shellCmd += $" {Args.skip} {skip}";
-            if (take > 0) shellCmd += $" {Args.take} {take}";
-            if (cacheHours > 0) shellCmd += $" {Args.cacheHours} {cacheHours}";
+            var skip = playlistLike.All(s => s.Skip == default) ? null
+                : playlistLike.Select(l => l.Skip.ToString()).Join(" ");
+
+            var take = playlistLike.Select(l => l.Take.ToString()).Join(" ");
+
+            var cacheHours = playlistLike.Select(s => s.CacheHours.ToString()).Join(" ");
+
+            if (skip != null) shellCmd += $" {Args.skip} {skip}";
+            shellCmd += $" {Args.take} {take}";
+            if (cacheHours != null) shellCmd += $" {Args.cacheHours} {cacheHours}";
         }
 
         return shellCmd;
