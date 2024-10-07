@@ -100,7 +100,7 @@ public static class Prevalidate
             scope.Validated.Clear(); // SingleValidated is out of date, remove it
         }
 
-        scope.AddPrevalidated(id, "https://www.youtube.com/playlist?list=" + id);
+        scope.AddPrevalidated(id, Youtube.GetPlaylistUrl(id));
         scope.Report(VideoList.Status.preValidated);
         return null;
     }

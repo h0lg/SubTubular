@@ -23,6 +23,8 @@ public sealed class Video
     internal bool UnIndexed { get; set; }
 
     public IList<CaptionTrack> CaptionTracks { get; set; } = [];
+
+    public static string GuessThumbnailUrl(string videoId) => $"https://img.youtube.com/vi/{videoId}/default.jpg";
 }
 
 [Serializable]

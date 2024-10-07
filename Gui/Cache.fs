@@ -2,22 +2,47 @@
 
 open System
 open System.IO
+open System.Threading
 open Fabulous
 open Fabulous.Avalonia
 open SubTubular
+open AsyncImageLoader.Loaders
 
 open type Fabulous.Avalonia.View
 
 module Cache =
+    type ThumbnailCache(folder: string) =
+        inherit DiskCachedWebImageLoader(folder)
+        static member getFileName url = DiskCachedWebImageLoader.CreateMD5 url
+
+    type PlaylistGroup =
+        { Playlist: Playlist
+          File: FileInfo
+          Thumbnail: FileInfo option
+          Indexes: FileInfo list
+          Videos: FileInfo list
+          VideoThumbnails: FileInfo list }
+
+    type GroupsByPlaylist =
+        { Channels: PlaylistGroup list
+          Playlists: PlaylistGroup list
+          ChannelSearches: FileInfo list
+          PlaylistSearches: FileInfo list
+          Videos: FileInfo list }
+
     type FileType = { Label: string; Description: string }
 
     type Model =
         { FileTypes: FileType array
           Folders: Folder.View array option
-          ByLastAccess: LastAccessGroup list option }
+          ByLastAccess: LastAccessGroup list option
+          ByPlaylist: GroupsByPlaylist option
+          LoadingByPlaylist: bool }
 
     type Msg =
         | ExpandingByLastAccess
+        | ExpandingByPlaylist
+        | ByPlaylistLoaded of GroupsByPlaylist
         | RemoveByLastAccess of LastAccessGroup
         | RemoveFromLastAccessGroup of LastAccessGroup * FileInfo array
         | ExpandingFolders
@@ -39,10 +64,116 @@ module Cache =
            { Label = "searches" + Icon.scopeSearch
              Description = "Caches used to speed up scope searches." } |]
 
+    let private getPlaylistLike<'Scope when 'Scope :> PlaylistLikeScope>
+        (files: FileInfo list)
+        (prefix: string)
+        getUrl
+        (createScope: string -> 'Scope)
+        (getPlaylist: 'Scope -> Tasks.Task<Playlist>)
+        =
+        let data =
+            files
+            |> List.filter (fun f -> f.Name.StartsWith(prefix))
+            |> List.groupBy (fun f -> f.Extension)
+
+        let allIndexes =
+            data |> List.find (fun g -> fst g = VideoIndexRepository.FileExtension) |> snd
+
+        let caches =
+            data |> List.find (fun g -> fst g = JsonFileDataStore.FileExtension) |> snd
+
+        let searches =
+            caches |> List.filter (fun f -> f.Name.StartsWith(prefix + "search "))
+
+        let infos = caches |> List.except searches
+
+        let getId (fileName: string) =
+            let startIndex = prefix.Length
+            let endIndex = fileName.Length - JsonFileDataStore.FileExtension.Length
+            fileName.Substring(startIndex, endIndex - startIndex)
+
+        searches,
+        infos
+        |> List.map (fun file ->
+            task {
+                let id = getId file.Name
+                let scope = createScope id
+                scope.AddPrevalidated(id, getUrl id)
+                let! playlist = getPlaylist scope
+                let indexName = prefix + id
+                let indexes = allIndexes |> List.filter (fun i -> i.Name.StartsWith(indexName))
+                let thumbName = ThumbnailCache.getFileName playlist.ThumbnailUrl
+                let thumbnail = files |> List.tryFind (fun i -> i.Name = thumbName)
+                let videoIds = playlist.GetVideos() |> Seq.map (fun v -> v.Id) |> Array.ofSeq
+                let videoNames = videoIds |> Array.map (fun id -> Video.StorageKeyPrefix + id)
+
+                let videos =
+                    files
+                    |> List.filter (fun f -> videoNames |> Array.exists (fun n -> f.Name.StartsWith(n)))
+
+                let videoThumbNames =
+                    videoIds
+                    |> Array.map (fun id -> Video.GuessThumbnailUrl id |> ThumbnailCache.getFileName)
+
+                let videoThumbs =
+                    files |> List.filter (fun f -> videoThumbNames |> Array.contains f.Name)
+
+                return
+                    { Playlist = playlist
+                      File = file
+                      Indexes = indexes
+                      Thumbnail = thumbnail
+                      Videos = videos
+                      VideoThumbnails = videoThumbs }
+            })
+
+    let private loadByPlaylist () =
+        task {
+            let files =
+                FileHelper.EnumerateFiles(Services.CacheFolder, "*", SearchOption.AllDirectories)
+                |> List.ofSeq
+
+            let channels =
+                getPlaylistLike
+                    files
+                    ChannelScope.StorageKeyPrefix
+                    (fun id -> (YoutubeExplode.Channels.ChannelId) id |> Youtube.GetChannelUrl)
+                    (fun id -> ChannelScope(id, 0us, 0us, 0f))
+                    (fun scope -> Services.Youtube.GetPlaylistAsync(scope, CancellationToken.None))
+
+            let playlists =
+                getPlaylistLike
+                    files
+                    PlaylistScope.StorageKeyPrefix
+                    (fun id -> (YoutubeExplode.Playlists.PlaylistId) id |> Youtube.GetPlaylistUrl)
+                    (fun id -> PlaylistScope(id, 0us, 0us, 0f))
+                    (fun scope -> Services.Youtube.GetPlaylistAsync(scope, CancellationToken.None))
+
+            let! playlistLikes =
+                [ channels; playlists ]
+                |> List.map snd
+                |> List.concat
+                |> Tasks.Task.WhenAll
+                |> Async.AwaitTask
+
+            let inPlaylists = playlistLikes |> List.ofArray |> List.collect (fun g -> g.Videos)
+            let looseVideos = files |> List.except inPlaylists
+
+            return
+                { Channels = snd channels |> List.map (fun t -> t.Result)
+                  Playlists = snd playlists |> List.map (fun t -> t.Result)
+                  ChannelSearches = fst channels
+                  PlaylistSearches = fst playlists
+                  Videos = looseVideos }
+                |> ByPlaylistLoaded
+        }
+
     let initModel =
         { FileTypes = fileTypes
           Folders = None
-          ByLastAccess = None }
+          ByLastAccess = None
+          ByPlaylist = None
+          LoadingByPlaylist = false }
 
     let update msg model =
         match msg with
@@ -55,6 +186,18 @@ module Cache =
                         ByLastAccess = CacheManager.LoadByLastAccess(Services.CacheFolder) |> List.ofSeq |> Some }
 
             model, Cmd.none
+
+        | ExpandingByPlaylist ->
+            { model with LoadingByPlaylist = true },
+            if model.LoadingByPlaylist then
+                Cmd.none
+            else
+                loadByPlaylist () |> Cmd.OfTask.msg
+
+        | ByPlaylistLoaded groups ->
+            { model with
+                ByPlaylist = groups |> Some },
+            Cmd.none
 
         | RemoveByLastAccess group ->
             for file in group.GetFiles() do
@@ -157,7 +300,7 @@ module Cache =
         ScrollViewer(
             let gap = Pixel 10
 
-            Grid(coldefs = [ Star; gap; Auto ], rowdefs = [ Auto; gap; Auto ]) {
+            Grid(coldefs = [ Star; gap; Auto ], rowdefs = [ Auto; gap; Auto; gap; Auto ]) {
                 Expander("File type info " + Icon.help, displayFileTypes model)
 
                 Expander("Go to 📂 Locations", folders model)
@@ -167,6 +310,38 @@ module Cache =
                 Expander("Files by type accessed within the last... " + Icon.recent, byLastAccess model)
                     .onExpanding(fun _ -> ExpandingByLastAccess)
                     .gridRow(2)
+                    .gridColumnSpan (3)
+
+                Expander(
+                    "Files by playlist",
+                    VStack() {
+                        let channels, playlists, videos =
+                            match model.ByPlaylist with
+                            | Some groups -> groups.Channels, groups.Playlists, groups.Videos
+                            | None -> [], [], []
+
+                        ItemsControl(
+                            channels,
+                            fun channel ->
+                                (Grid(coldefs = [ Auto; Star ], rowdefs = [ Auto; Star ]) {
+                                    TextBlock(channel.Playlist.Title).header ()
+
+                                })
+                                    .margin (10)
+                        )
+
+                        ItemsControl(
+                            playlists,
+                            fun playlist ->
+                                (Grid(coldefs = [ Auto; Star ], rowdefs = [ Auto; Star ]) {
+                                    TextBlock(playlist.Playlist.Title).header ()
+                                })
+                                    .margin (10)
+                        )
+                    }
+                )
+                    .onExpanding(fun _ -> ExpandingByPlaylist)
+                    .gridRow(4)
                     .gridColumnSpan (3)
             }
         )

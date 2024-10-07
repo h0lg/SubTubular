@@ -89,13 +89,13 @@ public abstract class PlaylistLikeScope : CommandScope
 [Serializable]
 public class PlaylistScope(string alias, ushort skip, ushort take, float cacheHours) : PlaylistLikeScope(alias, skip, take, cacheHours)
 {
-    internal const string StorageKeyPrefix = "playlist ";
+    public const string StorageKeyPrefix = "playlist ";
     protected override string KeyPrefix => StorageKeyPrefix;
 }
 
 [Serializable]
 public class ChannelScope(string alias, ushort skip, ushort take, float cacheHours) : PlaylistLikeScope(alias, skip, take, cacheHours)
 {
-    internal const string StorageKeyPrefix = "channel ";
+    public const string StorageKeyPrefix = "channel ";
     protected override string KeyPrefix => StorageKeyPrefix;
 }
