@@ -16,9 +16,9 @@ public sealed class ClearCache
     public enum Modes { summary, verbose, simulate }
 }
 
-public static class CacheClearer
+public static class CacheManager
 {
-    public static async Task<(IEnumerable<string> cachesDeleted, IEnumerable<string> indexesDeleted)> Process(
+    public static async Task<(IEnumerable<string> cachesDeleted, IEnumerable<string> indexesDeleted)> Clear(
         ClearCache command, DataStore cacheDataStore, VideoIndexRepository videoIndexRepo)
     {
         List<string> cachesDeleted = [], indexesDeleted = [];

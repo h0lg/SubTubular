@@ -8,7 +8,7 @@ static partial class Program
     internal static async Task ApplyClearCacheAsync(ClearCache command)
     {
         (IEnumerable<string> cachesDeleted, IEnumerable<string> indexesDeleted) =
-            await CacheClearer.Process(command, CreateDataStore(), CreateVideoIndexRepo());
+            await CacheManager.Clear(command, CreateDataStore(), CreateVideoIndexRepo());
 
         if (command.Mode != ClearCache.Modes.summary)
         {
