@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using SubTubular.Extensions;
@@ -14,9 +13,9 @@ namespace SubTubular;
 public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndexRepo)
 {
     public static string GetVideoUrl(string videoId) => "https://youtu.be/" + videoId;
-    public static string GetPlaylistUrl(PlaylistId? id) => "https://www.youtube.com/playlist?list=" + id;
+    internal static string GetPlaylistUrl(PlaylistId? id) => "https://www.youtube.com/playlist?list=" + id;
 
-    public static string GetChannelUrl(object alias)
+    internal static string GetChannelUrl(object alias)
     {
         var urlGlue = alias is ChannelHandle ? "@" : alias is ChannelSlug ? "c/"
             : alias is UserName ? "user/" : alias is ChannelId ? "channel/"
@@ -149,14 +148,14 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
         ValueTask SavePlaylistAsync(Playlist playlist) => playlist.SaveAsync(() => dataStore.SetAsync(storageKey, playlist));
     }
 
-    public Task<Playlist?> GetPlaylistAsync(PlaylistScope scope, CancellationToken cancellation) =>
+    internal Task<Playlist?> GetPlaylistAsync(PlaylistScope scope, CancellationToken cancellation) =>
         GetPlaylistAsync(scope, async () =>
         {
             var playlist = await Client.Playlists.GetAsync(scope.SingleValidated.Id, cancellation);
             return (playlist.Title, SelectUrl(playlist.Thumbnails), playlist.Author?.ChannelTitle);
         });
 
-    public Task<Playlist?> GetPlaylistAsync(ChannelScope scope, CancellationToken cancellation) =>
+    internal Task<Playlist?> GetPlaylistAsync(ChannelScope scope, CancellationToken cancellation) =>
         GetPlaylistAsync(scope, async () =>
         {
             var channel = await Client.Channels.GetAsync(scope.SingleValidated.Id, cancellation);

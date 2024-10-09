@@ -63,6 +63,54 @@ public struct ScopeSearches(FileInfo[] channels, FileInfo[] playlists, FileInfo[
             Videos.Except(files).ToArray());
 }
 
+public struct PlaylistGroup(PlaylistLikeScope scope, Playlist playlist, FileInfo file, FileInfo? thumbnail,
+    FileInfo[] indexes, FileInfo[] videos, FileInfo[] videoThumbnails)
+{
+    public PlaylistLikeScope Scope { get; } = scope;
+    public Playlist Playlist { get; } = playlist;
+    public FileInfo File { get; } = file;
+    public FileInfo? Thumbnail { get; } = thumbnail;
+    public FileInfo[] Indexes { get; } = indexes;
+    public FileInfo[] Videos { get; } = videos;
+    public FileInfo[] VideoThumbnails { get; } = videoThumbnails;
+
+    internal IEnumerable<FileInfo> GetFiles()
+    {
+        yield return File;
+        if (Thumbnail != null) yield return Thumbnail;
+        foreach (var i in Indexes) yield return i;
+        foreach (var v in Videos) yield return v;
+        foreach (var t in VideoThumbnails) yield return t;
+    }
+
+    public PlaylistGroup Remove(FileInfo[] files)
+        => new(Scope, Playlist, File,
+            Thumbnail == null ? null : files.Contains(Thumbnail) ? null : Thumbnail,
+            Indexes.Except(files).ToArray(),
+            Videos.Except(files).ToArray(),
+            VideoThumbnails.Except(files).ToArray());
+}
+
+public sealed record LooseFiles
+{
+    public FileInfo[] Videos { get; init; }
+    public FileInfo[] VideoIndexes { get; init; }
+    public FileInfo[] Thumbnails { get; init; }
+    public FileInfo[] Other { get; init; }
+
+    public LooseFiles(FileInfo[] videos, FileInfo[] videoIndexes, FileInfo[] thumbnails, FileInfo[] other)
+    {
+        Videos = videos;
+        VideoIndexes = videoIndexes;
+        Thumbnails = thumbnails;
+        Other = other;
+    }
+
+    public LooseFiles Remove(FileInfo[] files)
+        => new(Videos.Except(files).ToArray(), VideoIndexes.Except(files).ToArray(),
+            Thumbnails.Except(files).ToArray(), Other.Except(files).ToArray());
+}
+
 public static class CacheManager
 {
     public static LastAccessGroup[] LoadByLastAccess(string cacheFolder)
@@ -107,6 +155,81 @@ public static class CacheManager
         }
 
         return "eon";
+    }
+
+    public static (ScopeSearches, Func<Action<PlaylistGroup>, Action<LooseFiles>, Task> processAsync)
+        LoadByPlaylist(string cacheFolder, Youtube youtube, Func<string, string> getThumbnailFileName)
+    {
+        var files = FileHelper.EnumerateFiles(cacheFolder, "*", SearchOption.AllDirectories).ToArray();
+        ScopeSearches searches = files.GetSearches();
+
+        var channels = GetPlaylistLike(files, searches.Channels, ChannelScope.StorageKeyPrefix,
+            id => Youtube.GetChannelUrl((ChannelId)id),
+            id => new ChannelScope(id, 0, 0, 0),
+            scope => youtube.GetPlaylistAsync(scope, CancellationToken.None),
+            getThumbnailFileName);
+
+        var playlists = GetPlaylistLike(files, searches.Playlists, PlaylistScope.StorageKeyPrefix,
+            id => Youtube.GetPlaylistUrl((PlaylistId)id),
+            id => new PlaylistScope(id, 0, 0, 0),
+            scope => youtube.GetPlaylistAsync(scope, CancellationToken.None),
+            getThumbnailFileName);
+
+        Func<Action<PlaylistGroup>, Action<LooseFiles>, Task> processAsync = new((dispatchGroup, dispatchLooseFiles)
+            => Task.Run(async () =>
+            {
+                ResourceAwareJobScheduler jobScheduler = new(TimeSpan.FromSeconds(.2));
+                List<PlaylistGroup> groups = [];
+
+                await foreach (var group in jobScheduler.ParallelizeAsync(channels.Concat(playlists)))
+                {
+                    if (group != null)
+                    {
+                        dispatchGroup(group.Value);
+                        groups.Add(group.Value);
+                    }
+                }
+
+                var looseFiles = files.Except(searches.GetFiles()).Except(groups.SelectMany(g => g.GetFiles())).ToArray();
+                var looseThumbs = looseFiles.WithExtension(string.Empty).ToArray();
+                var (looseVideos, looseVideoIndexes) = looseFiles.WithPrefix(Video.StorageKeyPrefix).PartitionByExtension();
+                var other = looseFiles.Except(looseThumbs).Except(looseVideos).Except(looseVideoIndexes).ToArray();
+                dispatchLooseFiles(new LooseFiles(videos: looseVideos, videoIndexes: looseVideoIndexes, thumbnails: looseThumbs, other: other));
+            }));
+
+        return (searches, processAsync);
+    }
+
+    private static Func<Task<PlaylistGroup?>>[] GetPlaylistLike<Scope>(
+        FileInfo[] files, FileInfo[] searches, string prefix, Func<string, string> getUrl, Func<string, Scope> createScope,
+        Func<Scope, Task<Playlist?>> getPlaylist, Func<string, string> getThumbnailFileName) where Scope : PlaylistLikeScope
+    {
+        var (caches, allIndexes) = files.WithPrefix(prefix).PartitionByExtension();
+        var infos = caches.Except(searches).ToArray();
+
+        return infos.Select(file => new Func<Task<PlaylistGroup?>>(async () =>
+        {
+            var id = file.Name.StripAffixes(prefix, JsonFileDataStore.FileExtension);
+            var scope = createScope(id);
+            scope.AddPrevalidated(id, getUrl(id));
+            var playlist = await getPlaylist(scope);
+            if (playlist == null) return null;
+
+            var indexes = allIndexes.WithPrefix(prefix + id).ToArray();
+
+            var thumbName = getThumbnailFileName(playlist.ThumbnailUrl);
+            var thumbnail = files.SingleOrDefault(i => i.Name == thumbName);
+
+            var videoIds = playlist.GetVideos().Select(v => v.Id).ToArray();
+            var videoNames = videoIds.Select(id => Video.StorageKeyPrefix + id).ToArray();
+            var videos = files.Where(f => videoNames.Any(n => f.HasPrefix(n))).ToArray();
+
+            var videoThumbNames = videoIds.Select(id => getThumbnailFileName(Video.GuessThumbnailUrl(id))).ToArray();
+            var videoThumbs = files.Where(f => videoThumbNames.Contains(f.Name)).ToArray();
+
+            return new PlaylistGroup(scope, playlist, file: file, thumbnail: thumbnail,
+                indexes: indexes, videos: videos, videoThumbnails: videoThumbs);
+        })).ToArray();
     }
 
     public static async Task<(IEnumerable<string> cachesDeleted, IEnumerable<string> indexesDeleted)> Clear(
@@ -237,6 +360,14 @@ public static class CacheManager
         return aliasToChannelIds;
     }
 
+    private static (FileInfo[] jsonCaches, FileInfo[] indexes) PartitionByExtension(this IEnumerable<FileInfo> files)
+    {
+        var groups = files.GroupBy(f => f.Extension).ToArray();
+        var jsonCaches = groups.SingleOrDefault(g => g.Key == JsonFileDataStore.FileExtension)?.ToArray() ?? [];
+        var indexes = groups.SingleOrDefault(g => g.Key == VideoIndexRepository.FileExtension)?.ToArray() ?? [];
+        return (jsonCaches, indexes);
+    }
+
     private static ScopeSearches GetSearches(this FileInfo[] files) => new(
         channels: files.GetSearches(ChannelScope.StorageKeyPrefix),
         playlists: files.GetSearches(PlaylistScope.StorageKeyPrefix),
@@ -252,4 +383,10 @@ public static class CacheManager
 
     private static IEnumerable<FileInfo> WithExtension(this IEnumerable<FileInfo> files, string extension)
         => files.Where(f => f.Extension == extension);
+
+    public static IEnumerable<LastAccessGroup> Remove(this IEnumerable<LastAccessGroup> groups, FileInfo[] files)
+        => groups.Select(g => g.Remove(files)).Where(g => g.GetFiles().Count() > 0);
+
+    public static IEnumerable<PlaylistGroup> Remove(this IEnumerable<PlaylistGroup> groups, FileInfo[] files)
+        => groups.Select(g => g.Remove(files)).Where(g => !files.Contains(g.File));
 }

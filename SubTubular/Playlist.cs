@@ -186,6 +186,10 @@ public sealed class Playlist
         }
     }
 
+    // required to enable structurally comparing PlaylistGroup
+    public override bool Equals(object? other) => other != null && other is Playlist pl && ThumbnailUrl == pl.ThumbnailUrl;
+    public override int GetHashCode() => ThumbnailUrl.GetHashCode(); // because Equals is overridden
+
     public sealed class VideoInfo
     {
         [JP("i")] public required string Id { get; set; }

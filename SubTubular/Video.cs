@@ -24,7 +24,7 @@ public sealed class Video
 
     public IList<CaptionTrack> CaptionTracks { get; set; } = [];
 
-    public static string GuessThumbnailUrl(string videoId) => $"https://img.youtube.com/vi/{videoId}/default.jpg";
+    internal static string GuessThumbnailUrl(string videoId) => $"https://img.youtube.com/vi/{videoId}/default.jpg";
 }
 
 [Serializable]

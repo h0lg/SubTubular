@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace SubTubular;
 
@@ -70,6 +71,28 @@ internal sealed class ResourceAwareJobScheduler(TimeSpan delayBetweenHeatUps)
                 var cooked = await Task.WhenAny(hotTasks); // wait for and get the first to complete
                 Interlocked.Decrement(ref running);
                 hotTasks.Remove(cooked);
+            }
+
+            // Prevent tight looping while waiting for new tasks
+            if (hotTasks.Count == 0 && !cooking.IsCompleted) await Task.Delay(50, token);
+        }
+
+        await cooking; // let him cook to rethrow possible exns
+    }
+
+    internal async IAsyncEnumerable<T> ParallelizeAsync<T>(IEnumerable<Func<Task<T>>> coldTasks, [EnumeratorCancellation] CancellationToken token = default)
+    {
+        var hotTasks = new SynchronizedCollection<Task<T>>();
+        var cooking = HeatUp(coldTasks, hotTasks, token);
+
+        while (!cooking.IsCompleted)
+        {
+            if (hotTasks.Count > 0)
+            {
+                var cooked = await Task.WhenAny(hotTasks); // wait for and get the first to complete
+                Interlocked.Decrement(ref running);
+                hotTasks.Remove(cooked);
+                yield return cooked.Result; // in order of completion
             }
 
             // Prevent tight looping while waiting for new tasks

@@ -67,6 +67,13 @@ public static class StringExtensions
     public static string ToFileSafe(this string value, string replacement = "_")
         => Regex.Replace(value, "[" + Regex.Escape(new string(Path.GetInvalidFileNameChars())) + "]", replacement);
 
+    public static string StripAffixes(this string value, string prefix, string suffix)
+    {
+        int afterPrefix = prefix.Length;
+        int beforeSuffix = value.Length - suffix.Length;
+        return value[afterPrefix..beforeSuffix];
+    }
+
     internal static IEnumerable<string> Wrap(this string input, int columnWidth)
     {
         ArgumentNullException.ThrowIfNull(input);
