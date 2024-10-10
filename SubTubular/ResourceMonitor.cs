@@ -52,3 +52,51 @@ internal sealed class ResourceMonitor
         }
     }
 }
+
+internal sealed class ResourceAwareJobScheduler(TimeSpan delayBetweenHeatUps)
+{
+    private readonly ResourceMonitor resources = new();
+    private uint running;
+
+    internal async Task ParallelizeAsync(IEnumerable<Func<Task>> coldTasks, CancellationToken token)
+    {
+        SynchronizedCollection<Task> hotTasks = [];
+        var cooking = HeatUp(coldTasks, hotTasks, token);
+
+        while (!cooking.IsCompleted)
+        {
+            if (hotTasks.Count > 0)
+            {
+                var cooked = await Task.WhenAny(hotTasks); // wait for and get the first to complete
+                Interlocked.Decrement(ref running);
+                hotTasks.Remove(cooked);
+            }
+
+            // Prevent tight looping while waiting for new tasks
+            if (hotTasks.Count == 0 && !cooking.IsCompleted) await Task.Delay(50, token);
+        }
+
+        await cooking; // let him cook to rethrow possible exns
+    }
+
+    /// <summary>Starts the <paramref name="coldTasks"/> one after the other
+    /// respecting the available <see cref="resources"/> and the <see cref="delayBetweenHeatUps"/>
+    /// adding them to the running <paramref name="hotTasks"/> until the <paramref name="token"/> is cancelled.</summary>
+    private async Task HeatUp<T>(IEnumerable<Func<T>> coldTasks, SynchronizedCollection<T> hotTasks, CancellationToken token) where T : Task
+    {
+        var orders = new Queue<Func<T>>(coldTasks);
+
+        while (!token.IsCancellationRequested && orders.Count > 0)
+        {
+            // start a cold task if none is running or we have sufficient resources
+            if (running == 0 || resources.HasSufficient())
+            {
+                var heatUp = orders.Dequeue();
+                hotTasks.Add(heatUp()); // starts the task
+                Interlocked.Increment(ref running);
+            }
+
+            if (!token.IsCancellationRequested) await Task.Delay(delayBetweenHeatUps, token);
+        }
+    }
+}
