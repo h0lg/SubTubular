@@ -141,7 +141,7 @@ module OutputCommandView =
                 .gridColumnSpan (5)
         }
 
-    let render model =
+    let render model showThumbnails =
         (Grid(coldefs = [ Star ], rowdefs = [ Auto; Auto; Auto; Auto; Star ]) {
             let isSearch = model.Command = Commands.Search
 
@@ -162,7 +162,9 @@ module OutputCommandView =
                 | false -> None, None
 
             // scopes
-            ScrollViewer(View.map ScopesMsg (Scopes.view model.Scopes)).card().isVisible (model.ShowScopes)
+            ScrollViewer(View.map ScopesMsg (Scopes.view model.Scopes showThumbnails))
+                .card()
+                .isVisible (model.ShowScopes)
 
             // command options
             (renderCommandOptions model isSearch).card().gridRow (1)
@@ -182,7 +184,7 @@ module OutputCommandView =
                             searchResultsOnPage.Value,
                             (fun item ->
                                 let result, padding = item
-                                View.map SearchResultMsg (SearchResult.render padding result))
+                                View.map SearchResultMsg (SearchResult.render padding result showThumbnails))
                         )
                 })
             )

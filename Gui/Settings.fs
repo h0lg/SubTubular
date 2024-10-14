@@ -16,11 +16,13 @@ module Settings =
 
     type Model =
         { ThemeVariantKey: string
+          ShowThumbnails: bool
           ResultOptions: ResultOptions.Model option
           FileOutput: FileOutput.Model option }
 
     type Msg =
         | ThemeVariantSelected of ThemeVariant option
+        | ToggleThumbnails of bool
         | Save
         | Saved
         | Loaded of Model
@@ -30,6 +32,7 @@ module Settings =
 
     let initModel =
         { ThemeVariantKey = ThemeVariant.Default.Key.ToString()
+          ShowThumbnails = false
           ResultOptions = None
           FileOutput = None }
 
@@ -66,6 +69,7 @@ module Settings =
                 requestSave ()
             | None -> model, Cmd.none
 
+        | ToggleThumbnails on -> { model with ShowThumbnails = on }, requestSave ()
         | Save -> model, Cmd.none
         | Saved -> model, Cmd.none
         | Loaded model -> model, Cmd.none
@@ -81,9 +85,9 @@ module Settings =
             failwith $"unknown {nameof ThemeVariant} {v}"
 
     let view model =
-        Panel() {
+        VStack(10.) {
             HWrap() {
-                TextBlock("Theme").centerVertical ()
+                Label("Theme").centerVertical ()
 
                 ListBox(themeVariants, (fun variant -> TextBlock(display variant)))
                     .selectedItem(getThemeVariant (model.ThemeVariantKey))
@@ -94,5 +98,10 @@ module Settings =
                         else
                             ThemeVariantSelected None)
                     .itemsPanel (HWrapEmpty())
+            }
+
+            HStack() {
+                Label("Download & display thumbnails").centerVertical ()
+                ToggleSwitch(model.ShowThumbnails, ToggleThumbnails)
             }
         }

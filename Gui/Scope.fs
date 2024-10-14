@@ -329,7 +329,7 @@ module Scope =
 
     let private progressText text = TextBlock(text).right().smallDemoted ()
 
-    let private validated thumbnailUrl navigateUrl title channel (scope: CommandScope) progress videoId =
+    let private validated thumbnailUrl navigateUrl title channel (scope: CommandScope) progress videoId showThumbnails =
         Grid(coldefs = [ Auto; Auto; Auto; Auto ], rowdefs = [ Auto; Auto ]) {
             match videoId with
             | Some videoId -> Button("❌", RemoveVideo videoId).tooltip("remove this video").gridRowSpan (2)
@@ -339,7 +339,8 @@ module Scope =
                 .tappable(OpenUrl navigateUrl |> Common, "tap to open in the browser")
                 .maxHeight(30)
                 .gridColumn(1)
-                .gridRowSpan (2)
+                .gridRowSpan(2)
+                .isVisible (showThumbnails)
 
             TextBlock(getIcon (scope.GetType()) + title).gridColumn(2).gridColumnSpan (2)
 
@@ -352,7 +353,7 @@ module Scope =
             | None -> ()
         }
 
-    let private search model =
+    let private search model showThumbnails =
         let forVideos = isForVideos model
 
         Grid(coldefs = [ Auto; Star ], rowdefs = [ Auto; Auto ]) {
@@ -371,7 +372,7 @@ module Scope =
                         model.AliasSearch.SelectAliases enteredText (item :?> YoutubeSearchResult) forVideos)
                     .itemTemplate(fun (result: YoutubeSearchResult) ->
                         HStack(5) {
-                            AsyncImage(result.Thumbnail)
+                            AsyncImage(result.Thumbnail).isVisible (showThumbnails)
 
                             VStack(5) {
                                 TextBlock(result.Title)
@@ -412,7 +413,7 @@ module Scope =
     let private removeBtn () =
         Button("❌", Remove).tooltip ("remove this scope")
 
-    let view model maxWidth =
+    let view model maxWidth showThumbnails =
         VStack() {
             match model.Scope with
             | PlaylistLike playlistLike ->
@@ -436,8 +437,9 @@ module Scope =
                             playlistLike
                             (Some(model.Scope.Progress.ToString()))
                             None
+                            showThumbnails
                     else
-                        search model
+                        search model showThumbnails
 
                     ToggleButton("⚙", model.ShowSettings, ToggleSettings)
                         .tooltip ("toggle settings")
@@ -500,12 +502,13 @@ module Scope =
                                     model.Scope
                                     None
                                     (Some video.Id)
+                                    showThumbnails
                         })
                             .gridColumn(1)
                             (*   *)
                             .maxWidth (maxWidth)
 
-                    (search model).maxWidth(maxWidth).gridColumn(1).gridRow (1)
+                    (search model showThumbnails).maxWidth(maxWidth).gridColumn(1).gridRow (1)
                 }
 
             TextBlock(model.Error)

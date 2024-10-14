@@ -145,7 +145,10 @@ module App =
         (TabControl() {
             TabItem("🕝 Recent", View.map RecentMsg (ConfigFile.view model.Recent))
 
-            TabItem("🔍 Search", View.map SearchMsg (OutputCommandView.render model.Search))
+            TabItem(
+                "🔍 Search",
+                View.map SearchMsg (OutputCommandView.render model.Search model.Settings.ShowThumbnails)
+            )
                 .reference (searchTab)
 
             TabItem("🗃 Storage", View.map CacheMsg (Cache.view model.Cache))

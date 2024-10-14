@@ -36,7 +36,7 @@ module SearchResult =
 
         (tb.Run content).wrap ()
 
-    let render (matchPadding: uint32) (result: VideoSearchResult) =
+    let render (matchPadding: uint32) (result: VideoSearchResult) showThumbnails =
         let videoUrl = Youtube.GetVideoUrl result.Video.Id
 
         Grid(coldefs = [ Auto; Star ], rowdefs = [ Auto ]) {
@@ -44,7 +44,8 @@ module SearchResult =
                 .tappable(OpenUrl videoUrl |> Common, "start the video in the browser")
                 .top()
                 .height(90) // to avoid jitter when scrolling results while lazy-loading thumbnails
-                .margin (0, 0, 5, 0)
+                .margin(0, 0, 5, 0)
+                .isVisible (showThumbnails)
 
             (VStack() {
                 Grid(coldefs = [ Star; Auto ], rowdefs = [ Auto ]) {
