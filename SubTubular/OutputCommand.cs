@@ -119,10 +119,12 @@ public sealed class SearchCommand : OutputCommand
     public static readonly string[] QueryHints = [
         @"Quote ""multi-word phrases"".",
         "Single words are matched exactly by default, ?fuzzy or with wild cards for s%ngle and multi* letters.",
-        @"Combine multiple & terms | ""phrases or queries"" using AND '&' and OR '|'.",
+        @"Combine multiple & terms | ""phrases or queries"" using '&' as logical 'and' and '|' as 'or'.",
         "Use ( brackets | for ) & ( complex | expressions ).",
+        "Words can have > order, appear ~ near to each other - or both, even with configurable ~3> proximity.",
         $"You can restrict your search to the video '{nameof(Video.Title)}', '{nameof(Video.Description)}',"
-            + $@" '{nameof(Video.Keywords)}' and/or '{nameof(CaptionTrack.Captions)}'; e.g. '{nameof(Video.Title)}=""click bait""'."];
+            + $" '{nameof(Video.Keywords)}' and/or language-specific captions;"
+            + $@" e.g. '{nameof(Video.Title)} = ""click bait"" | [English (auto-generated)] = howdy'."];
 
     public string? Query { get; set; }
     public ushort Padding { get; set; }
