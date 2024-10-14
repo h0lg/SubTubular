@@ -308,16 +308,14 @@ module Scope =
           | Playlist _ -> "ID or URL"
           | Channel _ -> "handle, slug, user name, ID or URL"
 
-    let channelIcon = "📺 "
-
     let private channelInfo channel =
-        TextBlock(channelIcon + channel).smallDemoted ()
+        TextBlock(Icon.channel + channel).smallDemoted ()
 
     let getIcon (t: Type) =
         match t with
-        | IsVideos -> "📼 "
-        | IsPlaylist -> "▶️ "
-        | IsChannel -> channelIcon
+        | IsVideos -> Icon.video
+        | IsPlaylist -> Icon.playlist
+        | IsChannel -> Icon.channel
 
     let displayType (t: Type) withKeyBinding =
         getIcon t

@@ -67,7 +67,7 @@ module OutputCommandView =
                     .tapCursor()
                     .asToggle (not isSearch)
 
-                MenuItem("🔍 _Search for", CommandChanged Commands.Search)
+                MenuItem(Icon.search + "_Search for", CommandChanged Commands.Search)
                     .tooltip(SearchCommand.Description)
                     .tapCursor()
                     .asToggle (isSearch)
@@ -84,11 +84,11 @@ module OutputCommandView =
             // invisible helper to focus query input
             Button("_focus Query", FocusQuery true).width (0)
 
-            TextBlock("ⓘ")
+            TextBlock(Icon.help)
                 .attachedFlyout(queryFlyout ())
                 .tappable(ToggleFlyout >> Common, "read about the query syntax")
-                .padding(5, -5)
-                .fontSize(30)
+                .padding(5, -3)
+                .fontSize(25)
                 .isVisible(isSearch)
                 .gridColumn (2)
 
@@ -104,7 +104,7 @@ module OutputCommandView =
             )
                 .gridColumn (4)
 
-            Button("📋", CopyAsShellCmd).tooltip("copy shell command to clipboard").gridColumn (5)
+            Button(Icon.copy, CopyAsShellCmd).tooltip("copy shell command to clipboard").gridColumn (5)
 
             let isRunning = model.Running <> null
 

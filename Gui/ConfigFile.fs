@@ -63,7 +63,7 @@ module ConfigFile =
                         .tappable(Load config.Command, "load this command")
                         .wrap ()
 
-                    Button("📋", CopyShellCmd config.Command |> Common)
+                    Button(Icon.copy, CopyShellCmd config.Command |> Common)
                         .tooltip("copy shell command to clipboard")
                         .gridColumn (1)
 

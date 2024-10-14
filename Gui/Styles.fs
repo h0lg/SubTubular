@@ -14,6 +14,18 @@ open type Fabulous.Avalonia.View
 module Cursors =
     let hand = new Cursor(StandardCursorType.Hand)
 
+module Icon =
+    // prefixes
+    let channel = "📺 "
+    let playlist = "▶️ "
+    let video = "📼 "
+    let search = "🔍 "
+
+    // unpadded
+    let help = "💡"
+    let copy = "📋"
+    let recent = "🕝"
+
 [<AutoOpen>]
 module Styles =
     let avaloniaResourceUri fileName = "avares://SubTubular.Gui/" + fileName

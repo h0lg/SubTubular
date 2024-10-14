@@ -143,10 +143,10 @@ module App =
 
     let private view model =
         (TabControl() {
-            TabItem("🕝 Recent", View.map RecentMsg (ConfigFile.view model.Recent))
+            TabItem(Icon.recent + " Recent", View.map RecentMsg (ConfigFile.view model.Recent))
 
             TabItem(
-                "🔍 Search",
+                Icon.search + "Search",
                 View.map SearchMsg (OutputCommandView.render model.Search model.Settings.ShowThumbnails)
             )
                 .reference (searchTab)

@@ -62,7 +62,7 @@ module SearchResult =
 
                 let reference =
                     if result.Scope = null then
-                        Scope.channelIcon + result.Video.Channel
+                        Icon.channel + result.Video.Channel
                     else
                         Scope.getIcon (result.Scope.GetType())
                         + result.Scope.SingleValidated.Playlist.Title
