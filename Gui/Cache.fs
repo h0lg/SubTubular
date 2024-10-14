@@ -9,8 +9,11 @@ open SubTubular
 open type Fabulous.Avalonia.View
 
 module Cache =
+    type FileType = { Label: string; Description: string }
+
     type Model =
-        { Folders: Folder.View array option
+        { FileTypes: FileType array
+          Folders: Folder.View array option
           ByLastAccess: LastAccessGroup list option }
 
     type Msg =
@@ -20,7 +23,26 @@ module Cache =
         | ExpandingFolders
         | OpenFolder of string
 
-    let initModel = { Folders = None; ByLastAccess = None }
+    let private fileTypes =
+        [| { Label = "video caches" + Icon.videoCache
+             Description = "Original video metadata including captions. Expected to rarely change." }
+           { Label = "thumbnails" + Icon.thumbnail
+             Description = "Images downloaded by the UI for displaying thumbnails. Expected to rarely change." }
+           { Label = "playlist and channel caches" + Icon.playlistLike
+             Description =
+               "Metadata about videos contained and indexes built for them."
+               + " Created on the first search and updated on following searches when outdated according to the specified cache hours." }
+           { Label = "full-text indexes" + Icon.index
+             Description =
+               "Metadata about the contents of one or multiple video metadata caches that allows full-text searching them quickly."
+               + " Created or enhanced from the downloaded video caches when searching them. Cheap to re-create from already downloaded data." }
+           { Label = "searches" + Icon.scopeSearch
+             Description = "Caches used to speed up scope searches." } |]
+
+    let initModel =
+        { FileTypes = fileTypes
+          Folders = None
+          ByLastAccess = None }
 
     let update msg model =
         match msg with
@@ -83,7 +105,19 @@ module Cache =
         ScrollViewer(
             let gap = Pixel 10
 
-            Grid(coldefs = [ Star ], rowdefs = [ Auto; gap; Auto ]) {
+            Grid(coldefs = [ Star; gap; Auto ], rowdefs = [ Auto; gap; Auto ]) {
+                Expander(
+                    "File type info " + Icon.help,
+                    ItemsControl(
+                        model.FileTypes,
+                        fun fileType ->
+                            (Grid(coldefs = [ Pixel(200); Star ], rowdefs = [ Auto ]) {
+                                Label(fileType.Label)
+                                TextBlock(fileType.Description).wrap().demoted().gridColumn (1)
+                            })
+                    )
+                )
+
                 Expander(
                     "Locations",
                     ItemsControl(
@@ -99,7 +133,8 @@ module Cache =
                                 .tappable (OpenFolder folder.Path, "open this folder")
                     )
                 )
-                    .onExpanding (fun _ -> ExpandingFolders)
+                    .onExpanding(fun _ -> ExpandingFolders)
+                    .gridColumn (2)
 
                 Expander(
                     "Files accessed within the last...",
@@ -130,6 +165,7 @@ module Cache =
                         .itemsPanel (HWrapEmpty())
                 )
                     .onExpanding(fun _ -> ExpandingByLastAccess)
-                    .gridRow (2)
+                    .gridRow(2)
+                    .gridColumnSpan (3)
             }
         )
