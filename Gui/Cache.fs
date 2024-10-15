@@ -80,11 +80,29 @@ module Cache =
             .isVisible (files.Length > 0)
 
     let view model =
-        Grid(coldefs = [ Star; Auto ], rowdefs = [ Star ]) {
+        ScrollViewer(
+            let gap = Pixel 10
 
-            Expander(
-                "Files accessed within the last...",
-                ScrollViewer(
+            Grid(coldefs = [ Star ], rowdefs = [ Auto; gap; Auto ]) {
+                Expander(
+                    "Locations",
+                    ItemsControl(
+                        model.Folders |> Option.defaultValue [||],
+                        fun folder ->
+                            (Grid(coldefs = [ Pixel(100); Star ], rowdefs = [ Auto ]) {
+                                let indent = folder.IndentLevel * 10
+                                TextBlock(folder.Label).padding (indent, 0, 0, 0)
+
+                                if folder.Label <> folder.PathDiff then
+                                    TextBlock(folder.PathDiff).padding(indent, 0, 0, 0).demoted().gridColumn (1)
+                            })
+                                .tappable (OpenFolder folder.Path, "open this folder")
+                    )
+                )
+                    .onExpanding (fun _ -> ExpandingFolders)
+
+                Expander(
+                    "Files accessed within the last...",
                     ItemsControl(
                         model.ByLastAccess |> Option.defaultValue [],
                         fun group ->
@@ -109,27 +127,9 @@ module Cache =
                             })
                                 .margin (10)
                     )
+                        .itemsPanel (HWrapEmpty())
                 )
-            )
-                .onExpanding(fun _ -> ExpandingByLastAccess)
-                .top ()
-
-            Expander(
-                "Locations",
-                ItemsControl(
-                    model.Folders |> Option.defaultValue [||],
-                    fun folder ->
-                        (Grid(coldefs = [ Pixel(100); Star ], rowdefs = [ Auto ]) {
-                            let indent = folder.IndentLevel * 10
-                            TextBlock(folder.Label).padding (indent, 0, 0, 0)
-
-                            if folder.Label <> folder.PathDiff then
-                                TextBlock(folder.PathDiff).padding(indent, 0, 0, 0).demoted().gridColumn (1)
-                        })
-                            .tappable (OpenFolder folder.Path, "open this folder")
-                )
-            )
-                .onExpanding(fun _ -> ExpandingFolders)
-                .top()
-                .gridColumn (1)
-        }
+                    .onExpanding(fun _ -> ExpandingByLastAccess)
+                    .gridRow (2)
+            }
+        )
