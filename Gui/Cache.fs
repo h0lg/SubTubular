@@ -98,11 +98,11 @@ module Cache =
 
                                 (VStack(5) {
                                     let report label files = reportFiles label group files
-                                    report "full-text indexes" group.Indexes
-                                    report "playlist and channel caches" group.PlaylistLikes
-                                    report "video caches" group.Videos
-                                    report "thumbnails" group.Thumbnails
-                                    report "searches" group.Searches
+                                    report ("full-text indexes" + Icon.index) group.Indexes
+                                    report ("playlist and channel caches" + Icon.playlistLike) group.PlaylistLikes
+                                    report ("video caches" + Icon.videoCache) group.Videos
+                                    report ("thumbnails" + Icon.thumbnail) group.Thumbnails
+                                    report ("searches" + Icon.scopeSearch) group.Searches
                                 })
                                     .gridRowSpan(2)
                                     .gridColumn (1)

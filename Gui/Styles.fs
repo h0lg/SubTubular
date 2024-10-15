@@ -26,6 +26,13 @@ module Icon =
     let copy = "📋"
     let recent = "🕝"
 
+    // suffixes
+    let thumbnail = " 🖼"
+    let videoCache = " 📦"
+    let playlistLike = " 📜"
+    let index = " 📚"
+    let scopeSearch = " 🔎"
+
 [<AutoOpen>]
 module Styles =
     let avaloniaResourceUri fileName = "avares://SubTubular.Gui/" + fileName
