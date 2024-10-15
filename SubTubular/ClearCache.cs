@@ -16,8 +16,99 @@ public sealed class ClearCache
     public enum Modes { summary, verbose, simulate }
 }
 
+public struct LastAccessGroup(string timeSpanLabel,
+    FileInfo[] searches, FileInfo[] playlistLikes, FileInfo[] indexes, FileInfo[] videos, FileInfo[] thumbnails)
+{
+    public string TimeSpanLabel { get; } = timeSpanLabel;
+    public FileInfo[] Searches { get; } = searches;
+    public FileInfo[] PlaylistLikes { get; } = playlistLikes;
+    public FileInfo[] Indexes { get; } = indexes;
+    public FileInfo[] Videos { get; } = videos;
+    public FileInfo[] Thumbnails { get; } = thumbnails;
+
+    public IEnumerable<FileInfo> GetFiles()
+    {
+        foreach (var s in Searches) yield return s;
+        foreach (var p in PlaylistLikes) yield return p;
+        foreach (var i in Indexes) yield return i;
+        foreach (var v in Videos) yield return v;
+        foreach (var t in Thumbnails) yield return t;
+    }
+
+    public LastAccessGroup Remove(FileInfo[] files)
+        => new(TimeSpanLabel,
+            Searches.Except(files).ToArray(),
+            PlaylistLikes.Except(files).ToArray(),
+            Indexes.Except(files).ToArray(),
+            Videos.Except(files).ToArray(),
+            Thumbnails.Except(files).ToArray());
+}
+
+public struct ScopeSearches(FileInfo[] channels, FileInfo[] playlists, FileInfo[] videos)
+{
+    public FileInfo[] Channels { get; } = channels;
+    public FileInfo[] Playlists { get; } = playlists;
+    public FileInfo[] Videos { get; } = videos;
+
+    internal IEnumerable<FileInfo> GetFiles()
+    {
+        foreach (var c in Channels) yield return c;
+        foreach (var p in Playlists) yield return p;
+        foreach (var v in Videos) yield return v;
+    }
+
+    public ScopeSearches Remove(FileInfo[] files)
+        => new(Channels.Except(files).ToArray(),
+            Playlists.Except(files).ToArray(),
+            Videos.Except(files).ToArray());
+}
+
 public static class CacheManager
 {
+    public static LastAccessGroup[] LoadByLastAccess(string cacheFolder)
+    {
+        var now = DateTime.Now;
+
+        return FileHelper
+            .EnumerateFiles(cacheFolder, "*", SearchOption.AllDirectories)
+            .OrderByDescending(f => f.LastAccessTime) // latest first
+            .GroupBy(f => DescribeTimeSpan(now - f.LastAccessTime))
+            .Select(group =>
+            {
+                var searches = group.ToArray().GetSearches().GetFiles().ToArray();
+                var json = group.WithExtension(JsonFileDataStore.FileExtension).Except(searches).ToArray();
+                var videos = json.WithPrefix(Video.StorageKeyPrefix).ToArray();
+                var playlistLikes = json.Except(videos).ToArray();
+                var indexes = group.WithExtension(VideoIndexRepository.FileExtension).ToArray();
+                var thumbnails = group.WithExtension(string.Empty).ToArray();
+
+                return new LastAccessGroup(group.Key, searches: searches,
+                    playlistLikes: playlistLikes, indexes: indexes, videos: videos, thumbnails: thumbnails);
+            })
+            .ToArray();
+    }
+
+    // Function to describe a TimeSpan into specific ranges
+    private static string DescribeTimeSpan(TimeSpan ts)
+    {
+        if (ts < TimeSpan.FromDays(1.0)) return "day";
+        if (ts < TimeSpan.FromDays(7.0)) return $"{ts.Days + 1} days";
+
+        if (ts < TimeSpan.FromDays(30.0))
+        {
+            var weeks = ts.Days / 7;
+            return weeks == 0 ? "week" : $"{weeks + 1} weeks";
+        }
+
+        if (ts < TimeSpan.FromDays(90)) // 90 days for roughly 3 months (quarter year)
+        {
+            var months = ts.Days / 30;
+            return months == 0 ? "month" : $"{months + 1} months";
+        }
+
+        return "eon";
+    }
+
     public static async Task<(IEnumerable<string> cachesDeleted, IEnumerable<string> indexesDeleted)> Clear(
         ClearCache command, DataStore cacheDataStore, VideoIndexRepository videoIndexRepo)
     {
@@ -145,4 +236,20 @@ public static class CacheManager
 
         return aliasToChannelIds;
     }
+
+    private static ScopeSearches GetSearches(this FileInfo[] files) => new(
+        channels: files.GetSearches(ChannelScope.StorageKeyPrefix),
+        playlists: files.GetSearches(PlaylistScope.StorageKeyPrefix),
+        videos: files.GetSearches(Video.StorageKeyPrefix));
+
+    private static FileInfo[] GetSearches(this FileInfo[] files, string storageKeyPrefix)
+        => files.WithPrefix(storageKeyPrefix + Youtube.SearchAffix).ToArray();
+
+    private static bool HasPrefix(this FileInfo file, string prefix) => file.Name.StartsWith(prefix);
+
+    private static IEnumerable<FileInfo> WithPrefix(this IEnumerable<FileInfo> files, string prefix)
+        => files.Where(f => f.HasPrefix(prefix));
+
+    private static IEnumerable<FileInfo> WithExtension(this IEnumerable<FileInfo> files, string extension)
+        => files.Where(f => f.Extension == extension);
 }

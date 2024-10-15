@@ -9,8 +9,6 @@ open SubTubular
 open type Fabulous.Avalonia.View
 
 module Cache =
-    type LastAccessGroup = { Name: string; Files: FileInfo list }
-
     type Model =
         { Folders: Folder.View array option
           ByLastAccess: LastAccessGroup list option }
@@ -18,38 +16,9 @@ module Cache =
     type Msg =
         | ExpandingByLastAccess
         | RemoveByLastAccess of LastAccessGroup
-        | RemoveFromLastAccessGroup of LastAccessGroup * FileInfo list
+        | RemoveFromLastAccessGroup of LastAccessGroup * FileInfo array
         | ExpandingFolders
         | OpenFolder of string
-
-    // Function to describe a TimeSpan into specific ranges
-    let private describeTimeSpan (timeSpan: TimeSpan) =
-        match timeSpan with
-        | ts when ts < TimeSpan.FromDays(1.0) -> "day"
-        | ts when ts < TimeSpan.FromDays(7.0) -> sprintf "%d days" (ts.Days + 1)
-        | ts when ts < TimeSpan.FromDays(30.0) ->
-            let weeks = ts.Days / 7
-
-            if weeks = 0 then "week" else sprintf "%d weeks" (weeks + 1)
-        | ts when ts < TimeSpan.FromDays(90.0) -> // 90 days for roughly 3 months (quarter year)
-            let months = ts.Days / 30
-
-            if months = 0 then
-                "month"
-            else
-                sprintf "%d months" (months + 1)
-        | _ -> "eon"
-
-    let private loadByLastAccess () =
-        let now = DateTime.Now
-
-        FileHelper.EnumerateFiles(Services.CacheFolder, "*", SearchOption.AllDirectories)
-        |> Seq.sortByDescending _.LastAccessTime // latest first
-        |> Seq.groupBy (fun f -> now - f.LastAccessTime |> describeTimeSpan)
-        |> Seq.map (fun group ->
-            { Name = fst group
-              Files = snd group |> List.ofSeq })
-        |> List.ofSeq
 
     let initModel = { Folders = None; ByLastAccess = None }
 
@@ -61,12 +30,12 @@ module Cache =
                     model
                 else
                     { model with
-                        ByLastAccess = loadByLastAccess () |> Some }
+                        ByLastAccess = CacheManager.LoadByLastAccess(Services.CacheFolder) |> List.ofSeq |> Some }
 
             model, Cmd.none
 
         | RemoveByLastAccess group ->
-            for file in group.Files do
+            for file in group.GetFiles() do
                 file.Delete()
 
             { model with
@@ -80,12 +49,7 @@ module Cache =
             { model with
                 ByLastAccess =
                     model.ByLastAccess.Value
-                    |> List.map (fun g ->
-                        if g = group then
-                            { group with
-                                Files = group.Files |> List.except files }
-                        else
-                            g)
+                    |> List.map (fun g -> if g = group then g.Remove(files) else g)
                     |> Some },
             Cmd.none
 
@@ -103,11 +67,8 @@ module Cache =
             ShellCommands.ExploreFolder path |> ignore
             model, Cmd.none
 
-    let private filterFilesByExtension extension group =
-        group.Files |> List.filter (fun f -> f.Extension = extension)
-
-    let private reportFiles label group (files: FileInfo list) =
-        let mbs = (files |> List.map _.Length |> List.sum |> float32) / 1024f / 1024f
+    let private reportFiles label group (files: FileInfo array) =
+        let mbs = (files |> Array.map _.Length |> Array.sum |> float32) / 1024f / 1024f
 
         (HStack(5) {
             TextBlock($"{files.Length} {label} ({mbs:f2} Mb)").centerVertical ()
@@ -128,7 +89,7 @@ module Cache =
                         model.ByLastAccess |> Option.defaultValue [],
                         fun group ->
                             (Grid(coldefs = [ Auto; Star ], rowdefs = [ Auto; Star ]) {
-                                TextBlock(group.Name).header ()
+                                TextBlock(group.TimeSpanLabel).header ()
 
                                 Button("🗑", RemoveByLastAccess group)
                                     .tooltip("clear this data")
@@ -136,20 +97,12 @@ module Cache =
                                     .gridRow (1)
 
                                 (VStack(5) {
-                                    let jsonFiles = group |> filterFilesByExtension JsonFileDataStore.FileExtension
-
-                                    let videos =
-                                        jsonFiles |> List.filter (fun f -> f.Name.StartsWith(Video.StorageKeyPrefix))
-
-                                    let playlistsAndChannels = jsonFiles |> List.except videos
-
-                                    group
-                                    |> filterFilesByExtension VideoIndexRepository.FileExtension
-                                    |> reportFiles "full-text indexes" group
-
-                                    reportFiles "playlist and channel caches" group playlistsAndChannels
-                                    reportFiles "video caches" group videos
-                                    group |> filterFilesByExtension "" |> reportFiles "thumbnails" group
+                                    let report label files = reportFiles label group files
+                                    report "full-text indexes" group.Indexes
+                                    report "playlist and channel caches" group.PlaylistLikes
+                                    report "video caches" group.Videos
+                                    report "thumbnails" group.Thumbnails
+                                    report "searches" group.Searches
                                 })
                                     .gridRowSpan(2)
                                     .gridColumn (1)
