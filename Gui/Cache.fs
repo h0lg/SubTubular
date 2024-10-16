@@ -119,7 +119,7 @@ module Cache =
                 )
 
                 Expander(
-                    "Locations",
+                    "Go to 📂 Locations",
                     ItemsControl(
                         model.Folders |> Option.defaultValue [||],
                         fun folder ->
@@ -137,14 +137,14 @@ module Cache =
                     .gridColumn (2)
 
                 Expander(
-                    "Files accessed within the last...",
+                    "Files by type accessed within the last... " + Icon.recent,
                     ItemsControl(
                         model.ByLastAccess |> Option.defaultValue [],
                         fun group ->
                             (Grid(coldefs = [ Auto; Star ], rowdefs = [ Auto; Star ]) {
                                 TextBlock(group.TimeSpanLabel).header ()
 
-                                Button("🗑", RemoveByLastAccess group)
+                                Button(Icon.trash, RemoveByLastAccess group)
                                     .tooltip("clear this data")
                                     .fontSize(20)
                                     .gridRow (1)
@@ -160,6 +160,7 @@ module Cache =
                                     .gridRowSpan(2)
                                     .gridColumn (1)
                             })
+                                .card()
                                 .margin (10)
                     )
                         .itemsPanel (HWrapEmpty())
