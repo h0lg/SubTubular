@@ -101,70 +101,70 @@ module Cache =
             .right()
             .isVisible (files.Length > 0)
 
+    let private displayFileTypes model =
+        ItemsControl(
+            model.FileTypes,
+            fun fileType ->
+                (Grid(coldefs = [ Pixel(200); Star ], rowdefs = [ Auto ]) {
+                    Label(fileType.Label)
+                    TextBlock(fileType.Description).wrap().demoted().gridColumn (1)
+                })
+        )
+
+    let private folders model =
+        ItemsControl(
+            model.Folders |> Option.defaultValue [||],
+            fun folder ->
+                (Grid(coldefs = [ Pixel(100); Star ], rowdefs = [ Auto ]) {
+                    let indent = folder.IndentLevel * 10
+                    TextBlock(folder.Label).padding (indent, 0, 0, 0)
+
+                    if folder.Label <> folder.PathDiff then
+                        TextBlock(folder.PathDiff).padding(indent, 0, 0, 0).demoted().gridColumn (1)
+                })
+                    .tappable (OpenFolder folder.Path, "open this folder")
+        )
+
+    let private byLastAccess model =
+        ItemsControl(
+            model.ByLastAccess |> Option.defaultValue [],
+            fun group ->
+                (Grid(coldefs = [ Auto; Star ], rowdefs = [ Auto; Star ]) {
+                    TextBlock(group.TimeSpanLabel).header ()
+
+                    Button(Icon.trash, RemoveByLastAccess group)
+                        .tooltip("clear this data")
+                        .fontSize(20)
+                        .gridRow (1)
+
+                    (VStack(5) {
+                        let report label files = reportFiles label group files
+                        report ("full-text indexes" + Icon.index) group.Indexes
+                        report ("playlist and channel caches" + Icon.playlistLike) group.PlaylistLikes
+                        report ("video caches" + Icon.videoCache) group.Videos
+                        report ("thumbnails" + Icon.thumbnail) group.Thumbnails
+                        report ("searches" + Icon.scopeSearch) group.Searches
+                    })
+                        .gridRowSpan(2)
+                        .gridColumn (1)
+                })
+                    .card()
+                    .margin (10)
+        )
+            .itemsPanel (HWrapEmpty())
+
     let view model =
         ScrollViewer(
             let gap = Pixel 10
 
             Grid(coldefs = [ Star; gap; Auto ], rowdefs = [ Auto; gap; Auto ]) {
-                Expander(
-                    "File type info " + Icon.help,
-                    ItemsControl(
-                        model.FileTypes,
-                        fun fileType ->
-                            (Grid(coldefs = [ Pixel(200); Star ], rowdefs = [ Auto ]) {
-                                Label(fileType.Label)
-                                TextBlock(fileType.Description).wrap().demoted().gridColumn (1)
-                            })
-                    )
-                )
+                Expander("File type info " + Icon.help, displayFileTypes model)
 
-                Expander(
-                    "Go to 📂 Locations",
-                    ItemsControl(
-                        model.Folders |> Option.defaultValue [||],
-                        fun folder ->
-                            (Grid(coldefs = [ Pixel(100); Star ], rowdefs = [ Auto ]) {
-                                let indent = folder.IndentLevel * 10
-                                TextBlock(folder.Label).padding (indent, 0, 0, 0)
-
-                                if folder.Label <> folder.PathDiff then
-                                    TextBlock(folder.PathDiff).padding(indent, 0, 0, 0).demoted().gridColumn (1)
-                            })
-                                .tappable (OpenFolder folder.Path, "open this folder")
-                    )
-                )
+                Expander("Go to 📂 Locations", folders model)
                     .onExpanding(fun _ -> ExpandingFolders)
                     .gridColumn (2)
 
-                Expander(
-                    "Files by type accessed within the last... " + Icon.recent,
-                    ItemsControl(
-                        model.ByLastAccess |> Option.defaultValue [],
-                        fun group ->
-                            (Grid(coldefs = [ Auto; Star ], rowdefs = [ Auto; Star ]) {
-                                TextBlock(group.TimeSpanLabel).header ()
-
-                                Button(Icon.trash, RemoveByLastAccess group)
-                                    .tooltip("clear this data")
-                                    .fontSize(20)
-                                    .gridRow (1)
-
-                                (VStack(5) {
-                                    let report label files = reportFiles label group files
-                                    report ("full-text indexes" + Icon.index) group.Indexes
-                                    report ("playlist and channel caches" + Icon.playlistLike) group.PlaylistLikes
-                                    report ("video caches" + Icon.videoCache) group.Videos
-                                    report ("thumbnails" + Icon.thumbnail) group.Thumbnails
-                                    report ("searches" + Icon.scopeSearch) group.Searches
-                                })
-                                    .gridRowSpan(2)
-                                    .gridColumn (1)
-                            })
-                                .card()
-                                .margin (10)
-                    )
-                        .itemsPanel (HWrapEmpty())
-                )
+                Expander("Files by type accessed within the last... " + Icon.recent, byLastAccess model)
                     .onExpanding(fun _ -> ExpandingByLastAccess)
                     .gridRow(2)
                     .gridColumnSpan (3)
