@@ -283,7 +283,6 @@ public static class RemoteValidate
     }
 }
 
-[Serializable]
 public class InputException : Exception
 {
     public InputException(string message) : base(message) { }

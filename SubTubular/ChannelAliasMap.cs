@@ -4,7 +4,6 @@ namespace SubTubular;
 
 /// <summary>Maps valid channel aliases by <see cref="Type"/> and <see cref="Value"/>
 /// to an accessible <see cref="ChannelId"/> or null if none was found.</summary>
-[Serializable]
 public sealed class ChannelAliasMap
 {
     public required string Type { get; set; }

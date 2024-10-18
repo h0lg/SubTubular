@@ -1,5 +1,4 @@
-﻿using System.Runtime.Serialization;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using SubTubular.Extensions;
 
 namespace SubTubular;
@@ -14,9 +13,8 @@ public abstract partial class CommandScope
     public override string ToString() => Describe().Join(" ");
 }
 
-[Serializable]
 [method: JsonConstructor]
-public class VideosScope(List<string> videos) : CommandScope, ISerializable
+public class VideosScope(List<string> videos) : CommandScope
 {
     /// <summary>Input video IDs or URLs.</summary>
     public List<string> Videos { get; } = videos.Select(id => id.Trim()).ToList();
@@ -43,8 +41,8 @@ public class VideosScope(List<string> videos) : CommandScope, ISerializable
         }
     }
 
-    void ISerializable.GetObjectData(SerializationInfo info, StreamingContext context)
-        => info.AddValue(nameof(Videos), Videos);
+    /*void ISerializable.GetObjectData(SerializationInfo info, StreamingContext context)
+        => info.AddValue(nameof(Videos), Videos);*/
 }
 
 public abstract class PlaylistLikeScope : CommandScope
@@ -86,14 +84,12 @@ public abstract class PlaylistLikeScope : CommandScope
     public override int GetHashCode() => Alias.GetHashCode();
 }
 
-[Serializable]
 public class PlaylistScope(string alias, ushort skip, ushort take, float cacheHours) : PlaylistLikeScope(alias, skip, take, cacheHours)
 {
     public const string StorageKeyPrefix = "playlist ";
     protected override string KeyPrefix => StorageKeyPrefix;
 }
 
-[Serializable]
 public class ChannelScope(string alias, ushort skip, ushort take, float cacheHours) : PlaylistLikeScope(alias, skip, take, cacheHours)
 {
     public const string StorageKeyPrefix = "channel ";

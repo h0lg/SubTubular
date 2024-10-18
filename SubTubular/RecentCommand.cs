@@ -36,7 +36,6 @@ public static class RecentCommands
         list.Sort(byLastRunDesc);
     }
 
-    [Serializable]
     public sealed class Item
     {
         public string? Description { get; set; }

@@ -138,7 +138,6 @@ public static class ReleaseManager
     private static IEnumerable<CacheModel> Valid(this IEnumerable<CacheModel> releases)
         => releases.Where(r => r?.Version.IsNonWhiteSpace() == true && r.HtmlUrl.IsNonWhiteSpace());
 
-    [Serializable]
     public sealed class CacheModel
     {
         public string? Name { get; set; }
@@ -182,7 +181,6 @@ public static class ReleaseManager
             };
         }
 
-        [Serializable]
         public sealed class BinariesZipAsset
         {
             public required string Name { get; set; }

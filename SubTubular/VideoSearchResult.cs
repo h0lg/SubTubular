@@ -3,7 +3,6 @@ using SubTubular.Extensions;
 
 namespace SubTubular;
 
-[Serializable]
 [method: JsonConstructor]
 public sealed class YoutubeSearchResult(string id, string title, string url, string thumbnail, string? channel = null)
 {
@@ -16,7 +15,6 @@ public sealed class YoutubeSearchResult(string id, string title, string url, str
     // for debugging
     public override string ToString() => Title;
 
-    [Serializable]
     [method: JsonConstructor]
     public sealed class Cache(string search, YoutubeSearchResult[] results, DateTime created)
     {

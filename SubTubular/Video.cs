@@ -3,7 +3,6 @@ using SubTubular.Extensions;
 
 namespace SubTubular;
 
-[Serializable]
 public sealed class Video
 {
     public const string StorageKeyPrefix = "video ";
@@ -27,7 +26,6 @@ public sealed class Video
     internal static string GuessThumbnailUrl(string videoId) => $"https://img.youtube.com/vi/{videoId}/default.jpg";
 }
 
-[Serializable]
 public sealed class CaptionTrack
 {
     public required string LanguageName { get; set; }
@@ -77,7 +75,6 @@ public sealed class CaptionTrack
     #endregion
 }
 
-[Serializable]
 public sealed class Caption
 {
     /// <summary>The offset from the start of the video in seconds.</summary>
