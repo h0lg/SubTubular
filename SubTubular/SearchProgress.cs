@@ -87,4 +87,13 @@ partial class CommandScope
 
     private void UpdateVideoState(string videoId, VideoList.Status state) => Progress.Videos![videoId] = state;
     private void ReportChange() => ProgressChanged?.Invoke(this, EventArgs.Empty);
+
+    /// <summary>Used to notify the caller when asynchronously processing this scope.
+    /// Takes (in parameter order) 1. the title, 2. an optional body and 3. optional exceptions that occurred.
+    /// May be set for all scopes involved via
+    /// <see cref="OutputCommand.OnScopeNotification(Action{CommandScope, string, string?, Exception[]?})"/>.</summary>
+    public Action<string, string?, Exception[]?> Notify = (_, _, _) => throw new InvalidOperationException(
+        $"You need to set {nameof(Notify)} on this {nameof(CommandScope)}"
+        + " as a channel for asynchronous notifications before processing it."
+        + $" Use {nameof(OutputCommand)}.{nameof(OutputCommand.OnScopeNotification)} to do so for all scopes.");
 }

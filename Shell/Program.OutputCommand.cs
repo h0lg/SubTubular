@@ -1,5 +1,6 @@
 ﻿using System.CommandLine;
 using System.CommandLine.Invocation;
+using SubTubular.Extensions;
 
 namespace SubTubular.Shell;
 
@@ -46,6 +47,19 @@ static partial class Program
             if (output is FileOutputWriter) output.WriteLine(originalCommand); // for reference and repeating
             output.WriteHeader();
         });
+
+        // set up async notification channel
+        command.OnScopeNotification((scope, title, message, errors) => outputs.ForEach(o =>
+        {
+            o.WriteLine();
+            o.WriteLine(title + " in " + scope.Describe(inDetail: false).Join(" "));
+            if (message.IsNonEmpty()) o.WriteLine(message);
+
+            if (errors.HasAny())
+                foreach (var error in errors!) o.WriteLine(error.Message);
+
+            o.WriteLine();
+        }));
 
         try
         {

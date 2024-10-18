@@ -52,6 +52,16 @@ public abstract class OutputCommand
     public bool AreScopesValid() => GetScopes().All(s => s.IsValid);
     protected string DescribeScopes() => GetScopes().Select(p => p.Describe().Join(" ")).Join(" ");
 
+    /// <summary>Forwards the <see cref="CommandScope.Notify"/> on all <see cref="GetScopes"/>
+    /// for notifications during their async processing to the supplied <paramref name="notify"/>.
+    /// Takes (in parameter order) 1. the scope the a message originated from,
+    /// 2. the title, 3. an optional body and 4. optional exceptions that occurred.</summary>
+    public void OnScopeNotification(Action<CommandScope, string, string?, Exception[]?> notify)
+    {
+        foreach (var scope in GetScopes())
+            scope.Notify = (title, message, errors) => notify(scope, title, message, errors);
+    }
+
     /// <summary>Provides a human-readable description of the command, by default <paramref name="withScopes"/>.
     /// This can be used to generate unique file names, but be aware that the returned description is not filename-safe.</summary>
     public abstract string Describe(bool withScopes = true);

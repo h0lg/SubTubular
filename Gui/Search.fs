@@ -95,6 +95,22 @@ module Search =
                     let command = mapToCommand model
                     let cancellation = model.Running.Token
 
+                    let join (lines: string list) =
+                        lines |> List.filter (fun l -> l.IsNonEmpty()) |> String.concat "\n"
+
+                    // set up async notification channel
+                    command.OnScopeNotification(fun scope title message errors ->
+                        let lines = [ "in " + scope.Describe(false).Join(" "); message ]
+
+                        let msg =
+                            match errors with
+                            | [||] -> NotifyLong(title, join lines)
+                            | _ ->
+                                let errs = errors |> Array.map _.Message |> List.ofArray
+                                FailLong(title, lines @ errs |> join)
+
+                        dispatchCommon msg)
+
                     match command with
                     | :? SearchCommand as search ->
                         Prevalidate.Search search
