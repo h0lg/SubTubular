@@ -2,6 +2,7 @@
 
 open System
 open System.Linq
+open System.Collections.Concurrent
 open System.Collections.Generic
 open System.Threading
 open Fabulous
@@ -96,24 +97,32 @@ module OutputCommands =
         fun dispatch ->
             task {
                 let dispatchCommon msg = Common msg |> dispatch
+                let allErrors = ConcurrentBag<string>()
+                let command = mapToCommand model
+
+                let join (lines: string seq) =
+                    lines
+                    |> Seq.filter (fun l -> l.IsNonEmpty())
+                    |> String.concat ErrorLog.OutputSpacing
 
                 try
-                    let command = mapToCommand model
                     let cancellation = model.Running.Token
-
-                    let join (lines: string list) =
-                        lines |> List.filter (fun l -> l.IsNonEmpty()) |> String.concat "\n"
 
                     // set up async notification channel
                     command.OnScopeNotification(fun scope title message errors ->
-                        let lines = [ "in " + scope.Describe(false).Join(" "); message ]
+                        let lines = [ message; "in " + scope.Describe(false).Join(" ") ]
 
                         let msg =
                             match errors with
                             | [||] -> NotifyLong(title, join lines)
                             | _ ->
-                                let errs = errors |> Array.map _.Message |> List.ofArray
-                                FailLong(title, lines @ errs |> join)
+                                // collect error details for log
+                                let errorDetails = errors |> Array.map _.ToString() |> List.ofArray
+                                allErrors.Add(title :: lines @ errorDetails |> join)
+
+                                // notify messages
+                                let errorMsgs = errors |> Array.map _.Message
+                                FailLong(title, Seq.append lines errorMsgs |> join)
 
                         dispatchCommon msg)
 
@@ -158,7 +167,11 @@ module OutputCommands =
 
                     | _ -> failwith ("Unknown command type " + command.GetType().ToString())
                 with exn ->
-                    let dispatchError (exn: exn) = Fail exn.Message |> dispatchCommon
+                    let dispatchError (exn: exn) =
+                        if exn :? InputException |> not then
+                            allErrors.Add(exn.ToString())
+
+                        Fail exn.Message |> dispatchCommon
 
                     match exn with
                     | :? OperationCanceledException -> Notify "The op was canceled" |> dispatchCommon
@@ -166,6 +179,26 @@ module OutputCommands =
                         for inner in exns.Flatten().InnerExceptions do
                             dispatchError inner
                     | _ -> dispatchError exn
+
+                if not allErrors.IsEmpty then
+                    let! logWriting =
+                        ErrorLog.WriteAsync(
+                            allErrors |> Array.ofSeq |> join,
+                            command.ToShellCommand(),
+                            command.Describe(true)
+                        )
+
+                    let path, report = logWriting.ToTuple()
+
+                    let title, body =
+                        if path = null then
+                            "Couldn't write an error log for this, sorry.", report
+                        else
+                            "Unexpected errors were caught and logged.",
+                            "Find the following report in Storage > Go to Locations > errors:\n"
+                            + IO.Path.GetFileName(path)
+
+                    FailLong(title, body) |> dispatchCommon
 
                 dispatch CommandCompleted
             }

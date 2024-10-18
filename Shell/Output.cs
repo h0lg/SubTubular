@@ -1,4 +1,5 @@
-﻿using System.CommandLine;
+﻿using System.Collections.Concurrent;
+using System.CommandLine;
 using System.CommandLine.Invocation;
 using SubTubular.Extensions;
 
@@ -48,15 +49,28 @@ static partial class Program
             output.WriteHeader();
         });
 
+        ConcurrentBag<string> allErrors = new();
+
         // set up async notification channel
         command.OnScopeNotification((scope, title, message, errors) => outputs.ForEach(o =>
         {
+            var titleAndScope = title + " in " + scope.Describe(inDetail: false).Join(" ");
             o.WriteLine();
-            o.WriteLine(title + " in " + scope.Describe(inDetail: false).Join(" "));
+            o.WriteLine(titleAndScope);
             if (message.IsNonEmpty()) o.WriteLine(message);
 
             if (errors.HasAny())
+            {
+                // collect error details for log
+                var errorDetails = errors!.Select(e => e.ToString())
+                    .Prepend(titleAndScope).Prepend(message)
+                    .WithValue().Join(ErrorLog.OutputSpacing);
+
+                allErrors.Add(errorDetails);
+
+                // output messages immediately
                 foreach (var error in errors!) o.WriteLine(error.Message);
+            }
 
             o.WriteLine();
         }));
@@ -68,6 +82,7 @@ static partial class Program
             await runCommand(youtube, outputs, cancellation.Token);
         }
         catch (OperationCanceledException) { Console.WriteLine("The operation was cancelled."); }
+        catch (Exception ex) { allErrors.Add(ex.ToString()); }
         finally // write output file even if exception occurs
         {
             if (outputs.Any(o => o.WroteResults)) // if we displayed a result before running into an error
@@ -86,6 +101,8 @@ static partial class Program
                 }
             }
         }
+
+        if (!allErrors.IsEmpty) await WriteErrorLogAsync(originalCommand, allErrors.Join(ErrorLog.OutputSpacing), command.Describe());
 
         foreach (var output in outputs.OfType<IDisposable>()) output.Dispose();
         running = false; // to let the cancel task complete if operation did before it
