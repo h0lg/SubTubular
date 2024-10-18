@@ -181,14 +181,6 @@ public abstract class OutputWriter(OutputCommand command)
             }
         }
 
-        var tracksWithErrors = result.Video.CaptionTracks.Where(t => t.Error != null).ToArray();
-
-        if (tracksWithErrors.Length > 0)
-        {
-            foreach (var track in tracksWithErrors)
-                WriteLine($"  {track.LanguageName}: " + track.ErrorMessage);
-        }
-
         WriteLine();
         WroteResults = true;
     }

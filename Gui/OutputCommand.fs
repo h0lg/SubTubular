@@ -415,37 +415,16 @@ module OutputCommands =
             if model.Running <> null then
                 model.Running.Dispose()
 
-            let cmd, body =
+            let cmd =
                 if model.Command = Commands.Search then
-                    let tracksWithErrors =
-                        model.SearchResults
-                        |> List.collect (fun r ->
-                            let result, _ = r
-
-                            result.Video.CaptionTracks
-                            |> Seq.filter (fun t -> t.Error <> null)
-                            |> List.ofSeq)
-
-                    let body =
-                        match tracksWithErrors with
-                        | [] -> None
-                        | list -> list.FormatErrors() |> Some
-
-                    "search", body
+                    "search"
                 else
-                    "listing keywords", None
-
-            let title = cmd + " completed"
-
-            let notify =
-                match body with
-                | Some b -> NotifyLong(title, b)
-                | None -> Notify(title)
+                    "listing keywords"
 
             { model with
                 Running = null
                 ShowScopes = false },
-            notify |> Common |> Cmd.ofMsg
+            Notify(cmd + " completed") |> Common |> Cmd.ofMsg
 
         | SearchResultMsg srm ->
             let cmd =

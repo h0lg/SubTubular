@@ -324,7 +324,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
 
                     Video? video = command.Videos?.Validated.SingleOrDefault(v => v.Id == id)?.Video;
                     video ??= await GetVideoAsync(id, cancellation, scope, downloadCaptionTracksAndSave: false);
-                    if (video.CaptionTracks == null) await DownloadCaptionTracksAndSaveAsync(video, cancellation);
+                    if (video.CaptionTracks == null) await DownloadCaptionTracksAndSaveAsync(video, scope, cancellation);
                     playlist?.Update(video);
 
                     await unIndexedVideos.Writer.WriteAsync(video);
@@ -553,7 +553,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                 var vid = await Client.Videos.GetAsync(videoId, cancellation);
                 video = MapVideo(vid);
                 video.UnIndexed = true; // to re-index it if it was already indexed
-                if (downloadCaptionTracksAndSave) await DownloadCaptionTracksAndSaveAsync(video, cancellation);
+                if (downloadCaptionTracksAndSave) await DownloadCaptionTracksAndSaveAsync(video, scope, cancellation);
             }
             catch (HttpRequestException ex) when (ex.IsNotFound())
             { throw new InputException($"Video '{videoId}' could not be found.", ex); }
@@ -573,35 +573,54 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
         Thumbnail = SelectUrl(video.Thumbnails)
     };
 
-    private async Task DownloadCaptionTracksAndSaveAsync(Video video, CancellationToken cancellation)
+    private async Task DownloadCaptionTracksAndSaveAsync(Video video, CommandScope scope, CancellationToken cancellation)
     {
-        cancellation.ThrowIfCancellationRequested();
-        var trackManifest = await Client.Videos.ClosedCaptions.GetManifestAsync(video.Id, cancellation);
-        video.CaptionTracks = [];
+        List<Exception> errors = [];
 
-        foreach (var trackInfo in trackManifest.Tracks)
+        try
         {
-            cancellation.ThrowIfCancellationRequested();
-            var captionTrack = new CaptionTrack { LanguageName = trackInfo.Language.Name, Url = trackInfo.Url };
+            var trackManifest = await Client.Videos.ClosedCaptions.GetManifestAsync(video.Id, cancellation);
+            video.CaptionTracks = [];
 
-            try
+            foreach (var trackInfo in trackManifest.Tracks)
             {
-                // Get the actual closed caption track
-                var track = await Client.Videos.ClosedCaptions.GetAsync(trackInfo, cancellation);
+                var captionTrack = new CaptionTrack { LanguageName = trackInfo.Language.Name, Url = trackInfo.Url };
 
-                captionTrack.Captions = track.Captions
-                    .Select(c => new Caption { At = Convert.ToInt32(c.Offset.TotalSeconds), Text = c.Text })
-                    // Sanitize captions, making sure cached captions as well as downloaded are cleaned of duplicates and ordered by time.
-                    .Distinct().OrderBy(c => c.At).ToList();
-            }
-            catch (Exception ex)
-            {
-                captionTrack.ErrorMessage = ex.Message;
-                captionTrack.Error = ex.ToString();
-            }
+                try
+                {
+                    // Get the actual closed caption track
+                    var track = await Client.Videos.ClosedCaptions.GetAsync(trackInfo, cancellation);
 
-            video.CaptionTracks.Add(captionTrack);
+                    captionTrack.Captions = track.Captions
+                        .Select(c => new Caption { At = Convert.ToInt32(c.Offset.TotalSeconds), Text = c.Text })
+                        // Sanitize captions, making sure cached captions as well as downloaded are cleaned of duplicates and ordered by time.
+                        .Distinct().OrderBy(c => c.At).ToList();
+                }
+                catch (Exception ex)
+                {
+                    var cause = ex.GetBaseException();
+
+                    if (cause is not OperationCanceledException)
+                    {
+                        captionTrack.ErrorMessage = cause.Message;
+                        captionTrack.Error = ex.ToString();
+                        errors.Add(ex);
+                    }
+                }
+
+                video.CaptionTracks.Add(captionTrack);
+            }
         }
+        catch (Exception ex)
+        {
+            var cause = ex.GetBaseException();
+            if (cause is not OperationCanceledException) errors.Add(ex);
+        }
+
+        if (errors.Count > 0) scope.Notify("Errors downloading caption tracks",
+            message: video.CaptionTracks?.Where(t => t.Error != null)
+                .Select(t => $"  {t.LanguageName}: {t.Url}")
+                .Join(Environment.NewLine), [.. errors], video);
 
         await dataStore.SetAsync(Video.StorageKeyPrefix + video.Id, video);
     }

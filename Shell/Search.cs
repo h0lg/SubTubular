@@ -12,16 +12,8 @@ static partial class Program
 
         await OutputAsync(command, originalCommand, async (youtube, outputs, cancellation) =>
         {
-            var tracksWithErrors = new List<CaptionTrack>();
-
             await foreach (var result in youtube.SearchAsync(command, cancellation))
-            {
                 outputs.ForEach(o => o.WriteVideoResult(result, command.Padding));
-                tracksWithErrors.AddRange(result.Video.CaptionTracks.Where(t => t.Error != null));
-            }
-
-            if (tracksWithErrors.Count > 0)
-                await WriteErrorLogAsync(originalCommand, tracksWithErrors.FormatErrors(), name: command.Describe());
         });
     }
 }
