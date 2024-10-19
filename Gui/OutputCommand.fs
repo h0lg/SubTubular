@@ -100,31 +100,18 @@ module OutputCommands =
                 let allErrors = ConcurrentBag<string>()
                 let command = mapToCommand model
 
-                let join (lines: string seq) =
-                    lines
-                    |> Seq.filter (fun l -> l.IsNonEmpty())
-                    |> String.concat ErrorLog.OutputSpacing
+                command.OnScopeNotification(fun scope ntf ->
+                    if ntf.Errors.HasAny() then
+                        allErrors.Add(
+                            ntf.Errors
+                                .Select(fun ex -> ex.GetBaseException().ToString())
+                                .Prepend("in " + scope.Describe(false).Join(" "))
+                                .Prepend(ntf.Title)
+                                .Join("\n")
+                        ))
 
                 try
                     let cancellation = model.Running.Token
-
-                    // set up async notification channel
-                    command.OnScopeNotification(fun scope title message errors ->
-                        let lines = [ message; "in " + scope.Describe(false).Join(" ") ]
-
-                        let msg =
-                            match errors with
-                            | [||] -> NotifyLong(title, join lines)
-                            | _ ->
-                                // collect error details for log
-                                let errorDetails = errors |> Array.map _.ToString() |> List.ofArray
-                                allErrors.Add(title :: lines @ errorDetails |> join)
-
-                                // notify messages
-                                let errorMsgs = errors |> Array.map _.Message
-                                FailLong(title, Seq.append lines errorMsgs |> join)
-
-                        dispatchCommon msg)
 
                     match command with
                     | :? SearchCommand as search ->
@@ -208,7 +195,7 @@ module OutputCommands =
                 if not allErrors.IsEmpty then
                     let! logWriting =
                         ErrorLog.WriteAsync(
-                            allErrors |> Array.ofSeq |> join,
+                            allErrors.Join(ErrorLog.OutputSpacing),
                             command.ToShellCommand(),
                             command.Describe(true)
                         )

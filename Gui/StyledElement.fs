@@ -25,6 +25,13 @@ module CommandScopeAttributes =
             let model = unbox<CommandScope> element.DataContext
             model.ProgressChanged)
 
+    /// Allows attaching a handler to the Notified event of a CommandScope to a StyledElement
+    let Notified =
+        Attributes.defineEvent "CommandScope_Notified" (fun target ->
+            let element = unbox<StyledElement> target
+            let model = unbox<CommandScope> element.DataContext
+            model.Notified)
+
 type StyledElementModifiers =
     /// Dispatches a msg on scope.ProgressChanged.
     [<Extension>]
@@ -35,6 +42,16 @@ type StyledElementModifiers =
             // set DataContext for it to be available in CommandScopeAttributes.ProgressChanged
             .AddScalar(StyledElement.DataContext.WithValue(scope))
             .AddScalar(CommandScopeAttributes.ProgressChanged.WithValue(MsgValue msg))
+
+    /// Dispatches a msg on scope.Notified.
+    [<Extension>]
+    static member inline onScopeNotified
+        (this: WidgetBuilder<'msg, #IFabStyledElement>, scope: CommandScope, msg: CommandScope.Notification -> 'msg)
+        =
+        this
+            // set DataContext for it to be available in CommandScopeAttributes.Notified
+            .AddScalar(StyledElement.DataContext.WithValue(scope))
+            .AddScalar(CommandScopeAttributes.Notified.WithValue(msg))
 
     /// <summary>Adds inline styles used by the widget and its descendants.</summary>
     /// <param name="this">Current widget.</param>

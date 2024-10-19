@@ -52,24 +52,26 @@ static partial class Program
         ConcurrentBag<string> allErrors = new();
 
         // set up async notification channel
-        command.OnScopeNotification((scope, title, message, errors) => outputs.ForEach(o =>
+        command.OnScopeNotification((scope, notification) => outputs.ForEach(o =>
         {
-            var titleAndScope = title + " in " + scope.Describe(inDetail: false).Join(" ");
+            var titleAndScope = notification.Title + " in " + scope.Describe(inDetail: false).Join(" ");
             o.WriteLine();
             o.WriteLine(titleAndScope);
-            if (message.IsNonEmpty()) o.WriteLine(message);
+            Video? video = notification.Video;
+            if (video != null) o.WriteLine($"Video: {video.Title} {Youtube.GetVideoUrl(video.Id)}");
+            if (notification.Message.IsNonEmpty()) o.WriteLine(notification.Message);
 
-            if (errors.HasAny())
+            if (notification.Errors.HasAny())
             {
                 // collect error details for log
-                var errorDetails = errors!.Select(e => e.ToString())
-                    .Prepend(titleAndScope).Prepend(message)
+                var errorDetails = notification.Errors!.Select(e => e.ToString())
+                    .Prepend(titleAndScope).Prepend(notification.Message)
                     .WithValue().Join(ErrorLog.OutputSpacing);
 
                 allErrors.Add(errorDetails);
 
                 // output messages immediately
-                foreach (var error in errors!) o.WriteLine(error.Message);
+                foreach (var error in notification.Errors!) o.WriteLine(error.Message);
             }
 
             o.WriteLine();

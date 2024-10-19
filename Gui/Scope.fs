@@ -11,6 +11,7 @@ open Avalonia.Media
 open Fabulous
 open Fabulous.Avalonia
 open SubTubular
+open SubTubular.Extensions
 open YoutubeExplode.Videos
 open type Fabulous.Avalonia.View
 
@@ -160,6 +161,7 @@ module Scope =
         | Remove
         | RemoveVideo of string
         | ProgressChanged
+        | Notified of CommandScope.Notification
         | ProgressValueChanged of float
         | Common of CommonMsg
 
@@ -304,6 +306,7 @@ module Scope =
         | Remove -> model, Cmd.none, RemoveMe
         | ProgressChanged -> model, Cmd.none, DoNothing
         | ProgressValueChanged _ -> model, Cmd.none, DoNothing
+        | Notified _ -> model, Cmd.none, DoNothing
         | Common _ -> model, Cmd.none, DoNothing
 
     let private getAliasWatermark model =
@@ -416,6 +419,29 @@ module Scope =
     let private removeBtn () =
         Button("❌", Remove).tooltip ("remove this scope")
 
+    let private notificationFlyout (notifications: CommandScope.Notification list) =
+        Flyout(
+            ItemsControl(
+                notifications,
+                fun ntf ->
+                    VStack() {
+                        TextBlock ntf.Title
+
+                        if ntf.Video <> null then
+                            TextBlock ntf.Video.Title
+
+                        if ntf.Message.IsNonEmpty() then
+                            TextBlock ntf.Message
+
+                        if ntf.Errors <> null then
+                            for err in ntf.Errors do
+                                TextBlock err.Message
+                    }
+            )
+        )
+            .placement(PlacementMode.BottomEdgeAlignedRight)
+            .showMode (FlyoutShowMode.Standard)
+
     let view model maxWidth showThumbnails =
         VStack() {
             match model.Scope with
@@ -443,6 +469,14 @@ module Scope =
                             showThumbnails
                     else
                         search model showThumbnails
+
+                    let notifications = List.ofSeq playlistLike.Notifications
+
+                    TextBlock($"⚠️ {notifications.Length}")
+                        .onScopeNotified(model.Scope, Notified)
+                        .attachedFlyout(notificationFlyout notifications)
+                        .tappable(ToggleFlyout >> Common, "some things came up while working on this scope")
+                        .isVisible (not notifications.IsEmpty)
 
                     ToggleButton("⚙", model.ShowSettings, ToggleSettings)
                         .tooltip ("toggle settings")
