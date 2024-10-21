@@ -29,31 +29,54 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
     public async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command,
         [EnumeratorCancellation] CancellationToken cancellation = default)
     {
-        ResourceAwareJobScheduler jobScheduler = new(TimeSpan.FromSeconds(1));
-        List<IAsyncEnumerable<VideoSearchResult>> searches = [];
+        using var linkedTs = CancellationTokenSource.CreateLinkedTokenSource(cancellation); // to cancel parallel searches on InputException
+        var results = Pipe.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions() { SingleReader = true });
+        Func<VideoSearchResult, ValueTask> addResult = r => results.Writer.WriteAsync(r, linkedTs.Token);
+        ResourceAwareJobScheduler jobScheduler = new(TimeSpan.FromSeconds(.5));
+        List<(string name, Func<Task> heatUp)> searches = [];
         SearchPlaylistLikeScopes(command.Channels);
         SearchPlaylistLikeScopes(command.Playlists);
-        if (command.Videos?.IsValid == true) searches.Add(SearchVideosAsync(command, cancellation));
+        if (command.Videos?.IsValid == true) searches.Add(("searching videos", () => SearchVideosAsync(command, addResult, linkedTs.Token)));
         var spansMultipleIndexes = searches.Count > 0;
 
-        await foreach (var result in searches.Parallelize(cancellation))
+        Action<Exception> handleProducerError = ex =>
+        {
+            if (ex.GetRootCauses().OfType<InputException>().Any())
+            {
+                /* wait for the root cause to bubble up instead of triggering
+                 * an OperationCanceledException further up the call chain. */
+                linkedTs.Cancel(); // cancel parallel searches if query parser yields input error
+            }
+        };
+
+        var searchCompletion = jobScheduler.ParallelizeAsync(searches, handleProducerError, linkedTs.Token)
+            .ContinueWith(t =>
+            {
+                results.Writer.Complete();
+                if (t.Exception != null) throw t.Exception;
+            });
+
+        await foreach (var result in results.Reader.ReadAllAsync())
         {
             if (spansMultipleIndexes) result.Rescore();
             yield return result;
         }
 
+        await searchCompletion;
+
         void SearchPlaylistLikeScopes(PlaylistLikeScope[]? scopes)
         {
-            if (scopes.HasAny()) searches.AddRange(scopes!.GetValid().DistinctBy(c => c.SingleValidated.Id)
-                .Select(scope => SearchPlaylistAsync(command, scope, jobScheduler, cancellation)));
+            if (scopes.HasAny())
+                foreach (var scope in scopes!)
+                    searches.Add((scope.Describe(inDetail: false).Join(" "),
+                        () => SearchPlaylistAsync(command, scope, addResult, jobScheduler, linkedTs.Token)));
         }
     }
 
     /// <summary>Searches videos defined by a playlist.</summary>
-    /// <param name="cancellation">Passed in either explicitly or by the IAsyncEnumerable.WithCancellation() extension,
-    /// see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables</param>
-    private async IAsyncEnumerable<VideoSearchResult> SearchPlaylistAsync(SearchCommand command, PlaylistLikeScope scope,
-        ResourceAwareJobScheduler jobScheduler, [EnumeratorCancellation] CancellationToken cancellation = default)
+    private async Task SearchPlaylistAsync(SearchCommand command, PlaylistLikeScope scope,
+        Func<VideoSearchResult, ValueTask> yieldResult,
+        ResourceAwareJobScheduler jobScheduler, CancellationToken cancellation = default)
     {
         cancellation.ThrowIfCancellationRequested();
         var storageKey = scope.StorageKey;
@@ -73,8 +96,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                 var videos = playlist.GetVideos().Skip(scope.Skip).Take(scope.Take).ToArray();
                 var videoIds = videos.Select(v => v.Id).ToArray();
                 scope.QueueVideos(videoIds);
-
-                var results = Pipe.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions { SingleReader = true });
+                var spansMultipleIndexes = false;
 
                 var searches = videos.GroupBy(v => v.ShardNumber).Select(group => ("searching shard " + group.Key, new Func<Task>(async () =>
                 {
@@ -96,7 +118,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                             foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searching);
 
                             await foreach (var result in shard.SearchAsync(command, CreateVideoLookup(scope), indexedVideoInfos, playlist, cancellation))
-                                await results.Writer.WriteAsync(result);
+                                await Yield(result);
 
                             foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searched);
                         }
@@ -112,7 +134,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                         async Task SearchUnindexedVids()
                         {
                             await foreach (var result in SearchUnindexedVideos(command, unIndexedVideoIds, shard, scope, cancellation, playlist))
-                                await results.Writer.WriteAsync(result);
+                                await Yield(result);
                         }
                     }
 
@@ -124,49 +146,33 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                 }))).ToList();
 
                 scope.Report(VideoList.Status.searching);
-                var spansMultipleIndexes = searches.Count > 0;
+                spansMultipleIndexes = searches.Count > 0;
 
-                // hook up writer completion before starting to read so reader knows when it's done
-                var searchCompletion = jobScheduler.ParallelizeAsync(searches, cancellation)
-                   // complete writing after all download tasks finished
-                   .ContinueWith(t =>
-                   {
-                       if (t.IsFaulted)
-                       {
-                           var causing = t.Exception.Flatten().InnerExceptions // cold task exns
-                                .SelectMany(e => e.InnerException is AggregateException aggex ? aggex.Flatten().InnerExceptions : (IList<Exception>)[e.InnerException!])
-                                .ToArray();
-
-                           if (causing.OfType<InputException>().Any())
-                           {
-                               results.Writer.Complete(t.Exception);
-                               return;
-                           }
-
-                           scope.Notify("Some errors occurred", errors: [t.Exception]);
-                       }
-
-                       results.Writer.Complete(); // gracefully close the channel so the reader doesn't encounter errors
-                   }, cancellation);
-
-                // start reading
-                await foreach (var result in results.Reader.ReadAllAsync(cancellation))
+                Action<AggregateException> onError = ex =>
                 {
-                    result.Scope = scope;
-                    if (spansMultipleIndexes) result.Rescore();
-                    yield return result;
-                }
-
-                scope.Report(VideoList.Status.searched);
+                    if (ex.GetRootCauses().OfType<InputException>().Any())
+                    {
+                        throw ex;
+                    }
+                };
 
                 try
                 {
-                    await SavePlaylistAsync(playlist);
-                    await searchCompletion; // to throw exceptions
+                    await jobScheduler.ParallelizeAsync(searches, onError, cancellation);
+                    scope.Report(VideoList.Status.searched);
                 }
-                catch (Exception ex)// when (ex is not InputException)
+                catch (Exception ex) when (ex.GetBaseException() is not InputException)
                 {
                     scope.Notify("Some errors occurred", errors: [ex]);
+                }
+
+                await SavePlaylistAsync(playlist);
+
+                ValueTask Yield(VideoSearchResult result)
+                {
+                    result.Scope = scope;
+                    if (spansMultipleIndexes) result.Rescore();
+                    return yieldResult(result);
                 }
             }
         }
@@ -379,9 +385,8 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
     }
 
     /// <summary>Searches videos scoped by the specified <paramref name="command"/>.</summary>
-    /// <param name="cancellation">Passed in either explicitly or by the IAsyncEnumerable.WithCancellation() extension,
-    /// see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables</param>
-    private async IAsyncEnumerable<VideoSearchResult> SearchVideosAsync(SearchCommand command, [EnumeratorCancellation] CancellationToken cancellation = default)
+    private async Task SearchVideosAsync(SearchCommand command,
+        Func<VideoSearchResult, ValueTask> yieldResult, CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
         VideosScope scope = command.Videos!;
@@ -389,8 +394,6 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
         scope.QueueVideos(videoIds);
         var storageKey = Video.StorageKeyPrefix + videoIds.Order().Join(" ");
         var index = await videoIndexRepo.GetAsync(storageKey);
-
-        var results = Pipe.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions { SingleReader = true });
 
         Task searching;
 
@@ -401,7 +404,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
             searching = Task.Run(async () =>
             {
                 await foreach (var result in SearchUnindexedVideos(command, videoIds, index, scope, cancellation))
-                    await results.Writer.WriteAsync(result);
+                    await yieldResult(result);
             }, cancellation);
         }
         else searching = Task.Run(async () =>
@@ -412,23 +415,14 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
             Video[] videos = scope.Validated.Select(v => v.Video!).ToArray();
 
             await foreach (var result in index.SearchAsync(command, CreateVideoLookup(videos), cancellation: cancellation))
-                await results.Writer.WriteAsync(result);
+                await yieldResult(result);
         }, cancellation);
-
-        // hook up writer completion before starting to read so reader knows when it's done
-        var searchCompletion = searching.ContinueWith(t => results.Writer.Complete(t.Exception), cancellation);
-
-        // start reading
-        await foreach (var result in results.Reader.ReadAllAsync(cancellation))
-        {
-            yield return result;
-        }
 
         scope.Report(VideoList.Status.searched);
 
         try
         {
-            await searchCompletion; // to throw exceptions
+            await searching; // to throw exceptions
         }
         catch (Exception ex) when (ex is not InputException)
         {

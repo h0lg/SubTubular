@@ -1,6 +1,4 @@
-using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
-using System.Threading.Channels;
 
 /*  Namespace does not match folder structure.
  *  It was deliberately chosen to avoid including maybe conflicting extensions accidentally
@@ -139,38 +137,6 @@ internal static class HashCodeExtensions
     }
 }
 
-public static class AsyncEnumerableExtensions
-{
-    public static async IAsyncEnumerable<T> Parallelize<T>(this IEnumerable<IAsyncEnumerable<T>> asyncProducers,
-        [EnumeratorCancellation] CancellationToken cancellation)
-    {
-        var products = Channel.CreateUnbounded<T>(new UnboundedChannelOptions() { SingleReader = true });
-
-        var productionLines = asyncProducers.Select(async asyncProducer =>
-        {
-            try
-            {
-                await foreach (var product in asyncProducer.WithCancellation(cancellation))
-                    await products.Writer.WriteAsync(product, cancellation);
-            }
-            catch (OperationCanceledException) { } // Catch cancellation from outer loop
-        }).ToList();
-
-        // hook up writer completion before starting to read to ensure the reader knows when it's done
-        var completion = Task.WhenAll(productionLines).WithAggregateException()
-            .ContinueWith(t =>
-            {
-                products.Writer.Complete();
-                if (t.Exception != null) throw t.Exception;
-            }, cancellation);
-
-        // Read from product channel and yield each product
-        await foreach (var product in products.Reader.ReadAllAsync(cancellation)) yield return product;
-
-        await completion; // to ensure any exceptions are propagated
-    }
-}
-
 /// <summary>Helpers for <see cref="ValueTask"/>s. Inspired by https://stackoverflow.com/a/63141544 .</summary>
 internal static class ValueTasks
 {
@@ -204,8 +170,15 @@ internal static class TaskExtensions
     }
 }
 
-internal static class HttpRequestExceptionExtensions
+public static class ExceptionExtensions
 {
+    public static IEnumerable<Exception> GetRootCauses(this Exception ex) => ex switch
+    {
+        AggregateException aggex => aggex.Flatten().InnerExceptions.SelectMany(inner => inner.GetRootCauses()),
+        ColdTaskException ctex => ctex.InnerException!.GetRootCauses(),
+        _ => [ex]
+    };
+
     internal static bool IsNotFound(this HttpRequestException exception)
         => exception.StatusCode == System.Net.HttpStatusCode.NotFound || exception.Message.Contains("404 (NotFound)");
 }
