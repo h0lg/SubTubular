@@ -173,21 +173,21 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
         ValueTask SavePlaylistAsync(Playlist playlist) => playlist.SaveAsync(() => dataStore.SetAsync(storageKey, playlist));
     }
 
-    internal Task<Playlist?> GetPlaylistAsync(PlaylistScope scope, CancellationToken cancellation) =>
+    internal Task<Playlist> GetPlaylistAsync(PlaylistScope scope, CancellationToken cancellation) =>
         GetPlaylistAsync(scope, async () =>
         {
             var playlist = await Client.Playlists.GetAsync(scope.SingleValidated.Id, cancellation);
             return (playlist.Title, SelectUrl(playlist.Thumbnails), playlist.Author?.ChannelTitle);
         });
 
-    internal Task<Playlist?> GetPlaylistAsync(ChannelScope scope, CancellationToken cancellation) =>
+    internal Task<Playlist> GetPlaylistAsync(ChannelScope scope, CancellationToken cancellation) =>
         GetPlaylistAsync(scope, async () =>
         {
             var channel = await Client.Channels.GetAsync(scope.SingleValidated.Id, cancellation);
             return (channel.Title, SelectUrl(channel.Thumbnails), null);
         });
 
-    private async Task<Playlist?> GetPlaylistAsync(PlaylistLikeScope scope,
+    private async Task<Playlist> GetPlaylistAsync(PlaylistLikeScope scope,
         Func<Task<(string title, string thumbnailUrl, string? channel)>> downloadData)
     {
         scope.Report(VideoList.Status.loading);

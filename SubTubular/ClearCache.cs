@@ -202,7 +202,7 @@ public static class CacheManager
 
     private static (string name, Func<Task<PlaylistGroup?>>)[] GetPlaylistLike<Scope>(
         FileInfo[] files, FileInfo[] searches, string prefix, Func<string, string> getUrl, Func<string, Scope> createScope,
-        Func<Scope, Task<Playlist?>> getPlaylist, Func<string, string> getThumbnailFileName) where Scope : PlaylistLikeScope
+        Func<Scope, Task<Playlist>> getPlaylist, Func<string, string> getThumbnailFileName) where Scope : PlaylistLikeScope
     {
         var (caches, allIndexes) = files.WithPrefix(prefix).PartitionByExtension();
         var infos = caches.Except(searches).ToArray();
@@ -213,8 +213,6 @@ public static class CacheManager
             var scope = createScope(id);
             scope.AddPrevalidated(id, getUrl(id));
             var playlist = await getPlaylist(scope);
-            if (playlist == null) return null;
-
             var indexes = allIndexes.WithPrefix(prefix + id).ToArray();
 
             var thumbName = getThumbnailFileName(playlist.ThumbnailUrl);
