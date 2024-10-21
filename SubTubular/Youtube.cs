@@ -562,16 +562,6 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
         return video;
     }
 
-    private async Task DownloadCaptionTracksAndSaveAsync(Video video, CancellationToken cancellation)
-    {
-        video.CaptionTracks = [];
-
-        await foreach (var track in DownloadCaptionTracksAsync(video.Id, cancellation))
-            video.CaptionTracks.Add(track);
-
-        await dataStore.SetAsync(Video.StorageKeyPrefix + video.Id, video);
-    }
-
     private static Video MapVideo(YoutubeExplode.Videos.Video video) => new()
     {
         Id = video.Id.Value,
@@ -583,11 +573,11 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
         Thumbnail = SelectUrl(video.Thumbnails)
     };
 
-    private async IAsyncEnumerable<CaptionTrack> DownloadCaptionTracksAsync(string videoId,
-        [EnumeratorCancellation] CancellationToken cancellation)
+    private async Task DownloadCaptionTracksAndSaveAsync(Video video, CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
-        var trackManifest = await Client.Videos.ClosedCaptions.GetManifestAsync(videoId, cancellation);
+        var trackManifest = await Client.Videos.ClosedCaptions.GetManifestAsync(video.Id, cancellation);
+        video.CaptionTracks = [];
 
         foreach (var trackInfo in trackManifest.Tracks)
         {
@@ -610,8 +600,10 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                 captionTrack.Error = ex.ToString();
             }
 
-            yield return captionTrack;
+            video.CaptionTracks.Add(captionTrack);
         }
+
+        await dataStore.SetAsync(Video.StorageKeyPrefix + video.Id, video);
     }
 
     /// <summary>Returns a video lookup that used the local <paramref name="videos"/> collection for better performance.</summary>
