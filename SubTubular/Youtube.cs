@@ -299,7 +299,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                     Video? video = command.Videos?.Validated.SingleOrDefault(v => v.Id == id)?.Video;
                     video ??= await GetVideoAsync(id, cancellation, scope, downloadCaptionTracksAndSave: false);
                     if (video.CaptionTracks.Count == 0) await DownloadCaptionTracksAndSaveAsync(video, cancellation);
-                    playlist?.SetUploadedAndKeywords(video);
+                    playlist?.Update(video);
 
                     await unIndexedVideos.Writer.WriteAsync(video);
                     scope.Report(id, VideoList.Status.indexing);
