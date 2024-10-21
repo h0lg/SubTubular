@@ -200,14 +200,14 @@ public static class CacheManager
         return (searches, processAsync);
     }
 
-    private static Func<Task<PlaylistGroup?>>[] GetPlaylistLike<Scope>(
+    private static (string name, Func<Task<PlaylistGroup?>>)[] GetPlaylistLike<Scope>(
         FileInfo[] files, FileInfo[] searches, string prefix, Func<string, string> getUrl, Func<string, Scope> createScope,
         Func<Scope, Task<Playlist?>> getPlaylist, Func<string, string> getThumbnailFileName) where Scope : PlaylistLikeScope
     {
         var (caches, allIndexes) = files.WithPrefix(prefix).PartitionByExtension();
         var infos = caches.Except(searches).ToArray();
 
-        return infos.Select(file => new Func<Task<PlaylistGroup?>>(async () =>
+        return infos.Select(file => ("loading " + file.Name, new Func<Task<PlaylistGroup?>>(async () =>
         {
             var id = file.Name.StripAffixes(prefix, JsonFileDataStore.FileExtension);
             var scope = createScope(id);
@@ -229,7 +229,7 @@ public static class CacheManager
 
             return new PlaylistGroup(scope, playlist, file: file, thumbnail: thumbnail,
                 indexes: indexes, videos: videos, videoThumbnails: videoThumbs);
-        })).ToArray();
+        }))).ToArray();
     }
 
     public static async Task<(IEnumerable<string> cachesDeleted, IEnumerable<string> indexesDeleted)> Clear(

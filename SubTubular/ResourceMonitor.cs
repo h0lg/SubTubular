@@ -59,67 +59,95 @@ internal sealed class ResourceAwareJobScheduler(TimeSpan delayBetweenHeatUps)
     private readonly ResourceMonitor resources = new();
     private uint running;
 
-    internal async Task ParallelizeAsync(IEnumerable<Func<Task>> coldTasks, CancellationToken token)
+    internal async Task ParallelizeAsync(IEnumerable<(string name, Func<Task> heatUp)> coldTasks, CancellationToken token)
     {
-        SynchronizedCollection<Task> hotTasks = [];
+        SynchronizedCollection<(string name, Task task)> hotTasks = [];
         var cooking = HeatUp(coldTasks, hotTasks, token);
+        List<(string name, Exception error)> errors = [];
 
         while (!cooking.IsCompleted)
         {
             if (hotTasks.Count > 0)
             {
-                var cooked = await Task.WhenAny(hotTasks); // wait for and get the first to complete
+                var cooked = await Task.WhenAny(hotTasks.Select(t => t.task)); // wait for and get the first to complete
                 Interlocked.Decrement(ref running);
-                hotTasks.Remove(cooked);
+                var hot = hotTasks.Single(t => t.task == cooked);
+                if (cooked.IsFaulted) errors.Add((hot.name, cooked.Exception!));
+                hotTasks.Remove(hot);
             }
 
             // Prevent tight looping while waiting for new tasks
             if (hotTasks.Count == 0 && !cooking.IsCompleted) await Task.Delay(50, token);
         }
 
-        await cooking; // let him cook to rethrow possible exns
+        try { await cooking; } // let him cook to rethrow possible exns
+        catch (Exception ex) { errors.Add(("heating up tasks", ex)); }
+
+        if (errors.Count > 0) throw BundleErrors(errors);
     }
 
-    internal async IAsyncEnumerable<T> ParallelizeAsync<T>(IEnumerable<Func<Task<T>>> coldTasks, [EnumeratorCancellation] CancellationToken token = default)
+    internal async IAsyncEnumerable<T> ParallelizeAsync<T>(IEnumerable<(string name, Func<Task<T>> heatUp)> coldTasks,
+        [EnumeratorCancellation] CancellationToken token = default)
     {
-        var hotTasks = new SynchronizedCollection<Task<T>>();
+        var hotTasks = new SynchronizedCollection<(string name, Task<T> task)>();
         var cooking = HeatUp(coldTasks, hotTasks, token);
+        List<(string name, Exception error)> errors = [];
 
         while (!cooking.IsCompleted)
         {
             if (hotTasks.Count > 0)
             {
-                var cooked = await Task.WhenAny(hotTasks); // wait for and get the first to complete
+                var cooked = await Task.WhenAny(hotTasks.Select(t => t.task)); // wait for and get the first to complete
                 Interlocked.Decrement(ref running);
-                hotTasks.Remove(cooked);
-                yield return cooked.Result; // in order of completion
+                var hot = hotTasks.Single(t => t.task == cooked);
+                hotTasks.Remove(hot);
+                if (cooked.IsFaulted) errors.Add((hot.name, cooked.Exception!));
+                else yield return cooked.Result; // in order of completion
             }
 
             // Prevent tight looping while waiting for new tasks
             if (hotTasks.Count == 0 && !cooking.IsCompleted) await Task.Delay(50, token);
         }
 
-        await cooking; // let him cook to rethrow possible exns
+        try { await cooking; } // let him cook to rethrow possible exns
+        catch (Exception ex) { errors.Add(("heating up tasks", ex)); }
+
+        if (errors.Count > 0) throw BundleErrors(errors);
     }
 
     /// <summary>Starts the <paramref name="coldTasks"/> one after the other
     /// respecting the available <see cref="resources"/> and the <see cref="delayBetweenHeatUps"/>
     /// adding them to the running <paramref name="hotTasks"/> until the <paramref name="token"/> is cancelled.</summary>
-    private async Task HeatUp<T>(IEnumerable<Func<T>> coldTasks, SynchronizedCollection<T> hotTasks, CancellationToken token) where T : Task
+    private async Task HeatUp<T>(IEnumerable<(string name, Func<T> heatUp)> coldTasks,
+        SynchronizedCollection<(string name, T task)> hotTasks, CancellationToken token) where T : Task
     {
-        var orders = new Queue<Func<T>>(coldTasks);
+        var orders = new Queue<(string name, Func<T> heatUp)>(coldTasks);
 
         while (!token.IsCancellationRequested && orders.Count > 0)
         {
             // start a cold task if none is running or we have sufficient resources
             if (running == 0 || resources.HasSufficient())
             {
-                var heatUp = orders.Dequeue();
-                hotTasks.Add(heatUp()); // starts the task
+                var (name, heatUp) = orders.Dequeue();
+                hotTasks.Add((name, heatUp())); // starts the task
                 Interlocked.Increment(ref running);
             }
 
             if (!token.IsCancellationRequested) await Task.Delay(delayBetweenHeatUps, token);
         }
     }
+
+    private static AggregateException BundleErrors(List<(string name, Exception error)> errors)
+        // wrap error in new exception as a vessel for the name
+        => new(errors.Select(e =>
+        {
+            //e.error.Data["TaskName"] = e.name;
+            return new ColdTaskException(e.name, e.error);
+        }).ToArray());
+}
+
+public class ColdTaskException : Exception
+{
+    public ColdTaskException(string message, Exception innerException) : base(message, innerException) { }
+    public IEnumerable<Exception> GetRootCauses() => ((AggregateException)InnerException!).Flatten().InnerExceptions;
 }

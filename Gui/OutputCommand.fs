@@ -168,10 +168,35 @@ module OutputCommands =
                     | _ -> failwith ("Unknown command type " + command.GetType().ToString())
                 with exn ->
                     let dispatchError (exn: exn) =
-                        if exn :? InputException |> not then
-                            allErrors.Add(exn.ToString())
+                        // don't write an error log for InputExceptions
+                        match exn with
+                        | :? InputException -> ()
+                        | :? ColdTaskException as cte when cte.GetRootCauses().All(fun e -> e :? InputException) -> ()
+                        | _ -> allErrors.Add(exn.ToString())
 
-                        Fail exn.Message |> dispatchCommon
+                        // collect meaningful exception messages for notification
+                        let error =
+                            match exn.InnerException with
+                            | null -> Fail exn.Message
+                            | inner ->
+                                let message =
+                                    match exn with
+                                    | :? ColdTaskException as cte ->
+                                        cte
+                                            .GetRootCauses()
+                                            .Select(fun e ->
+                                                let details =
+                                                    match e.InnerException with
+                                                    | null -> ""
+                                                    | iex -> " " + iex.Message
+
+                                                e.Message + details)
+                                            .Join("\n")
+                                    | _ -> inner.Message
+
+                                FailLong(exn.Message, message)
+
+                        dispatchCommon error
 
                     match exn with
                     | :? OperationCanceledException -> Notify "The op was canceled" |> dispatchCommon

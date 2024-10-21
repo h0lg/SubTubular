@@ -76,7 +76,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
 
                 var results = Pipe.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions { SingleReader = true });
 
-                var searches = videos.GroupBy(v => v.ShardNumber).Select((group, index) => new Func<Task>(async () =>
+                var searches = videos.GroupBy(v => v.ShardNumber).Select(group => ("searching shard " + group.Key, new Func<Task>(async () =>
                 {
                     List<Task> shardSearches = [];
                     var containedVideoIds = group.Select(v => v.Id).ToArray();
@@ -120,8 +120,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                         shard.Dispose();
                         if (t.IsFaulted) throw t.Exception;
                     });
-                })).ToList();
-
+                }))).ToList();
 
                 scope.Report(VideoList.Status.searching);
                 var spansMultipleIndexes = searches.Count > 0;
@@ -129,7 +128,25 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                 // hook up writer completion before starting to read so reader knows when it's done
                 var searchCompletion = jobScheduler.ParallelizeAsync(searches, cancellation)
                    // complete writing after all download tasks finished
-                   .ContinueWith(t => results.Writer.Complete(t.Exception), cancellation);
+                   .ContinueWith(t =>
+                   {
+                       if (t.IsFaulted)
+                       {
+                           var causing = t.Exception.Flatten().InnerExceptions // cold task exns
+                                .SelectMany(e => e.InnerException is AggregateException aggex ? aggex.Flatten().InnerExceptions : (IList<Exception>)[e.InnerException!])
+                                .ToArray();
+
+                           if (causing.OfType<InputException>().Any())
+                           {
+                               results.Writer.Complete(t.Exception);
+                               return;
+                           }
+
+                           scope.Notify("Some errors occurred", null, [t.Exception]);
+                       }
+
+                       results.Writer.Complete(); // gracefully close the channel so the reader doesn't encounter errors
+                   }, cancellation);
 
                 // start reading
                 await foreach (var result in results.Reader.ReadAllAsync(cancellation))
@@ -140,8 +157,16 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                 }
 
                 scope.Report(VideoList.Status.searched);
-                await SavePlaylistAsync(playlist);
-                await searchCompletion; // to throw exceptions
+
+                try
+                {
+                    await SavePlaylistAsync(playlist);
+                    await searchCompletion; // to throw exceptions
+                }
+                catch (Exception ex)// when (ex is not InputException)
+                {
+                    scope.Notify("Some errors occurred", null, [ex]);
+                }
             }
         }
 
@@ -363,25 +388,51 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
         var storageKey = Video.StorageKeyPrefix + videoIds.Order().Join(" ");
         var index = await videoIndexRepo.GetAsync(storageKey);
 
+        var results = Pipe.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions { SingleReader = true });
+
+        Task searching;
+
         if (index == null)
         {
             index = videoIndexRepo.Build(storageKey);
 
-            await foreach (var result in SearchUnindexedVideos(command, videoIds, index, command.Videos!, cancellation))
-                yield return result;
+            searching = Task.Run(async () =>
+            {
+                await foreach (var result in SearchUnindexedVideos(command, videoIds, index, scope, cancellation))
+                    await results.Writer.WriteAsync(result);
+            }, cancellation);
         }
-        else
+        else searching = Task.Run(async () =>
         {
-            command.Videos!.Report(VideoList.Status.searching);
+            scope.Report(VideoList.Status.searching);
 
             // indexed videos are assumed to have downloaded their caption tracks already
-            Video[] videos = command.Videos!.Validated.Select(v => v.Video!).ToArray();
+            Video[] videos = scope.Validated.Select(v => v.Video!).ToArray();
 
             await foreach (var result in index.SearchAsync(command, CreateVideoLookup(videos), cancellation: cancellation))
-                yield return result;
+                await results.Writer.WriteAsync(result);
+        }, cancellation);
+
+        // hook up writer completion before starting to read so reader knows when it's done
+        var searchCompletion = searching.ContinueWith(t => results.Writer.Complete(t.Exception), cancellation);
+
+        // start reading
+        await foreach (var result in results.Reader.ReadAllAsync(cancellation))
+        {
+            yield return result;
         }
 
-        command.Videos!.Report(VideoList.Status.searched);
+        scope.Report(VideoList.Status.searched);
+
+        try
+        {
+            await searchCompletion; // to throw exceptions
+        }
+        catch (Exception ex) when (ex is not InputException)
+        {
+            scope.Notify("Some errors occurred", null, [ex]);
+        }
+
         index.Dispose();
     }
 
