@@ -31,7 +31,7 @@ public sealed class VideoIndexRepository
                 .WithField(nameof(Video.Keywords), v => v.Keywords)
                 .WithField(nameof(Video.Description), v => v.Description)
                 .WithDynamicFields(nameof(Video.CaptionTracks), v => v.CaptionTracks,
-                    ct => ct.LanguageName, ct => ct.GetFullText()))
+                    ct => ct.LanguageName, ct => ct.GetFullText() ?? string.Empty))
             .WithQueryParser(o => o.WithFuzzySearchDefaults(
                 maxEditDistance: termLength => (ushort)(termLength / 3),
                 // avoid returning zero here to allow for edits in the first place
@@ -261,10 +261,10 @@ internal sealed class VideoIndex : IDisposable
 
             if (captionTrackMatches.Any()) result.MatchingCaptionTracks = captionTrackMatches.Select(m =>
             {
-                var track = video.CaptionTracks.SingleOrDefault(t => t.LanguageName == m.FoundIn);
+                var track = video.CaptionTracks?.SingleOrDefault(t => t.LanguageName == m.FoundIn);
                 if (track == null) return null;
 
-                var matches = new MatchedText(track.GetFullText(), m.Locations
+                var matches = new MatchedText(track.GetFullText()!, m.Locations
                     .Select(match => new MatchedText.Match(match.Start, match.Length)).ToArray());
 
                 return new VideoSearchResult.CaptionTrackResult { Track = track, Matches = matches };

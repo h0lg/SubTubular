@@ -21,7 +21,8 @@ public sealed class Video
     /// This is a work-around for <see cref="CacheManager"/> not cleaning up playlist indexes when singular videos are cleared.</summary>
     internal bool UnIndexed { get; set; }
 
-    public IList<CaptionTrack> CaptionTracks { get; set; } = [];
+    /// <summary>Null if tracks have not been downloaded.</summary>
+    public IList<CaptionTrack>? CaptionTracks { get; set; }
 
     internal static string GuessThumbnailUrl(string videoId) => $"https://img.youtube.com/vi/{videoId}/default.jpg";
 }
@@ -40,16 +41,16 @@ public sealed class CaptionTrack
     private Dictionary<int, Caption>? captionAtFullTextIndex;
 
     // aggregates captions into fullText to enable matching phrases across caption boundaries
-    internal string GetFullText()
+    internal string? GetFullText()
     {
-        if (fullText == null) CacheFullText();
-        return fullText!;
+        if (fullText == null && Captions != null) CacheFullText();
+        return fullText;
     }
 
-    internal Dictionary<int, Caption> GetCaptionAtFullTextIndex()
+    internal Dictionary<int, Caption>? GetCaptionAtFullTextIndex()
     {
-        if (captionAtFullTextIndex == null) CacheFullText();
-        return captionAtFullTextIndex!;
+        if (captionAtFullTextIndex == null && Captions != null) CacheFullText();
+        return captionAtFullTextIndex;
     }
 
     private void CacheFullText()

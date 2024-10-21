@@ -51,31 +51,16 @@ static partial class Program
 
         ConcurrentBag<string> allErrors = new();
 
-        // set up async notification channel
-        command.OnScopeNotification((scope, notification) => outputs.ForEach(o =>
+        foreach (var scope in command.GetCaptionTrackDownloadStatus())
         {
-            var titleAndScope = notification.Title + " in " + scope.Describe(inDetail: false).Join(" ");
-            o.WriteLine();
-            o.WriteLine(titleAndScope);
-            Video? video = notification.Video;
-            if (video != null) o.WriteLine($"Video: {video.Title} {Youtube.GetVideoUrl(video.Id)}");
-            if (notification.Message.IsNonEmpty()) o.WriteLine(notification.Message);
+            var notifications = scope.Value.AsNotifications(s => s.status.HasValue);
 
-            if (notification.Errors.HasAny())
-            {
-                // collect error details for log
-                var errorDetails = notification.Errors!.Select(e => e.ToString())
-                    .Prepend(titleAndScope).Prepend(notification.Message)
-                    .WithValue().Join(ErrorLog.OutputSpacing);
+            if (notifications.Length > 0)
+                foreach (var ntf in notifications) OnScopeNotified(scope.Key, ntf);
+        }
 
-                allErrors.Add(errorDetails);
-
-                // output messages immediately
-                foreach (var error in notification.Errors!) o.WriteLine(error.Message);
-            }
-
-            o.WriteLine();
-        }));
+        // set up async notification channel
+        command.OnScopeNotification(OnScopeNotified);
 
         try
         {
@@ -109,6 +94,31 @@ static partial class Program
         foreach (var output in outputs.OfType<IDisposable>()) output.Dispose();
         running = false; // to let the cancel task complete if operation did before it
         await cancel; // just to rethrow possible exceptions
+
+        void OnScopeNotified(CommandScope scope, CommandScope.Notification notification) => outputs.ForEach(o =>
+        {
+            o.WriteLine();
+            var titleAndScope = notification.Title + " in " + scope.Describe(inDetail: false).Join(" ");
+            o.WriteLine(titleAndScope);
+            Video? video = notification.Video;
+            if (video != null) o.WriteLine($"Video: {video.Title} {Youtube.GetVideoUrl(video.Id)}");
+            if (notification.Message.IsNonEmpty()) o.WriteLine(notification.Message);
+
+            if (notification.Errors.HasAny())
+            {
+                // collect error details for log
+                var errorDetails = notification.Errors!.Select(e => e.ToString())
+                    .Prepend(titleAndScope).Prepend(notification.Message)
+                    .WithValue().Join(ErrorLog.OutputSpacing);
+
+                allErrors.Add(errorDetails);
+
+                // output messages immediately
+                foreach (var error in notification.Errors!) o.WriteLine(error.Message);
+            }
+
+            o.WriteLine();
+        });
     }
 }
 

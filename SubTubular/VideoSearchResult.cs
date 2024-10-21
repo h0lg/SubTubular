@@ -63,7 +63,7 @@ public sealed class VideoSearchResult
             // get (included) padded start and end index of matched Text
             var start = Math.Max(0, matched.Matches.Min(m => m.Start) - (int)matchPadding);
             var end = Math.Min(matched.Text.Length - 1, matched.Matches.Max(m => m.IncludedEnd) + (int)matchPadding);
-            var captionAtFullTextIndex = Track.GetCaptionAtFullTextIndex();
+            var captionAtFullTextIndex = Track.GetCaptionAtFullTextIndex()!;
 
             // find first and last captions containing parts of the padded match
             var first = captionAtFullTextIndex.Last(x => x.Key <= start);
@@ -87,6 +87,7 @@ public sealed class VideoSearchResult
         {
             var fulltextStart = Math.Max(0, Matches.Matches.Max(m => m.Start) - matchPadding);
             var captionAtFullTextIndex = Track.GetCaptionAtFullTextIndex();
+            if (captionAtFullTextIndex == null) return false;
             var lastCaptionStart = captionAtFullTextIndex.Last(x => x.Key <= fulltextStart).Value;
             return lastCaptionStart.At > 3600; // sec per hour
         }

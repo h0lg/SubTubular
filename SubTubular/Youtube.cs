@@ -80,8 +80,9 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                 {
                     List<Task> shardSearches = [];
                     var containedVideoIds = group.Select(v => v.Id).ToArray();
+                    var completeVideos = group.Where(v => v.CaptionTrackDownloadStatus.IsComplete()).ToArray();
                     var shard = await videoIndexRepo.GetIndexShardAsync(storageKey, group.Key!.Value);
-                    var indexedVideoIds = shard.GetIndexed(containedVideoIds);
+                    var indexedVideoIds = shard.GetIndexed(completeVideos.Select(v => v.Id));
 
                     if (indexedVideoIds.Length != 0)
                     {
@@ -323,7 +324,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
 
                     Video? video = command.Videos?.Validated.SingleOrDefault(v => v.Id == id)?.Video;
                     video ??= await GetVideoAsync(id, cancellation, scope, downloadCaptionTracksAndSave: false);
-                    if (video.CaptionTracks.Count == 0) await DownloadCaptionTracksAndSaveAsync(video, cancellation);
+                    if (video.CaptionTracks == null) await DownloadCaptionTracksAndSaveAsync(video, cancellation);
                     playlist?.Update(video);
 
                     await unIndexedVideos.Writer.WriteAsync(video);
@@ -563,6 +564,8 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
 
     private async Task DownloadCaptionTracksAndSaveAsync(Video video, CancellationToken cancellation)
     {
+        video.CaptionTracks = [];
+
         await foreach (var track in DownloadCaptionTracksAsync(video.Id, cancellation))
             video.CaptionTracks.Add(track);
 

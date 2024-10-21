@@ -143,6 +143,7 @@ module Scope =
 
     type Model =
         { Scope: CommandScope
+          CaptionStatusNotifications: CommandScope.Notification list
           Aliases: string
           AliasSearch: AliasSearch
           ValidationError: string
@@ -203,6 +204,7 @@ module Scope =
 
     let private init scope added =
         { Scope = scope
+          CaptionStatusNotifications = []
           Aliases = // set from scope to sync
             match scope with
             | PlaylistLike pl -> pl.Alias
@@ -267,7 +269,23 @@ module Scope =
             let model, cmd = validate model
             model, cmd, DoNothing
 
-        | ValidationSucceeded -> { model with ValidationError = null }, Cmd.none, DoNothing
+        | ValidationSucceeded ->
+            let model =
+                match model.Scope with
+                | PlaylistLike pl ->
+                    let notifications =
+                        pl.SingleValidated.Playlist
+                            .GetCaptionTrackDownloadStates()
+                            .AsNotifications(fun s ->
+                                let status, _ = s.ToTuple()
+                                status.HasValue)
+                        |> List.ofArray
+
+                    { model with
+                        CaptionStatusNotifications = notifications }
+                | Vids _ -> model
+
+            { model with ValidationError = null }, Cmd.none, DoNothing
 
         | ValidationFailed exn ->
             { model with
@@ -304,7 +322,25 @@ module Scope =
             model, Cmd.none, DoNothing
 
         | Remove -> model, Cmd.none, RemoveMe
-        | ProgressChanged -> model, Cmd.none, DoNothing
+
+        | ProgressChanged ->
+            let model =
+                match model.Scope.Progress.State with
+                | VideoList.Status.searched ->
+                    let notifications =
+                        model.Scope.SingleValidated.Playlist
+                            .GetCaptionTrackDownloadStates()
+                            .AsNotifications(fun s ->
+                                let status, _ = s.ToTuple()
+                                status.HasValue)
+                        |> List.ofArray
+
+                    { model with
+                        CaptionStatusNotifications = notifications }
+                | _ -> model
+
+            model, Cmd.none, DoNothing
+
         | ProgressValueChanged _ -> model, Cmd.none, DoNothing
         | Notified _ -> model, Cmd.none, DoNothing
         | Common _ -> model, Cmd.none, DoNothing
@@ -470,7 +506,8 @@ module Scope =
                     else
                         search model showThumbnails
 
-                    let notifications = List.ofSeq playlistLike.Notifications
+                    let notifications =
+                        model.CaptionStatusNotifications @ (List.ofSeq playlistLike.Notifications)
 
                     TextBlock($"⚠️ {notifications.Length}")
                         .onScopeNotified(model.Scope, Notified)
