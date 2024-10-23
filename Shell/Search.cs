@@ -12,7 +12,7 @@ static partial class Program
 
         await OutputAsync(command, originalCommand, async (youtube, outputs, cancellation) =>
         {
-            await foreach (var result in youtube.SearchAsync(command, cancellation))
+            await foreach (var result in youtube.SearchAsync(command, cancellation: cancellation))
                 outputs.ForEach(o => o.WriteVideoResult(result, command.Padding));
         });
     }

@@ -67,6 +67,7 @@ module Cache =
                         .LoadByPlaylist(
                             Services.CacheFolder,
                             Services.Youtube,
+                            Services.JobSchedulerReporter,
                             (fun url -> ThumbnailCache.getFileName url)
                         )
                         .ToTuple()

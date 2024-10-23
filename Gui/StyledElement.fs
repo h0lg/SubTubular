@@ -32,6 +32,14 @@ module CommandScopeAttributes =
             let model = unbox<CommandScope> element.DataContext
             model.Notified)
 
+module JobSchedulerReporterAttributes =
+    /// Allows attaching a handler to the Updated event of a JobSchedulerReporter to a StyledElement
+    let Updated =
+        Attributes.defineEventNoArg "JobSchedulerReporter_Updated" (fun target ->
+            let element = unbox<StyledElement> target
+            let model = unbox<JobSchedulerReporter> element.DataContext
+            model.Updated)
+
 type StyledElementModifiers =
     /// Dispatches a msg on scope.ProgressChanged.
     [<Extension>]
@@ -46,12 +54,21 @@ type StyledElementModifiers =
     /// Dispatches a msg on scope.Notified.
     [<Extension>]
     static member inline onScopeNotified
-        (this: WidgetBuilder<'msg, #IFabStyledElement>, scope: CommandScope, msg: CommandScope.Notification -> 'msg)
-        =
+        (this: WidgetBuilder<'msg, #IFabStyledElement>, scope: CommandScope, msg: CommandScope.Notification -> 'msg) =
         this
             // set DataContext for it to be available in CommandScopeAttributes.Notified
             .AddScalar(StyledElement.DataContext.WithValue(scope))
             .AddScalar(CommandScopeAttributes.Notified.WithValue(msg))
+
+    /// Dispatches a msg on scheduler.Updated.
+    [<Extension>]
+    static member inline onJobSchedulerReporterUpdated
+        (this: WidgetBuilder<'msg, #IFabStyledElement>, scheduler: JobSchedulerReporter, msg: 'msg)
+        =
+        this
+            // set DataContext for it to be available in CommandScopeAttributes.Notified
+            .AddScalar(StyledElement.DataContext.WithValue(scheduler))
+            .AddScalar(JobSchedulerReporterAttributes.Updated.WithValue(MsgValue msg))
 
     /// <summary>Adds inline styles used by the widget and its descendants.</summary>
     /// <param name="this">Current widget.</param>

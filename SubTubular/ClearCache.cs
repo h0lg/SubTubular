@@ -158,7 +158,7 @@ public static class CacheManager
     }
 
     public static (ScopeSearches, Func<Action<PlaylistGroup>, Action<LooseFiles>, Task> processAsync)
-        LoadByPlaylist(string cacheFolder, Youtube youtube, Func<string, string> getThumbnailFileName)
+        LoadByPlaylist(string cacheFolder, Youtube youtube, JobSchedulerReporter reporter, Func<string, string> getThumbnailFileName)
     {
         var files = FileHelper.EnumerateFiles(cacheFolder, "*", SearchOption.AllDirectories).ToArray();
         ScopeSearches searches = files.GetSearches();
@@ -178,7 +178,7 @@ public static class CacheManager
         Func<Action<PlaylistGroup>, Action<LooseFiles>, Task> processAsync = new((dispatchGroup, dispatchLooseFiles)
             => Task.Run(async () =>
             {
-                ResourceAwareJobScheduler jobScheduler = new(TimeSpan.FromSeconds(.2));
+                ResourceAwareJobScheduler jobScheduler = new(TimeSpan.FromSeconds(.2), reporter);
                 List<PlaylistGroup> groups = [];
 
                 await foreach (var group in jobScheduler.ParallelizeAsync(channels.Concat(playlists)))

@@ -27,12 +27,12 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
     public readonly YoutubeClient Client = new();
 
     public async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command,
-        [EnumeratorCancellation] CancellationToken cancellation = default)
+        JobSchedulerReporter? reporter = null, [EnumeratorCancellation] CancellationToken cancellation = default)
     {
         using var linkedTs = CancellationTokenSource.CreateLinkedTokenSource(cancellation); // to cancel parallel searches on InputException
         var results = Pipe.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions() { SingleReader = true });
         Func<VideoSearchResult, ValueTask> addResult = r => results.Writer.WriteAsync(r, linkedTs.Token);
-        ResourceAwareJobScheduler jobScheduler = new(TimeSpan.FromSeconds(.5));
+        ResourceAwareJobScheduler jobScheduler = new(TimeSpan.FromSeconds(.5), reporter);
         List<(string name, Func<Task> heatUp)> searches = [];
         SearchPlaylistLikeScopes(command.Channels);
         SearchPlaylistLikeScopes(command.Playlists);

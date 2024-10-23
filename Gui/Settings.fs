@@ -17,12 +17,14 @@ module Settings =
     type Model =
         { ThemeVariantKey: string
           ShowThumbnails: bool
+          ShowJobSchedulerMonitor: bool
           ResultOptions: ResultOptions.Model option
           FileOutput: FileOutput.Model option }
 
     type Msg =
         | ThemeVariantSelected of ThemeVariant option
         | ToggleThumbnails of bool
+        | ToggleJobSchedulerMonitor of bool
         | Save
         | Saved
         | Loaded of Model
@@ -32,7 +34,8 @@ module Settings =
 
     let initModel =
         { ThemeVariantKey = ThemeVariant.Default.Key.ToString()
-          ShowThumbnails = false
+          ShowThumbnails = true
+          ShowJobSchedulerMonitor = false
           ResultOptions = None
           FileOutput = None }
 
@@ -69,6 +72,11 @@ module Settings =
                 requestSave ()
             | None -> model, Cmd.none
 
+        | ToggleJobSchedulerMonitor on ->
+            { model with
+                ShowJobSchedulerMonitor = on },
+            requestSave ()
+
         | ToggleThumbnails on -> { model with ShowThumbnails = on }, requestSave ()
         | Save -> model, Cmd.none
         | Saved -> model, Cmd.none
@@ -103,5 +111,10 @@ module Settings =
             HStack() {
                 Label("Download & display thumbnails").centerVertical ()
                 ToggleSwitch(model.ShowThumbnails, ToggleThumbnails)
+            }
+
+            HStack() {
+                Label("Display job scheduler monitor").centerVertical ()
+                ToggleSwitch(model.ShowJobSchedulerMonitor, ToggleJobSchedulerMonitor)
             }
         }

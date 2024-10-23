@@ -37,6 +37,7 @@ module Icon =
 [<AutoOpen>]
 module Styles =
     let avaloniaResourceUri fileName = "avares://SubTubular.Gui/" + fileName
+    let appIconUrl = avaloniaResourceUri ("SubTubular.ico")
 
     let private getFactor (factor: float option) = factor |> Option.defaultValue 1
 

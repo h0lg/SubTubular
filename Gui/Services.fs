@@ -34,6 +34,7 @@ module Shared =
 module Services =
     let CacheFolder = Folder.GetPath Folders.cache
     let DataStore = JsonFileDataStore CacheFolder
+    let JobSchedulerReporter = JobSchedulerReporter()
     let Youtube = Youtube(DataStore, VideoIndexRepository CacheFolder)
 
 module Notify =

@@ -125,7 +125,7 @@ module OutputCommands =
 
                         do!
                             Services.Youtube
-                                .SearchAsync(search, cancellation)
+                                .SearchAsync(search, Services.JobSchedulerReporter, cancellation)
                                 .dispatchBatchThrottledTo (300, SearchResults, dispatch)
 
                     | :? ListKeywords as listKeywords ->

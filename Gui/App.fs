@@ -25,6 +25,7 @@ module App =
         | RecentMsg of ConfigFile.Msg
         | SettingsMsg of Settings.Msg
         | SearchMsg of OutputCommands.Msg
+        | SchedulerMonitorMsg of SchedulerMonitor.Msg
 
         | AttachedToVisualTreeChanged of VisualTreeAttachmentEventArgs
         | Common of CommonMsg
@@ -141,9 +142,15 @@ module App =
 
             | _ -> { model with Settings = upd }, mappedCmd
 
+        | SchedulerMonitorMsg _ -> model, Cmd.none
+
     let private view model =
         (TabControl() {
+            TabItem(Image(appIconUrl).margin(10, 5, 0, 0).height (25), HWrapEmpty())
+                .isEnabled (false)
+
             TabItem(Icon.recent + " Recent", View.map RecentMsg (ConfigFile.view model.Recent))
+                .isSelected (true)
 
             TabItem(
                 Icon.search + "Search",
@@ -153,8 +160,15 @@ module App =
 
             TabItem("🗃 Storage", View.map CacheMsg (Cache.view model.Cache))
             TabItem("⚙ Settings", View.map SettingsMsg (Settings.view model.Settings))
+
+            TabItem(
+                View.map SchedulerMonitorMsg (SchedulerMonitor.render (Services.JobSchedulerReporter)),
+                HWrapEmpty()
+            )
+                .isEnabled(false)
+                .isVisible (model.Settings.ShowJobSchedulerMonitor)
         })
-            .margin(10) // to allow dragging the Window while using extendClientAreaToDecorationsHint
+            .margin(0, 15, 0, 10) // to allow dragging the Window while using extendClientAreaToDecorationsHint
             .onAttachedToVisualTree (AttachedToVisualTreeChanged)
 
 #if MOBILE
@@ -163,7 +177,7 @@ module App =
     let app model =
         let window =
             Window(view model)
-                .icon(avaloniaResourceUri ("SubTubular.ico"))
+                .icon(appIconUrl)
                 .title("SubTubular")
                 .extendClientAreaToDecorationsHint(true)
                 .background (ThemeAware.With(Colors.BlanchedAlmond, Colors.MidnightBlue))
