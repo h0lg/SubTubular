@@ -159,7 +159,6 @@ public static class RemoteValidate
         // rely on pre-validation to have added an entry in Validated, skipping previously remote-validated
         => videosScope.GetRemoteValidated(false).Select(async validationResult =>
         {
-            videosScope.Report(validationResult.Id, VideoList.Status.downloading);
             // video is not saved here without captiontracks so none in the cache means there probably are none - otherwise cached info is indeterminate
             validationResult.Video = await youtube.GetVideoAsync(validationResult.Id, cancellation, videosScope, downloadCaptionTracksAndSave: false);
             videosScope.Report(validationResult.Id, VideoList.Status.validated);
@@ -167,7 +166,6 @@ public static class RemoteValidate
 
     public static async Task PlaylistAsync(PlaylistScope scope, Youtube youtube, CancellationToken cancellation)
     {
-        scope.Report(VideoList.Status.loading);
         scope.SingleValidated.Playlist = await youtube.GetPlaylistAsync(scope, cancellation);
         scope.Report(VideoList.Status.validated);
     }
@@ -263,7 +261,6 @@ public static class RemoteValidate
 
             var (type, value) = ChannelAliasMap.GetTypeAndValue(alias);
             map = new ChannelAliasMap { Type = type, Value = value };
-            channel.Report(VideoList.Status.downloading);
 
             try
             {

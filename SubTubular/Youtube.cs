@@ -133,6 +133,7 @@ public sealed class Youtube
     private async Task<Playlist?> GetPlaylistAsync(PlaylistLikeScope scope,
         Func<Task<(string title, string thumbnailUrl, string? channel)>> downloadData)
     {
+        scope.Report(VideoList.Status.loading);
         var playlist = await dataStore.GetAsync<Playlist>(scope.StorageKey); // get cached
         if (playlist != null) return playlist;
 
@@ -378,6 +379,7 @@ public sealed class Youtube
     {
         cancellation.ThrowIfCancellationRequested();
         var storageKey = Video.StorageKeyPrefix + videoId;
+        scope.Report(videoId, VideoList.Status.loading);
         var video = await dataStore.GetAsync<Video>(storageKey);
 
         if (video == null)
