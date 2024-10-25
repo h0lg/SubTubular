@@ -1,6 +1,7 @@
 ﻿using System.Runtime.InteropServices;
 using CommandLine;
 using CommandLine.Text;
+using Lifti;
 
 namespace SubTubular;
 
@@ -88,15 +89,22 @@ internal static class Program
                 return h;
             })));
         }
-        catch (InputException ex) { Console.Error.WriteLine(ex.Message); }
-        catch (HttpRequestException ex)
+        catch (Exception ex)
         {
-            Console.Error.WriteLine("An unexpected error occurred loading data from YouTube."
-                + " Try again later or with an updated version. " + ex.Message);
+            var cause = ex.GetBaseException();
+
+            if (cause is InputException || cause is LiftiException)
+            {
+                Console.Error.WriteLine(cause.Message);
+                return;
+            }
+
+            if (cause is HttpRequestException)
+                Console.Error.WriteLine("An unexpected error occurred loading data from YouTube."
+                    + " Try again later or with an updated version. " + cause.Message);
 
             await WriteErrorLogAsync(originalCommand, ex.ToString());
         }
-        catch (Exception ex) { await WriteErrorLogAsync(originalCommand, ex.ToString()); }
     }
 
     private static async Task SearchAsync(SearchCommand command, string originalCommand,
