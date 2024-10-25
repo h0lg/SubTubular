@@ -6,7 +6,7 @@
     <ApplicationIcon>../SubTubular.ico</ApplicationIcon>
     <AssemblyTitle>SubTubular - full-text search for YouTube videos</AssemblyTitle>
     <Product>SubTubular</Product>
-    <VersionPrefix>3.1.0</VersionPrefix>
+    <VersionPrefix>3.1.1</VersionPrefix>
     <Description>A command-line interface for full-text-searching YouTube video subtitles and metadata.</Description>
     <Authors>Holger Schmidt</Authors>
     <Copyright>Copyright © Holger Schmidt 2020</Copyright>
