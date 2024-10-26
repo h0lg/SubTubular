@@ -4,7 +4,6 @@ using SubTubular.Extensions;
 using YoutubeExplode;
 using YoutubeExplode.Channels;
 using YoutubeExplode.Common;
-using YoutubeExplode.Exceptions;
 using YoutubeExplode.Playlists;
 using Pipe = System.Threading.Channels.Channel; // to avoid conflict with YoutubeExplode.Channels.Channel
 
@@ -47,7 +46,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
 
         Action<Exception> handleProducerError = ex =>
         {
-            if (ex.GetRootCauses().OfType<InputException>().Any())
+            if (ex.HasInputRootCause())
             {
                 /* wait for the root cause to bubble up instead of triggering
                  * an OperationCanceledException further up the call chain. */
@@ -152,10 +151,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
 
             Action<AggregateException> onError = ex =>
             {
-                if (ex.GetRootCauses().OfType<InputException>().Any())
-                {
-                    throw ex;
-                }
+                if (ex.HasInputRootCause()) throw ex; // raise input errors to stop parallel searches
             };
 
             try
@@ -164,7 +160,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                 scope.Report(VideoList.Status.searched);
                 if (continuedRefresh != null) await continuedRefresh;
             }
-            catch (Exception ex) when (ex.GetBaseException() is not InputException)
+            catch (Exception ex) when (!ex.HasInputRootCause()) // bubble up input errors to stop parallel searches
             {
                 scope.Notify("Some errors occurred", errors: [ex]);
             }
@@ -270,10 +266,6 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                     }
                 }
             }
-            /* treat playlist identified by user input not being available as input error
-             * and re-throw otherwise; the uploads playlist of a channel being unavailable is unexpected */
-            catch (PlaylistUnavailableException ex) when (scope is PlaylistScope playlistScope)
-            { throw new InputException($"Could not find {playlistScope.Describe(inDetail: false).Join(" ")}.", ex); }
             catch (Exception ex) { scope.Notify("Error refreshing playlist", ex.Message, [ex]); }
             finally
             {
@@ -430,7 +422,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
         {
             await searching; // to throw exceptions
         }
-        catch (Exception ex) when (ex is not InputException)
+        catch (Exception ex) when (!ex.HasInputRootCause()) // bubble up input errors to stop parallel searches
         {
             scope.Notify("Some errors occurred", errors: [ex]);
         }

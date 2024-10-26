@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Lifti;
 
 /*  Namespace does not match folder structure.
  *  It was deliberately chosen to avoid including maybe conflicting extensions accidentally
@@ -172,12 +173,20 @@ internal static class TaskExtensions
 
 public static class ExceptionExtensions
 {
+    public static IEnumerable<Exception> GetRootCauses(this IEnumerable<Exception> exns)
+        => exns.SelectMany(ex => ex.GetRootCauses());
+
     public static IEnumerable<Exception> GetRootCauses(this Exception ex) => ex switch
     {
         AggregateException aggex => aggex.Flatten().InnerExceptions.SelectMany(inner => inner.GetRootCauses()),
         ColdTaskException ctex => ctex.InnerException!.GetRootCauses(),
         _ => [ex]
     };
+
+    public static bool IsInputError(this Exception ex) => ex is InputException || ex is LiftiException;
+    public static bool HasInputRootCause(this Exception ex) => ex.GetRootCauses().Any(IsInputError);
+    public static bool HaveInputRootCause(this IEnumerable<Exception> exns) => exns.GetRootCauses().Any(IsInputError);
+    public static bool AreAll<T>(this IEnumerable<Exception> exns) => exns.All(e => e is T);
 
     internal static bool IsNotFound(this HttpRequestException exception)
         => exception.StatusCode == System.Net.HttpStatusCode.NotFound || exception.Message.Contains("404 (NotFound)");

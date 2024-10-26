@@ -101,10 +101,11 @@ module OutputCommands =
                 let command = mapToCommand model
 
                 command.OnScopeNotification(fun scope ntf ->
-                    if ntf.Errors.HasAny() then
+                    if ntf.Errors.HasAny() && not (ntf.Errors.HaveInputRootCause()) then
                         allErrors.Add(
                             ntf.Errors
-                                .Select(fun ex -> ex.GetBaseException().ToString())
+                                .GetRootCauses()
+                                .Select(fun ex -> ex.ToString())
                                 .Prepend("in " + scope.Describe(false).Join(" "))
                                 .Prepend(ntf.Title)
                                 .Join("\n")
@@ -156,10 +157,8 @@ module OutputCommands =
                 with exn ->
                     let dispatchError (exn: exn) =
                         // don't write an error log for InputExceptions
-                        match exn with
-                        | :? InputException -> ()
-                        | :? ColdTaskException as cte when cte.GetRootCauses().All(fun e -> e :? InputException) -> ()
-                        | _ -> allErrors.Add(exn.ToString())
+                        if exn.HasInputRootCause() |> not then
+                            allErrors.Add(exn.ToString())
 
                         // collect meaningful exception messages for notification
                         let error =
@@ -185,12 +184,12 @@ module OutputCommands =
 
                         dispatchCommon error
 
-                    match exn with
-                    | :? OperationCanceledException -> Notify "The op was canceled" |> dispatchCommon
-                    | :? AggregateException as exns ->
-                        for inner in exns.Flatten().InnerExceptions do
+                    match exn.GetRootCauses() with
+                    | exns when exns.AreAll<OperationCanceledException>() ->
+                        Notify "The op was canceled" |> dispatchCommon
+                    | exns ->
+                        for inner in exns do
                             dispatchError inner
-                    | _ -> dispatchError exn
 
                 if not allErrors.IsEmpty then
                     let! logWriting =

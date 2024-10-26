@@ -1,6 +1,5 @@
 using System.Runtime.CompilerServices;
 using Lifti;
-using Lifti.Querying;
 using Lifti.Serialization.Binary;
 using SubTubular.Extensions;
 
@@ -144,16 +143,13 @@ internal sealed class VideoIndex : IDisposable
         [EnumeratorCancellation] CancellationToken cancellation = default)
     {
         cancellation.ThrowIfCancellationRequested();
-        IEnumerable<SearchResult<string>> results;
 
-        try { results = Index.Search(command.Query!); }
-        catch (QueryParserException ex) { throw new InputException("Error parsing query.", ex); }
-
-        // make sure to only return results for the requested videos if specified; playlist or channel indexes may contain more
-        var matches = results.Where(m => relevantVideos?.ContainsKey(m.Key) != false).ToList();
+        var matches = Index.Search(command.Query!)
+            // make sure to only return results for the requested videos if specified; playlist or channel indexes may contain more
+            .Where(m => relevantVideos?.ContainsKey(m.Key) != false).ToList();
 
         Video[]? videosWithoutUploadDate = null;
-        var unIndexedVideos = new List<Video>();
+        List<Video> unIndexedVideos = [];
 
         // order matches
         if (matches.Count > 1)

@@ -203,15 +203,8 @@ public static class RemoteValidate
 
         List<Exception> errors = [];
 
-        try
-        {
-            await Task.WhenAll(channelValidations).WithAggregateException();
-        }
-        catch (Exception ex)
-        {
-            if (ex is AggregateException agg) errors.AddRange(agg.InnerExceptions);
-            else errors.Add(ex);
-        }
+        try { await Task.WhenAll(channelValidations).WithAggregateException(); }
+        catch (Exception ex) { errors.AddRange(ex.GetRootCauses()); }
 
         var results = channelValidations.Where(t => t.IsCompletedSuccessfully).Select(t => t.Result).ToArray();
         var matchingChannels = results.SelectMany(r => r.matchingChannels).Distinct();

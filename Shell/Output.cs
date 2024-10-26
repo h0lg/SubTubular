@@ -116,7 +116,7 @@ static partial class Program
                 allErrors.Add(errorDetails);
 
                 // output messages immediately
-                foreach (var error in notification.Errors!.SelectMany(ex => ex.GetRootCauses()))
+                foreach (var error in notification.Errors!.GetRootCauses())
                     write(error.Message);
             }
 

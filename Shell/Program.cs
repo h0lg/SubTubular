@@ -1,5 +1,5 @@
-﻿using Lifti;
-using SubTubular.Extensions;
+﻿using SubTubular.Extensions;
+using YoutubeExplode.Exceptions;
 
 namespace SubTubular.Shell;
 
@@ -23,19 +23,27 @@ internal static partial class Program
         try { await CommandInterpreter.ParseArgs(args, originalCommand); }
         catch (Exception ex)
         {
-            var cause = ex.GetBaseException();
+            var causes = ex.GetRootCauses();
 
-            if (cause is InputException || cause is LiftiException)
+            if (causes.AreAll<OperationCanceledException>())
             {
-                Console.Error.WriteLine(cause.Message);
+                Console.WriteLine("The operation was canceled.");
                 return;
             }
 
-            if (cause is HttpRequestException)
-                Console.Error.WriteLine("An unexpected error occurred loading data from YouTube."
-                    + " Try again later or with an updated version. " + cause.Message);
+            if (causes.All(c => c.IsInputError() || c is VideoUnavailableException))
+            {
+                foreach (var cause in causes)
+                    Console.Error.WriteLine(cause.Message);
 
-            await WriteErrorLogAsync(originalCommand, ex.ToString());
+                return;
+            }
+
+            if (causes.AreAll<HttpRequestException>())
+                Console.Error.WriteLine(causes.Select(c => c.Message)
+                    .Prepend("Unexpected errors occurred loading data from YouTube. Try again later or with an updated version. ")
+                    .Join(Environment.NewLine));
+            else await WriteErrorLogAsync(originalCommand, ex.ToString());
         }
     }
 
