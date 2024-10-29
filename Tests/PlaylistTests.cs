@@ -6,7 +6,7 @@ namespace Tests;
 public class PlaylistTests
 {
     [TestMethod]
-    public void RefreshOrdersVideosAndUpdatesShardNumbersCorrectly()
+    public async Task RefreshOrdersVideosAndUpdatesShardNumbersCorrectly()
     {
         const ushort shardSize = 10;
         Playlist.ShardSize = shardSize;
@@ -14,17 +14,17 @@ public class PlaylistTests
         List<int> videoIds = [];
 
         // loads initial two shards 0, 1
-        AddVideoShards(at: 0, start: 3, count: 2);
+        await AddVideoShards(at: 0, start: 3, count: 2);
         // prepends two shards -2, -1 (like after Uploads playlist was added to remotely)
-        AddVideoShards(at: 0, start: 1, count: 2);
+        await AddVideoShards(at: 0, start: 1, count: 2);
         // appends shard 2 (simulating skipping or taking more videos)
-        AddVideoShards(at: 4, start: 5, count: 1);
+        await AddVideoShards(at: 4, start: 5, count: 1);
         // prepends shard -3 (like after Uploads playlist was added to remotely)
-        AddVideoShards(at: 0, start: 0, count: 1);
+        await AddVideoShards(at: 0, start: 0, count: 1);
 
         AssertCollectionsEqual(GenerateShards(0, 6, shardSize).ToList(), videoIds);
 
-        using (playlist.CreateChangeToken())
+        await using (playlist.CreateChangeToken(() => Task.CompletedTask))
         {
             var videos = playlist.GetVideos().ToList();
             var actualVideoIds = videos.Select(v => v.Id).ToList();
@@ -35,11 +35,11 @@ public class PlaylistTests
             AssertCollectionsEqual(expectedShardNumbers, actualShardNumbers);
         }
 
-        void AddVideoShards(int at, int start, int count)
+        async Task AddVideoShards(int at, int start, int count)
         {
             videoIds.InsertRange(at * shardSize, GenerateShards(start, count, shardSize));
 
-            using (playlist.CreateChangeToken())
+            await using (playlist.CreateChangeToken(() => Task.CompletedTask))
             {
                 foreach (var id in videoIds) playlist.TryAddVideoId(id.ToString(), (uint)videoIds.IndexOf(id));
                 playlist.UpdateShardNumbers();
@@ -48,7 +48,7 @@ public class PlaylistTests
     }
 
     [TestMethod]
-    public void RemovingVideosRemotelyUpdatesCache()
+    public async Task RemovingVideosRemotelyUpdatesCache()
     {
         const ushort shardSize = 10;
         Playlist.ShardSize = shardSize;
@@ -56,13 +56,13 @@ public class PlaylistTests
 
         // add 3 shards
         List<int> videoIds = GenerateShards(0, 3, shardSize).ToList();
-        AddVideos();
+        await AddVideos();
 
         // drop every third video
         videoIds.RemoveAll(x => x % 3 == 0);
-        AddVideos();
+        await AddVideos();
 
-        using (playlist.CreateChangeToken())
+        await using (playlist.CreateChangeToken(() => Task.CompletedTask))
         {
             var videos = playlist.GetVideos().ToList();
             var actualVideoIds = videos.Select(v => v.Id).ToList();
@@ -80,9 +80,9 @@ public class PlaylistTests
 
         // add all videos back, but in reverse order
         videoIds = GenerateShards(0, 3, shardSize).Reverse().ToList();
-        AddVideos();
+        await AddVideos();
 
-        using (playlist.CreateChangeToken())
+        await using (playlist.CreateChangeToken(() => Task.CompletedTask))
         {
             var videos = playlist.GetVideos().ToList();
             var actualVideoIds = videos.Select(v => v.Id).ToList();
@@ -96,9 +96,9 @@ public class PlaylistTests
             AssertCollectionsEqual(expectedShardNumbers, actualShardNumbers);
         }
 
-        void AddVideos()
+        async Task AddVideos()
         {
-            using (playlist.CreateChangeToken())
+            await using (playlist.CreateChangeToken(() => Task.CompletedTask))
             {
                 foreach (var id in videoIds) playlist.TryAddVideoId(id.ToString(), (uint)videoIds.IndexOf(id));
                 playlist.UpdateShardNumbers();
@@ -107,7 +107,7 @@ public class PlaylistTests
     }
 
     [TestMethod]
-    public void AdjacentPlaylistIndexesEndUpInTheSameShard()
+    public async Task AdjacentPlaylistIndexesEndUpInTheSameShard()
     {
         const ushort halfShardSize = 5;
 
@@ -116,17 +116,17 @@ public class PlaylistTests
         List<int> videoIds = [];
 
         // add first half of shard 0
-        AddHalfShard(at: 0, start: 2, count: 1);
+        await AddHalfShard(at: 0, start: 2, count: 1);
         // prepends first half of shard 1 (like after Uploads playlist was added to remotely)
-        AddHalfShard(at: 0, start: 1, count: 1);
+        await AddHalfShard(at: 0, start: 1, count: 1);
         // appends shard 4 (simulating skipping or taking more videos)
-        AddHalfShard(at: 2, start: 3, count: 1);
+        await AddHalfShard(at: 2, start: 3, count: 1);
         // prepends shard 5 (like after Uploads playlist was added to remotely)
-        AddHalfShard(at: 0, start: 0, count: 1);
+        await AddHalfShard(at: 0, start: 0, count: 1);
 
         AssertCollectionsEqual(GenerateShards(0, 4, halfShardSize).ToList(), videoIds);
 
-        using (playlist.CreateChangeToken())
+        await using (playlist.CreateChangeToken(() => Task.CompletedTask))
         {
             var videos = playlist.GetVideos().ToList();
             var actualVideoIds = videos.Select(v => v.Id).ToList();
@@ -137,11 +137,11 @@ public class PlaylistTests
             AssertCollectionsEqual(expectedShardNumbers, actualShardNumbers);
         }
 
-        void AddHalfShard(int at, int start, int count)
+        async Task AddHalfShard(int at, int start, int count)
         {
             videoIds.InsertRange(at * halfShardSize, GenerateShards(start, count, halfShardSize));
 
-            using (playlist.CreateChangeToken())
+            await using (playlist.CreateChangeToken(() => Task.CompletedTask))
             {
                 foreach (var id in videoIds) playlist.TryAddVideoId(id.ToString(), (uint)videoIds.IndexOf(id));
                 playlist.UpdateShardNumbers();

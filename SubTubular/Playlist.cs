@@ -63,10 +63,10 @@ public sealed class Playlist
     private SemaphoreSlim? changeToken; // ensures safe concurrent access during the update phase
 
     // creates the changeToken required for changes
-    public IDisposable CreateChangeToken()
+    public IAsyncDisposable CreateChangeToken(Func<Task> savePlaylist)
     {
         changeToken = new(1, 1);
-        return changeToken;
+        return new ChangeTokenResetter(this, savePlaylist); // resets the changeToken to null when disposed
     }
 
     /// <summary>Tries inserting or moving <paramref name="videoId"/>
@@ -156,11 +156,14 @@ public sealed class Playlist
 
         try
         {
+            var withoutShardNumber = videos.Where(v => v.ShardNumber == null).ToArray();
+            if (withoutShardNumber.Length == 0) return;
+
             videos = videos.OrderBy(v => v.PlaylistIndex).ToList();
             var firstLoaded = videos.Find(v => v.ShardNumber == 0);
             var indexOfFirstLoaded = firstLoaded == null ? 0 : videos.IndexOf(firstLoaded);
 
-            foreach (var video in videos.Where(v => v.ShardNumber == null))
+            foreach (var video in withoutShardNumber)
             {
                 var index = videos.IndexOf(video);
                 int translatedIndex = index - indexOfFirstLoaded;
@@ -184,7 +187,7 @@ public sealed class Playlist
         changeToken.Release();
     }
 
-    internal async ValueTask SaveAsync(Func<Task> save)
+    private async ValueTask SaveAsync(Func<Task> save)
     {
         if (!hasUnsavedChanges) return;
         await changeToken!.WaitAsync();
@@ -203,6 +206,16 @@ public sealed class Playlist
     // required to enable structurally comparing PlaylistGroup
     public override bool Equals(object? other) => other != null && other is Playlist pl && ThumbnailUrl == pl.ThumbnailUrl;
     public override int GetHashCode() => ThumbnailUrl.GetHashCode(); // because Equals is overridden
+
+    private sealed class ChangeTokenResetter(Playlist playlist, Func<Task> savePlaylist) : IAsyncDisposable
+    {
+        public async ValueTask DisposeAsync()
+        {
+            await playlist.SaveAsync(savePlaylist);
+            playlist.changeToken?.Dispose();
+            playlist.changeToken = null; // not required any longer when changes have been made
+        }
+    }
 
     public sealed class VideoInfo
     {
