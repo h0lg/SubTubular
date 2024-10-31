@@ -93,83 +93,84 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
 
         await using (playlist.CreateChangeToken(() => dataStore.SetAsync(storageKey, playlist)))
         {
-            Task? continuedRefresh = await RefreshPlaylistAsync(scope, cancellation);
-            var videos = playlist.GetVideos().Skip(scope.Skip).Take(scope.Take).ToArray();
-            var videoIds = videos.Select(v => v.Id).ToArray();
-            scope.QueueVideos(videoIds);
-            var spansMultipleIndexes = false;
-
-            var searches = videos.GroupBy(v => v.ShardNumber).Select(group => ("searching shard " + group.Key, new Func<Task>(async () =>
-            {
-                List<Task> shardSearches = [];
-                var containedVideoIds = group.Select(v => v.Id).ToArray();
-                var completeVideos = group.Where(v => v.CaptionTrackDownloadStatus.IsComplete()).ToArray();
-                var shard = await videoIndexRepo.GetIndexShardAsync(storageKey, group.Key!.Value);
-                var indexedVideoIds = shard.GetIndexed(completeVideos.Select(v => v.Id));
-
-                if (indexedVideoIds.Length != 0)
-                {
-                    var indexedVideoInfos = indexedVideoIds.ToDictionary(id => id, id => group.Single(v => v.Id == id).Uploaded);
-
-                    // search already indexed videos in one go - but on background task to start downloading and indexing videos in parallel
-                    shardSearches.Add(SearchIndexedVideos());
-
-                    async Task SearchIndexedVideos()
-                    {
-                        foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searching);
-
-                        await foreach (var result in shard.SearchAsync(command, CreateVideoLookup(scope), indexedVideoInfos, playlist, cancellation))
-                            await Yield(result);
-
-                        foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searched);
-                    }
-                }
-
-                var unIndexedVideoIds = containedVideoIds.Except(indexedVideoIds).ToArray();
-
-                // load, index and search not yet indexed videos
-                if (unIndexedVideoIds.Length > 0)
-                {
-                    shardSearches.Add(SearchUnindexedVids());
-
-                    async Task SearchUnindexedVids()
-                    {
-                        await foreach (var result in SearchUnindexedVideos(command, unIndexedVideoIds, shard, scope, cancellation, playlist))
-                            await Yield(result);
-                    }
-                }
-
-                await Task.WhenAll(shardSearches).WithAggregateException().ContinueWith(t =>
-                {
-                    shard.Dispose();
-                    if (t.IsFaulted) throw t.Exception;
-                });
-            }))).ToList();
-
-            scope.Report(VideoList.Status.searching);
-            spansMultipleIndexes = searches.Count > 0;
-
-            Action<AggregateException> onError = ex =>
-            {
-                if (ex.HasInputRootCause()) throw ex; // raise input errors to stop parallel searches
-            };
-
             try
             {
+                Task? continuedRefresh = await RefreshPlaylistAsync(scope, cancellation);
+                var videos = playlist.GetVideos().Skip(scope.Skip).Take(scope.Take).ToArray();
+                var videoIds = videos.Select(v => v.Id).ToArray();
+                scope.QueueVideos(videoIds);
+                var spansMultipleIndexes = false;
+
+                var searches = videos.GroupBy(v => v.ShardNumber).Select(group => ("searching shard " + group.Key, new Func<Task>(async () =>
+                {
+                    List<Task> shardSearches = [];
+                    var containedVideoIds = group.Select(v => v.Id).ToArray();
+                    var completeVideos = group.Where(v => v.CaptionTrackDownloadStatus.IsComplete()).ToArray();
+                    var shard = await videoIndexRepo.GetIndexShardAsync(storageKey, group.Key!.Value);
+                    var indexedVideoIds = shard.GetIndexed(completeVideos.Select(v => v.Id));
+
+                    if (indexedVideoIds.Length != 0)
+                    {
+                        var indexedVideoInfos = indexedVideoIds.ToDictionary(id => id, id => group.Single(v => v.Id == id).Uploaded);
+
+                        // search already indexed videos in one go - but on background task to start downloading and indexing videos in parallel
+                        shardSearches.Add(SearchIndexedVideos());
+
+                        async Task SearchIndexedVideos()
+                        {
+                            foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searching);
+
+                            await foreach (var result in shard.SearchAsync(command, CreateVideoLookup(scope), indexedVideoInfos, playlist, cancellation))
+                                await Yield(result);
+
+                            foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searched);
+                        }
+                    }
+
+                    var unIndexedVideoIds = containedVideoIds.Except(indexedVideoIds).ToArray();
+
+                    // load, index and search not yet indexed videos
+                    if (unIndexedVideoIds.Length > 0)
+                    {
+                        shardSearches.Add(SearchUnindexedVids());
+
+                        async Task SearchUnindexedVids()
+                        {
+                            await foreach (var result in SearchUnindexedVideos(command, unIndexedVideoIds, shard, scope, cancellation, playlist))
+                                await Yield(result);
+                        }
+                    }
+
+                    await Task.WhenAll(shardSearches).WithAggregateException().ContinueWith(t =>
+                    {
+                        shard.Dispose();
+                        if (t.IsFaulted) throw t.Exception;
+                    });
+                }))).ToList();
+
+                scope.Report(VideoList.Status.searching);
+                spansMultipleIndexes = searches.Count > 0;
+
+                Action<AggregateException> onError = ex =>
+                {
+                    if (ex.HasInputRootCause()) throw ex; // raise input errors to stop parallel searches
+                };
+
                 await jobScheduler.ParallelizeAsync(searches, onError, cancellation);
-                scope.Report(VideoList.Status.searched);
+                scope.Report(cancellation.IsCancellationRequested ? VideoList.Status.canceled : VideoList.Status.searched);
                 if (continuedRefresh != null) await continuedRefresh;
+
+                ValueTask Yield(VideoSearchResult result)
+                {
+                    result.Scope = scope;
+                    if (spansMultipleIndexes) result.Rescore();
+                    return yieldResult(result);
+                }
             }
             catch (Exception ex) when (!ex.HasInputRootCause()) // bubble up input errors to stop parallel searches
             {
-                scope.Notify("Some errors occurred", errors: [ex]);
-            }
-
-            ValueTask Yield(VideoSearchResult result)
-            {
-                result.Scope = scope;
-                if (spansMultipleIndexes) result.Rescore();
-                return yieldResult(result);
+                if (ex.GetRootCauses().AreAll<OperationCanceledException>()) scope.Report(VideoList.Status.canceled);
+                else scope.Notify("Errors searching", errors: [ex]);
             }
         }
     }
@@ -424,7 +425,10 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
         }
         catch (Exception ex) when (!ex.HasInputRootCause()) // bubble up input errors to stop parallel searches
         {
-            scope.Notify("Some errors occurred", errors: [ex]);
+            var causes = ex.GetRootCauses();
+
+            if (causes.AreAll<OperationCanceledException>()) scope.Report(VideoList.Status.canceled);
+            else scope.Notify("Errors searching", errors: [ex]);
         }
 
         index.Dispose();
