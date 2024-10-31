@@ -36,7 +36,13 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
         List<(string name, Func<Task> heatUp)> searches = [];
         SearchPlaylistLikeScopes(command.Channels);
         SearchPlaylistLikeScopes(command.Playlists);
-        if (command.Videos?.IsValid == true) searches.Add(("searching videos", () => SearchVideosAsync(command, addResult, linkedTs.Token)));
+
+        if (command.Videos?.IsValid == true)
+        {
+            command.Videos.ResetProgressAndNotifications();
+            searches.Add(("searching videos", () => SearchVideosAsync(command, addResult, linkedTs.Token)));
+        }
+
         var spansMultipleIndexes = searches.Count > 0;
 
         Action<Exception> handleProducerError = ex =>
@@ -68,8 +74,12 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
         {
             if (scopes.HasAny())
                 foreach (var scope in scopes!)
+                {
+                    scope.ResetProgressAndNotifications(); // to prevent state from prior searches from bleeding into this one
+
                     searches.Add((scope.Describe(inDetail: false).Join(" "),
                         () => SearchPlaylistAsync(command, scope, addResult, jobScheduler, linkedTs.Token)));
+                }
         }
     }
 

@@ -86,6 +86,17 @@ partial class CommandScope
         ReportChange();
     }
 
+    internal void ResetProgressAndNotifications()
+    {
+        Notifications.Clear();
+
+        if (Progress.Videos.HasAny())
+            foreach (var id in Progress.Videos!.Keys.AsEnumerable())
+                UpdateVideoState(id, VideoList.Status.queued);
+
+        Report(VideoList.Status.validated);
+    }
+
     private void UpdateVideoState(string videoId, VideoList.Status state) => Progress.Videos![videoId] = state;
     private void ReportChange() => ProgressChanged?.Invoke(this, EventArgs.Empty);
 
