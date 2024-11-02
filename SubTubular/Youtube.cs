@@ -330,7 +330,11 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
 
                     Video? video = command.Videos?.Validated.SingleOrDefault(v => v.Id == id)?.Video;
                     video ??= await GetVideoAsync(id, cancellation, scope, downloadCaptionTracksAndSave: false);
-                    if (video.CaptionTracks == null) await DownloadCaptionTracksAndSaveAsync(video, scope, cancellation);
+
+                    // re/download caption tracks for the video
+                    if (video.CaptionTracks == null || video.CaptionTracks.WithErrors().Any())
+                        await DownloadCaptionTracksAndSaveAsync(video, scope, cancellation);
+
                     playlist?.Update(video);
 
                     await unIndexedVideos.Writer.WriteAsync(video);
@@ -614,7 +618,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
         }
 
         if (errors.Count > 0) scope.Notify("Errors downloading caption tracks",
-            message: video.CaptionTracks?.Where(t => t.Error != null)
+            message: video.CaptionTracks?.WithErrors()
                 .Select(t => $"  {t.LanguageName}: {t.Url}")
                 .Join(Environment.NewLine), [.. errors], video);
 

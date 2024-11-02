@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Serialization;
+using SubTubular.Extensions;
 
 namespace SubTubular;
 
@@ -130,7 +131,7 @@ public sealed class Playlist
 
             VideoInfo.CaptionStatus? captionStatus = loadedVideo.CaptionTracks == null ? VideoInfo.CaptionStatus.UnChecked
                 : loadedVideo.CaptionTracks.Count == 0 ? VideoInfo.CaptionStatus.None
-                : loadedVideo.CaptionTracks.Any(t => t.Error != null) ? VideoInfo.CaptionStatus.Error
+                : loadedVideo.CaptionTracks.WithErrors().Any() ? VideoInfo.CaptionStatus.Error
                 : null;
 
             if (video.Uploaded != loadedVideo.Uploaded
