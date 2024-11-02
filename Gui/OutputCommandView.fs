@@ -62,12 +62,14 @@ module OutputCommandView =
     let private renderCommandOptions model isSearch =
         Grid(coldefs = [ Auto; Star; Auto; Auto; Auto; Auto; Auto ], rowdefs = [ Auto ]) {
             Menu() {
-                MenuItem("🏷 List _keywords", CommandChanged Commands.ListKeywords)
+                MenuItem("🏷 List _keywords")
+                    .onClick(fun _ -> CommandChanged Commands.ListKeywords)
                     .tooltip(ListKeywords.Description)
                     .tapCursor()
                     .asToggle (not isSearch)
 
-                MenuItem(Icon.search + "_Search for", CommandChanged Commands.Search)
+                MenuItem(Icon.search + "_Search for")
+                    .onClick(fun _ -> CommandChanged Commands.Search)
                     .tooltip(SearchCommand.Description)
                     .tapCursor()
                     .asToggle (isSearch)

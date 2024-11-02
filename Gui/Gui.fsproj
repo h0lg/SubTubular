@@ -15,10 +15,8 @@
   <ItemGroup>
     <AvaloniaResource Include="Styles.xaml" />
     <AvaloniaResource Include="SubTubular.ico" />
-    <Compile Include="Application.fs" />
     <Compile Include="WrapPanel.fs" />
     <Compile Include="AsyncImage.fs" />
-    <Compile Include="AutoCompleteBox.fs" />
     <Compile Include="StyledElement.fs" />
     <Compile Include="SchedulerMonitor.fs" />
     <Compile Include="Styles.fs" />
@@ -48,10 +46,10 @@
   <ItemGroup>
     <PackageReference Include="AsyncImageLoader.Avalonia" Version="3.3.0" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.2" />
-    <PackageReference Include="Fabulous.Avalonia.Diagnostics" Version="3.0.0-pre6" />
+    <PackageReference Include="Fabulous.Avalonia.Diagnostics" Version="3.0.0-pre12" />
     <PackageReference Include="FSharp.Core" Version="9.0.300" />
-    <PackageReference Include="Fabulous" Version="3.0.0-pre5" />
-    <PackageReference Include="Fabulous.Avalonia" Version="3.0.0-pre6" />
+    <PackageReference Include="Fabulous" Version="3.0.0-pre22" />
+    <PackageReference Include="Fabulous.Avalonia" Version="3.0.0-pre12" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\SubTubular\SubTubular.csproj" />

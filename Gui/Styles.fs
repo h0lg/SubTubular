@@ -107,4 +107,4 @@ module Styles =
                 Style(_.OfType<AutoCompleteBox>().Template().OfType<TextBox>().Name("PART_TextBox"))
 
             style.Setters.Add(Setter(TextBox.AcceptsReturnProperty, box true))
-            this.styles (style)
+            this.styles ([ style ])

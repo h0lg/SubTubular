@@ -180,13 +180,13 @@ module App =
                 .icon(appIconUrl)
                 .title("SubTubular")
                 .extendClientAreaToDecorationsHint(true)
-                .background (ThemeAware.With(Colors.BlanchedAlmond, Colors.MidnightBlue))
-
-        DesktopApplication(window)
-            .requestedThemeVariant(Settings.getThemeVariant (model.Settings.ThemeVariantKey))
+                .background(ThemeAware.With(Colors.BlanchedAlmond, Colors.MidnightBlue))
 #if DEBUG
-            .attachDevTools ()
+                .attachDevTools ()
 #endif
+
+        (DesktopApplication() { window })
+            .requestedThemeVariant (Settings.getThemeVariant (model.Settings.ThemeVariantKey))
 #endif
 
     let create () =
