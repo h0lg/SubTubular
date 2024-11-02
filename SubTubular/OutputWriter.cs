@@ -15,6 +15,8 @@ public abstract class OutputWriter(OutputCommand command)
     public abstract void Write(string text);
     public abstract void WriteHighlighted(string text);
     public abstract void WriteLine(string? text = null);
+    public abstract void WriteNotificationLine(string text);
+    public abstract void WriteErrorLine(string text);
     public abstract void WriteUrl(string url);
 
     public virtual void WriteHeader()

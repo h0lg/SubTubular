@@ -60,6 +60,8 @@ public class TextOutputWriter : FileOutputWriter, IDisposable
     public override void WriteHighlighted(string text) => Write($"*{text}*");
     public override void WriteUrl(string url) => Write(url);
     public override void WriteLineBreak() => textOut.WriteLine();
+    public override void WriteNotificationLine(string text) => WriteLine("⚠ " + text);
+    public override void WriteErrorLine(string text) => WriteLine("🛑 " + text);
     public override string Flush() => textOut.ToString();
     public void Dispose() => textOut.Dispose();
 }

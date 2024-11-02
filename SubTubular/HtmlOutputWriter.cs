@@ -14,7 +14,12 @@ public class HtmlOutputWriter : FileOutputWriter, IDisposable
         document = context.OpenNewAsync().Result;
 
         var style = document.CreateElement("style");
-        style.TextContent = "pre > em { background-color: yellow }";
+
+        style.TextContent =
+@"pre > mark { background-color: yellow }
+pre > aside.notification { background-color: orange }
+pre > aside.error { background-color: red }";
+
         document.Head!.Append(style);
 
         output = document.CreateElement("pre");
@@ -26,7 +31,7 @@ public class HtmlOutputWriter : FileOutputWriter, IDisposable
 
     public override void WriteHighlighted(string text)
     {
-        var em = document.CreateElement("em");
+        var em = document.CreateElement("mark");
         em.TextContent = text;
         output.Append(em);
     }
@@ -38,6 +43,22 @@ public class HtmlOutputWriter : FileOutputWriter, IDisposable
         hlink.SetAttribute("target", "_blank");
         hlink.TextContent = url;
         output.Append(hlink);
+    }
+
+    public override void WriteNotificationLine(string text)
+    {
+        var aside = document.CreateElement("aside");
+        aside.ClassName = "notification";
+        aside.TextContent = text;
+        output.Append(aside);
+    }
+
+    public override void WriteErrorLine(string text)
+    {
+        var aside = document.CreateElement("aside");
+        aside.ClassName = "error";
+        aside.TextContent = text;
+        output.Append(aside);
     }
 
     public override string Flush() => document.DocumentElement.OuterHtml;

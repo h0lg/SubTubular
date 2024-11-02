@@ -95,16 +95,18 @@ static partial class Program
         running = false; // to let the cancel task complete if operation did before it
         await cancel; // just to rethrow possible exceptions
 
-        void OnScopeNotified(CommandScope scope, CommandScope.Notification notification) => outputs.ForEach(o =>
+        void OnScopeNotified(CommandScope scope, CommandScope.Notification notification) => outputs.ForEach(output =>
         {
-            o.WriteLine();
+            output.WriteLine();
             var titleAndScope = notification.Title + " in " + scope.Describe(inDetail: false).Join(" ");
-            o.WriteLine(titleAndScope);
+            bool hasErrors = notification.Errors.HasAny();
+            Action<string> write = hasErrors ? text => output.WriteErrorLine(text) : text => output.WriteNotificationLine(text);
+            write(titleAndScope);
             Video? video = notification.Video;
-            if (video != null) o.WriteLine($"Video: {video.Title} {Youtube.GetVideoUrl(video.Id)}");
-            if (notification.Message.IsNonEmpty()) o.WriteLine(notification.Message);
+            if (video != null) write($"Video: {video.Title} {Youtube.GetVideoUrl(video.Id)}");
+            if (notification.Message.IsNonEmpty()) write(notification.Message!);
 
-            if (notification.Errors.HasAny())
+            if (hasErrors)
             {
                 // collect error details for log
                 var errorDetails = notification.Errors!.Select(e => e.ToString())
@@ -114,10 +116,11 @@ static partial class Program
                 allErrors.Add(errorDetails);
 
                 // output messages immediately
-                foreach (var error in notification.Errors!) o.WriteLine(error.Message);
+                foreach (var error in notification.Errors!.SelectMany(ex => ex.GetRootCauses()))
+                    write(error.Message);
             }
 
-            o.WriteLine();
+            output.WriteLine();
         });
     }
 }
