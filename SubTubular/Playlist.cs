@@ -1,9 +1,7 @@
 ﻿using System.Text.Json.Serialization;
-using SubTubular.Extensions;
 
 namespace SubTubular;
 
-using CaptionTrackDownloadStatus = (Playlist.VideoInfo.CaptionStatus? status, Playlist.VideoInfo[] videos);
 using JP = JsonPropertyNameAttribute;
 
 public sealed class Playlist
@@ -39,11 +37,6 @@ public sealed class Playlist
         try { return videos.Where(v => v.PlaylistIndex.HasValue).OrderBy(v => v.PlaylistIndex); }
         finally { changeToken?.Release(); }
     }
-
-    public CaptionTrackDownloadStatus[] GetCaptionTrackDownloadStates()
-        => GetVideos()
-            .GroupBy(v => v.CaptionTrackDownloadStatus)
-            .Select(g => (g.Key, g.ToArray())).ToArray();
 
     internal uint GetVideoCount()
     {
@@ -85,7 +78,7 @@ public sealed class Playlist
                 foreach (var dropped in videos.Where(v => newIndex == v.PlaylistIndex))
                     dropped.PlaylistIndex = null;
 
-                video = new VideoInfo { Id = videoId, PlaylistIndex = newIndex, CaptionTrackDownloadStatus = VideoInfo.CaptionStatus.UnChecked };
+                video = new VideoInfo { Id = videoId, PlaylistIndex = newIndex, CaptionTrackDownloadStatus = CommandScope.CaptionStatus.UnChecked };
                 videos.Add(video);
                 hasUnsavedChanges = true;
                 return true;
@@ -128,11 +121,7 @@ public sealed class Playlist
             }
 
             bool madeChanges = false;
-
-            VideoInfo.CaptionStatus? captionStatus = loadedVideo.CaptionTracks == null ? VideoInfo.CaptionStatus.UnChecked
-                : loadedVideo.CaptionTracks.Count == 0 ? VideoInfo.CaptionStatus.None
-                : loadedVideo.CaptionTracks.WithErrors().Any() ? VideoInfo.CaptionStatus.Error
-                : null;
+            CommandScope.CaptionStatus? captionStatus = loadedVideo.GetCaptionTrackDownloadStatus();
 
             if (video.Uploaded != loadedVideo.Uploaded
                 || video.CaptionTrackDownloadStatus != captionStatus
@@ -229,7 +218,7 @@ public sealed class Playlist
         [JP("k")] public string[]? Keywords { get; set; }
 
         /// <summary>Empty if download succeeded for all.</summary>
-        [JP("c")] public CaptionStatus? CaptionTrackDownloadStatus { get; set; }
+        [JP("c")] public CommandScope.CaptionStatus? CaptionTrackDownloadStatus { get; set; }
 
         // used for debugging
         public override string ToString()
@@ -239,33 +228,5 @@ public sealed class Playlist
             var uploaded = Uploaded.HasValue ? $" {Uploaded:d}" : null;
             return Id + playlistIndex + shardNumber + uploaded;
         }
-
-        public enum CaptionStatus { UnChecked, None, Error }
     }
-}
-
-public static class PlaylistExtensions
-{
-    internal static bool IsComplete(this Playlist.VideoInfo.CaptionStatus? status) => status == null || status == Playlist.VideoInfo.CaptionStatus.None;
-
-    public static CommandScope.Notification[] AsNotifications(this CaptionTrackDownloadStatus[] states, Func<CaptionTrackDownloadStatus, bool>? predicate = null)
-        => states
-            .Where(s => predicate == null || predicate(s))
-            .Select(s =>
-            {
-                var issue = s.status switch
-                {
-                    null => " all caption tracks dowloaded",
-                    Playlist.VideoInfo.CaptionStatus.None => "out caption tracks",
-                    Playlist.VideoInfo.CaptionStatus.Error => " errors during caption track download",
-                    Playlist.VideoInfo.CaptionStatus.UnChecked => " unchecked caption track status",
-                    _ => " unknown caption track status"
-                };
-
-                return new CommandScope.Notification($"{s.videos.Length} videos with{issue}");
-            })
-            .ToArray();
-
-    public static Dictionary<PlaylistLikeScope, CaptionTrackDownloadStatus[]> GetCaptionTrackDownloadStatus(this OutputCommand command)
-        => command.GetPlaylistLikeScopes().ToDictionary(scope => scope, scope => scope.SingleValidated.Playlist!.GetCaptionTrackDownloadStates());
 }

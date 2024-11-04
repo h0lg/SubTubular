@@ -327,7 +327,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                     video ??= await GetVideoAsync(id, cancellation, scope, downloadCaptionTracksAndSave: false);
 
                     // re/download caption tracks for the video
-                    if (video.CaptionTracks == null || video.CaptionTracks.WithErrors().Any())
+                    if (!video.GetCaptionTrackDownloadStatus().IsComplete())
                         await DownloadCaptionTracksAndSaveAsync(video, scope, cancellation);
 
                     playlist?.Update(video);
