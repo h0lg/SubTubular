@@ -11,24 +11,29 @@ partial class CommandScope
 
 public static class CaptionStatusExtensions
 {
-    public static CaptionTrackDownloadStatus[] GetCaptionTrackDownloadStates(this Playlist playlist)
-        => playlist.GetVideos()
-            .GroupBy(v => v.CaptionTrackDownloadStatus)
-            .Select(g => (g.Key, g.Count())).ToArray();
+    public static CaptionTrackDownloadStatus[] GetCaptionTrackDownloadStates(this CommandScope scope)
+        => scope is PlaylistLikeScope
+            ? scope.SingleValidated.Playlist!.GetVideos()
+                .GroupBy(v => v.CaptionTrackDownloadStatus)
+                .Select(g => (g.Key, g.Count())).ToArray()
+            : scope.Validated.Select(vr => vr.Video!)
+                .GroupBy(v => v.GetCaptionTrackDownloadStatus())
+                .Select(g => (g.Key, g.Count())).ToArray();
 
     internal static CommandScope.CaptionStatus? GetCaptionTrackDownloadStatus(this Video video)
         => video.CaptionTracks == null ? CommandScope.CaptionStatus.UnChecked
             : video.CaptionTracks.Count == 0 ? CommandScope.CaptionStatus.None
             : video.CaptionTracks.WithErrors().Any() ? CommandScope.CaptionStatus.Error
-            : null;
+            : null; // downloaded
 
     internal static bool IsComplete(this CommandScope.CaptionStatus? status)
         => status is null or CommandScope.CaptionStatus.None;
 
-    public static CommandScope.Notification[] AsNotifications(this CaptionTrackDownloadStatus[] states,
-        Func<CaptionTrackDownloadStatus, bool>? predicate = null)
+    public static IEnumerable<CaptionTrackDownloadStatus> Irregular(this CaptionTrackDownloadStatus[] states)
+        => states.Where(s => s.status.HasValue); // not downloaded
+
+    public static CommandScope.Notification[] AsNotifications(this IEnumerable<CaptionTrackDownloadStatus> states)
         => states
-            .Where(s => predicate == null || predicate(s))
             .Select(s =>
             {
                 var issue = s.status switch
@@ -44,6 +49,6 @@ public static class CaptionStatusExtensions
             })
             .ToArray();
 
-    public static Dictionary<PlaylistLikeScope, CaptionTrackDownloadStatus[]> GetCaptionTrackDownloadStatus(this OutputCommand command)
-        => command.GetPlaylistLikeScopes().ToDictionary(scope => scope, scope => scope.SingleValidated.Playlist!.GetCaptionTrackDownloadStates());
+    public static IEnumerable<(CommandScope scope, CaptionTrackDownloadStatus[] captionTrackDlStates)> GetCaptionTrackDownloadStatus(this OutputCommand command)
+        => command.GetScopes().Select(scope => (scope, scope.GetCaptionTrackDownloadStates()));
 }

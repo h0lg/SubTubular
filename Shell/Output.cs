@@ -51,12 +51,12 @@ static partial class Program
 
         ConcurrentBag<string> allErrors = new();
 
-        foreach (var scope in command.GetCaptionTrackDownloadStatus())
+        foreach (var (scope, captionTrackDlStates) in command.GetCaptionTrackDownloadStatus())
         {
-            var notifications = scope.Value.AsNotifications(s => s.status.HasValue);
+            var notifications = captionTrackDlStates.Irregular().AsNotifications();
 
             if (notifications.Length > 0)
-                foreach (var ntf in notifications) OnScopeNotified(scope.Key, ntf);
+                foreach (var ntf in notifications) OnScopeNotified(scope, ntf);
         }
 
         // set up async notification channel

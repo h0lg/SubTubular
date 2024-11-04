@@ -235,6 +235,10 @@ module Scope =
 
         init scope true
 
+    let private getCaptionTrackDownloadStateNotifications model =
+        model.Scope.GetCaptionTrackDownloadStates().Irregular().AsNotifications()
+        |> List.ofArray
+
     let update msg model =
         match msg with
         | ToggleSettings show -> { model with ShowSettings = show }, Cmd.none, DoNothing
@@ -270,22 +274,11 @@ module Scope =
             model, cmd, DoNothing
 
         | ValidationSucceeded ->
-            let model =
-                match model.Scope with
-                | PlaylistLike pl ->
-                    let notifications =
-                        pl.SingleValidated.Playlist
-                            .GetCaptionTrackDownloadStates()
-                            .AsNotifications(fun s ->
-                                let status, _ = s.ToTuple()
-                                status.HasValue)
-                        |> List.ofArray
-
-                    { model with
-                        CaptionStatusNotifications = notifications }
-                | Vids _ -> model
-
-            { model with ValidationError = null }, Cmd.none, DoNothing
+            { model with
+                CaptionStatusNotifications = getCaptionTrackDownloadStateNotifications model
+                ValidationError = null },
+            Cmd.none,
+            DoNothing
 
         | ValidationFailed exn ->
             { model with
@@ -327,16 +320,8 @@ module Scope =
             let model =
                 match model.Scope.Progress.State with
                 | VideoList.Status.searched ->
-                    let notifications =
-                        model.Scope.SingleValidated.Playlist
-                            .GetCaptionTrackDownloadStates()
-                            .AsNotifications(fun s ->
-                                let status, _ = s.ToTuple()
-                                status.HasValue)
-                        |> List.ofArray
-
                     { model with
-                        CaptionStatusNotifications = notifications }
+                        CaptionStatusNotifications = getCaptionTrackDownloadStateNotifications model }
                 | _ -> model
 
             model, Cmd.none, DoNothing
@@ -478,6 +463,16 @@ module Scope =
             .placement(PlacementMode.BottomEdgeAlignedRight)
             .showMode (FlyoutShowMode.Standard)
 
+    let private notificationToggle model =
+        let notifications =
+            model.CaptionStatusNotifications @ (List.ofSeq model.Scope.Notifications)
+
+        TextBlock($"⚠️ {notifications.Length}")
+            .onScopeNotified(model.Scope, Notified)
+            .attachedFlyout(notificationFlyout notifications)
+            .tappable(ToggleFlyout >> Common, "some things came up while working on this scope")
+            .isVisible (not notifications.IsEmpty)
+
     let view model maxWidth showThumbnails =
         VStack() {
             match model.Scope with
@@ -506,14 +501,7 @@ module Scope =
                     else
                         search model showThumbnails
 
-                    let notifications =
-                        model.CaptionStatusNotifications @ (List.ofSeq playlistLike.Notifications)
-
-                    TextBlock($"⚠️ {notifications.Length}")
-                        .onScopeNotified(model.Scope, Notified)
-                        .attachedFlyout(notificationFlyout notifications)
-                        .tappable(ToggleFlyout >> Common, "some things came up while working on this scope")
-                        .isVisible (not notifications.IsEmpty)
+                    notificationToggle model
 
                     ToggleButton("⚙", model.ShowSettings, ToggleSettings)
                         .tooltip ("toggle settings")
@@ -564,6 +552,8 @@ module Scope =
                     if remoteValidated.IsEmpty then
                         removeBtn().gridRow (1)
                     else
+                        notificationToggle model
+
                         (HWrap() {
                             for validationResult in remoteValidated do
                                 let video = validationResult.Video
