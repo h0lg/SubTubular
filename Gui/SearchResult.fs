@@ -98,7 +98,7 @@ module SearchResult =
 
                             let offset =
                                 TimeSpan
-                                    .FromSeconds(captionAt)
+                                    .FromSeconds(int64 captionAt)
                                     .FormatWithOptionalHours()
                                     .PadLeft(if displaysHour then 7 else 5)
 
