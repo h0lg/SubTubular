@@ -16,6 +16,7 @@ open type Fabulous.Avalonia.View
 module App =
     type Model =
         { Search: OutputCommands.Model
+          IsSearchRunning: bool
           Settings: Settings.Model
           Cache: Cache.Model
           Recent: ConfigFile.Model }
@@ -34,7 +35,8 @@ module App =
         { Cache = Cache.initModel
           Settings = Settings.initModel
           Recent = ConfigFile.initModel
-          Search = OutputCommands.initModel }
+          Search = OutputCommands.initModel
+          IsSearchRunning = false }
 
     // load settings on init, see https://docs.fabulous.dev/basics/application-state/commands#triggering-commands-on-initialization
     let private init () =
@@ -91,6 +93,20 @@ module App =
                     | FileOutput.Msg.SaveOutput -> Cmd.none
                     | _ -> requestSaveSettings ()
                 | _ -> Cmd.none
+
+            let model =
+                match smsg with
+                | OutputCommands.Msg.Run on ->
+                    { model with
+                        IsSearchRunning = on
+                        // reset cache model when search is stopped
+                        Cache = if on then model.Cache else Cache.initModel }
+                | OutputCommands.Msg.CommandCompleted ->
+                    { model with
+                        IsSearchRunning = false
+                        // reset cache model when search completes
+                        Cache = Cache.initModel }
+                | _ -> model
 
             let updated, cmd = OutputCommands.update smsg model.Search
             { model with Search = updated }, Cmd.batch [ fwdCmd; Cmd.map SearchMsg cmd ]
@@ -150,6 +166,7 @@ module App =
                 .isEnabled (false)
 
             TabItem(Icon.recent + " Recent", View.map RecentMsg (ConfigFile.view model.Recent))
+                .isEnabled(not model.IsSearchRunning)
                 .isSelected (true)
 
             TabItem(
@@ -159,6 +176,8 @@ module App =
                 .reference (searchTab)
 
             TabItem("🗃 Storage", View.map CacheMsg (Cache.view model.Cache))
+                .isEnabled (not model.IsSearchRunning)
+
             TabItem("⚙ Settings", View.map SettingsMsg (Settings.view model.Settings))
 
             TabItem(

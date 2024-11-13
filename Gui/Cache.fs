@@ -379,15 +379,18 @@ module Cache =
 
                 Expander("Go to 📂 Locations", folders model)
                     .onExpanding(fun _ -> ExpandingFolders)
+                    .isExpanded(model.Folders.IsSome)
                     .gridColumn (2)
 
                 Expander("Files by type accessed within the last... " + Icon.recent, byLastAccess model)
                     .onExpanding(fun _ -> ExpandingByLastAccess)
+                    .isExpanded(model.ByLastAccess.IsSome)
                     .gridRow(2)
                     .gridColumnSpan (3)
 
                 Expander($"Files by {Icon.channel}channel, {Icon.playlist}playlist and type", byPlaylist model)
                     .onExpanding(fun _ -> ExpandingByPlaylist)
+                    .isExpanded(model.ByPlaylist.IsSome)
                     .gridRow(4)
                     .gridColumnSpan (3)
             }
