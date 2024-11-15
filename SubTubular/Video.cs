@@ -39,18 +39,28 @@ public sealed class CaptionTrack
     internal const string FullTextSeperator = " ";
     private string? fullText;
     private Dictionary<int, Caption>? captionAtFullTextIndex;
+    private readonly object accessToken = new(); // for thread-safe access
+    private Timer? dropCacheTimer;
 
     // aggregates captions into fullText to enable matching phrases across caption boundaries
     internal string? GetFullText()
     {
-        if (fullText == null && Captions != null) CacheFullText();
-        return fullText;
+        lock (accessToken)
+        {
+            if (fullText == null && Captions != null) CacheFullText();
+            RescheduleCacheDrop();
+            return fullText;
+        }
     }
 
     internal Dictionary<int, Caption>? GetCaptionAtFullTextIndex()
     {
-        if (captionAtFullTextIndex == null && Captions != null) CacheFullText();
-        return captionAtFullTextIndex;
+        lock (accessToken)
+        {
+            if (captionAtFullTextIndex == null && Captions != null) CacheFullText();
+            RescheduleCacheDrop();
+            return captionAtFullTextIndex;
+        }
     }
 
     private void CacheFullText()
@@ -72,6 +82,25 @@ public sealed class CaptionTrack
 
         captionAtFullTextIndex = captionsAtFullTextIndex;
         fullText = writer.ToString();
+    }
+
+    private void RescheduleCacheDrop()
+    {
+        dropCacheTimer?.Dispose(); // Dispose of any existing timer
+        dropCacheTimer = new Timer(DropCache, null, 1000, Timeout.Infinite);
+    }
+
+    private void DropCache(object? state)
+    {
+        lock (accessToken)
+        {
+            fullText = null;
+            captionAtFullTextIndex = null;
+
+            // Dispose of the timer and set it to null
+            dropCacheTimer?.Dispose();
+            dropCacheTimer = null;
+        }
     }
     #endregion
 }
