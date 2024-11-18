@@ -74,6 +74,7 @@ module Scope =
 
     type AliasSearch() =
         let mutable searching: CancellationTokenSource = null
+        let mutable selectedText: string = null
         let input = ViewRef<AutoCompleteBox>()
         let heartBeat = ViewRef<Animation>()
 
@@ -107,13 +108,16 @@ module Scope =
             if forVideos then
                 let selection, searchTerms = VideosInput.partition text
                 let labeledAlias = Alias.label result.Title result.Id
-                selection @ [ labeledAlias ] @ searchTerms |> VideosInput.join
+                selectedText <- selection @ [ labeledAlias ] @ searchTerms |> VideosInput.join
             else
-                Alias.label result.Title result.Id
+                selectedText <- Alias.label result.Title result.Id
+
+            selectedText
 
         member this.SearchAsync (scope: CommandScope) (text: string) (cancellation: CancellationToken) : Task<obj seq> =
             task {
-                if input.Value.IsKeyboardFocusWithin then // only start search if input has keyboard focus
+                // only start search if input has keyboard focus & avoid re-triggering it for the same search term after selection
+                if input.Value.IsKeyboardFocusWithin && text <> selectedText then
                     cancellation.Register(cancel) |> ignore // register cancellation of running search when outer cancellation is requested
                     cancel () // cancel any older running search
                     searching <- new CancellationTokenSource() // and create a new source for this one
