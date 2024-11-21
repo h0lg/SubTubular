@@ -158,7 +158,7 @@ public static class CacheManager
     }
 
     public static (ScopeSearches, Func<Action<PlaylistGroup>, Action<LooseFiles>, Task> processAsync)
-        LoadByPlaylist(string cacheFolder, Youtube youtube, JobSchedulerReporter reporter, Func<string, string> getThumbnailFileName)
+        LoadByPlaylist(string cacheFolder, Youtube youtube, Func<string, string> getThumbnailFileName)
     {
         var files = FileHelper.EnumerateFiles(cacheFolder, "*", SearchOption.AllDirectories).ToArray();
         ScopeSearches searches = files.GetSearches();
@@ -178,19 +178,16 @@ public static class CacheManager
         Func<Action<PlaylistGroup>, Action<LooseFiles>, Task> processAsync = new((dispatchGroup, dispatchLooseFiles)
             => Task.Run(async () =>
             {
-                ResourceAwareJobScheduler jobScheduler = new(TimeSpan.FromSeconds(.2), reporter);
-                List<PlaylistGroup> groups = [];
-
-                await foreach (var group in jobScheduler.ParallelizeAsync(channels.Concat(playlists)))
+                var tasks = channels.Concat(playlists).AsParallel().Select(async job =>
                 {
-                    if (group != null)
-                    {
-                        dispatchGroup(group.Value);
-                        groups.Add(group.Value);
-                    }
-                }
+                    var group = await job.start();
+                    if (group != null) dispatchGroup(group.Value);
+                    return group;
+                }).ToArray();
 
-                var looseFiles = files.Except(searches.GetFiles()).Except(groups.SelectMany(g => g.GetFiles())).ToArray();
+                await Task.WhenAll(tasks);
+
+                var looseFiles = files.Except(searches.GetFiles()).Except(tasks.Select(t => t.Result).WithValue().SelectMany(g => g.GetFiles())).ToArray();
                 var looseThumbs = looseFiles.WithExtension(string.Empty).ToArray();
                 var (looseVideos, looseVideoIndexes) = looseFiles.WithPrefix(Video.StorageKeyPrefix).PartitionByExtension();
                 var other = looseFiles.Except(looseThumbs).Except(looseVideos).Except(looseVideoIndexes).ToArray();
@@ -200,7 +197,7 @@ public static class CacheManager
         return (searches, processAsync);
     }
 
-    private static (string name, Func<Task<PlaylistGroup?>>)[] GetPlaylistLike<Scope>(
+    private static (string name, Func<Task<PlaylistGroup?>> start)[] GetPlaylistLike<Scope>(
         FileInfo[] files, FileInfo[] searches, string prefix, Func<string, string> getUrl, Func<string, Scope> createScope,
         Func<Scope, Task<Playlist>> getPlaylist, Func<string, string> getThumbnailFileName) where Scope : PlaylistLikeScope
     {
