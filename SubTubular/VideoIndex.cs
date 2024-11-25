@@ -114,8 +114,11 @@ internal sealed class VideoIndex : IDisposable
     internal string[] GetIndexed(IEnumerable<string> videoIds)
         => videoIds.Where(Index.Metadata.Contains).ToArray();
 
-    internal async Task AddAsync(Video video, CancellationToken cancellation)
+    internal async Task AddOrUpdateAsync(Video video, CancellationToken cancellation)
     {
+        /*  Adds or replaces the video, see
+            https://mikegoatly.github.io/lifti/docs/index-construction/withduplicatekeybehavior/
+            https://github.com/mikegoatly/lifti/discussions/124#discussioncomment-11296041 */
         await Index.AddAsync(video, cancellation);
         video.UnIndexed = false; // to reset the flag
     }
@@ -295,7 +298,7 @@ internal sealed class VideoIndex : IDisposable
             await Task.WhenAll(indexedKeys.Where(key => key == video.Id)
                 .Select(key => Index.RemoveAsync(key))).WithAggregateException();
 
-            await AddAsync(video, cancellation);
+            await AddOrUpdateAsync(video, cancellation);
         }
 
         await CommitBatchChangeAsync();

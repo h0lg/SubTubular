@@ -359,7 +359,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
         {
             cancellation.ThrowIfCancellationRequested();
             if (uncommitted.Count == 0) index.BeginBatchChange();
-            await index.AddAsync(video, cancellation);
+            await index.AddOrUpdateAsync(video, cancellation);
             uncommitted.Add(video);
 
             // save batch of changes
