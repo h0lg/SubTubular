@@ -157,7 +157,7 @@ public static class CacheManager
         return "eon";
     }
 
-    public static (ScopeSearches, Func<Action<PlaylistGroup>, Action<LooseFiles>, Task> processAsync)
+    public static (ScopeSearches, Func<Action<PlaylistGroup>, Action<LooseFiles>, Action<Exception>, Task> processAsync)
         LoadByPlaylist(string cacheFolder, Youtube youtube, Func<string, string> getThumbnailFileName)
     {
         var files = FileHelper.EnumerateFiles(cacheFolder, "*", SearchOption.AllDirectories).ToArray();
@@ -175,7 +175,7 @@ public static class CacheManager
             scope => youtube.GetPlaylistAsync(scope, CancellationToken.None),
             getThumbnailFileName);
 
-        Func<Action<PlaylistGroup>, Action<LooseFiles>, Task> processAsync = new((dispatchGroup, dispatchLooseFiles)
+        Func<Action<PlaylistGroup>, Action<LooseFiles>, Action<Exception>, Task> processAsync = new((dispatchGroup, dispatchLooseFiles, dispatchException)
             => Task.Run(async () =>
             {
                 var tasks = channels.Concat(playlists).AsParallel().Select(async job =>
@@ -185,9 +185,13 @@ public static class CacheManager
                     return group;
                 }).ToArray();
 
-                await Task.WhenAll(tasks);
+                try { await Task.WhenAll(tasks).WithAggregateException(); }
+                catch (Exception ex) { dispatchException(ex); }
 
-                var looseFiles = files.Except(searches.GetFiles()).Except(tasks.Select(t => t.Result).WithValue().SelectMany(g => g.GetFiles())).ToArray();
+                var looseFiles = files.Except(searches.GetFiles())
+                    .Except(tasks.Where(t => t.IsCompletedSuccessfully).Select(t => t.Result).WithValue().SelectMany(g => g.GetFiles()))
+                    .ToArray();
+
                 var looseThumbs = looseFiles.WithExtension(string.Empty).ToArray();
                 var (looseVideos, looseVideoIndexes) = looseFiles.WithPrefix(Video.StorageKeyPrefix).PartitionByExtension();
                 var other = looseFiles.Except(looseThumbs).Except(looseVideos).Except(looseVideoIndexes).ToArray();

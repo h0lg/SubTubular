@@ -82,7 +82,12 @@ module Cache =
                 do!
                     processAsync.Invoke(
                         (fun group -> group |> PlaylistGroupLoaded |> dispatch),
-                        (fun looseVids -> looseVids |> LooseFilesLoaded |> dispatch)
+                        (fun looseVids -> looseVids |> LooseFilesLoaded |> dispatch),
+                        (fun exn ->
+                            ErrorLog.WriteAsync(exn.ToString()).GetAwaiter().GetResult() |> ignore
+
+                            Notify.error "Error loading playlists" "An error log was written to the errors folder."
+                            |> ignore)
                     )
             }
             |> Async.AwaitTask
