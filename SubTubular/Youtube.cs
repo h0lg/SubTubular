@@ -242,6 +242,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                 // load and update videos in playlist while keeping existing video info
                 await foreach (var video in GetVideos(scope, linkedCts.Token))
                 {
+                    if (linkedCts.Token.IsCancellationRequested) break; // to avoid trying to make changes to playlist without change token
                     if (madeChanges.Count > 9) madeChanges.Dequeue(); // only track the last 10 changes
                     bool changed = playlist.TryAddVideoId(video.Id, listIndex++);
                     madeChanges.Enqueue(changed);

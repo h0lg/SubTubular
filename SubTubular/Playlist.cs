@@ -178,7 +178,7 @@ public sealed class Playlist
 
     private async ValueTask SaveAsync(Func<Task> save)
     {
-        if (!hasUnsavedChanges) return;
+        if (!hasUnsavedChanges || changeToken == null) return;
         await changeToken!.WaitAsync();
 
         try
@@ -200,6 +200,7 @@ public sealed class Playlist
     {
         public async ValueTask DisposeAsync()
         {
+            playlist.UpdateShardNumbers(); // in case user canceled process, leading to early disposal
             await playlist.SaveAsync(savePlaylist);
             playlist.changeToken?.Dispose();
             playlist.changeToken = null; // not required any longer when changes have been made
