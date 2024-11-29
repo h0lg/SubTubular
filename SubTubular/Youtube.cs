@@ -90,7 +90,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
     private async Task SearchPlaylistAsync(SearchCommand command, PlaylistLikeScope scope,
         Func<VideoSearchResult, ValueTask> yieldResult, CancellationToken cancellation = default)
     {
-        cancellation.ThrowIfCancellationRequested();
+        if (cancellation.IsCancellationRequested) return;
         var storageKey = scope.StorageKey;
         var playlist = scope.SingleValidated.Playlist!;
 
@@ -156,8 +156,8 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
 
                 await foreach (var task in Task.WhenEach(searches))
                 {
-                    if (task.IsFaulted && task.Exception.HasInputRootCause())
-                        throw task.Exception; // raise input errors to stop parallel searches
+                    if (task.IsFaulted)
+                        throw task.Exception; // raise errors
                 }
 
                 scope.Report(cancellation.IsCancellationRequested ? VideoList.Status.canceled : VideoList.Status.searched);
@@ -305,7 +305,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
         [EnumeratorCancellation] CancellationToken cancellation,
         Playlist? playlist = default)
     {
-        cancellation.ThrowIfCancellationRequested();
+        if (cancellation.IsCancellationRequested) yield break;
         scope.Report(VideoList.Status.indexingAndSearching);
 
         /* limit channel capacity to avoid holding a lot of loaded but unprocessed videos in memory
@@ -325,8 +325,6 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
 
                 try
                 {
-                    cancellation.ThrowIfCancellationRequested();
-
                     Video? video = command.Videos?.Validated.SingleOrDefault(v => v.Id == id)?.Video;
                     video ??= await GetVideoAsync(id, cancellation, scope, downloadCaptionTracksAndSave: false);
 
@@ -341,7 +339,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                 }
                 /* only start another download if channel has accepted the video or an error occurred */
                 finally { loadLimiter.Release(); }
-            })).ToArray();
+            }, cancellation)).ToArray();
 
             await Task.WhenAll(downloads).WithAggregateException()
                .ContinueWith(t =>
@@ -360,7 +358,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
         // read synchronously from the channel because we're writing to the same video index
         await foreach (var video in unIndexedVideos.Reader.ReadAllAsync())
         {
-            cancellation.ThrowIfCancellationRequested();
+            if (cancellation.IsCancellationRequested) break;
             if (uncommitted.Count == 0) index.BeginBatchChange();
             await index.AddOrUpdateAsync(video, cancellation);
             uncommitted.Add(video);
@@ -391,7 +389,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
     private async Task SearchVideosAsync(SearchCommand command,
         Func<VideoSearchResult, ValueTask> yieldResult, CancellationToken cancellation)
     {
-        cancellation.ThrowIfCancellationRequested();
+        if (cancellation.IsCancellationRequested) return;
         VideosScope scope = command.Videos!;
         var videoIds = scope.GetRemoteValidated().Ids().ToArray();
         scope.QueueVideos(videoIds);
