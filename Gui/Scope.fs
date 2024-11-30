@@ -4,7 +4,6 @@ open System
 open System.Linq
 open System.Threading
 open System.Threading.Tasks
-open Avalonia.Animation
 open Avalonia.Controls
 open Avalonia.Interactivity
 open Avalonia.Media
@@ -76,7 +75,6 @@ module Scope =
         let mutable searching: CancellationTokenSource = null
         let mutable selectedText: string = null
         let input = ViewRef<AutoCompleteBox>()
-        let heartBeat = ViewRef<Animation>()
 
         let isRunning () = searching <> null
 
@@ -86,21 +84,16 @@ module Scope =
                 searching.Dispose()
                 searching <- null
 
-        /// animates the input with the heartBeat until searchToken is cancelled
-        let animateInput searchToken =
-            heartBeat.Value.IterationCount <- IterationCount.Infinite
-            heartBeat.Value.RunAsync(input.Value, searchToken) |> ignore
-
         let yieldResults (results: YoutubeSearchResult seq) =
             if isRunning () && not searching.Token.IsCancellationRequested then
-                cancel () // to stop animation
+                searching.Dispose()
+                searching <- null
                 results |> Seq.cast<obj>
             else
-                cancel () // to stop animation
                 Seq.empty
 
         member this.Input = input
-        member this.HeartBeat = heartBeat
+        member this.IsRunning = isRunning
         member this.Cancel = cancel
 
         // called when either using arrow keys to cycle through results in dropdown or mouse to click one
@@ -121,7 +114,6 @@ module Scope =
                     cancellation.Register(cancel) |> ignore // register cancellation of running search when outer cancellation is requested
                     cancel () // cancel any older running search
                     searching <- new CancellationTokenSource() // and create a new source for this one
-                    animateInput (searching.Token) // pass running search token to stop it when the search completes or is cancelled
 
                     match scope with
                     | Channel _ ->
@@ -413,23 +405,6 @@ module Scope =
                             }
                         })
                     .reference(model.AliasSearch.Input)
-                    .animation(
-                        // pulses the scale like a heart beat to indicate activity
-                        (Animation(TimeSpan.FromSeconds(2.)) {
-                            // extend slightly but quickly to get a pulse effect
-                            KeyFrame(ScaleTransform.ScaleXProperty, 1.05).cue (0.1)
-                            KeyFrame(ScaleTransform.ScaleYProperty, 1.05).cue (0.1)
-                            // contract slightly to get a bounce-back effect
-                            KeyFrame(ScaleTransform.ScaleXProperty, 0.95).cue (0.15)
-                            KeyFrame(ScaleTransform.ScaleYProperty, 0.95).cue (0.15)
-                            // return to original size rather quickly
-                            KeyFrame(ScaleTransform.ScaleXProperty, 1).cue (0.2)
-                            KeyFrame(ScaleTransform.ScaleYProperty, 1).cue (0.2)
-                        })
-                            .repeatCount(0)
-                            .delay(TimeSpan.FromSeconds 1.) // to avoid a "heart attack", i.e. restarting the animation by typing
-                            .reference (model.AliasSearch.HeartBeat)
-                    )
                     .margin(5, 0, 0, 0)
                     .gridColumn(1)
                     .gridRowSpan (2)
@@ -574,5 +549,6 @@ module Scope =
                 .isVisible (model.ValidationError <> null) // && not model.Scope.IsValid)
 
             ProgressBar(0, model.Scope.Progress.AllJobs, model.Scope.Progress.CompletedJobs, ProgressValueChanged)
+                .isIndeterminate(model.AliasSearch.IsRunning())
                 .onScopeProgressChanged (model.Scope, ProgressChanged)
         }
