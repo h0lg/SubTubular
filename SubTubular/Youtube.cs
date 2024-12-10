@@ -390,7 +390,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
     {
         cancellation.ThrowIfCancellationRequested();
         VideosScope scope = command.Videos!;
-        var videoIds = scope.GetValidatedIds();
+        var videoIds = scope.GetRemoteValidated().Ids().ToArray();
         scope.QueueVideos(videoIds);
         var storageKey = Video.StorageKeyPrefix + videoIds.Order().Join(" ");
         var index = await videoIndexRepo.GetAsync(storageKey);
@@ -480,7 +480,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
 
         if (command.HasValidVideos)
         {
-            IEnumerable<string> videoIds = command.Videos!.GetValidatedIds();
+            var videoIds = command.Videos!.GetRemoteValidated().Ids().ToArray();
             command.Videos.QueueVideos(videoIds);
 
             lookupTasks.Add(Task.Run(async () =>

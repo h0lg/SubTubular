@@ -21,11 +21,26 @@ public class VideosScope(List<string> videos) : CommandScope
 
     public override bool RequiresValidation() => Videos.Except(GetRemoteValidated().Ids()).Any();
 
+    /// <summary>Returns inputs that pre-validate as video ID or URL but don't remote-validate.</summary>
+    public IEnumerable<string> GetRemoteInvalidatedIds()
+        => Progress.Videos?.Where(pair => pair.Value == VideoList.Status.invalid).Select(pair => pair.Key) ?? [];
+
     public void Remove(string video)
     {
-        Videos.Remove(video);
-        Validated.RemoveAll(v => v.Id == video);
+        RemoveInput(video);
         Progress.Videos?.Remove(video);
+    }
+
+    internal void Invalidate(string video)
+    {
+        RemoveInput(video);
+        Report(video, VideoList.Status.invalid);
+    }
+
+    private void RemoveInput(string video)
+    {
+        Videos.Remove(video); // don't try to re-validate them
+        Validated.RemoveAll(v => v.Id == video); // clear maybe failed validation
     }
 
     public override IEnumerable<string> Describe(bool inDetail = true)

@@ -21,7 +21,7 @@ partial class CommandScope
 
     /// <summary>Returns the <see cref="ValidationResult.Id"/> of all <see cref="Validated"/>,
     /// which are either pre- or remote validated depending on <see cref="IsValid"/>.</summary>
-    internal string[] GetValidatedIds() => Validated.Select(v => v.Id).ToArray();
+    internal string[] GetValidatedIds() => Validated.Ids().ToArray();
 
     public IEnumerable<ValidationResult> GetRemoteValidated(bool isRemoteValidated = true)
         => Validated.Where(vr => vr.IsRemoteValidated == isRemoteValidated);
@@ -53,11 +53,11 @@ partial class CommandScope
     }
 }
 
-internal static class ScopeExtensions
+public static class ScopeExtensions
 {
     internal static IEnumerable<T> GetValid<T>(this IEnumerable<T> scopes) where T : CommandScope
         => scopes.Where(s => s.IsValid);
 
-    internal static IEnumerable<string> Ids(this IEnumerable<CommandScope.ValidationResult> results)
+    public static IEnumerable<string> Ids(this IEnumerable<CommandScope.ValidationResult> results)
         => results.Select(r => r.Id);
 }

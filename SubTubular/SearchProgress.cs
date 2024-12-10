@@ -34,7 +34,7 @@ public sealed class VideoList
     /// <summary>States of a <see cref="CommandScope"/> or individual <see cref="Video"/>s.</summary>
     public enum Status
     {
-        queued, preValidated,
+        queued, preValidated, invalid,
         loading, downloading, validated,
         refreshing, indexing, searching, indexingAndSearching,
         searched, canceled

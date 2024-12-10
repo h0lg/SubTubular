@@ -65,14 +65,18 @@ module Scope =
             array.ToList()
 
         /// splits and partitions the input into two lists:
-        /// first the pre-validated, labeled/uncleaned video aliases,
-        /// second the unvalidated values considered search terms
-        let partition (input: string) =
-            split input
-            |> List.ofArray
-            |> List.partition (fun alias ->
-                let value = Alias.clean alias
-                VideoId.TryParse(value).HasValue)
+        /// first the remote-validated Video IDs (whether they are in the input or not),
+        /// second the inputs that haven't already been remote-validated and are considered search terms
+        let partition (input: string) (scope: VideosScope) =
+            let remoteValidated = scope.GetRemoteValidated().Ids() |> List.ofSeq
+
+            let searchTerms =
+                split input
+                |> List.ofArray
+                // exclude remote-validated
+                |> List.filter (fun phrase -> phrase |> Alias.clean |> remoteValidated.Contains |> not)
+
+            remoteValidated, searchTerms
 
     type AliasSearch(scope: CommandScope) =
         let mutable searching: CancellationTokenSource = null
@@ -105,9 +109,10 @@ module Scope =
 
             match scope with
             | Vids vids ->
-                let selection, searchTerms = VideosInput.partition text
+                let _, searchTerms = VideosInput.partition text vids
                 let labeledId = Alias.label result.Title result.Id
-                selectedText <- selection @ [ labeledId ] @ searchTerms |> VideosInput.join
+                selectedText <- labeledId :: searchTerms |> VideosInput.join
+            // replace search term for playlist-like scopes
             | PlaylistLike _ -> selectedText <- Alias.label result.Title result.Id
 
             selectedText
@@ -127,13 +132,16 @@ module Scope =
                     | Playlist _ ->
                         let! playlists = Services.Youtube.SearchForPlaylistsAsync(text, searching.Token)
                         return yieldResults playlists
-                    | Videos _ ->
-                        match VideosInput.partition text with
-                        | _, [] -> return []
-                        | _, searchTerms ->
+                    | Videos vids ->
+                        let _, searchTerms = VideosInput.partition text vids
+
+                        match searchTerms with
+                        | [] -> return []
+                        | _ ->
                             let! videos =
+                                // OR-combine, see https://seosly.com/blog/youtube-search-operators/#Pipe
                                 Services.Youtube.SearchForVideosAsync(
-                                    searchTerms |> String.concat " or ",
+                                    searchTerms |> String.concat " | ",
                                     searching.Token
                                 )
 
@@ -199,13 +207,30 @@ module Scope =
                 playlist.Alias <- Alias.clean aliases
                 aliases
             | Vids vids ->
-                let prevalidated, invalid = VideosInput.partition aliases
-                let missing = prevalidated |> List.map Alias.clean |> List.except vids.Videos
+                let _, searchTerms = VideosInput.partition aliases vids
+
+                // inputs that pre-validate, but don't remote-validate
+                let remoteInvalid = vids.GetRemoteInvalidatedIds().ToArray()
+
+                let preValidating =
+                    searchTerms
+                    |> List.filter (fun phrase ->
+                        let alias = Alias.clean phrase
+                        let id = VideoId.TryParse(alias)
+
+                        // pre-vadidates and was not already remotely invalidated
+                        id.HasValue && not (remoteInvalid.Contains(id.Value.ToString())))
+
+                let missing =
+                    preValidating
+                    |> List.map Alias.clean
+                    |> List.except vids.Videos // already added to inputs
+                    |> List.except remoteInvalid // already remotely invalidated
 
                 if not missing.IsEmpty then
                     vids.Videos.AddRange missing // to have them validated
 
-                VideosInput.join invalid // only leave invalid ids in the input as search terms
+                searchTerms |> VideosInput.join
 
         { model with Aliases = updatedAliases }
 

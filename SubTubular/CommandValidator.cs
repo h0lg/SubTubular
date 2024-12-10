@@ -1,5 +1,6 @@
 ﻿using SubTubular.Extensions;
 using YoutubeExplode.Channels;
+using YoutubeExplode.Exceptions;
 using YoutubeExplode.Playlists;
 using YoutubeExplode.Videos;
 
@@ -159,9 +160,19 @@ public static class RemoteValidate
         // rely on pre-validation to have added an entry in Validated, skipping previously remote-validated
         => videosScope.GetRemoteValidated(false).Select(async validationResult =>
         {
-            // video is not saved here without captiontracks so none in the cache means there probably are none - otherwise cached info is indeterminate
-            validationResult.Video = await youtube.GetVideoAsync(validationResult.Id, cancellation, videosScope, downloadCaptionTracksAndSave: false);
-            videosScope.Report(validationResult.Id, VideoList.Status.validated);
+            string id = validationResult.Id;
+
+            try
+            {
+                // video is not saved here without captiontracks so none in the cache means there probably are none - otherwise cached info is indeterminate
+                validationResult.Video = await youtube.GetVideoAsync(id, cancellation, videosScope, downloadCaptionTracksAndSave: false);
+                videosScope.Report(id, VideoList.Status.validated);
+            }
+            catch (VideoUnavailableException)
+            {
+                videosScope.Invalidate(id);
+                throw; // to propagate reason
+            }
         });
 
     public static async Task PlaylistAsync(PlaylistScope scope, Youtube youtube, CancellationToken cancellation)
