@@ -143,3 +143,14 @@ public sealed class ChannelAliasMap
     }
     #endregion
 }
+
+internal static class ChannelAliasMapExtensions
+{
+    internal static ChannelAliasMap? ForAlias(this ISet<ChannelAliasMap> maps, object alias)
+    {
+        var (type, value) = ChannelAliasMap.GetTypeAndValue(alias);
+
+        return maps.SingleOrDefault(known => known.Type == type
+            && known.Value.Equals(value, StringComparison.OrdinalIgnoreCase));
+    }
+}

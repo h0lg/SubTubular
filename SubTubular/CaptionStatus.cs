@@ -1,6 +1,4 @@
-﻿using SubTubular.Extensions;
-
-namespace SubTubular;
+﻿namespace SubTubular;
 
 using CaptionTrackDownloadStatus = (CommandScope.CaptionStatus? status, int videos);
 
@@ -51,4 +49,7 @@ public static class CaptionStatusExtensions
 
     public static IEnumerable<(CommandScope scope, CaptionTrackDownloadStatus[] captionTrackDlStates)> GetCaptionTrackDownloadStatus(this OutputCommand command)
         => command.GetScopes().Select(scope => (scope, scope.GetCaptionTrackDownloadStates()));
+
+    internal static IEnumerable<CaptionTrack> WithErrors(this IEnumerable<CaptionTrack> tracks)
+        => tracks.Where(t => t.Error != null);
 }

@@ -191,20 +191,3 @@ public static class ExceptionExtensions
     internal static bool IsNotFound(this HttpRequestException exception)
         => exception.StatusCode == System.Net.HttpStatusCode.NotFound || exception.Message.Contains("404 (NotFound)");
 }
-
-internal static class CaptionTrackExtensions
-{
-    internal static IEnumerable<CaptionTrack> WithErrors(this IEnumerable<CaptionTrack> tracks)
-        => tracks.Where(t => t.Error != null);
-}
-
-internal static class ChannelAliasMapExtensions
-{
-    internal static ChannelAliasMap? ForAlias(this ISet<ChannelAliasMap> maps, object alias)
-    {
-        var (type, value) = ChannelAliasMap.GetTypeAndValue(alias);
-
-        return maps.SingleOrDefault(known => known.Type == type
-            && known.Value.Equals(value, StringComparison.OrdinalIgnoreCase));
-    }
-}
