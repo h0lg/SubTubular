@@ -27,7 +27,7 @@ public class PlaylistTests
         await using (playlist.CreateChangeToken(() => Task.CompletedTask))
         {
             var videos = playlist.GetVideos().ToList();
-            var actualVideoIds = videos.Select(v => v.Id).ToList();
+            var actualVideoIds = videos.Ids().ToList();
             AssertCollectionsEqual(videoIds.ConvertAll(i => i.ToString()), actualVideoIds);
 
             var actualShardNumbers = videos.ConvertAll(v => v.ShardNumber!.Value);
@@ -65,7 +65,7 @@ public class PlaylistTests
         await using (playlist.CreateChangeToken(() => Task.CompletedTask))
         {
             var videos = playlist.GetVideos().ToList();
-            var actualVideoIds = videos.Select(v => v.Id).ToList();
+            var actualVideoIds = videos.Ids().ToList();
             List<string> expectedVideoIds = videoIds.ConvertAll(i => i.ToString());
             AssertCollectionsEqual(expectedVideoIds, actualVideoIds);
 
@@ -85,7 +85,7 @@ public class PlaylistTests
         await using (playlist.CreateChangeToken(() => Task.CompletedTask))
         {
             var videos = playlist.GetVideos().ToList();
-            var actualVideoIds = videos.Select(v => v.Id).ToList();
+            var actualVideoIds = videos.Ids().ToList();
             var expectedVideoIds = videoIds.ConvertAll(i => i.ToString());
             AssertCollectionsEqual(expectedVideoIds, actualVideoIds);
 
@@ -129,7 +129,7 @@ public class PlaylistTests
         await using (playlist.CreateChangeToken(() => Task.CompletedTask))
         {
             var videos = playlist.GetVideos().ToList();
-            var actualVideoIds = videos.Select(v => v.Id).ToList();
+            var actualVideoIds = videos.Ids().ToList();
             AssertCollectionsEqual(videoIds.ConvertAll(i => i.ToString()), actualVideoIds);
 
             var actualShardNumbers = videos.ConvertAll(v => v.ShardNumber!.Value);

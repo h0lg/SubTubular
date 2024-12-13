@@ -97,17 +97,17 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
             {
                 Task? continuedRefresh = await RefreshPlaylistAsync(scope, cancellation);
                 var videos = playlist.GetVideos().Skip(scope.Skip).Take(scope.Take).ToArray();
-                var videoIds = videos.Select(v => v.Id).ToArray();
+                var videoIds = videos.Ids().ToArray();
                 scope.QueueVideos(videoIds);
                 var spansMultipleIndexes = false;
 
                 var searches = videos.GroupBy(v => v.ShardNumber).Select(group => ("searching shard " + group.Key, new Func<Task>(async () =>
                 {
                     List<Task> shardSearches = [];
-                    var containedVideoIds = group.Select(v => v.Id).ToArray();
+                    var containedVideoIds = group.Ids().ToArray();
                     var completeVideos = group.Where(v => v.CaptionTrackDownloadStatus.IsComplete()).ToArray();
                     var shard = await videoIndexRepo.GetIndexShardAsync(storageKey, group.Key!.Value);
-                    var indexedVideoIds = shard.GetIndexed(completeVideos.Select(v => v.Id));
+                    var indexedVideoIds = shard.GetIndexed(completeVideos.Ids());
 
                     if (indexedVideoIds.Length != 0)
                     {
@@ -460,7 +460,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                 {
                     Task? continuedRefresh = await RefreshPlaylistAsync(scope, cancellation);
                     var videos = playlist.GetVideos().Skip(scope.Skip).Take(scope.Take).ToArray();
-                    var videoIds = videos.Select(video => video.Id).ToArray();
+                    var videoIds = videos.Ids().ToArray();
                     scope.QueueVideos(videoIds);
                     scope.Report(VideoList.Status.searching);
 

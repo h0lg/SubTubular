@@ -49,7 +49,7 @@ public sealed class Playlist
     internal IEnumerable<string> GetVideoIds()
     {
         changeToken?.Wait();
-        try { return videos.Select(v => v.Id); }
+        try { return videos.Ids(); }
         finally { changeToken?.Release(); }
     }
 
@@ -230,4 +230,9 @@ public sealed class Playlist
             return Id + playlistIndex + shardNumber + uploaded;
         }
     }
+}
+
+public static class PlaylistExtensions
+{
+    public static IEnumerable<string> Ids(this IEnumerable<Playlist.VideoInfo> videos) => videos.Select(v => v.Id);
 }
