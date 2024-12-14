@@ -9,6 +9,8 @@ namespace SubTubular;
 public abstract class OutputCommand
 {
     public VideosScope? Videos { get; set; }
+    internal bool HasValidVideos => Videos?.IsValid == true;
+
     public PlaylistScope[]? Playlists { get; set; }
     public ChannelScope[]? Channels { get; set; }
 

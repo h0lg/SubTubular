@@ -36,9 +36,9 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
         SearchPlaylistLikeScopes(command.Channels);
         SearchPlaylistLikeScopes(command.Playlists);
 
-        if (command.Videos?.IsValid == true)
+        if (command.HasValidVideos)
         {
-            command.Videos.ResetProgressAndNotifications();
+            command.Videos!.ResetProgressAndNotifications();
             searches.Add(("searching videos", () => SearchVideosAsync(command, addResult, linkedTs.Token)));
         }
 
@@ -478,9 +478,9 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
             }, cancellation))
             .ToList();
 
-        if (command.Videos?.IsValid == true)
+        if (command.HasValidVideos)
         {
-            IEnumerable<string> videoIds = command.Videos.GetValidatedIds();
+            IEnumerable<string> videoIds = command.Videos!.GetValidatedIds();
             command.Videos.QueueVideos(videoIds);
 
             lookupTasks.Add(Task.Run(async () =>

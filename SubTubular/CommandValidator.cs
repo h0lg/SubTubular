@@ -146,7 +146,7 @@ public static class RemoteValidate
             validations.AddRange(Videos(command.Videos!, youtube, cancellation));
 
         await Task.WhenAll(validations).WithAggregateException();
-        if (command.Videos?.IsValid == true) command.Videos.Report(VideoList.Status.validated);
+        if (command.HasValidVideos) command.Videos!.Report(VideoList.Status.validated);
     }
 
     public static async Task AllVideosAsync(VideosScope videosScope, Youtube youtube, CancellationToken cancellation)
