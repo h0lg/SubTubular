@@ -118,7 +118,7 @@ module OutputCommands =
                     | :? SearchCommand as search ->
                         Prevalidate.Search search
 
-                        if search.AreScopesValid() |> not then
+                        if search.RequiresRemoteValidation() then
                             do! RemoteValidate.ScopesAsync(search, Services.Youtube, Services.DataStore, cancellation)
 
                         if command.SaveAsRecent then
@@ -132,7 +132,7 @@ module OutputCommands =
                     | :? ListKeywords as listKeywords ->
                         Prevalidate.Scopes listKeywords
 
-                        if listKeywords.AreScopesValid() |> not then
+                        if listKeywords.RequiresRemoteValidation() then
                             do!
                                 RemoteValidate.ScopesAsync(
                                     listKeywords,
