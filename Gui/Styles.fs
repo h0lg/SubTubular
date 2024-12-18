@@ -108,3 +108,13 @@ module Styles =
 
             style.Setters.Add(Setter(TextBox.AcceptsReturnProperty, box true))
             this.styles ([ style ])
+
+[<AutoOpen>]
+module Widgets =
+    let intUpDown min value max msg tooltip =
+        NumericUpDown(min, max, Some value, msg)
+            .formatString("F0") // to ditch the decimal digits
+            .tooltip (tooltip + "\nenter a value, spin using mouse wheel, click or hold buttons")
+
+    let uint16UpDown value msg tooltip =
+        intUpDown (float 0) value (float System.UInt16.MaxValue) msg tooltip

@@ -512,37 +512,26 @@ module Scope =
 
                     (HStack(5) {
                         Label "skip"
-
-                        NumericUpDown(0, float UInt16.MaxValue, Some(float playlistLike.Skip), SkipChanged)
-                            .formatString("F0")
-                            .tooltip ("number of videos to skip")
-
+                        uint16UpDown (float playlistLike.Skip) SkipChanged "number of videos to skip"
                         Label "take"
-
-                        NumericUpDown(0, float UInt16.MaxValue, Some(float playlistLike.Take), TakeChanged)
-                            .formatString("F0")
-                            .tooltip ("number of videos to search")
-
+                        uint16UpDown (float playlistLike.Take) TakeChanged "number of videos to search"
                         Label "videos"
                     })
                         .centerHorizontal()
                         .isVisible (model.ShowSettings)
 
                     (HStack(5) {
+                        let tooltip =
+                            "The info which videos are in a playlist or channel is cached locally to speed up future searches."
+                            + " This controls after how many hours such a cache is considered stale."
+                            + " You may want to adjust this depending on how often new videos are added to the playlist or uploaded to the channel."
+                            + Environment.NewLine
+                            + Environment.NewLine
+                            + "Note that this doesn't figure into the staleness of video data caches."
+                            + " Those are not expected to change often (if ever) and are stored and considered fresh until you explicitly clear them."
+
                         Label "and look for new ones after"
-
-                        NumericUpDown(0, float UInt16.MaxValue, Some(float playlistLike.CacheHours), CacheHoursChanged)
-                            .formatString("F0")
-                            .tooltip (
-                                "The info which videos are in a playlist or channel is cached locally to speed up future searches."
-                                + " This controls after how many hours such a cache is considered stale."
-                                + " You may want to adjust this depending on how often new videos are added to the playlist or uploaded to the channel."
-                                + Environment.NewLine
-                                + Environment.NewLine
-                                + "Note that this doesn't figure into the staleness of video data caches."
-                                + " Those are not expected to change often (if ever) and are stored and considered fresh until you explicitly clear them."
-                            )
-
+                        uint16UpDown (float playlistLike.CacheHours) CacheHoursChanged tooltip
                         Label "hours"
                     })
                         .centerHorizontal()

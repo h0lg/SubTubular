@@ -74,10 +74,8 @@ module ResultOptions =
         HStack(5) {
             Label "padded with"
 
-            NumericUpDown(0, float UInt16.MaxValue, Some(float model.Padding), PaddingChanged)
-                .increment(5)
-                .formatString("F0") // to ditch the decimal digits
-                .tooltip ("how much context to show a search result in")
+            (uint16UpDown model.Padding PaddingChanged "how much context to show a search result in")
+                .increment (5)
 
             Label "chars for context"
         }

@@ -13,18 +13,19 @@ module Pager =
         HStack() {
             Label("page")
 
-            NumericUpDown(
-                1,
-                lastPage + 1 |> float,
-                page + 1 |> float |> Some,
+            let msg =
                 fun p ->
                     goToPageMessage (
                         match p with
                         | Some p -> int p - 1
                         | None -> page
                     )
-            )
-                .formatString("F0")
-                .tapCursor()
-                .tooltip ("enter page, spin using mouse wheel, click or hold buttons")
+
+            (intUpDown
+                1
+                (page + 1 |> float)
+                (lastPage + 1 |> float)
+                msg
+                "select the page to display")
+                .tapCursor ()
         }
