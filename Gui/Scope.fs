@@ -168,6 +168,7 @@ module Scope =
           CaptionStatusNotifications: CommandScope.Notification list
           Aliases: string
           AliasSearch: AliasSearch
+          AliasSearchDropdownOpen: bool
           ValidationError: string
           ShowSettings: bool
           Added: bool }
@@ -175,6 +176,7 @@ module Scope =
     type Msg =
         | AliasesUpdated of string
         | AliasesLostFocus of RoutedEventArgs
+        | AliasesSearchDropdownToggled of bool
         | ValidationSucceeded
         | ValidationFailed of exn
         | ToggleSettings of bool
@@ -268,6 +270,7 @@ module Scope =
             match scope with
             | PlaylistLike pl -> pl.Alias
             | Vids v -> v.Videos |> VideosInput.join
+          AliasSearchDropdownOpen = false
           AliasSearch = AliasSearch(scope)
           ValidationError = null
           ShowSettings = false
@@ -316,12 +319,26 @@ module Scope =
             let model, cmd = validate model
             model, cmd, DoNothing
 
+        | AliasesSearchDropdownToggled isOpen ->
+            let model =
+                { model with
+                    AliasSearchDropdownOpen = isOpen }
+
+            let model, cmd =
+                if isOpen then
+                    model, Cmd.none
+                else // trigger update & validation on closing (e.g. after click) to lock in selection or display error
+                    syncScopeWithAliases model |> validate
+
+            model, cmd, DoNothing
+
         | ValidationSucceeded ->
             model.AliasSearch.IsRemoteValidating <- false
 
             { model with
                 CaptionStatusNotifications = getCaptionTrackDownloadStateNotifications model
-                ValidationError = null },
+                ValidationError = null }
+            |> syncScopeWithAliases, // to remove remote-validated from input
             Cmd.none,
             DoNothing
 
@@ -435,6 +452,7 @@ module Scope =
                 AutoCompleteBox(model.AliasSearch.SearchAsync)
                     .minimumPopulateDelay(TimeSpan.FromMilliseconds 300)
                     .onTextChanged(model.Aliases, AliasesUpdated)
+                    .onDropDownOpened(model.AliasSearchDropdownOpen, AliasesSearchDropdownToggled)
                     .onLostFocus(AliasesLostFocus)
                     .minimumPrefixLength(3)
                     .filterMode(AutoCompleteFilterMode.None)
