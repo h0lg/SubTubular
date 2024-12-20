@@ -190,6 +190,25 @@ module Scope =
                 return ValidationFailed exn
         }
 
+    let private syncScopeWithAliases model =
+        let aliases = model.Aliases
+
+        let updatedAliases =
+            match model.Scope with
+            | PlaylistLike playlist ->
+                playlist.Alias <- Alias.clean aliases
+                aliases
+            | Vids vids ->
+                let prevalidated, invalid = VideosInput.partition aliases
+                let missing = prevalidated |> List.map Alias.clean |> List.except vids.Videos
+
+                if not missing.IsEmpty then
+                    vids.Videos.AddRange missing // to have them validated
+
+                VideosInput.join invalid // only leave invalid ids in the input as search terms
+
+        { model with Aliases = updatedAliases }
+
     /// first pre-validates the scope, then triggers remoteValidate on success
     let private validate model =
         if model.Scope.RequiresValidation() then
@@ -253,24 +272,8 @@ module Scope =
             DoNothing
 
         | AliasesLostFocus _ ->
-            let aliases = model.Aliases
-
-            let updatedAliases =
-                match model.Scope with
-                | PlaylistLike playlist ->
-                    playlist.Alias <- Alias.clean aliases
-                    aliases
-                | Vids vids ->
-                    let prevalidated, invalid = VideosInput.partition aliases
-                    let missing = prevalidated |> List.map Alias.clean |> List.except vids.Videos
-
-                    if not missing.IsEmpty then
-                        vids.Videos.AddRange missing // to have them validated
-
-                    VideosInput.join invalid // only leave invalid ids in the input as search terms
-
             model.AliasSearch.Cancel() // to avoid population after losing focus
-            let model = { model with Aliases = updatedAliases }
+            let model = syncScopeWithAliases model
             let model, cmd = validate model
             model, cmd, DoNothing
 
