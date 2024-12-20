@@ -133,7 +133,7 @@ module Scope =
                         let! playlists = Services.Youtube.SearchForPlaylistsAsync(text, searching.Token)
                         return yieldResults playlists
                     | Videos vids ->
-                        let _, searchTerms = VideosInput.partition text vids
+                        let remoteValidated, searchTerms = VideosInput.partition text vids
 
                         match searchTerms with
                         | [] -> return []
@@ -145,7 +145,13 @@ module Scope =
                                     searching.Token
                                 )
 
-                            return yieldResults videos
+                            let alreadyAdded = (vids.Videos |> List.ofSeq) @ remoteValidated
+
+                            return
+                                videos
+                                // exclude already added or selected videos from results
+                                |> Seq.filter (fun v -> alreadyAdded.Contains v.Id |> not)
+                                |> yieldResults
                 else
                     return []
             }
