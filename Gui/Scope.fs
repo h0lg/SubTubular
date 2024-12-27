@@ -160,6 +160,7 @@ module Scope =
           CaptionStatusNotifications: CommandScope.Notification list
           Aliases: string
           AliasSearch: AliasSearch
+          IsRemoteValidating: bool
           ValidationError: string
           ShowSettings: bool
           Added: bool }
@@ -241,11 +242,12 @@ module Scope =
 
     /// first pre-validates the scope, then triggers remoteValidate on success
     let private validate model =
-        if model.Scope.RequiresValidation() then
+        if not model.IsRemoteValidating && model.Scope.RequiresValidation() then
             match Prevalidate.Scope model.Scope with
             | null ->
                 if model.Scope.IsPrevalidated then
-                    model, remoteValidate model CancellationToken.None |> Cmd.OfTask.msg
+                    { model with IsRemoteValidating = true },
+                    remoteValidate model CancellationToken.None |> Cmd.OfTask.msg
                 else
                     model, Cmd.none
             | error -> { model with ValidationError = error }, Cmd.none
@@ -261,6 +263,7 @@ module Scope =
             | Vids v -> v.Videos |> VideosInput.join
           AliasSearch = AliasSearch(scope)
           ValidationError = null
+          IsRemoteValidating = false
           ShowSettings = false
           Added = added }
 
@@ -310,13 +313,15 @@ module Scope =
         | ValidationSucceeded ->
             { model with
                 CaptionStatusNotifications = getCaptionTrackDownloadStateNotifications model
-                ValidationError = null },
+                ValidationError = null
+                IsRemoteValidating = false },
             Cmd.none,
             DoNothing
 
         | ValidationFailed exn ->
             { model with
-                ValidationError = exn.Message },
+                ValidationError = exn.Message
+                IsRemoteValidating = false },
             Cmd.none,
             DoNothing
 
