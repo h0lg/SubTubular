@@ -78,6 +78,7 @@ module OutputCommandView =
             TextBox(model.Query, QueryChanged)
                 .watermark("what to find")
                 .isVisible(isSearch)
+                .multiline(true)
                 .focus(model.FocusQuery)
                 .tooltip("focus using [Alt] + [F]")
                 .onLostFocus(fun _ -> FocusQuery false)
