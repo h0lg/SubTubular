@@ -74,7 +74,7 @@ module Scope =
                 let value = Alias.clean alias
                 VideoId.TryParse(value).HasValue)
 
-    type AliasSearch() =
+    type AliasSearch(scope: CommandScope) =
         let mutable searching: CancellationTokenSource = null
         let mutable selectedText: string = null
         let input = ViewRef<AutoCompleteBox>()
@@ -100,17 +100,19 @@ module Scope =
         member this.Cancel = cancel
 
         // called when either using arrow keys to cycle through results in dropdown or mouse to click one
-        member this.SelectAliases text (result: YoutubeSearchResult) forVideos =
-            if forVideos then
+        member this.SelectAliases text (item: obj) =
+            let result = item :?> YoutubeSearchResult
+
+            match scope with
+            | Vids vids ->
                 let selection, searchTerms = VideosInput.partition text
                 let labeledAlias = Alias.label result.Title result.Id
                 selectedText <- selection @ [ labeledAlias ] @ searchTerms |> VideosInput.join
-            else
-                selectedText <- Alias.label result.Title result.Id
+            | PlaylistLike _ -> selectedText <- Alias.label result.Title result.Id
 
             selectedText
 
-        member this.SearchAsync (scope: CommandScope) (text: string) (cancellation: CancellationToken) : Task<obj seq> =
+        member this.SearchAsync (text: string) (cancellation: CancellationToken) : Task<obj seq> =
             task {
                 // only start search if input has keyboard focus & avoid re-triggering it for the same search term after selection
                 if input.Value.IsKeyboardFocusWithin && text <> selectedText then
@@ -208,7 +210,7 @@ module Scope =
             match scope with
             | PlaylistLike pl -> pl.Alias
             | Vids v -> v.Videos |> VideosInput.join
-          AliasSearch = AliasSearch()
+          AliasSearch = AliasSearch(scope)
           ValidationError = null
           ShowSettings = false
           Added = added }
@@ -380,13 +382,11 @@ module Scope =
         }
 
     let private search model showThumbnails =
-        let forVideos = isForVideos model
-
         Grid(coldefs = [ Auto; Star ], rowdefs = [ Auto; Auto ]) {
             Label(displayType (model.Scope.GetType()) false).padding (0)
 
             let autoComplete =
-                AutoCompleteBox(fun text ct -> model.AliasSearch.SearchAsync model.Scope text ct)
+                AutoCompleteBox(model.AliasSearch.SearchAsync)
                     .minimumPopulateDelay(TimeSpan.FromMilliseconds 300)
                     .onTextChanged(model.Aliases, AliasesUpdated)
                     .onLostFocus(AliasesLostFocus)
@@ -394,8 +394,7 @@ module Scope =
                     .filterMode(AutoCompleteFilterMode.None)
                     .focus(model.Added)
                     .watermark(getAliasWatermark model)
-                    .itemSelector(fun enteredText item ->
-                        model.AliasSearch.SelectAliases enteredText (item :?> YoutubeSearchResult) forVideos)
+                    .itemSelector(model.AliasSearch.SelectAliases)
                     .itemTemplate(fun (result: YoutubeSearchResult) ->
                         HStack(5) {
                             AsyncImage(result.Thumbnail).isVisible (showThumbnails)
