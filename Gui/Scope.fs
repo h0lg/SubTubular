@@ -52,7 +52,10 @@ module Scope =
             $"{cleanTitle} : {alias}"
 
     module VideosInput =
-        let join values = values |> String.concat "\n"
+        let join values =
+            values
+            |> Seq.filter (fun (s: string) -> s.IsNonWhiteSpace())
+            |> String.concat "\n"
 
         let private split (input: string) =
             input.Split('\n', StringSplitOptions.RemoveEmptyEntries) |> Array.map _.Trim()
