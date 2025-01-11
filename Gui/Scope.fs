@@ -11,7 +11,6 @@ open Fabulous
 open Fabulous.Avalonia
 open SubTubular
 open SubTubular.Extensions
-open YoutubeExplode.Videos
 open type Fabulous.Avalonia.View
 
 module Scope =
@@ -222,10 +221,10 @@ module Scope =
                     searchTerms
                     |> List.filter (fun phrase ->
                         let alias = Alias.clean phrase
-                        let id = VideoId.TryParse(alias)
+                        let id = VideosScope.TryParseId(alias)
 
                         // pre-vadidates and was not already remotely invalidated
-                        id.HasValue && not (remoteInvalid.Contains(id.Value.ToString())))
+                        id <> null && not (remoteInvalid.Contains(id)))
 
                 let missing =
                     preValidating

@@ -1,5 +1,7 @@
 ﻿using System.Text.Json.Serialization;
 using SubTubular.Extensions;
+using YoutubeExplode.Playlists;
+using YoutubeExplode.Videos;
 
 namespace SubTubular;
 
@@ -19,6 +21,7 @@ public class VideosScope(List<string> videos) : CommandScope
     /// <summary>Input video IDs or URLs.</summary>
     public List<string> Videos { get; } = videos.Select(id => id.Trim()).ToList();
 
+    public static string? TryParseId(string id) => VideoId.TryParse(id.Trim('"'))?.ToString();
     public override bool RequiresValidation() => Videos.Except(GetRemoteValidated().Ids()).Any();
 
     /// <summary>Returns inputs that pre-validate as video ID or URL but don't remote-validate.</summary>
@@ -103,6 +106,7 @@ public class PlaylistScope(string alias, ushort skip, ushort take, float cacheHo
 {
     public const string StorageKeyPrefix = "playlist ";
     protected override string KeyPrefix => StorageKeyPrefix;
+    public static string? TryParseId(string alias) => PlaylistId.TryParse(alias);
 }
 
 public class ChannelScope(string alias, ushort skip, ushort take, float cacheHours) : PlaylistLikeScope(alias, skip, take, cacheHours)

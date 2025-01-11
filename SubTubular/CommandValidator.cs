@@ -1,8 +1,6 @@
 ﻿using SubTubular.Extensions;
 using YoutubeExplode.Channels;
 using YoutubeExplode.Exceptions;
-using YoutubeExplode.Playlists;
-using YoutubeExplode.Videos;
 
 namespace SubTubular;
 
@@ -92,7 +90,7 @@ public static class Prevalidate
 
     private static string? Playlist(PlaylistScope scope)
     {
-        var id = PlaylistId.TryParse(scope.Alias);
+        var id = PlaylistScope.TryParseId(scope.Alias);
         if (id == null) return scope.Alias; // return invalid
 
         if (scope.IsPrevalidated)
@@ -112,7 +110,7 @@ public static class Prevalidate
     private static string[] VideosSeperately(VideosScope? scope)
     {
         if (scope == null) return [];
-        var idsToValid = scope.Videos.ToDictionary(id => id, id => VideoId.TryParse(id.Trim('"'))?.ToString());
+        var idsToValid = scope.Videos.ToDictionary(id => id, VideosScope.TryParseId);
         var validIds = idsToValid.Select(pair => pair.Value).WithValue().Distinct().ToArray();
         scope.QueueVideos(validIds); // ignores already queued
         var alreadyValidated = scope.GetValidatedIds();

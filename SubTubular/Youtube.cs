@@ -12,7 +12,7 @@ namespace SubTubular;
 public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndexRepo)
 {
     public static string GetVideoUrl(string videoId) => "https://youtu.be/" + videoId;
-    internal static string GetPlaylistUrl(PlaylistId? id) => "https://www.youtube.com/playlist?list=" + id;
+    internal static string GetPlaylistUrl(string id) => "https://www.youtube.com/playlist?list=" + id;
 
     internal static string GetChannelUrl(object alias)
     {

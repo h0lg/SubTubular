@@ -1,7 +1,5 @@
 ﻿using SubTubular.Extensions;
 using YoutubeExplode.Channels;
-using YoutubeExplode.Playlists;
-using YoutubeExplode.Videos;
 
 namespace SubTubular;
 
@@ -170,10 +168,8 @@ public static class CacheManager
             getThumbnailFileName);
 
         var playlists = GetPlaylistLike(files, searches.Playlists, PlaylistScope.StorageKeyPrefix,
-            id => Youtube.GetPlaylistUrl((PlaylistId)id),
-            id => new PlaylistScope(id, 0, 0, 0),
-            scope => youtube.GetPlaylistAsync(scope, CancellationToken.None),
-            getThumbnailFileName);
+            Youtube.GetPlaylistUrl, id => new PlaylistScope(id, 0, 0, 0),
+            scope => youtube.GetPlaylistAsync(scope, CancellationToken.None), getThumbnailFileName);
 
         Func<Action<PlaylistGroup>, Action<LooseFiles>, Action<Exception>, Task> processAsync = new((dispatchGroup, dispatchLooseFiles, dispatchException)
             => Task.Run(async () =>
@@ -247,13 +243,13 @@ public static class CacheManager
             case ClearCache.Scopes.videos:
                 if (command.Aliases.HasAny())
                 {
-                    var parsed = command.Aliases!.ToDictionary(id => id, id => VideoId.TryParse(id.Trim('"')));
+                    var parsed = command.Aliases!.ToDictionary(id => id, VideosScope.TryParseId);
                     var invalid = parsed.Where(pair => pair.Value == null).Select(pair => pair.Key).ToArray();
 
                     if (invalid.Length > 0) throw new InputException(
                         "The following inputs are not valid video IDs or URLs: " + invalid.Join(" "));
 
-                    DeleteByNames(parsed.Values.Select(videoId => Video.StorageKeyPrefix + videoId!.Value));
+                    DeleteByNames(parsed.Values.Select(videoId => Video.StorageKeyPrefix + videoId!));
                 }
                 else
                 {
@@ -268,8 +264,8 @@ public static class CacheManager
                 await ClearPlaylists(PlaylistScope.StorageKeyPrefix, cacheDataStore,
                     v =>
                     {
-                        var id = PlaylistId.TryParse(v);
-                        return id.HasValue ? [id] : [];
+                        var id = PlaylistScope.TryParseId(v);
+                        return id == null ? [] : [id];
                     });
 
                 break;
