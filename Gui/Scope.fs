@@ -106,8 +106,8 @@ module Scope =
             match scope with
             | Vids vids ->
                 let selection, searchTerms = VideosInput.partition text
-                let labeledAlias = Alias.label result.Title result.Id
-                selectedText <- selection @ [ labeledAlias ] @ searchTerms |> VideosInput.join
+                let labeledId = Alias.label result.Title result.Id
+                selectedText <- selection @ [ labeledId ] @ searchTerms |> VideosInput.join
             | PlaylistLike _ -> selectedText <- Alias.label result.Title result.Id
 
             selectedText
