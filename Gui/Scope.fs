@@ -5,7 +5,6 @@ open System.Linq
 open System.Threading
 open System.Threading.Tasks
 open Avalonia.Controls
-open Avalonia.Interactivity
 open Avalonia.Media
 open Fabulous
 open Fabulous.Avalonia
@@ -180,7 +179,7 @@ module Scope =
 
     type Msg =
         | AliasesUpdated of string
-        | AliasesLostFocus of RoutedEventArgs
+        | AliasesFocusToggled of bool
         | AliasesSearchDropdownToggled of bool
         | ValidationSucceeded
         | ValidationFailed of exn
@@ -318,11 +317,22 @@ module Scope =
             Cmd.none,
             DoNothing
 
-        | AliasesLostFocus _ ->
-            model.AliasSearch.Cancel() // to avoid population after losing focus
-            let model = syncScopeWithAliases model
-            let model, cmd = validate model
-            model, cmd, DoNothing
+        | AliasesFocusToggled gained ->
+            if gained then
+                // open dropdown on gaining focus if possible to assist selection
+                Dispatch.toUiThread (fun () -> model.AliasSearch.Input.Value.IsDropDownOpen <- true)
+
+                { model with
+                    AliasSearchDropdownOpen = true },
+                Cmd.none,
+                DoNothing
+            else
+                model.AliasSearch.Cancel() // to avoid population after losing focus
+
+                // update model and validate to lock in selected items
+                let model, cmd = syncScopeWithAliases model |> validate
+
+                model, cmd, DoNothing
 
         | AliasesSearchDropdownToggled isOpen ->
             let model =
@@ -458,7 +468,8 @@ module Scope =
                     .minimumPopulateDelay(TimeSpan.FromMilliseconds 300)
                     .onTextChanged(model.Aliases, AliasesUpdated)
                     .onDropDownOpened(model.AliasSearchDropdownOpen, AliasesSearchDropdownToggled)
-                    .onLostFocus(AliasesLostFocus)
+                    .onLostFocus(fun _ -> AliasesFocusToggled false)
+                    .onGotFocus(fun _ -> AliasesFocusToggled true)
                     .minimumPrefixLength(3)
                     .filterMode(AutoCompleteFilterMode.None)
                     .focus(model.Added)
