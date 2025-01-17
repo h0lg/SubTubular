@@ -132,33 +132,38 @@ module Scope =
                     cancel () // cancel any older running search
                     searching <- new CancellationTokenSource() // and create a new source for this one
 
-                    match scope with
-                    | Channel _ ->
-                        let! channels = Services.Youtube.SearchForChannelsAsync(text, searching.Token)
-                        return yieldResults channels
-                    | Playlist _ ->
-                        let! playlists = Services.Youtube.SearchForPlaylistsAsync(text, searching.Token)
-                        return yieldResults playlists
-                    | Videos vids ->
-                        let remoteValidated, searchTerms = VideosInput.partition text vids
+                    try
+                        match scope with
+                        | Channel _ ->
+                            let! channels = Services.Youtube.SearchForChannelsAsync(text, searching.Token)
+                            return yieldResults channels
+                        | Playlist _ ->
+                            let! playlists = Services.Youtube.SearchForPlaylistsAsync(text, searching.Token)
+                            return yieldResults playlists
+                        | Videos vids ->
+                            let remoteValidated, searchTerms = VideosInput.partition text vids
 
-                        match searchTerms with
-                        | [] -> return []
-                        | _ ->
-                            let! videos =
-                                // OR-combine, see https://seosly.com/blog/youtube-search-operators/#Pipe
-                                Services.Youtube.SearchForVideosAsync(
-                                    searchTerms |> String.concat " | ",
-                                    searching.Token
-                                )
+                            match searchTerms with
+                            | [] -> return []
+                            | _ ->
+                                let! videos =
+                                    // OR-combine, see https://seosly.com/blog/youtube-search-operators/#Pipe
+                                    Services.Youtube.SearchForVideosAsync(
+                                        searchTerms |> String.concat " | ",
+                                        searching.Token
+                                    )
 
-                            let alreadyAdded = (vids.Videos |> List.ofSeq) @ remoteValidated
+                                let alreadyAdded = (vids.Videos |> List.ofSeq) @ remoteValidated
 
-                            return
-                                videos
-                                // exclude already added or selected videos from results
-                                |> Seq.filter (fun v -> alreadyAdded.Contains v.Id |> not)
-                                |> yieldResults
+                                return
+                                    videos
+                                    // exclude already added or selected videos from results
+                                    |> Seq.filter (fun v -> alreadyAdded.Contains v.Id |> not)
+                                    |> yieldResults
+
+                    // drop exception caused by outside cancellation
+                    with :? OperationCanceledException when cancellation.IsCancellationRequested ->
+                        return []
                 else
                     return []
             }
