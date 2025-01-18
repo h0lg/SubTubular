@@ -612,7 +612,8 @@ module Scope =
             TextBlock(model.ValidationError)
                 .foreground(Colors.Red)
                 .wrap()
-                .isVisible (model.ValidationError <> null) // && not model.Scope.IsValid)
+                // display if there is a validation error and the model state is not valid
+                .isVisible (model.ValidationError <> null && not model.Scope.IsValid)
 
             ProgressBar(0, model.Scope.Progress.AllJobs, model.Scope.Progress.CompletedJobs, ProgressValueChanged)
                 .isIndeterminate(model.AliasSearch.IsRunning())
