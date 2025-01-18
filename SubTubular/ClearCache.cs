@@ -161,27 +161,29 @@ public static class CacheManager
         var files = FileHelper.EnumerateFiles(cacheFolder, "*", SearchOption.AllDirectories).ToArray();
         ScopeSearches searches = files.GetSearches();
 
-        var channels = GetPlaylistLike(files, searches.Channels, ChannelScope.StorageKeyPrefix,
-            id => Youtube.GetChannelUrl((ChannelId)id),
-            id => new ChannelScope(id, 0, 0, 0),
-            scope => youtube.GetPlaylistAsync(scope, CancellationToken.None),
-            getThumbnailFileName);
-
-        var playlists = GetPlaylistLike(files, searches.Playlists, PlaylistScope.StorageKeyPrefix,
-            Youtube.GetPlaylistUrl, id => new PlaylistScope(id, 0, 0, 0),
-            scope => youtube.GetPlaylistAsync(scope, CancellationToken.None), getThumbnailFileName);
-
         Func<Action<PlaylistGroup>, Action<LooseFiles>, Action<Exception>, Task> processAsync = new((dispatchGroup, dispatchLooseFiles, dispatchException)
             => Task.Run(async () =>
             {
-                var tasks = channels.Concat(playlists).AsParallel().Select(async job =>
-                {
-                    var group = await job.start();
-                    if (group != null) dispatchGroup(group.Value);
-                    return group;
-                }).ToArray();
+                var channels = GetPlaylistLike(files, searches.Channels, ChannelScope.StorageKeyPrefix,
+                    id => Youtube.GetChannelUrl((ChannelId)id),
+                    id => new ChannelScope(id, 0, 0, 0),
+                    scope => youtube.GetPlaylistAsync(scope, CancellationToken.None),
+                    getThumbnailFileName);
 
-                try { await Task.WhenAll(tasks).WithAggregateException(); }
+                var playlists = GetPlaylistLike(files, searches.Playlists, PlaylistScope.StorageKeyPrefix,
+                    Youtube.GetPlaylistUrl, id => new PlaylistScope(id, 0, 0, 0),
+                    scope => youtube.GetPlaylistAsync(scope, CancellationToken.None), getThumbnailFileName);
+
+                var tasks = channels.Concat(playlists).ToArray();
+
+                try
+                {
+                    await foreach (var task in Task.WhenEach(tasks))
+                    {
+                        if (task.IsCompletedSuccessfully && task.Result.HasValue) dispatchGroup(task.Result.Value);
+                        if (task.Exception != null) dispatchException(task.Exception);
+                    }
+                }
                 catch (Exception ex) { dispatchException(ex); }
 
                 var looseFiles = files.Except(searches.GetFiles())
@@ -197,14 +199,14 @@ public static class CacheManager
         return (searches, processAsync);
     }
 
-    private static (string name, Func<Task<PlaylistGroup?>> start)[] GetPlaylistLike<Scope>(
+    private static Task<PlaylistGroup?>[] GetPlaylistLike<Scope>(
         FileInfo[] files, FileInfo[] searches, string prefix, Func<string, string> getUrl, Func<string, Scope> createScope,
         Func<Scope, Task<Playlist>> getPlaylist, Func<string, string> getThumbnailFileName) where Scope : PlaylistLikeScope
     {
         var (caches, allIndexes) = files.WithPrefix(prefix).PartitionByExtension();
-        var infos = caches.Except(searches).ToArray();
+        return caches.Except(searches).Select(GroupForPlaylistLike).ToArray();
 
-        return infos.Select(file => ("loading " + file.Name, new Func<Task<PlaylistGroup?>>(async () =>
+        async Task<PlaylistGroup?> GroupForPlaylistLike(FileInfo file)
         {
             var id = file.Name.StripAffixes(prefix, JsonFileDataStore.FileExtension);
             var scope = createScope(id);
@@ -222,9 +224,8 @@ public static class CacheManager
             var videoThumbNames = videoIds.Select(id => getThumbnailFileName(Video.GuessThumbnailUrl(id))).ToArray();
             var videoThumbs = files.Where(f => videoThumbNames.Contains(f.Name)).ToArray();
 
-            return new PlaylistGroup(scope, playlist, file: file, thumbnail: thumbnail,
-                indexes: indexes, videos: videos, videoThumbnails: videoThumbs);
-        }))).ToArray();
+            return new PlaylistGroup(scope, playlist, file, thumbnail, indexes, videos, videoThumbs);
+        }
     }
 
     public static async Task<(IEnumerable<string> cachesDeleted, IEnumerable<string> indexesDeleted)> Clear(
