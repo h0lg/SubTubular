@@ -4,7 +4,7 @@ namespace SubTubular;
 
 partial class CommandScope
 {
-    /// <summary>A collection of validated URLs for the entities included in the scope.
+    /// <summary>A collection of pre/validated URLs for the entities included in the scope.
     /// It translates non-URI identifiers in the scope of YouTube into URIs for <see cref="OutputCommand"/>s.</summary>
     internal readonly List<ValidationResult> Validated = [];
 
@@ -19,9 +19,9 @@ partial class CommandScope
     public void AddPrevalidated(string id, string url)
         => Validated.Add(new ValidationResult { Id = id, Url = url });
 
-    /// <summary>Returns the <see cref="ValidationResult.Id"/> of all <see cref="Validated"/>,
+    /*/// <summary>Returns the <see cref="ValidationResult.Id"/> of all <see cref="Validated"/>,
     /// which are either pre- or remote validated depending on <see cref="IsValid"/>.</summary>
-    internal string[] GetValidatedIds() => Validated.Ids().ToArray();
+    internal string[] GetValidatedIds() => Validated.Ids().ToArray();*/
 
     public IEnumerable<ValidationResult> GetRemoteValidated(bool isRemoteValidated = true)
         => Validated.Where(vr => vr.IsRemoteValidated == isRemoteValidated);

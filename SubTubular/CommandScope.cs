@@ -53,7 +53,7 @@ public class VideosScope(List<string> videos) : CommandScope
                 yield return validated.Title!;
         else // otherwise fall back to
         {
-            IEnumerable<string> ids = GetValidatedIds(); // pre-validated IDs
+            IEnumerable<string> ids = Validated.Ids().ToArray(); // pre/validated IDs
             if (!ids.Any()) ids = Videos; // or the unvalidated inputs
             yield return "videos " + ids.Join(" "); // and join them
         }

@@ -113,7 +113,7 @@ public static class Prevalidate
         var idsToValid = scope.Videos.ToDictionary(id => id, VideosScope.TryParseId);
         var validIds = idsToValid.Select(pair => pair.Value).WithValue().Distinct().ToArray();
         scope.QueueVideos(validIds); // ignores already queued
-        var alreadyValidated = scope.GetValidatedIds();
+        var alreadyValidated = scope.Validated.Ids(); // pre/validated
 
         foreach (var id in validIds.Except(alreadyValidated))
         {
