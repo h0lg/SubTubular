@@ -346,7 +346,7 @@ module Scope =
             model.AliasSearch.IsRemoteValidating <- false
 
             { model with
-                ValidationError = exn.Message },
+                ValidationError = exn.GetRootCauses() |> Seq.map (fun ex -> ex.Message) |> String.concat "\n" },
             Cmd.none,
             DoNothing
 
