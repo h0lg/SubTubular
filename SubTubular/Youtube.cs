@@ -540,15 +540,10 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
         {
             scope.Report(videoId, VideoList.Status.downloading);
 
-            try
-            {
-                var vid = await Client.Videos.GetAsync(videoId, cancellation);
-                video = MapVideo(vid);
-                video.UnIndexed = true; // to re-index it if it was already indexed
-                if (downloadCaptionTracksAndSave) await DownloadCaptionTracksAndSaveAsync(video, scope, cancellation);
-            }
-            catch (HttpRequestException ex) when (ex.IsNotFound())
-            { throw new InputException($"Video '{videoId}' could not be found.", ex); }
+            var vid = await Client.Videos.GetAsync(videoId, cancellation);
+            video = MapVideo(vid);
+            video.UnIndexed = true; // to re-index it if it was already indexed
+            if (downloadCaptionTracksAndSave) await DownloadCaptionTracksAndSaveAsync(video, scope, cancellation);
         }
 
         return video;

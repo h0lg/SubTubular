@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Lifti;
+using YoutubeExplode.Exceptions;
 
 /*  Namespace does not match folder structure.
  *  It was deliberately chosen to avoid including maybe conflicting extensions accidentally
@@ -183,7 +184,9 @@ public static class ExceptionExtensions
         _ => [ex]
     };
 
-    public static bool IsInputError(this Exception ex) => ex is InputException || ex is LiftiException;
+    public static bool IsInputError(this Exception ex) => ex is InputException || ex is LiftiException
+        || ex is VideoUnavailableException || ex is PlaylistUnavailableException;
+
     public static bool HasInputRootCause(this Exception ex) => ex.GetRootCauses().Any(IsInputError);
     public static bool HaveInputRootCause(this IEnumerable<Exception> exns) => exns.GetRootCauses().Any(IsInputError);
     public static bool AreAll<T>(this IEnumerable<Exception> exns) => exns.All(e => e is T);

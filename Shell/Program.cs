@@ -1,5 +1,4 @@
 ﻿using SubTubular.Extensions;
-using YoutubeExplode.Exceptions;
 
 namespace SubTubular.Shell;
 
@@ -35,7 +34,7 @@ internal static partial class Program
                 return (int)ExitCode.Canceled;
             }
 
-            if (causes.All(c => c.IsInputError() || c is VideoUnavailableException))
+            if (causes.All(c => c.IsInputError()))
             {
                 foreach (var cause in causes)
                     WriteConsoleError(cause.Message);
