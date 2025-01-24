@@ -18,7 +18,6 @@
     <Compile Include="WrapPanel.fs" />
     <Compile Include="AsyncImage.fs" />
     <Compile Include="StyledElement.fs" />
-    <Compile Include="SchedulerMonitor.fs" />
     <Compile Include="Styles.fs" />
     <Compile Include="CmdExtensions.fs" />
     <Compile Include="Focus.fs" />

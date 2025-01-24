@@ -26,14 +26,6 @@ module CommandScopeAttributes =
             let model = unbox<CommandScope> element.DataContext
             model.Notified)
 
-module JobSchedulerReporterAttributes =
-    /// Allows attaching a handler to the Updated event of a JobSchedulerReporter to a StyledElement
-    let Updated =
-        Attributes.Mvu.defineEventNoArg "JobSchedulerReporter_Updated" (fun target ->
-            let element = unbox<StyledElement> target
-            let model = unbox<JobSchedulerReporter> element.DataContext
-            model.Updated)
-
 type StyledElementModifiers =
     /// Dispatches a msg on scope.ProgressChanged.
     [<Extension>]
@@ -53,13 +45,3 @@ type StyledElementModifiers =
             // set DataContext for it to be available in CommandScopeAttributes.Notified
             .AddScalar(StyledElement.DataContext.WithValue(scope))
             .AddScalar(CommandScopeAttributes.Notified.WithValue(msg))
-
-    /// Dispatches a msg on scheduler.Updated.
-    [<Extension>]
-    static member inline onJobSchedulerReporterUpdated
-        (this: WidgetBuilder<'msg, #IFabStyledElement>, scheduler: JobSchedulerReporter, msg: 'msg)
-        =
-        this
-            // set DataContext for it to be available in CommandScopeAttributes.Notified
-            .AddScalar(StyledElement.DataContext.WithValue(scheduler))
-            .AddScalar(JobSchedulerReporterAttributes.Updated.WithValue(MsgValue msg))

@@ -26,7 +26,6 @@ module App =
         | RecentMsg of ConfigFile.Msg
         | SettingsMsg of Settings.Msg
         | SearchMsg of OutputCommands.Msg
-        | SchedulerMonitorMsg of SchedulerMonitor.Msg
 
         | AttachedToVisualTreeChanged of VisualTreeAttachmentEventArgs
         | Common of CommonMsg
@@ -158,8 +157,6 @@ module App =
 
             | _ -> { model with Settings = upd }, mappedCmd
 
-        | SchedulerMonitorMsg _ -> model, Cmd.none
-
     let private view model =
         (TabControl() {
             TabItem(Image(appIconUrl).margin(10, 5, 0, 0).height (25), HWrapEmpty())
@@ -179,13 +176,6 @@ module App =
                 .isEnabled (not model.IsSearchRunning)
 
             TabItem("⚙ Settings", View.map SettingsMsg (Settings.view model.Settings))
-
-            TabItem(
-                View.map SchedulerMonitorMsg (SchedulerMonitor.render (Services.JobSchedulerReporter)),
-                HWrapEmpty()
-            )
-                .isEnabled(false)
-                .isVisible (model.Settings.ShowJobSchedulerMonitor)
         })
             .margin(0, 15, 0, 10) // to allow dragging the Window while using extendClientAreaToDecorationsHint
             .onAttachedToVisualTree (AttachedToVisualTreeChanged)

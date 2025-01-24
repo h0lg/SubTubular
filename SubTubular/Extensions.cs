@@ -180,7 +180,6 @@ public static class ExceptionExtensions
     public static IEnumerable<Exception> GetRootCauses(this Exception ex) => ex switch
     {
         AggregateException aggex => aggex.Flatten().InnerExceptions.SelectMany(inner => inner.GetRootCauses()),
-        ColdTaskException ctex => ctex.InnerException!.GetRootCauses(),
         _ => [ex]
     };
 

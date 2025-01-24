@@ -126,7 +126,7 @@ module OutputCommands =
 
                         do!
                             Services.Youtube
-                                .SearchAsync(search, Services.JobSchedulerReporter, cancellation)
+                                .SearchAsync(search, cancellation)
                                 .dispatchBatchThrottledTo (300, SearchResults, dispatch)
 
                     | :? ListKeywords as listKeywords ->
@@ -167,8 +167,8 @@ module OutputCommands =
                             | inner ->
                                 let message =
                                     match exn with
-                                    | :? ColdTaskException as cte ->
-                                        cte
+                                    | :? AggregateException as ax ->
+                                        ax
                                             .GetRootCauses()
                                             .Select(fun e ->
                                                 let details =

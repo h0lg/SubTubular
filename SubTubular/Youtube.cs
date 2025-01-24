@@ -26,48 +26,54 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
     public readonly YoutubeClient Client = new();
 
     public async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command,
-        JobSchedulerReporter? reporter = null, [EnumeratorCancellation] CancellationToken cancellation = default)
+        [EnumeratorCancellation] CancellationToken cancellation = default)
     {
         using var linkedTs = CancellationTokenSource.CreateLinkedTokenSource(cancellation); // to cancel parallel searches on InputException
         var results = Pipe.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions() { SingleReader = true });
         Func<VideoSearchResult, ValueTask> addResult = r => results.Writer.WriteAsync(r, linkedTs.Token);
-        ResourceAwareJobScheduler jobScheduler = new(TimeSpan.FromSeconds(.5), reporter);
-        List<(string name, Func<Task> heatUp)> searches = [];
+        List<Task> searches = [];
         SearchPlaylistLikeScopes(command.Channels);
         SearchPlaylistLikeScopes(command.Playlists);
 
         if (command.HasValidVideos)
         {
             command.Videos!.ResetProgressAndNotifications();
-            searches.Add(("searching videos", () => SearchVideosAsync(command, addResult, linkedTs.Token)));
+            searches.Add(SearchVideosAsync(command, addResult, linkedTs.Token));
         }
 
         var spansMultipleIndexes = searches.Count > 0;
 
-        Action<Exception> handleProducerError = ex =>
+        var searching = Task.Run(async () =>
         {
-            if (ex.HasInputRootCause())
+            await foreach (var task in Task.WhenEach(searches))
             {
-                /* wait for the root cause to bubble up instead of triggering
-                 * an OperationCanceledException further up the call chain. */
-                linkedTs.Cancel(); // cancel parallel searches if query parser yields input error
+                if (task.IsFaulted)
+                {
+                    if (task.Exception.HasInputRootCause())
+                    {
+                        /* wait for the root cause to bubble up instead of triggering
+                         * an OperationCanceledException further up the call chain. */
+                        linkedTs.Cancel(); // cancel parallel searches if query parser yields input error
+                    }
+
+                    throw task.Exception; // bubble up errors
+                }
             }
-        };
+        }, linkedTs.Token).ContinueWith(t =>
+        {
+            results.Writer.Complete();
+            if (t.IsFaulted) throw t.Exception; // bubble up errors
+        });
 
-        var searchCompletion = jobScheduler.ParallelizeAsync(searches, handleProducerError, linkedTs.Token)
-            .ContinueWith(t =>
-            {
-                results.Writer.Complete();
-                if (t.Exception != null) throw t.Exception;
-            });
-
+        // don't pass cancellation token to avoid throwing before searching is awaited below
         await foreach (var result in results.Reader.ReadAllAsync())
         {
+            if (linkedTs.Token.IsCancellationRequested) break; // end loop gracefully to throw below
             if (spansMultipleIndexes) result.Rescore();
             yield return result;
         }
 
-        await searchCompletion;
+        await searching; // throws the relevant input errors
 
         void SearchPlaylistLikeScopes(PlaylistLikeScope[]? scopes)
         {
@@ -75,17 +81,14 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                 foreach (var scope in scopes!)
                 {
                     scope.ResetProgressAndNotifications(); // to prevent state from prior searches from bleeding into this one
-
-                    searches.Add((scope.Describe(inDetail: false).Join(" "),
-                        () => SearchPlaylistAsync(command, scope, addResult, jobScheduler, linkedTs.Token)));
+                    searches.Add(SearchPlaylistAsync(command, scope, addResult, linkedTs.Token));
                 }
         }
     }
 
     /// <summary>Searches videos defined by a playlist.</summary>
     private async Task SearchPlaylistAsync(SearchCommand command, PlaylistLikeScope scope,
-        Func<VideoSearchResult, ValueTask> yieldResult,
-        ResourceAwareJobScheduler jobScheduler, CancellationToken cancellation = default)
+        Func<VideoSearchResult, ValueTask> yieldResult, CancellationToken cancellation = default)
     {
         cancellation.ThrowIfCancellationRequested();
         var storageKey = scope.StorageKey;
@@ -101,7 +104,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                 scope.QueueVideos(videoIds);
                 var spansMultipleIndexes = false;
 
-                var searches = videos.GroupBy(v => v.ShardNumber).Select(group => ("searching shard " + group.Key, new Func<Task>(async () =>
+                var searches = videos.GroupBy(v => v.ShardNumber).Select(async group =>
                 {
                     List<Task> shardSearches = [];
                     var containedVideoIds = group.Ids().ToArray();
@@ -146,17 +149,17 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                         shard.Dispose();
                         if (t.IsFaulted) throw t.Exception;
                     });
-                }))).ToList();
+                }).ToList();
 
                 scope.Report(VideoList.Status.searching);
                 spansMultipleIndexes = searches.Count > 0;
 
-                Action<AggregateException> onError = ex =>
+                await foreach (var task in Task.WhenEach(searches))
                 {
-                    if (ex.HasInputRootCause()) throw ex; // raise input errors to stop parallel searches
-                };
+                    if (task.IsFaulted && task.Exception.HasInputRootCause())
+                        throw task.Exception; // raise input errors to stop parallel searches
+                }
 
-                await jobScheduler.ParallelizeAsync(searches, onError, cancellation);
                 scope.Report(cancellation.IsCancellationRequested ? VideoList.Status.canceled : VideoList.Status.searched);
                 if (continuedRefresh != null) await continuedRefresh;
 
