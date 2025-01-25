@@ -70,11 +70,11 @@ module SearchResult =
                 TextBlock(reference).smallDemoted ()
 
                 if result.DescriptionMatches <> null then
-                    HStack() {
+                    Grid(coldefs = [ Auto; Star ], rowdefs = [ Auto ]) {
                         (TextBlock "in description").demoted ()
 
                         for matches in result.DescriptionMatches.SplitIntoPaddedGroups(matchPadding) do
-                            writeHighlightingMatches matches (Some matchPadding)
+                            (writeHighlightingMatches matches (Some matchPadding)).wrap().gridColumn (1)
                     }
 
                 if result.KeywordMatches.HasAny() then
