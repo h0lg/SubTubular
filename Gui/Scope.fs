@@ -80,6 +80,7 @@ module Scope =
     type AliasSearch(scope: CommandScope) =
         let mutable searching: CancellationTokenSource = null
         let mutable selectedText: string = null
+        let mutable isRemoteValidating: bool = false
         let input = ViewRef<AutoCompleteBox>()
 
         let isRunning () = searching <> null
@@ -101,6 +102,13 @@ module Scope =
         member this.Input = input
         member this.IsRunning = isRunning
         member this.Cancel = cancel
+
+        (*  workaround using a mutable property on a type instance
+            because a field on the immutable model ref doesn't always represent the correct state
+            for some reason at the time of writing *)
+        member this.IsRemoteValidating
+            with get () = isRemoteValidating
+            and set (value) = isRemoteValidating <- value
 
         // called when either using arrow keys to cycle through results in dropdown or mouse to click one
         member this.SelectAliases text (item: obj) =
@@ -160,7 +168,6 @@ module Scope =
           CaptionStatusNotifications: CommandScope.Notification list
           Aliases: string
           AliasSearch: AliasSearch
-          IsRemoteValidating: bool
           ValidationError: string
           ShowSettings: bool
           Added: bool }
@@ -242,12 +249,12 @@ module Scope =
 
     /// first pre-validates the scope, then triggers remoteValidate on success
     let private validate model =
-        if not model.IsRemoteValidating && model.Scope.RequiresValidation() then
+        if not model.AliasSearch.IsRemoteValidating && model.Scope.RequiresValidation() then
             match Prevalidate.Scope model.Scope with
             | null ->
                 if model.Scope.IsPrevalidated then
-                    { model with IsRemoteValidating = true },
-                    remoteValidate model CancellationToken.None |> Cmd.OfTask.msg
+                    model.AliasSearch.IsRemoteValidating <- true
+                    model, remoteValidate model CancellationToken.None |> Cmd.OfTask.msg
                 else
                     model, Cmd.none
             | error -> { model with ValidationError = error }, Cmd.none
@@ -263,7 +270,6 @@ module Scope =
             | Vids v -> v.Videos |> VideosInput.join
           AliasSearch = AliasSearch(scope)
           ValidationError = null
-          IsRemoteValidating = false
           ShowSettings = false
           Added = added }
 
@@ -311,17 +317,19 @@ module Scope =
             model, cmd, DoNothing
 
         | ValidationSucceeded ->
+            model.AliasSearch.IsRemoteValidating <- false
+
             { model with
                 CaptionStatusNotifications = getCaptionTrackDownloadStateNotifications model
-                ValidationError = null
-                IsRemoteValidating = false },
+                ValidationError = null },
             Cmd.none,
             DoNothing
 
         | ValidationFailed exn ->
+            model.AliasSearch.IsRemoteValidating <- false
+
             { model with
-                ValidationError = exn.Message
-                IsRemoteValidating = false },
+                ValidationError = exn.Message },
             Cmd.none,
             DoNothing
 
