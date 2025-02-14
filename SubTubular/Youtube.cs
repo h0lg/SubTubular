@@ -443,14 +443,6 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
         var channel = Pipe.CreateUnbounded<(string[] keywords, string videoId, CommandScope scope)>(
             new UnboundedChannelOptions { SingleReader = true });
 
-        async Task GetKeywords(string videoId, CommandScope scope)
-        {
-            scope.Report(videoId, VideoList.Status.searching);
-            var video = await GetVideoAsync(videoId, cancellation, scope);
-            await channel.Writer.WriteAsync((video.Keywords, videoId, scope));
-            scope.Report(videoId, VideoList.Status.searched);
-        }
-
         var lookupTasks = command.GetPlaylistLikeScopes().GetValid().Select(scope =>
             Task.Run(async () =>
             {
@@ -480,17 +472,23 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
 
         if (command.HasValidVideos)
         {
-            var videoIds = command.Videos!.GetRemoteValidated().Ids().ToArray();
-            command.Videos.QueueVideos(videoIds);
+            VideosScope videos = command.Videos!;
+            var videoIds = videos.GetRemoteValidated().Ids().ToArray();
+            videos.QueueVideos(videoIds);
 
             lookupTasks.Add(Task.Run(async () =>
             {
-                command.Videos.Report(VideoList.Status.searching);
+                videos.Report(VideoList.Status.searching);
 
-                foreach (var videoId in videoIds)
-                    await GetKeywords(videoId, command.Videos);
+                await Task.WhenAll(videoIds.Select(async videoId =>
+                {
+                    videos.Report(videoId, VideoList.Status.searching);
+                    var video = await GetVideoAsync(videoId, cancellation, videos);
+                    await channel.Writer.WriteAsync((video.Keywords, videoId, videos));
+                    videos.Report(videoId, VideoList.Status.searched);
+                })).WithAggregateException();
 
-                command.Videos.Report(VideoList.Status.searched);
+                videos.Report(VideoList.Status.searched);
             }, cancellation));
         }
 
