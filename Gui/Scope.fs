@@ -466,7 +466,7 @@ module Scope =
                     .itemSelector(model.AliasSearch.SelectAliases)
                     .itemTemplate(fun (result: YoutubeSearchResult) ->
                         HStack(5) {
-                            AsyncImage(result.Thumbnail).isVisible (showThumbnails)
+                            AsyncImage(result.Thumbnail).maxHeight(100).isVisible (showThumbnails)
 
                             VStack(5) {
                                 TextBlock(result.Title)
