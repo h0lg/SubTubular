@@ -310,12 +310,13 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
 
         /* limit channel capacity to avoid holding a lot of loaded but unprocessed videos in memory
             SingleReader because we're reading from it synchronously */
-        var unIndexedVideos = Pipe.CreateBounded<Video>(new BoundedChannelOptions(5) { SingleReader = true });
+        const int queueSize = 10;
+        var unIndexedVideos = Pipe.CreateBounded<Video>(new BoundedChannelOptions(queueSize) { SingleReader = true });
 
         // load videos asynchronously in the background and put them on the unIndexedVideos channel for processing
         var loadVideos = Task.Run(async () =>
         {
-            var loadLimiter = new SemaphoreSlim(5, 5);
+            var loadLimiter = new SemaphoreSlim(queueSize, queueSize);
 
             var downloads = unIndexedVideoIds.Select(id => Task.Run(async () =>
             {
@@ -339,7 +340,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
                 }
                 /* only start another download if channel has accepted the video or an error occurred */
                 finally { loadLimiter.Release(); }
-            }, cancellation)).ToArray();
+            }, cancellation));
 
             await Task.WhenAll(downloads).WithAggregateException()
                .ContinueWith(t =>
@@ -364,7 +365,7 @@ public sealed class Youtube(DataStore dataStore, VideoIndexRepository videoIndex
             uncommitted.Add(video);
 
             // save batch of changes
-            if (uncommitted.Count >= 5 // to prevent the batch from growing too big
+            if (uncommitted.Count >= queueSize // to prevent the batch from growing too big
                 || unIndexedVideos.Reader.Completion.IsCompleted // to save remaining changes
                 || unIndexedVideos.Reader.Count == 0) // to use resources efficiently while we've got nothing queued up for indexing
             {
