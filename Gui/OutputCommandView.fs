@@ -40,8 +40,8 @@ module OutputCommandView =
                 GoToKeywordPage(scope, uint16 page))
 
         (Grid(coldefs = [ Star; Auto ], rowdefs = [ Auto; Auto ]) {
-            TextBlock(scope.Describe().Join(" ")).header ()
-            pager.gridColumn (1)
+            TextBlock(scope.Describe().Join(" ")).wrap().header ()
+            pager.bottom().gridColumn (1)
 
             (HWrap() {
                 for pair in keywordsOnPage do
