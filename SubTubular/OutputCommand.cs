@@ -81,7 +81,7 @@ public abstract class OutputCommand
 
     protected string FormatShellCommand(string action, string? extraParameters = null)
     {
-        string shellCmd = $"{AssemblyInfo.Name}.exe {action}";
+        string shellCmd = $"{AssemblyInfo.ShellExe} {action}";
 
         if (Channels?.Length > 0) shellCmd += $" {Scopes.channels} {Channels.Select(c => c.Alias).Join(" ")}";
         if (Playlists?.Length > 0) shellCmd += $" {Scopes.playlists} {Playlists.Select(pl => pl.Alias).Join(" ")}";
