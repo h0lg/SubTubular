@@ -56,4 +56,7 @@
   <ItemGroup>
     <ProjectReference Include="..\SubTubular\SubTubular.csproj" />
   </ItemGroup>
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <ProjectReference Include="..\Shell\Shell.csproj" />
+  </ItemGroup>
 </Project>
