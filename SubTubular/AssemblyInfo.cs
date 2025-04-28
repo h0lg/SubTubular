@@ -6,7 +6,9 @@ namespace SubTubular;
 public static class AssemblyInfo
 {
     public const string Name = nameof(SubTubular),
-        IssuesUrl = $"{RepoUrl}/issues", ReleasesUrl = $"{RepoUrl}/releases", RepoUrl = $"https://github.com/{RepoOwner}/{RepoName}";
+        IssuesUrl = $"{RepoUrl}/issues",
+        ReleasesUrl = $"{RepoUrl}/releases",
+        RepoUrl = $"https://github.com/{RepoOwner}/{RepoName}";
 
     internal const string RepoOwner = "h0lg", RepoName = Name,
         ShellExe = Name + ".Shell.exe";
