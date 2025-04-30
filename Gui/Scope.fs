@@ -632,5 +632,5 @@ module Scope =
 
             ProgressBar(0, model.Scope.Progress.AllJobs, model.Scope.Progress.CompletedJobs, ProgressValueChanged)
                 .isIndeterminate(model.AliasSearch.IsRunning())
-                .onScopeProgressChanged (model.Scope, ProgressChanged)
+                .onScopeProgressChanged (model.Scope, 300, ProgressChanged)
         }
