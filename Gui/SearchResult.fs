@@ -55,9 +55,7 @@ module SearchResult =
                         .wrap()
                         .fontSize (18)
 
-                    TextBlock("📅" + result.Video.Uploaded.ToString())
-                        .tooltip("uploaded")
-                        .gridColumn (1)
+                    TextBlock("📅" + result.Video.Uploaded.ToString()).tooltip("uploaded").gridColumn (1)
                 }
 
                 let reference =

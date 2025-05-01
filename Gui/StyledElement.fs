@@ -40,7 +40,8 @@ type StyledElementModifiers =
     /// Dispatches a msg on scope.Notified.
     [<Extension>]
     static member inline onScopeNotified
-        (this: WidgetBuilder<'msg, #IFabStyledElement>, scope: CommandScope, msg: CommandScope.Notification -> 'msg) =
+        (this: WidgetBuilder<'msg, #IFabStyledElement>, scope: CommandScope, msg: CommandScope.Notification -> 'msg)
+        =
         this
             // set DataContext for it to be available in CommandScopeAttributes.Notified
             .AddScalar(StyledElement.DataContext.WithValue(scope))

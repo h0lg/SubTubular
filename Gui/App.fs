@@ -159,8 +159,7 @@ module App =
 
     let private view model =
         (TabControl() {
-            TabItem(Image(appIconUrl).margin(10, 5, 0, 0).height (25), HWrapEmpty())
-                .isEnabled (false)
+            TabItem(Image(appIconUrl).margin(10, 5, 0, 0).height (25), HWrapEmpty()).isEnabled (false)
 
             TabItem(Icon.recent + " Recent", View.map RecentMsg (ConfigFile.view model.Recent))
                 .isEnabled(not model.IsSearchRunning)
@@ -172,8 +171,7 @@ module App =
             )
                 .reference (searchTab)
 
-            TabItem("🗃 Storage", View.map CacheMsg (Cache.view model.Cache))
-                .isEnabled (not model.IsSearchRunning)
+            TabItem("🗃 Storage", View.map CacheMsg (Cache.view model.Cache)).isEnabled (not model.IsSearchRunning)
 
             TabItem("⚙ Settings", View.map SettingsMsg (Settings.view model.Settings))
         })

@@ -88,9 +88,7 @@ module ConfigFile =
                 model.Filtered,
                 (fun config ->
                     (Grid(coldefs = [ Star; Auto; Auto; Auto ], rowdefs = [ Auto ]) {
-                        TextBlock(config.Description)
-                            .tappable(Load config.Command, "load this command")
-                            .wrap ()
+                        TextBlock(config.Description).tappable(Load config.Command, "load this command").wrap ()
 
                         Button(Icon.copy, CopyShellCmd config.Command |> Common)
                             .tooltip("copy shell command to clipboard")

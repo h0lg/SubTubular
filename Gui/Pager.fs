@@ -21,11 +21,5 @@ module Pager =
                         | None -> page
                     )
 
-            (intUpDown
-                1
-                (page + 1 |> float)
-                (lastPage + 1 |> float)
-                msg
-                "select the page to display")
-                .tapCursor ()
+            (intUpDown 1 (page + 1 |> float) (lastPage + 1 |> float) msg "select the page to display").tapCursor ()
         }

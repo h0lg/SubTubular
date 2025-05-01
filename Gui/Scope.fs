@@ -564,8 +564,7 @@ module Scope =
 
                     notificationToggle model
 
-                    ToggleButton("⚙", model.ShowSettings, ToggleSettings)
-                        .tooltip ("toggle settings")
+                    ToggleButton("⚙", model.ShowSettings, ToggleSettings).tooltip ("toggle settings")
 
                     (HStack(5) {
                         Label "skip"

@@ -83,14 +83,11 @@ module FileOutput =
         Grid(coldefs = [ Auto; Auto; Auto; Star; Auto; Auto; Auto ], rowdefs = [ Auto ]) {
             Label("ouput")
 
-            ToggleButton((if model.Html then "🖺 html" else "🖹 text"), model.Html, HtmlChanged)
-                .gridColumn (1)
+            ToggleButton((if model.Html then "🖺 html" else "🖹 text"), model.Html, HtmlChanged).gridColumn (1)
 
             Label("to").gridColumn (2)
 
-            TextBox(model.To, ToChanged)
-                .watermark("where to save the output file")
-                .gridColumn (3)
+            TextBox(model.To, ToChanged).watermark("where to save the output file").gridColumn (3)
 
             Label("and open").gridColumn (4)
 

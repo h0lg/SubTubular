@@ -74,8 +74,7 @@ module ResultOptions =
         HStack(5) {
             Label "padded with"
 
-            (uint16UpDown model.Padding PaddingChanged "how much context to show a search result in")
-                .increment (5)
+            (uint16UpDown model.Padding PaddingChanged "how much context to show a search result in").increment (5)
 
             Label "chars for context"
         }

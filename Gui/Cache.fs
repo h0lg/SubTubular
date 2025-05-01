@@ -274,10 +274,7 @@ module Cache =
                 (Grid(coldefs = [ Auto; Star ], rowdefs = [ Auto; Star ]) {
                     TextBlock(group.TimeSpanLabel).header ()
 
-                    Button(Icon.trash, RemoveByLastAccess group)
-                        .tooltip("clear this data")
-                        .fontSize(20)
-                        .gridRow (1)
+                    Button(Icon.trash, RemoveByLastAccess group).tooltip("clear this data").fontSize(20).gridRow (1)
 
                     (VStack(5) {
                         let report label files =
@@ -308,8 +305,7 @@ module Cache =
             if Array.isEmpty files |> not then
                 header (icon + title + Icon.scopeSearch)
 
-                ItemsControl(files, fun file -> scopeSearch prefix file)
-                    .itemsPanel (HWrapEmpty())
+                ItemsControl(files, fun file -> scopeSearch prefix file).itemsPanel (HWrapEmpty())
         }
 
     let private byPlaylist model =
@@ -326,6 +322,7 @@ module Cache =
                 (VStack() {
                     let icon = Scope.getIcon (group.Scope.GetType())
                     header (icon + group.Playlist.Title)
+
                     (deletableFileFirst ("info and contents" + Icon.playlistLike) group.File).right ()
 
                     if group.Thumbnail <> null then
