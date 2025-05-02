@@ -61,7 +61,7 @@ module OutputCommands =
         | GoToSearchResultPage of uint16
         | KeywordResults of (string array * string * CommandScope) list
         | GoToKeywordPage of (CommandScope * uint16)
-        | CommandCompleted
+        | CommandCompleted of bool
         | SearchResultMsg of SearchResult.Msg
         | Common of CommonMsg
 
@@ -99,6 +99,8 @@ module OutputCommands =
                 let dispatchCommon msg = Common msg |> dispatch
                 let allErrors = ConcurrentBag<string>()
                 let command = mapToCommand model
+                let cancellation = model.Running.Token
+                let mutable errored = false
 
                 command.OnScopeNotification(fun scope ntf ->
                     if ntf.Errors.HasAny() && not (ntf.Errors.HaveInputRootCause()) then
@@ -112,8 +114,6 @@ module OutputCommands =
                         ))
 
                 try
-                    let cancellation = model.Running.Token
-
                     match command with
                     | :? SearchCommand as search ->
                         Prevalidate.Search search
@@ -156,6 +156,8 @@ module OutputCommands =
                     | _ -> failwith ("Unknown command type " + command.GetType().ToString())
                 with exn ->
                     let dispatchError (exn: exn) =
+                        errored <- true
+
                         // don't write an error log for InputExceptions
                         if exn.HasInputRootCause() |> not then
                             allErrors.Add(exn.ToString())
@@ -211,7 +213,10 @@ module OutputCommands =
 
                     FailLong(title, body) |> dispatchCommon
 
-                dispatch CommandCompleted
+                (*  dispatch if search completes without user cancellation
+                    while dispatching input error despite internal cancellation *)
+                if errored || not cancellation.IsCancellationRequested then
+                    errored |> not |> CommandCompleted |> dispatch
             }
             |> Async.AwaitTask
             |> Async.Start
@@ -410,20 +415,26 @@ module OutputCommands =
 
             model, Cmd.none
 
-        | CommandCompleted ->
+        | CommandCompleted successful ->
             if model.Running <> null then
                 model.Running.Dispose()
 
             let cmd =
-                if model.Command = Commands.Search then
-                    "search"
+                if successful then // notify about it
+                    let what =
+                        if model.Command = Commands.Search then
+                            "search"
+                        else
+                            "listing keywords"
+
+                    Notify(what + " completed") |> Common |> Cmd.ofMsg
                 else
-                    "listing keywords"
+                    Cmd.none // runCmd dispatched error notifications
 
             { model with
                 Running = null
                 ShowScopes = false },
-            Notify(cmd + " completed") |> Common |> Cmd.ofMsg
+            cmd
 
         | SearchResultMsg srm ->
             let cmd =

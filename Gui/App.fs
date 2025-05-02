@@ -100,7 +100,7 @@ module App =
                         IsSearchRunning = on
                         // reset cache model when search is stopped
                         Cache = if on then model.Cache else Cache.initModel }
-                | OutputCommands.Msg.CommandCompleted ->
+                | OutputCommands.Msg.CommandCompleted _ ->
                     { model with
                         IsSearchRunning = false
                         // reset cache model when search completes
