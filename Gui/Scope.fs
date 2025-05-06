@@ -199,6 +199,11 @@ module Scope =
         | RemoveMe
         | DoNothing
 
+    let private refreshCaptionTrackDownloadStateAfter =
+        [| VideoList.Status.validated
+           VideoList.Status.searched
+           VideoList.Status.canceled |]
+
     let isForVideos model =
         match model.Scope with
         | :? VideosScope as _ -> true
@@ -306,10 +311,6 @@ module Scope =
 
         init scope true
 
-    let private getCaptionTrackDownloadStateNotifications model =
-        model.Scope.GetCaptionTrackDownloadStates().Irregular().AsNotifications()
-        |> List.ofArray
-
     let update msg model =
         match msg with
         | ToggleSettings show -> { model with ShowSettings = show }, Cmd.none, DoNothing
@@ -355,10 +356,7 @@ module Scope =
         | ValidationSucceeded ->
             model.AliasSearch.IsRemoteValidating <- false
 
-            { model with
-                CaptionStatusNotifications = getCaptionTrackDownloadStateNotifications model
-                ValidationError = null }
-            |> syncScopeWithAliases, // to remove remote-validated from input
+            { model with ValidationError = null } |> syncScopeWithAliases, // to remove remote-validated from input
             Cmd.none,
             DoNothing
 
@@ -400,18 +398,26 @@ module Scope =
 
         | Remove -> model, Cmd.none, RemoveMe
 
+        (*  no need to update anything; CaptionStatusNotifications are refreshed selectively based on progress.
+            regular Notifications get rendered model.Scope in notificationToggle *)
+        | Notified _ -> model, Cmd.none, DoNothing
+
         | ProgressChanged ->
             let model =
-                match model.Scope.Progress.State with
-                | VideoList.Status.searched ->
+                if
+                    refreshCaptionTrackDownloadStateAfter
+                    |> Array.contains model.Scope.Progress.State
+                then
                     { model with
-                        CaptionStatusNotifications = getCaptionTrackDownloadStateNotifications model }
-                | _ -> model
+                        CaptionStatusNotifications =
+                            model.Scope.GetCaptionTrackDownloadStates().Irregular().AsNotifications()
+                            |> List.ofArray }
+                else
+                    model
 
             model, Cmd.none, DoNothing
 
         | ProgressValueChanged _ -> model, Cmd.none, DoNothing
-        | Notified _ -> model, Cmd.none, DoNothing
         | Common _ -> model, Cmd.none, DoNothing
 
     let private getAliasWatermark model =
@@ -534,7 +540,7 @@ module Scope =
             model.CaptionStatusNotifications @ (List.ofSeq model.Scope.Notifications)
 
         TextBlock($"⚠️ {notifications.Length}")
-            .onScopeNotified(model.Scope, Notified)
+            .onScopeNotified(model.Scope, Notified) // just to trigger re-render of this view
             .attachedFlyout(notificationFlyout notifications)
             .tappable(ToggleFlyout >> Common, "some things came up while working on this scope")
             .isVisible (not notifications.IsEmpty)
@@ -569,7 +575,8 @@ module Scope =
 
                     notificationToggle model
 
-                    ToggleButton("⚙", model.ShowSettings, ToggleSettings).tooltip ("toggle settings")
+                    ToggleButton("⚙", model.ShowSettings, ToggleSettings)
+                        .tooltip ("toggle settings")
 
                     (HStack(5) {
                         Label "skip"
