@@ -103,16 +103,30 @@ partial class CommandScope
     /// <summary>Used to notify the caller when asynchronously processing this scope.</summary>
     public void Notify(string title, string? message = null, Exception[]? errors = null, Video? video = null)
     {
-        Notification msg = new(title, message, errors, video);
+        Notification.Levels level = errors.HasAny() ? Notification.Levels.Error : Notification.Levels.Warning;
+        Notification msg = new(title, message, errors, video, level);
         Notifications.Add(msg);
         Notified?.Invoke(this, msg);
     }
 
-    public struct Notification(string title, string? message = null, Exception[]? errors = null, Video? video = null)
+    public struct Notification(string title, string? message = null,
+        Exception[]? errors = null, Video? video = null, Notification.Levels level = default)
     {
         public string Title { get; set; } = title;
         public string? Message { get; set; } = message;
         public Exception[]? Errors { get; set; } = errors;
         public Video? Video { get; set; } = video;
+        public Levels Level { get; set; } = level;
+
+        public enum Levels { Info, Warning, Error }
     }
+}
+
+public static class NotificationExtensions
+{
+    public static bool HaveAnyOfLevel(this IEnumerable<CommandScope.Notification> notifications, CommandScope.Notification.Levels level)
+        => notifications.Any(n => n.Level == level);
+
+    public static bool HaveErrors(this IEnumerable<CommandScope.Notification> notifications)
+        => notifications.HaveAnyOfLevel(CommandScope.Notification.Levels.Error);
 }

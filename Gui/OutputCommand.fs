@@ -100,7 +100,7 @@ module OutputCommands =
                 let allErrors = ConcurrentBag<string>()
                 let command = mapToCommand model
                 let cancellation = model.Running.Token
-                let mutable errored = false
+                let mutable failedHard = false
 
                 command.OnScopeNotification(fun scope ntf ->
                     if ntf.Errors.HasAny() && not (ntf.Errors.HaveInputRootCause()) then
@@ -156,7 +156,7 @@ module OutputCommands =
                     | _ -> failwith ("Unknown command type " + command.GetType().ToString())
                 with exn ->
                     let dispatchError (exn: exn) =
-                        errored <- true
+                        failedHard <- true
 
                         // don't write an error log for InputExceptions
                         if exn.HasInputRootCause() |> not then
@@ -213,10 +213,13 @@ module OutputCommands =
 
                     FailLong(title, body) |> dispatchCommon
 
+                let failed =
+                    failedHard || command.GetScopes().Any(fun s -> s.Notifications.HaveErrors())
+
                 (*  dispatch if search completes without user cancellation
                     while dispatching input error despite internal cancellation *)
-                if errored || not cancellation.IsCancellationRequested then
-                    errored |> not |> CommandCompleted |> dispatch
+                if failed || not cancellation.IsCancellationRequested then
+                    failed |> not |> CommandCompleted |> dispatch
             }
             |> Async.AwaitTask
             |> Async.Start
@@ -419,22 +422,26 @@ module OutputCommands =
             if model.Running <> null then
                 model.Running.Dispose()
 
-            let cmd =
-                if successful then // notify about it
-                    let what =
-                        if model.Command = Commands.Search then
-                            "search"
-                        else
-                            "listing keywords"
-
-                    Notify(what + " completed") |> Common |> Cmd.ofMsg
+            let workload =
+                if model.Command = Commands.Search then
+                    "search"
                 else
-                    Cmd.none // runCmd dispatched error notifications
+                    "listing keywords"
+
+            let msg =
+                if successful then
+                    Notify(workload + " completed.")
+                else
+                    FailLong(workload + " failed.", "Find details in the scope notifications.")
 
             { model with
                 Running = null
-                ShowScopes = false },
-            cmd
+
+                // hide scopes if none has errors or warnings
+                ShowScopes =
+                    model.Scopes.List
+                    |> List.exists (fun scope -> scope.Notifications.HasWarnings || scope.Notifications.HasError) },
+            msg |> Common |> Cmd.ofMsg
 
         | SearchResultMsg srm ->
             let cmd =

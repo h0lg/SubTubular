@@ -21,6 +21,11 @@ module Icon =
     let video = "📼 "
     let search = "🔍 "
 
+    // notifications
+    let error = "🛑 "
+    let warning = "⚠️ "
+    let info = "ⓘ "
+
     // unpadded
     let trash = "🗑"
     let help = "💡"

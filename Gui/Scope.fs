@@ -169,7 +169,7 @@ module Scope =
 
     type Model =
         { Scope: CommandScope
-          CaptionStatusNotifications: CommandScope.Notification list
+          Notifications: ScopeNotifications.Model
           ThrottledProgressChanged: ThrottledEvent
           Aliases: string
           AliasSearch: AliasSearch
@@ -198,11 +198,6 @@ module Scope =
     type Intent =
         | RemoveMe
         | DoNothing
-
-    let private refreshCaptionTrackDownloadStateAfter =
-        [| VideoList.Status.validated
-           VideoList.Status.searched
-           VideoList.Status.canceled |]
 
     let isForVideos model =
         match model.Scope with
@@ -278,7 +273,7 @@ module Scope =
         scope.ProgressChanged.Add(fun args -> progressChanged.Trigger(scope, args))
 
         { Scope = scope
-          CaptionStatusNotifications = []
+          Notifications = ScopeNotifications.initModel
           ThrottledProgressChanged = progressChanged
           Aliases = // set from scope to sync
             match scope with
@@ -356,7 +351,13 @@ module Scope =
         | ValidationSucceeded ->
             model.AliasSearch.IsRemoteValidating <- false
 
-            { model with ValidationError = null } |> syncScopeWithAliases, // to remove remote-validated from input
+            { model with
+                ValidationError = null
+
+                (*  update CaptionTrack Notifications here because update on ProgressChanged
+                    for VideoList.Status.validated doesn't work reliably for recreated recent scopes *)
+                Notifications = ScopeNotifications.updateCaptionTracks model.Notifications model.Scope }
+            |> syncScopeWithAliases, // to remove remote-validated from input
             Cmd.none,
             DoNothing
 
@@ -398,20 +399,20 @@ module Scope =
 
         | Remove -> model, Cmd.none, RemoveMe
 
-        (*  no need to update anything; CaptionStatusNotifications are refreshed selectively based on progress.
-            regular Notifications get rendered model.Scope in notificationToggle *)
-        | Notified _ -> model, Cmd.none, DoNothing
+        (*  no need to record passed notification;
+            CaptionTrack state notifications are generated selectively based on progress.
+            Regular Notifications get rendered from model.Scope via notificationToggle *)
+        | Notified _ ->
+            { model with
+                Notifications = ScopeNotifications.update model.Notifications model.Scope None },
+            Cmd.none,
+            DoNothing
 
         | ProgressChanged ->
             let model =
-                if
-                    refreshCaptionTrackDownloadStateAfter
-                    |> Array.contains model.Scope.Progress.State
-                then
+                if ScopeNotifications.needsCaptionTracksUpdate model.Scope.Progress.State then
                     { model with
-                        CaptionStatusNotifications =
-                            model.Scope.GetCaptionTrackDownloadStates().Irregular().AsNotifications()
-                            |> List.ofArray }
+                        Notifications = ScopeNotifications.updateCaptionTracks model.Notifications model.Scope }
                 else
                     model
 
@@ -512,38 +513,10 @@ module Scope =
     let private removeBtn () =
         Button("❌", Remove).tooltip ("remove this scope")
 
-    let private notificationFlyout (notifications: CommandScope.Notification list) =
-        Flyout(
-            ItemsControl(
-                notifications,
-                fun ntf ->
-                    VStack() {
-                        TextBlock ntf.Title
-
-                        if ntf.Video <> null then
-                            TextBlock ntf.Video.Title
-
-                        if ntf.Message.IsNonEmpty() then
-                            TextBlock ntf.Message
-
-                        if ntf.Errors <> null then
-                            for err in ntf.Errors do
-                                TextBlock err.Message
-                    }
-            )
-        )
-            .placement(PlacementMode.BottomEdgeAlignedRight)
-            .showMode (FlyoutShowMode.Standard)
-
     let private notificationToggle model =
-        let notifications =
-            model.CaptionStatusNotifications @ (List.ofSeq model.Scope.Notifications)
-
-        TextBlock($"⚠️ {notifications.Length}")
+        (ScopeNotifications.toggle model.Notifications)
             .onScopeNotified(model.Scope, Notified) // just to trigger re-render of this view
-            .attachedFlyout(notificationFlyout notifications)
-            .tappable(ToggleFlyout >> Common, "some things came up while working on this scope")
-            .isVisible (not notifications.IsEmpty)
+            .tappable (ToggleFlyout >> Common, "some things came up while working on this scope")
 
     let view model maxWidth showThumbnails =
         VStack() {

@@ -1,6 +1,8 @@
 ﻿namespace SubTubular;
 
+using CaptionStatus = CommandScope.CaptionStatus;
 using CaptionTrackDownloadStatus = (CommandScope.CaptionStatus? status, int videos);
+using Levels = CommandScope.Notification.Levels;
 
 partial class CommandScope
 {
@@ -18,14 +20,14 @@ public static class CaptionStatusExtensions
                 .GroupBy(v => v.GetCaptionTrackDownloadStatus())
                 .Select(g => (g.Key, g.Count())).ToArray();
 
-    internal static CommandScope.CaptionStatus? GetCaptionTrackDownloadStatus(this Video video)
-        => video.CaptionTracks == null ? CommandScope.CaptionStatus.UnChecked
-            : video.CaptionTracks.Count == 0 ? CommandScope.CaptionStatus.None
-            : video.CaptionTracks.WithErrors().Any() ? CommandScope.CaptionStatus.Error
+    internal static CaptionStatus? GetCaptionTrackDownloadStatus(this Video video)
+        => video.CaptionTracks == null ? CaptionStatus.UnChecked
+            : video.CaptionTracks.Count == 0 ? CaptionStatus.None
+            : video.CaptionTracks.WithErrors().Any() ? CaptionStatus.Error
             : null; // downloaded
 
-    internal static bool IsComplete(this CommandScope.CaptionStatus? status)
-        => status is null or CommandScope.CaptionStatus.None;
+    internal static bool IsComplete(this CaptionStatus? status)
+        => status is null or CaptionStatus.None;
 
     public static IEnumerable<CaptionTrackDownloadStatus> Irregular(this CaptionTrackDownloadStatus[] states)
         => states.Where(s => s.status.HasValue); // not downloaded
@@ -34,16 +36,16 @@ public static class CaptionStatusExtensions
         => states
             .Select(s =>
             {
-                var issue = s.status switch
+                var (level, issue) = s.status switch
                 {
-                    null => " all caption tracks dowloaded",
-                    CommandScope.CaptionStatus.None => "out caption tracks",
-                    CommandScope.CaptionStatus.Error => " errors during caption track download",
-                    CommandScope.CaptionStatus.UnChecked => " unchecked caption track status",
-                    _ => " unknown caption track status"
+                    null => (Levels.Info, " all caption tracks dowloaded"),
+                    CaptionStatus.None => (Levels.Info, "out caption tracks"),
+                    CaptionStatus.Error => (Levels.Error, " errors during caption track download"),
+                    CaptionStatus.UnChecked => (Levels.Warning, " unchecked caption track status"),
+                    _ => (Levels.Error, " unknown caption track status")
                 };
 
-                return new CommandScope.Notification($"{s.videos} videos with{issue}");
+                return new CommandScope.Notification($"{s.videos} videos with{issue}", level: level);
             })
             .ToArray();
 
