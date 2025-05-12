@@ -25,6 +25,7 @@
     <Compile Include="ConfigFile.fs" />
     <Compile Include="ScopeViews.fs" />
     <Compile Include="ScopeNotifications.fs" />
+    <Compile Include="ScopeSearch.fs" />
     <Compile Include="Scope.fs" />
     <Compile Include="Cache.fs" />
     <Compile Include="Scopes.fs" />
