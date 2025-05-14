@@ -97,14 +97,14 @@ module OutputCommands =
         fun dispatch ->
             task {
                 let dispatchCommon msg = Common msg |> dispatch
-                let allErrors = ConcurrentBag<string>()
+                let loggedErrors = ConcurrentBag<string>()
                 let command = mapToCommand model
                 let cancellation = model.Running.Token
                 let mutable failedHard = false
 
                 command.OnScopeNotification(fun scope ntf ->
                     if ntf.Errors.HasAny() && not (ntf.Errors.HaveInputRootCause()) then
-                        allErrors.Add(
+                        loggedErrors.Add(
                             ntf.Errors
                                 .GetRootCauses()
                                 .Select(fun ex -> ex.ToString())
@@ -160,7 +160,7 @@ module OutputCommands =
 
                         // don't write an error log for InputExceptions
                         if exn.HasInputRootCause() |> not then
-                            allErrors.Add(exn.ToString())
+                            loggedErrors.Add(exn.ToString())
 
                         // collect meaningful exception messages for notification
                         let error =
@@ -193,10 +193,10 @@ module OutputCommands =
                         for inner in exns do
                             dispatchError inner
 
-                if not allErrors.IsEmpty then
+                if not loggedErrors.IsEmpty then
                     let! logWriting =
                         ErrorLog.WriteAsync(
-                            allErrors.Join(ErrorLog.OutputSpacing),
+                            loggedErrors.Join(ErrorLog.OutputSpacing),
                             command.ToShellCommand(),
                             command.Describe(true)
                         )

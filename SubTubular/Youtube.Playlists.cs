@@ -33,11 +33,11 @@ partial class Youtube
                 var videos = playlist.GetVideos().Skip(scope.Skip).Take(scope.Take).ToArray();
                 var videoIds = videos.Ids().ToArray();
                 scope.QueueVideos(videoIds);
-                var spansMultipleIndexes = false;
+                var spansMultipleShards = false;
 
-                var searches = videos.GroupBy(v => v.ShardNumber).Select(async group =>
+                var shardSearches = videos.GroupBy(v => v.ShardNumber).Select(async group =>
                 {
-                    List<Task> shardSearches = [];
+                    List<Task> searches = [];
                     var containedVideoIds = group.Ids().ToArray();
                     var completeVideos = group.Where(v => v.CaptionTrackDownloadStatus.IsComplete()).ToArray();
                     var shard = await videoIndexRepo.GetIndexShardAsync(storageKey, group.Key!.Value);
@@ -48,7 +48,7 @@ partial class Youtube
                         var indexedVideoInfos = indexedVideoIds.ToDictionary(id => id, id => group.Single(v => v.Id == id).Uploaded);
 
                         // search already indexed videos in one go - but on background task to start downloading and indexing videos in parallel
-                        shardSearches.Add(SearchIndexedVideos());
+                        searches.Add(SearchIndexedVideos());
 
                         async Task SearchIndexedVideos()
                         {
@@ -66,7 +66,7 @@ partial class Youtube
                     // load, index and search not yet indexed videos
                     if (unIndexedVideoIds.Length > 0)
                     {
-                        shardSearches.Add(SearchUnindexedVids());
+                        searches.Add(SearchUnindexedVids());
 
                         async Task SearchUnindexedVids()
                         {
@@ -75,7 +75,7 @@ partial class Youtube
                         }
                     }
 
-                    await Task.WhenAll(shardSearches).WithAggregateException().ContinueWith(t =>
+                    await Task.WhenAll(searches).WithAggregateException().ContinueWith(t =>
                     {
                         shard.Dispose();
                         if (t.IsFaulted) throw t.Exception;
@@ -83,9 +83,9 @@ partial class Youtube
                 }).ToList();
 
                 scope.Report(VideoList.Status.searching);
-                spansMultipleIndexes = searches.Count > 0;
+                spansMultipleShards = shardSearches.Count > 0;
 
-                await foreach (var task in Task.WhenEach(searches))
+                await foreach (var task in Task.WhenEach(shardSearches))
                 {
                     if (task.IsFaulted)
                         throw task.Exception; // raise errors
@@ -97,7 +97,7 @@ partial class Youtube
                 ValueTask Yield(VideoSearchResult result)
                 {
                     result.Scope = scope;
-                    if (spansMultipleIndexes) result.Rescore();
+                    if (spansMultipleShards) result.Rescore();
                     return yieldResult(result);
                 }
             }
