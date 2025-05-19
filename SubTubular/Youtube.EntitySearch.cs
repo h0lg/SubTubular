@@ -6,23 +6,23 @@ namespace SubTubular;
 partial class Youtube
 {
     public async Task<IEnumerable<YoutubeSearchResult>> SearchForChannelsAsync(string text, CancellationToken token)
-        => await SearchedForCachedAsync(text, ChannelScope.StorageKeyPrefix, async (string text, CancellationToken cancellation) =>
+        => await SearchedForCachedAsync(text, ChannelScope.StorageKeyPrefix, async (string text) =>
         {
-            var channels = await Client.Search.GetChannelsAsync(text, cancellation);
+            var channels = await Client.Search.GetChannelsAsync(text, token);
             return channels.Select(c => new YoutubeSearchResult(c.Id, c.Title, c.Url, SelectUrl(c.Thumbnails)));
         }, token);
 
     public async Task<IEnumerable<YoutubeSearchResult>> SearchForPlaylistsAsync(string text, CancellationToken token)
-        => await SearchedForCachedAsync(text, PlaylistScope.StorageKeyPrefix, async (string text, CancellationToken cancellation) =>
+        => await SearchedForCachedAsync(text, PlaylistScope.StorageKeyPrefix, async (string text) =>
         {
-            var playlists = await Client.Search.GetPlaylistsAsync(text, cancellation);
+            var playlists = await Client.Search.GetPlaylistsAsync(text, token);
             return playlists.Select(pl => new YoutubeSearchResult(pl.Id, pl.Title, pl.Url, SelectUrl(pl.Thumbnails), pl.Author?.ChannelTitle));
         }, token);
 
     public async Task<IEnumerable<YoutubeSearchResult>> SearchForVideosAsync(string text, CancellationToken token)
-        => await SearchedForCachedAsync(text, Video.StorageKeyPrefix, async (string text, CancellationToken cancellation) =>
+        => await SearchedForCachedAsync(text, Video.StorageKeyPrefix, async (string text) =>
         {
-            var videos = await Client.Search.GetVideosAsync(text, cancellation);
+            var videos = await Client.Search.GetVideosAsync(text, token);
             return videos.Select(v => new YoutubeSearchResult(v.Id, v.Title, v.Url, SelectUrl(v.Thumbnails), v.Author?.ChannelTitle));
         }, token);
 
@@ -30,7 +30,7 @@ partial class Youtube
     public const string SearchAffix = "search ";
 
     private async Task<YoutubeSearchResult[]> SearchedForCachedAsync(string text, string keyPrefix,
-        Func<string, CancellationToken, Task<IEnumerable<YoutubeSearchResult>>> searchYoutubeAsync, CancellationToken token)
+        Func<string, Task<IEnumerable<YoutubeSearchResult>>> searchYoutubeAsync, CancellationToken token)
     {
         if (token.IsCancellationRequested) return [];
         string key = keyPrefix + SearchAffix + text.ToFileSafe();
@@ -39,7 +39,7 @@ partial class Youtube
         if (cached == null || cached.Search != text || cached.Created.AddHours(1) < DateTime.Now)
         {
             if (token.IsCancellationRequested) return [];
-            var mapped = await searchYoutubeAsync(text, token);
+            var mapped = await searchYoutubeAsync(text);
             cached = new YoutubeSearchResult.Cache(text, mapped.ToArray(), DateTime.Now);
             await dataStore.SetAsync(key, cached);
         }
