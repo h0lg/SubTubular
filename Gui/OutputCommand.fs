@@ -99,7 +99,7 @@ module OutputCommands =
                 let dispatchCommon msg = Common msg |> dispatch
                 let loggedErrors = ConcurrentBag<string>()
                 let command = mapToCommand model
-                let cancellation = model.Running.Token
+                let token = model.Running.Token
                 let mutable failedHard = false
 
                 command.OnScopeNotification(fun scope ntf ->
@@ -119,34 +119,28 @@ module OutputCommands =
                         Prevalidate.Search search
 
                         if search.RequiresRemoteValidation() then
-                            do! RemoteValidate.ScopesAsync(search, Services.Youtube, Services.DataStore, cancellation)
+                            do! RemoteValidate.ScopesAsync(search, Services.Youtube, Services.DataStore, token)
 
                         if command.SaveAsRecent then
                             CommandValidated command |> dispatch
 
                         do!
                             Services.Youtube
-                                .SearchAsync(search, cancellation)
+                                .SearchAsync(search, token)
                                 .dispatchBatchThrottledTo (300, SearchResults, dispatch)
 
                     | :? ListKeywords as listKeywords ->
                         Prevalidate.Scopes listKeywords
 
                         if listKeywords.RequiresRemoteValidation() then
-                            do!
-                                RemoteValidate.ScopesAsync(
-                                    listKeywords,
-                                    Services.Youtube,
-                                    Services.DataStore,
-                                    cancellation
-                                )
+                            do! RemoteValidate.ScopesAsync(listKeywords, Services.Youtube, Services.DataStore, token)
 
                         if command.SaveAsRecent then
                             CommandValidated command |> dispatch
 
                         do!
                             Services.Youtube
-                                .ListKeywordsAsync(listKeywords, cancellation)
+                                .ListKeywordsAsync(listKeywords, token)
                                 .dispatchBatchThrottledTo (
                                     300,
                                     (fun list -> list |> List.map _.ToTuple() |> KeywordResults),
@@ -218,7 +212,7 @@ module OutputCommands =
 
                 (*  dispatch if search completes without user cancellation
                     while dispatching input error despite internal cancellation *)
-                if failed || not cancellation.IsCancellationRequested then
+                if failed || not token.IsCancellationRequested then
                     failed |> not |> CommandCompleted |> dispatch
             }
             |> Async.AwaitTask

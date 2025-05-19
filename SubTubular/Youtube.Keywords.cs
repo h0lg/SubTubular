@@ -9,7 +9,7 @@ partial class Youtube
     /// <summary>Returns the <see cref="Video.Keywords"/> and their corresponding number of occurrences
     /// from the videos scoped by <paramref name="command"/>.</summary>
     public async IAsyncEnumerable<(string[] keywords, string videoId, CommandScope scope)> ListKeywordsAsync(ListKeywords command,
-        [EnumeratorCancellation] CancellationToken cancellation = default)
+        [EnumeratorCancellation] CancellationToken token = default)
     {
         var channel = Channel.CreateUnbounded<(string[] keywords, string videoId, CommandScope scope)>(
             new UnboundedChannelOptions { SingleReader = true });
@@ -21,7 +21,7 @@ partial class Youtube
 
                 await using (playlist.CreateChangeToken(() => dataStore.SetAsync(scope.StorageKey, playlist)))
                 {
-                    Task? continuedRefresh = await RefreshPlaylistAsync(scope, cancellation);
+                    Task? continuedRefresh = await RefreshPlaylistAsync(scope, token);
                     var videos = playlist.GetVideos().Skip(scope.Skip).Take(scope.Take).ToArray();
                     var videoIds = videos.Ids().ToArray();
                     scope.QueueVideos(videoIds);
@@ -38,7 +38,7 @@ partial class Youtube
                     scope.Report(VideoList.Status.searched);
                     if (continuedRefresh != null) await continuedRefresh;
                 }
-            }, cancellation))
+            }, token))
             .ToList();
 
         if (command.HasValidVideos)
@@ -54,13 +54,13 @@ partial class Youtube
                 await Task.WhenAll(videoIds.Select(async videoId =>
                 {
                     videos.Report(videoId, VideoList.Status.searching);
-                    var video = await GetVideoAsync(videoId, cancellation, videos);
+                    var video = await GetVideoAsync(videoId, token, videos);
                     await channel.Writer.WriteAsync((video.Keywords, videoId, videos));
                     videos.Report(videoId, VideoList.Status.searched);
                 })).WithAggregateException();
 
                 videos.Report(VideoList.Status.searched);
-            }, cancellation));
+            }, token));
         }
 
         // hook up writer completion before starting to read to ensure the reader knows when it's done
@@ -69,10 +69,10 @@ partial class Youtube
             {
                 channel.Writer.Complete();
                 if (t.Exception != null) throw t.Exception;
-            }, cancellation);
+            }, token);
 
         // start reading
-        await foreach (var keywords in channel.Reader.ReadAllAsync(cancellation)) yield return keywords;
+        await foreach (var keywords in channel.Reader.ReadAllAsync(token)) yield return keywords;
 
         await lookups;
     }

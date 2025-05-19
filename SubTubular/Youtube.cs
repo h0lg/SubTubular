@@ -11,9 +11,9 @@ public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository vi
     public readonly YoutubeClient Client = new();
 
     public async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command,
-        [EnumeratorCancellation] CancellationToken cancellation = default)
+        [EnumeratorCancellation] CancellationToken token = default)
     {
-        using var linkedTs = CancellationTokenSource.CreateLinkedTokenSource(cancellation); // to cancel parallel searches on InputException
+        using var linkedTs = CancellationTokenSource.CreateLinkedTokenSource(token); // to cancel parallel searches on InputException
         var results = Channel.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions() { SingleReader = true });
         Func<VideoSearchResult, ValueTask> addResult = r => results.Writer.WriteAsync(r, linkedTs.Token);
         List<Task> searches = [];

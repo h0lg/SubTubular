@@ -100,11 +100,11 @@ module ScopeSearch =
 
             selectedText
 
-        member this.SearchAsync (text: string) (cancellation: CancellationToken) : Task<obj seq> =
+        member this.SearchAsync (text: string) (token: CancellationToken) : Task<obj seq> =
             task {
                 // only start search if input has keyboard focus & avoid re-triggering it for the same search term after selection
                 if input.Value.IsKeyboardFocusWithin && text <> selectedText then
-                    cancellation.Register(cancel) |> ignore // register cancellation of running search when outer cancellation is requested
+                    token.Register(cancel) |> ignore // register cancellation of running search when outer cancellation is requested
                     cancel () // cancel any older running search
                     searching <- new CancellationTokenSource() // and create a new source for this one
 
@@ -138,7 +138,7 @@ module ScopeSearch =
                                     |> yieldResults
 
                     // drop exception caused by outside cancellation
-                    with :? OperationCanceledException when cancellation.IsCancellationRequested ->
+                    with :? OperationCanceledException when token.IsCancellationRequested ->
                         return []
                 else
                     return []

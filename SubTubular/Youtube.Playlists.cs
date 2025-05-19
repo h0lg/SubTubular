@@ -19,9 +19,9 @@ partial class Youtube
 
     /// <summary>Searches videos defined by a playlist.</summary>
     private async Task SearchPlaylistAsync(SearchCommand command, PlaylistLikeScope scope,
-        Func<VideoSearchResult, ValueTask> yieldResult, CancellationToken cancellation = default)
+        Func<VideoSearchResult, ValueTask> yieldResult, CancellationToken token = default)
     {
-        if (cancellation.IsCancellationRequested) return;
+        if (token.IsCancellationRequested) return;
         var storageKey = scope.StorageKey;
         var playlist = scope.SingleValidated.Playlist!;
 
@@ -29,7 +29,7 @@ partial class Youtube
         {
             try
             {
-                Task? continuedRefresh = await RefreshPlaylistAsync(scope, cancellation);
+                Task? continuedRefresh = await RefreshPlaylistAsync(scope, token);
                 var videos = playlist.GetVideos().Skip(scope.Skip).Take(scope.Take).ToArray();
                 var videoIds = videos.Ids().ToArray();
                 scope.QueueVideos(videoIds);
@@ -54,7 +54,7 @@ partial class Youtube
                         {
                             foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searching);
 
-                            await foreach (var result in shard.SearchAsync(command, CreateVideoLookup(scope), indexedVideoInfos, playlist, cancellation))
+                            await foreach (var result in shard.SearchAsync(command, CreateVideoLookup(scope), indexedVideoInfos, playlist, token))
                                 await Yield(result);
 
                             foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searched);
@@ -70,7 +70,7 @@ partial class Youtube
 
                         async Task SearchUnindexedVids()
                         {
-                            await foreach (var result in SearchUnindexedVideos(command, unIndexedVideoIds, shard, scope, cancellation, playlist))
+                            await foreach (var result in SearchUnindexedVideos(command, unIndexedVideoIds, shard, scope, token, playlist))
                                 await Yield(result);
                         }
                     }
@@ -91,7 +91,7 @@ partial class Youtube
                         throw task.Exception; // raise errors
                 }
 
-                scope.Report(cancellation.IsCancellationRequested ? VideoList.Status.canceled : VideoList.Status.searched);
+                scope.Report(token.IsCancellationRequested ? VideoList.Status.canceled : VideoList.Status.searched);
                 if (continuedRefresh != null) await continuedRefresh;
 
                 ValueTask Yield(VideoSearchResult result)
@@ -109,17 +109,17 @@ partial class Youtube
         }
     }
 
-    internal Task<Playlist> GetPlaylistAsync(PlaylistScope scope, CancellationToken cancellation) =>
+    internal Task<Playlist> GetPlaylistAsync(PlaylistScope scope, CancellationToken token) =>
         GetPlaylistAsync(scope, async () =>
         {
-            var playlist = await Client.Playlists.GetAsync(scope.SingleValidated.Id, cancellation);
+            var playlist = await Client.Playlists.GetAsync(scope.SingleValidated.Id, token);
             return (playlist.Title, SelectUrl(playlist.Thumbnails), playlist.Author?.ChannelTitle);
         });
 
-    internal Task<Playlist> GetPlaylistAsync(ChannelScope scope, CancellationToken cancellation) =>
+    internal Task<Playlist> GetPlaylistAsync(ChannelScope scope, CancellationToken token) =>
         GetPlaylistAsync(scope, async () =>
         {
-            var channel = await Client.Channels.GetAsync(scope.SingleValidated.Id, cancellation);
+            var channel = await Client.Channels.GetAsync(scope.SingleValidated.Id, token);
             return (channel.Title, SelectUrl(channel.Thumbnails), null);
         });
 
@@ -224,15 +224,15 @@ partial class Youtube
         return paging; // to enable continuing to wait for refresh to finish on early return
     }
 
-    private IAsyncEnumerable<PlaylistVideo> GetVideos(PlaylistLikeScope scope, CancellationToken cancellation) => scope switch
+    private IAsyncEnumerable<PlaylistVideo> GetVideos(PlaylistLikeScope scope, CancellationToken token) => scope switch
     {
-        ChannelScope _ => Client.Channels.GetUploadsAsync(scope.SingleValidated.Id, cancellation),
-        PlaylistScope _ => Client.Playlists.GetVideosAsync(scope.SingleValidated.Id, cancellation),
+        ChannelScope _ => Client.Channels.GetUploadsAsync(scope.SingleValidated.Id, token),
+        PlaylistScope _ => Client.Playlists.GetVideosAsync(scope.SingleValidated.Id, token),
         _ => throw new NotImplementedException($"Getting videos for the {scope.GetType()} is not implemented.")
     };
 
     /// <summary>Returns a curried <see cref="GetVideoAsync(string, CancellationToken, CommandScope, bool)"/>
     /// with the <paramref name="scope"/> supplied.</summary>
     private Func<string, CancellationToken, Task<Video>> CreateVideoLookup(CommandScope scope)
-        => (videoId, cancellation) => GetVideoAsync(videoId, cancellation, scope);
+        => (videoId, token) => GetVideoAsync(videoId, token, scope);
 }

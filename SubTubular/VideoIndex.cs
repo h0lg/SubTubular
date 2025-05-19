@@ -114,12 +114,12 @@ internal sealed class VideoIndex : IDisposable
     internal string[] GetIndexed(IEnumerable<string> videoIds)
         => videoIds.Where(Index.Metadata.Contains).ToArray();
 
-    internal async Task AddOrUpdateAsync(Video video, CancellationToken cancellation)
+    internal async Task AddOrUpdateAsync(Video video, CancellationToken token)
     {
         /*  Adds or replaces the video, see
             https://mikegoatly.github.io/lifti/docs/index-construction/withduplicatekeybehavior/
             https://github.com/mikegoatly/lifti/discussions/124#discussioncomment-11296041 */
-        await Index.AddAsync(video, cancellation);
+        await Index.AddAsync(video, token);
         video.UnIndexed = false; // to reset the flag
     }
 
@@ -129,7 +129,7 @@ internal sealed class VideoIndex : IDisposable
     /// <summary>Searches the index according to the specified <paramref name="command"/>,
     /// recombining the matches with <see cref="Video"/>s loaded using <paramref name="getVideoAsync"/>
     /// and returns <see cref="VideoSearchResult"/>s until all are processed
-    /// or the <paramref name="cancellation"/> is invoked.</summary>
+    /// or the <paramref name="token"/> is invoked.</summary>
     /// <param name="command">Determines the <see cref="SearchCommand.Query"/> for the search
     /// and the <see cref="PlaylistLikeScope.OrderBy"/> and <see cref="SearchCommand.Padding"/> of the results.</param>
     /// <param name="relevantVideos"><see cref="Video.Id"/>s the search is limited to
@@ -143,9 +143,9 @@ internal sealed class VideoIndex : IDisposable
         Func<string, CancellationToken, Task<Video>> getVideoAsync,
         IDictionary<string, DateTime?>? relevantVideos = default,
         Playlist? playlist = default,
-        [EnumeratorCancellation] CancellationToken cancellation = default)
+        [EnumeratorCancellation] CancellationToken token = default)
     {
-        cancellation.ThrowIfCancellationRequested();
+        token.ThrowIfCancellationRequested();
 
         var matches = Index.Search(command.Query!)
             // make sure to only return results for the requested videos if specified; playlist or channel indexes may contain more
@@ -169,7 +169,7 @@ internal sealed class VideoIndex : IDisposable
                 // get upload dates for videos that we don't know it of (may occur if index remembers a video the Playlist forgot about)
                 if (matchesForVideosWithoutUploadDate.Length != 0)
                 {
-                    var getVideos = matchesForVideosWithoutUploadDate.Select(m => getVideoAsync(m.Key, cancellation)).ToArray();
+                    var getVideos = matchesForVideosWithoutUploadDate.Select(m => getVideoAsync(m.Key, token)).ToArray();
                     await Task.WhenAll(getVideos).WithAggregateException();
                     videosWithoutUploadDate = getVideos.Select(t => t.Result).ToArray();
                     unIndexedVideos.AddRange(videosWithoutUploadDate.Where(v => v.UnIndexed));
@@ -195,7 +195,7 @@ internal sealed class VideoIndex : IDisposable
 
         foreach (var match in matches)
         {
-            cancellation.ThrowIfCancellationRequested();
+            token.ThrowIfCancellationRequested();
 
             // consider results for un-cached videos stale
             if (unIndexedVideos.Any(video => video.Id == match.Key)) continue;
@@ -204,7 +204,7 @@ internal sealed class VideoIndex : IDisposable
 
             if (video == null)
             {
-                video = await getVideoAsync(match.Key, cancellation);
+                video = await getVideoAsync(match.Key, token);
 
                 if (video.UnIndexed)
                 {
@@ -275,20 +275,20 @@ internal sealed class VideoIndex : IDisposable
         if (unIndexedVideos.Count > 0)
         {
             // consider results for un-cached videos stale and re-index them
-            await UpdateAsync(unIndexedVideos, cancellation);
+            await UpdateAsync(unIndexedVideos, token);
 
             await foreach (var result in SearchAsync(command, GetReIndexedVideoAsync,
                 unIndexedVideos.ToDictionary(v => v.Id, v => v.Uploaded as DateTime?),
-                playlist, cancellation))
+                playlist, token))
                 yield return result;
 
             // re-trigger search for re-indexed videos only
-            async Task<Video> GetReIndexedVideoAsync(string id, CancellationToken cancellation)
-                => unIndexedVideos.SingleOrDefault(v => v.Id == id) ?? await getVideoAsync(id, cancellation);
+            async Task<Video> GetReIndexedVideoAsync(string id, CancellationToken token)
+                => unIndexedVideos.SingleOrDefault(v => v.Id == id) ?? await getVideoAsync(id, token);
         }
     }
 
-    private async Task UpdateAsync(IEnumerable<Video> videos, CancellationToken cancellation)
+    private async Task UpdateAsync(IEnumerable<Video> videos, CancellationToken token)
     {
         var indexedKeys = Index.Metadata.GetIndexedDocuments().Select(d => d.Key).ToArray();
         BeginBatchChange();
@@ -298,7 +298,7 @@ internal sealed class VideoIndex : IDisposable
             await Task.WhenAll(indexedKeys.Where(key => key == video.Id)
                 .Select(key => Index.RemoveAsync(key))).WithAggregateException();
 
-            await AddOrUpdateAsync(video, cancellation);
+            await AddOrUpdateAsync(video, token);
         }
 
         await CommitBatchChangeAsync();

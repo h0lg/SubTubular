@@ -10,9 +10,9 @@ static partial class Program
     {
         Prevalidate.Search(command);
 
-        await OutputAsync(command, originalCommand, async (youtube, outputs, cancellation) =>
+        await OutputAsync(command, originalCommand, async (youtube, outputs, token) =>
         {
-            await foreach (var result in youtube.SearchAsync(command, cancellation: cancellation))
+            await foreach (var result in youtube.SearchAsync(command, token: token))
                 outputs.ForEach(o => o.WriteVideoResult(result, command.Padding));
         });
     }

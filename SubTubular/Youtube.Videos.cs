@@ -10,10 +10,10 @@ partial class Youtube
 
     private async IAsyncEnumerable<VideoSearchResult> SearchUnindexedVideos(SearchCommand command,
         string[] unIndexedVideoIds, VideoIndex index, CommandScope scope,
-        [EnumeratorCancellation] CancellationToken cancellation,
+        [EnumeratorCancellation] CancellationToken token,
         Playlist? playlist = default)
     {
-        if (cancellation.IsCancellationRequested) yield break;
+        if (token.IsCancellationRequested) yield break;
         scope.Report(VideoList.Status.indexingAndSearching);
 
         /* limit channel capacity to avoid holding a lot of loaded but unprocessed videos in memory
@@ -35,11 +35,11 @@ partial class Youtube
                 try
                 {
                     Video? video = command.Videos?.Validated.SingleOrDefault(v => v.Id == id)?.Video;
-                    video ??= await GetVideoAsync(id, cancellation, scope, downloadCaptionTracksAndSave: false);
+                    video ??= await GetVideoAsync(id, token, scope, downloadCaptionTracksAndSave: false);
 
                     // re/download caption tracks for the video
                     if (!video.GetCaptionTrackDownloadStatus().IsComplete())
-                        await DownloadCaptionTracksAndSaveAsync(video, scope, cancellation);
+                        await DownloadCaptionTracksAndSaveAsync(video, scope, token);
 
                     playlist?.Update(video);
 
@@ -48,7 +48,7 @@ partial class Youtube
                 }
                 /* only start another download if channel has accepted the video or an error occurred */
                 finally { loadLimiter.Release(); }
-            }, cancellation));
+            }, token));
 
             await Task.WhenAll(downloads).WithAggregateException()
                .ContinueWith(t =>
@@ -56,7 +56,7 @@ partial class Youtube
                    // complete writing after all download tasks finished
                    unIndexedVideos.Writer.Complete();
                    if (t.Exception != null) throw t.Exception;
-               }, cancellation);
+               }, token);
         });
 
         var uncommitted = new List<Video>(); // batch of loaded and indexed, but uncommitted video index changes
@@ -67,9 +67,9 @@ partial class Youtube
         // read synchronously from the channel because we're writing to the same video index
         await foreach (var video in unIndexedVideos.Reader.ReadAllAsync())
         {
-            if (cancellation.IsCancellationRequested) break;
+            if (token.IsCancellationRequested) break;
             if (uncommitted.Count == 0) index.BeginBatchChange();
-            await index.AddOrUpdateAsync(video, cancellation);
+            await index.AddOrUpdateAsync(video, token);
             uncommitted.Add(video);
 
             // save batch of changes
@@ -83,7 +83,7 @@ partial class Youtube
                 scope.Report(uncommitted, VideoList.Status.searching);
 
                 // search after committing index changes to output matches as we go
-                await foreach (var result in index.SearchAsync(command, getVideoAsync, indexedVideoInfos, cancellation: cancellation))
+                await foreach (var result in index.SearchAsync(command, getVideoAsync, indexedVideoInfos, token: token))
                     yield return result;
 
                 scope.Report(uncommitted, VideoList.Status.searched);
@@ -96,9 +96,9 @@ partial class Youtube
 
     /// <summary>Searches videos scoped by the specified <paramref name="command"/>.</summary>
     private async Task SearchVideosAsync(SearchCommand command,
-        Func<VideoSearchResult, ValueTask> yieldResult, CancellationToken cancellation)
+        Func<VideoSearchResult, ValueTask> yieldResult, CancellationToken token)
     {
-        if (cancellation.IsCancellationRequested) return;
+        if (token.IsCancellationRequested) return;
         VideosScope scope = command.Videos!;
         var videoIds = scope.GetRemoteValidated().Ids().ToArray();
         scope.QueueVideos(videoIds);
@@ -113,9 +113,9 @@ partial class Youtube
 
             searching = Task.Run(async () =>
             {
-                await foreach (var result in SearchUnindexedVideos(command, videoIds, index, scope, cancellation))
+                await foreach (var result in SearchUnindexedVideos(command, videoIds, index, scope, token))
                     await yieldResult(result);
-            }, cancellation);
+            }, token);
         }
         else searching = Task.Run(async () =>
         {
@@ -124,9 +124,9 @@ partial class Youtube
             // indexed videos are assumed to have downloaded their caption tracks already
             Video[] videos = scope.Validated.Select(v => v.Video!).ToArray();
 
-            await foreach (var result in index.SearchAsync(command, CreateVideoLookup(videos), cancellation: cancellation))
+            await foreach (var result in index.SearchAsync(command, CreateVideoLookup(videos), token: token))
                 await yieldResult(result);
-        }, cancellation);
+        }, token);
 
         scope.Report(VideoList.Status.searched);
 
@@ -145,10 +145,10 @@ partial class Youtube
         index.Dispose();
     }
 
-    internal async Task<Video> GetVideoAsync(string videoId, CancellationToken cancellation,
+    internal async Task<Video> GetVideoAsync(string videoId, CancellationToken token,
         CommandScope scope, bool downloadCaptionTracksAndSave = true)
     {
-        cancellation.ThrowIfCancellationRequested();
+        token.ThrowIfCancellationRequested();
         var storageKey = Video.StorageKeyPrefix + videoId;
         scope.Report(videoId, VideoList.Status.loading);
         var video = await dataStore.GetAsync<Video>(storageKey);
@@ -157,10 +157,10 @@ partial class Youtube
         {
             scope.Report(videoId, VideoList.Status.downloading);
 
-            var vid = await Client.Videos.GetAsync(videoId, cancellation);
+            var vid = await Client.Videos.GetAsync(videoId, token);
             video = MapVideo(vid);
             video.UnIndexed = true; // to re-index it if it was already indexed
-            if (downloadCaptionTracksAndSave) await DownloadCaptionTracksAndSaveAsync(video, scope, cancellation);
+            if (downloadCaptionTracksAndSave) await DownloadCaptionTracksAndSaveAsync(video, scope, token);
         }
 
         return video;
@@ -177,13 +177,13 @@ partial class Youtube
         Thumbnail = SelectUrl(video.Thumbnails)
     };
 
-    private async Task DownloadCaptionTracksAndSaveAsync(Video video, CommandScope scope, CancellationToken cancellation)
+    private async Task DownloadCaptionTracksAndSaveAsync(Video video, CommandScope scope, CancellationToken token)
     {
         List<Exception> errors = [];
 
         try
         {
-            var trackManifest = await Client.Videos.ClosedCaptions.GetManifestAsync(video.Id, cancellation);
+            var trackManifest = await Client.Videos.ClosedCaptions.GetManifestAsync(video.Id, token);
             video.CaptionTracks = [];
 
             foreach (var trackInfo in trackManifest.Tracks)
@@ -193,7 +193,7 @@ partial class Youtube
                 try
                 {
                     // Get the actual closed caption track
-                    var track = await Client.Videos.ClosedCaptions.GetAsync(trackInfo, cancellation);
+                    var track = await Client.Videos.ClosedCaptions.GetAsync(trackInfo, token);
 
                     captionTrack.Captions = track.Captions
                         .Select(c => new Caption { At = Convert.ToInt32(c.Offset.TotalSeconds), Text = c.Text })
@@ -231,5 +231,5 @@ partial class Youtube
 
     /// <summary>Returns a video lookup that used the local <paramref name="videos"/> collection for better performance.</summary>
     private static Func<string, CancellationToken, Task<Video>> CreateVideoLookup(IEnumerable<Video> videos)
-        => (videoId, _cancellation) => Task.FromResult(videos.Single(v => v.Id == videoId));
+        => (videoId, _) => Task.FromResult(videos.Single(v => v.Id == videoId));
 }
