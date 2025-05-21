@@ -37,7 +37,7 @@ public sealed class VideoList
         queued, preValidated, invalid,
         loading, downloading, validated,
         refreshing, indexing, searching, indexingAndSearching,
-        searched, canceled
+        searched, canceled, failed
     }
 
     // used for display in UI

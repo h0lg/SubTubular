@@ -103,15 +103,17 @@ module OutputCommands =
                 let mutable failedHard = false
 
                 command.OnScopeNotification(fun scope ntf ->
-                    if ntf.Errors.HasAny() && not (ntf.Errors.HaveInputRootCause()) then
-                        loggedErrors.Add(
-                            ntf.Errors
-                                .GetRootCauses()
-                                .Select(fun ex -> ex.ToString())
-                                .Prepend("in " + scope.Describe(false).Join(" "))
-                                .Prepend(ntf.Title)
-                                .Join("\n")
-                        ))
+                    if ntf.Errors.HasAny() then
+                        let causes = ntf.Errors.GetRootCauses().ToArray()
+
+                        if not (causes.HaveInputError()) then
+                            loggedErrors.Add(
+                                causes
+                                    .Select(fun ex -> ex.ToString())
+                                    .Prepend("in " + scope.Describe(false).Join(" "))
+                                    .Prepend(ntf.Title)
+                                    .Join("\n")
+                            ))
 
                 try
                     match command with
@@ -153,7 +155,7 @@ module OutputCommands =
                         failedHard <- true
 
                         // don't write an error log for InputExceptions
-                        if exn.HasInputRootCause() |> not then
+                        if exn.IsInputError() |> not then
                             loggedErrors.Add(exn.ToString())
 
                         // collect meaningful exception messages for notification

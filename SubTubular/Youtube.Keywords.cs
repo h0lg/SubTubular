@@ -16,53 +16,13 @@ partial class Youtube
         var channel = Channel.CreateUnbounded<(string[] keywords, string videoId, CommandScope scope)>(
             new UnboundedChannelOptions { SingleReader = true });
 
-        var lookupTasks = command.GetPlaylistLikeScopes().GetValid().Select(scope =>
-            Task.Run(async () =>
-            {
-                var playlist = scope.SingleValidated.Playlist!;
-
-                await using (playlist.CreateChangeToken(() => dataStore.SetAsync(scope.StorageKey, playlist)))
-                {
-                    Task? continuedRefresh = await RefreshPlaylistAsync(scope, token);
-                    var videos = playlist.GetVideos().Skip(scope.Skip).Take(scope.Take).ToArray();
-                    var videoIds = videos.Ids().ToArray();
-                    scope.QueueVideos(videoIds);
-                    scope.Report(VideoList.Status.searching);
-
-                    foreach (var video in videos)
-                    {
-                        if (video.Keywords?.Length > 0)
-                            await channel.Writer.WriteAsync((video.Keywords, video.Id, scope), token);
-
-                        scope.Report(video.Id, VideoList.Status.searched);
-                    }
-
-                    scope.Report(VideoList.Status.searched);
-                    if (continuedRefresh != null) await continuedRefresh;
-                }
-            }, token))
-            .ToList();
+        var lookupTasks = command.GetPlaylistLikeScopes().GetValid()
+            .Select(scope => RunUpdatingScope(ForPlaylists(scope), scope)).ToList();
 
         if (command.HasValidVideos)
         {
             VideosScope videos = command.Videos!;
-            var videoIds = videos.GetRemoteValidated().Ids().ToArray();
-            videos.QueueVideos(videoIds);
-
-            lookupTasks.Add(Task.Run(async () =>
-            {
-                videos.Report(VideoList.Status.searching);
-
-                await Task.WhenAll(videoIds.Select(async videoId =>
-                {
-                    videos.Report(videoId, VideoList.Status.searching);
-                    var video = await GetVideoAsync(videoId, token, videos);
-                    await channel.Writer.WriteAsync((video.Keywords, videoId, videos), token);
-                    videos.Report(videoId, VideoList.Status.searched);
-                })).WithAggregateException();
-
-                videos.Report(VideoList.Status.searched);
-            }, token));
+            lookupTasks.Add(RunUpdatingScope(ForVideos(videos), videos));
         }
 
         // hook up writer completion before starting to read to ensure the reader knows when it's done
@@ -70,13 +30,68 @@ partial class Youtube
             .ContinueWith(t =>
             {
                 channel.Writer.Complete();
-                if (t.Exception != null) throw t.Exception;
+                if (t.IsFaulted) throw t.Exception;
             }, token);
 
         // start reading
         await foreach (var keywords in channel.Reader.ReadAllAsync(token)) yield return keywords;
 
         await lookups;
+
+        async Task RunUpdatingScope(Task listingKeywords, CommandScope scope)
+        {
+            try
+            {
+                await listingKeywords; // to throw exceptions
+                scope.Report(VideoList.Status.searched);
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested) { scope.Report(VideoList.Status.canceled); }
+            catch (Exception ex)
+            {
+                scope.Report(VideoList.Status.failed);
+                scope.Notify("Error listing keywords", errors: [ex]);
+            }
+        }
+
+        async Task ForPlaylists(PlaylistLikeScope scope)
+        {
+            var playlist = scope.SingleValidated.Playlist!;
+
+            await using (playlist.CreateChangeToken(() => dataStore.SetAsync(scope.StorageKey, playlist)))
+            {
+                Task? continuedRefresh = await RefreshPlaylistAsync(scope, token);
+                var videos = playlist.GetVideos().Skip(scope.Skip).Take(scope.Take).ToArray();
+                var videoIds = videos.Ids().ToArray();
+                scope.QueueVideos(videoIds);
+                scope.Report(VideoList.Status.searching);
+
+                foreach (var video in videos)
+                {
+                    if (video.Keywords?.Length > 0)
+                        await channel.Writer.WriteAsync((video.Keywords, video.Id, scope), token);
+
+                    scope.Report(video.Id, VideoList.Status.searched);
+                }
+
+                scope.Report(VideoList.Status.searched); // early, independent of background refresh
+                if (continuedRefresh != null) await continuedRefresh;
+            }
+        }
+
+        async Task ForVideos(VideosScope videos)
+        {
+            var videoIds = videos.GetRemoteValidated().Ids().ToArray();
+            videos.QueueVideos(videoIds);
+            videos.Report(VideoList.Status.searching);
+
+            await Task.WhenAll(videoIds.Select(async videoId =>
+            {
+                videos.Report(videoId, VideoList.Status.searching);
+                var video = await GetVideoAsync(videoId, token, videos);
+                await channel.Writer.WriteAsync((video.Keywords, videoId, videos), token);
+                videos.Report(videoId, VideoList.Status.searched);
+            })).WithAggregateException();
+        }
     }
 
     public static void AggregateKeywords(string[] keywords, string videoId, CommandScope scope,

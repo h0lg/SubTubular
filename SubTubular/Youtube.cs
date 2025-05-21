@@ -35,12 +35,13 @@ public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository vi
             {
                 if (task.IsFaulted)
                 {
-                    if (task.Exception.HasInputRootCause())
+                    if (task.Exception.GetRootCauses().HaveInputError()) // displayed to the user, no need to record
                     {
                         /* wait for the root cause to bubble up instead of triggering
                          * an OperationCanceledException further up the call chain. */
                         linkedTs.Cancel(); // cancel parallel searches if query parser yields input error
                     }
+                    //other exceptions are recorded in the scope and are not expected to bubble, see SearchUpdatingScope
 
                     throw task.Exception; // bubble up errors
                 }
@@ -70,6 +71,28 @@ public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository vi
                     searches.Add(SearchPlaylistAsync(command, scope, addResult, linkedTs.Token));
                 }
         }
+    }
+
+    private static async Task SearchUpdatingScope(Task searching, CommandScope scope, Action? cleanUp = null)
+    {
+        try
+        {
+            await searching; // to throw exceptions
+            scope.Report(VideoList.Status.searched);
+        }
+        catch (Exception ex)
+        {
+            var causes = ex.GetRootCauses().ToArray();
+
+            if (causes.AreAll<OperationCanceledException>()) scope.Report(VideoList.Status.canceled);
+            else
+            {
+                scope.Notify("Errors searching", errors: [ex]);
+                scope.Report(VideoList.Status.failed);
+                if (causes.HaveInputError()) throw; // bubble up input errors to stop parallel scope searches
+            }
+        }
+        finally { cleanUp?.Invoke(); }
     }
 
     private static string SelectUrl(IReadOnlyList<Thumbnail> thumbnails) => thumbnails.MinBy(tn => tn.Resolution.Area)!.Url;

@@ -130,21 +130,7 @@ partial class Youtube
                 await yieldResult(result);
         }, token);
 
-        scope.Report(VideoList.Status.searched);
-
-        try
-        {
-            await searching; // to throw exceptions
-        }
-        catch (Exception ex) when (!ex.HasInputRootCause()) // bubble up input errors to stop parallel searches
-        {
-            var causes = ex.GetRootCauses();
-
-            if (causes.AreAll<OperationCanceledException>()) scope.Report(VideoList.Status.canceled);
-            else scope.Notify("Errors searching", errors: [ex]);
-        }
-
-        index.Dispose();
+        await SearchUpdatingScope(searching, scope, () => index.Dispose());
     }
 
     internal async Task<Video> GetVideoAsync(string videoId, CancellationToken token,

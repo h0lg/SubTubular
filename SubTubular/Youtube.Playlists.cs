@@ -27,84 +27,80 @@ partial class Youtube
 
         await using (playlist.CreateChangeToken(() => dataStore.SetAsync(storageKey, playlist)))
         {
-            try
+            await SearchUpdatingScope(Search(), scope);
+        }
+
+        async Task Search()
+        {
+            Task? continuedRefresh = await RefreshPlaylistAsync(scope, token);
+            var videos = playlist.GetVideos().Skip(scope.Skip).Take(scope.Take).ToArray();
+            var videoIds = videos.Ids().ToArray();
+            scope.QueueVideos(videoIds);
+            var spansMultipleShards = false;
+
+            var shardSearches = videos.GroupBy(v => v.ShardNumber).Select(async group =>
             {
-                Task? continuedRefresh = await RefreshPlaylistAsync(scope, token);
-                var videos = playlist.GetVideos().Skip(scope.Skip).Take(scope.Take).ToArray();
-                var videoIds = videos.Ids().ToArray();
-                scope.QueueVideos(videoIds);
-                var spansMultipleShards = false;
+                List<Task> searches = [];
+                var containedVideoIds = group.Ids().ToArray();
+                var completeVideos = group.Where(v => v.CaptionTrackDownloadStatus.IsComplete()).ToArray();
+                var shard = await videoIndexRepo.GetIndexShardAsync(storageKey, group.Key!.Value);
+                var indexedVideoIds = shard.GetIndexed(completeVideos.Ids());
 
-                var shardSearches = videos.GroupBy(v => v.ShardNumber).Select(async group =>
+                if (indexedVideoIds.Length != 0)
                 {
-                    List<Task> searches = [];
-                    var containedVideoIds = group.Ids().ToArray();
-                    var completeVideos = group.Where(v => v.CaptionTrackDownloadStatus.IsComplete()).ToArray();
-                    var shard = await videoIndexRepo.GetIndexShardAsync(storageKey, group.Key!.Value);
-                    var indexedVideoIds = shard.GetIndexed(completeVideos.Ids());
+                    var indexedVideoInfos = indexedVideoIds.ToDictionary(id => id, id => group.Single(v => v.Id == id).Uploaded);
 
-                    if (indexedVideoIds.Length != 0)
+                    // search already indexed videos in one go - but on background task to start downloading and indexing videos in parallel
+                    searches.Add(SearchIndexedVideos());
+
+                    async Task SearchIndexedVideos()
                     {
-                        var indexedVideoInfos = indexedVideoIds.ToDictionary(id => id, id => group.Single(v => v.Id == id).Uploaded);
+                        foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searching);
 
-                        // search already indexed videos in one go - but on background task to start downloading and indexing videos in parallel
-                        searches.Add(SearchIndexedVideos());
+                        await foreach (var result in shard.SearchAsync(command, CreateVideoLookup(scope), indexedVideoInfos, playlist, token))
+                            await Yield(result);
 
-                        async Task SearchIndexedVideos()
-                        {
-                            foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searching);
-
-                            await foreach (var result in shard.SearchAsync(command, CreateVideoLookup(scope), indexedVideoInfos, playlist, token))
-                                await Yield(result);
-
-                            foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searched);
-                        }
+                        foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searched);
                     }
-
-                    var unIndexedVideoIds = containedVideoIds.Except(indexedVideoIds).ToArray();
-
-                    // load, index and search not yet indexed videos
-                    if (unIndexedVideoIds.Length > 0)
-                    {
-                        searches.Add(SearchUnindexedVids());
-
-                        async Task SearchUnindexedVids()
-                        {
-                            await foreach (var result in SearchUnindexedVideos(command, unIndexedVideoIds, shard, scope, token, playlist))
-                                await Yield(result);
-                        }
-                    }
-
-                    await Task.WhenAll(searches).WithAggregateException().ContinueWith(t =>
-                    {
-                        shard.Dispose();
-                        if (t.IsFaulted) throw t.Exception;
-                    });
-                }).ToList();
-
-                scope.Report(VideoList.Status.searching);
-                spansMultipleShards = shardSearches.Count > 0;
-
-                await foreach (var task in Task.WhenEach(shardSearches))
-                {
-                    if (task.IsFaulted)
-                        throw task.Exception; // raise errors
                 }
 
-                scope.Report(token.IsCancellationRequested ? VideoList.Status.canceled : VideoList.Status.searched);
-                if (continuedRefresh != null) await continuedRefresh;
+                var unIndexedVideoIds = containedVideoIds.Except(indexedVideoIds).ToArray();
 
-                ValueTask Yield(VideoSearchResult result)
+                // load, index and search not yet indexed videos
+                if (unIndexedVideoIds.Length > 0)
                 {
-                    result.Scope = scope;
-                    if (spansMultipleShards) result.Rescore();
-                    return yieldResult(result);
+                    searches.Add(SearchUnindexedVids());
+
+                    async Task SearchUnindexedVids()
+                    {
+                        await foreach (var result in SearchUnindexedVideos(command, unIndexedVideoIds, shard, scope, token, playlist))
+                            await Yield(result);
+                    }
                 }
+
+                await Task.WhenAll(searches).WithAggregateException().ContinueWith(t =>
+                {
+                    shard.Dispose();
+                    if (t.IsFaulted) throw t.Exception;
+                });
+            }).ToList();
+
+            scope.Report(VideoList.Status.searching);
+            spansMultipleShards = shardSearches.Count > 0;
+
+            await foreach (var task in Task.WhenEach(shardSearches))
+            {
+                if (task.IsFaulted)
+                    throw task.Exception; // raise errors
             }
-            catch (Exception ex) when (!ex.HasInputRootCause()) // bubble up input errors to stop parallel searches
+
+            if (continuedRefresh != null) await continuedRefresh;
+
+            ValueTask Yield(VideoSearchResult result)
             {
-                if (ex.GetRootCauses().AreAll<OperationCanceledException>()) scope.Report(VideoList.Status.canceled);
-                else scope.Notify("Errors searching", errors: [ex]);
+                result.Scope = scope;
+                if (spansMultipleShards) result.Rescore();
+                return yieldResult(result);
             }
         }
     }
