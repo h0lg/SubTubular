@@ -16,18 +16,19 @@ public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository vi
         token.ThrowIfCancellationRequested();
         using var linkedTs = CancellationTokenSource.CreateLinkedTokenSource(token); // to cancel parallel searches on InputException
         var results = Channel.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions() { SingleReader = true });
-        Func<VideoSearchResult, ValueTask> addResult = r => results.Writer.WriteAsync(r, linkedTs.Token);
         List<Task> searches = [];
+        var spansMultipleIndexes = false;
+        HashSet<string> indexKeys = [];
+        object locker = new();
+
         SearchPlaylistLikeScopes(command.Channels);
         SearchPlaylistLikeScopes(command.Playlists);
 
         if (command.HasValidVideos)
         {
             command.Videos!.ResetProgressAndNotifications();
-            searches.Add(SearchVideosAsync(command, addResult, linkedTs.Token));
+            searches.Add(SearchVideosAsync(command, AddResult, linkedTs.Token));
         }
-
-        var spansMultipleIndexes = searches.Count > 0;
 
         var searching = Task.Run(async () =>
         {
@@ -68,8 +69,19 @@ public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository vi
                 foreach (var scope in scopes!)
                 {
                     scope.ResetProgressAndNotifications(); // to prevent state from prior searches from bleeding into this one
-                    searches.Add(SearchPlaylistAsync(command, scope, addResult, linkedTs.Token));
+                    searches.Add(SearchPlaylistAsync(command, scope, AddResult, linkedTs.Token));
                 }
+        }
+
+        ValueTask AddResult(string indexKey, VideoSearchResult result)
+        {
+            lock (locker)
+            {
+                indexKeys.Add(indexKey);
+                spansMultipleIndexes = spansMultipleIndexes || indexKeys.Count > 1;
+            }
+
+            return results.Writer.WriteAsync(result, linkedTs.Token);
         }
     }
 

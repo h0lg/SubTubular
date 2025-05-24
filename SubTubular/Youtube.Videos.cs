@@ -98,7 +98,7 @@ partial class Youtube
 
     /// <summary>Searches videos scoped by the specified <paramref name="command"/>.</summary>
     private async Task SearchVideosAsync(SearchCommand command,
-        Func<VideoSearchResult, ValueTask> yieldResult, CancellationToken token)
+        Func<string, VideoSearchResult, ValueTask> yieldResult, CancellationToken token)
     {
         if (token.IsCancellationRequested) return;
         VideosScope scope = command.Videos!;
@@ -116,7 +116,7 @@ partial class Youtube
             searching = Task.Run(async () =>
             {
                 await foreach (var result in SearchUnindexedVideos(command, videoIds, index, scope, token))
-                    await yieldResult(result);
+                    await Yield(result);
             }, token);
         }
         else searching = Task.Run(async () =>
@@ -127,10 +127,12 @@ partial class Youtube
             Video[] videos = scope.Validated.Select(v => v.Video!).ToArray();
 
             await foreach (var result in index.SearchAsync(command, CreateVideoLookup(videos), token: token))
-                await yieldResult(result);
+                await Yield(result);
         }, token);
 
         await SearchUpdatingScope(searching, scope, () => index.Dispose());
+
+        ValueTask Yield(VideoSearchResult result) => yieldResult("videos", result);
     }
 
     internal async Task<Video> GetVideoAsync(string videoId, CancellationToken token,
