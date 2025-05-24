@@ -315,3 +315,13 @@ internal sealed class VideoIndex : IDisposable
         AccessToken.Dispose();
     }
 }
+
+internal static class VideoIndexExtensions
+{
+    internal static bool SpansMultipleIndexShards(this PlaylistLikeScope scope)
+    {
+        var playlist = scope.SingleValidated.Playlist!;
+        var videos = playlist.GetVideos().Skip(scope.Skip).Take(scope.Take);
+        return videos.GroupBy(v => v.ShardNumber).Count() > 1;
+    }
+}

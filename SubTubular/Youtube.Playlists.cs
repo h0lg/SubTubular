@@ -19,7 +19,7 @@ partial class Youtube
 
     /// <summary>Searches videos defined by a playlist.</summary>
     private async Task SearchPlaylistAsync(SearchCommand command, PlaylistLikeScope scope,
-        Func<string, VideoSearchResult, ValueTask> yieldResult, CancellationToken token = default)
+        Func<VideoSearchResult, ValueTask> yieldResult, CancellationToken token = default)
     {
         if (token.IsCancellationRequested) return;
         var storageKey = scope.StorageKey;
@@ -39,11 +39,10 @@ partial class Youtube
 
             var shardSearches = videos.GroupBy(v => v.ShardNumber).Select(async group =>
             {
-                short shardNumber = group.Key!.Value;
                 List<Task> searches = [];
                 var containedVideoIds = group.Ids().ToArray();
                 var completeVideos = group.Where(v => v.CaptionTrackDownloadStatus.IsComplete()).ToArray();
-                var shard = await videoIndexRepo.GetIndexShardAsync(storageKey, shardNumber);
+                var shard = await videoIndexRepo.GetIndexShardAsync(storageKey, group.Key!.Value);
                 var indexedVideoIds = shard.GetIndexed(completeVideos.Ids());
 
                 if (indexedVideoIds.Length != 0)
@@ -58,7 +57,7 @@ partial class Youtube
                         foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searching);
 
                         await foreach (var result in shard.SearchAsync(command, CreateVideoLookup(scope), indexedVideoInfos, playlist, token))
-                            await Yield(result, shardNumber);
+                            await Yield(result);
 
                         foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searched);
                     }
@@ -74,7 +73,7 @@ partial class Youtube
                     async Task SearchUnindexedVids()
                     {
                         await foreach (var result in SearchUnindexedVideos(command, unIndexedVideoIds, shard, scope, token, playlist))
-                            await Yield(result, shardNumber);
+                            await Yield(result);
                     }
                 }
 
@@ -95,10 +94,10 @@ partial class Youtube
 
             if (continuedRefresh != null) await continuedRefresh;
 
-            ValueTask Yield(VideoSearchResult result, short shardNumber)
+            ValueTask Yield(VideoSearchResult result)
             {
                 result.Scope = scope;
-                return yieldResult(scope.StorageKey + shardNumber, result);
+                return yieldResult(result);
             }
         }
     }

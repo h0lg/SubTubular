@@ -16,18 +16,15 @@ public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository vi
         token.ThrowIfCancellationRequested();
         using var linkedTs = CancellationTokenSource.CreateLinkedTokenSource(token); // to cancel parallel searches on InputException
         var results = Channel.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions() { SingleReader = true });
+        Func<VideoSearchResult, ValueTask> addResult = r => results.Writer.WriteAsync(r, linkedTs.Token);
         List<Task> searches = [];
-        var spansMultipleIndexes = false;
-        HashSet<string> indexKeys = [];
-        object locker = new();
-
         SearchPlaylistLikeScopes(command.Channels);
         SearchPlaylistLikeScopes(command.Playlists);
 
         if (command.HasValidVideos)
         {
             command.Videos!.ResetProgressAndNotifications();
-            searches.Add(SearchVideosAsync(command, AddResult, linkedTs.Token));
+            searches.Add(SearchVideosAsync(command, addResult, linkedTs.Token));
         }
 
         var searching = Task.Run(async () =>
@@ -53,6 +50,19 @@ public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository vi
             if (t.IsFaulted) throw t.Exception; // bubble up errors
         });
 
+        /* Determine whether the search spans multiple indexes, indicating that results have to be re-scored.
+         * This is required because scores from different indexes are not comparable [cit. req.].
+         *
+         * Doing this before the search starts is not ideal because
+         * a) SpansMultipleIndexShards may return a different value before and after playlist refresh
+         * b) We can't know ahead of time whether the results will span multiple indexes as well and may rescore without having to.
+         *
+         * However, since this method yields results as soon as they're found and doesn't keep references to them,
+         * we have to be pessimistic about rescoring. If we determined the number of distinct indexes that yielded results at runtime,
+         * we wouldn't be able to rescore already yielded results if required. */
+        var spansMultipleIndexes = command.GetScopes().Count() > 1
+            || command.GetPlaylistLikeScopes().Any(pl => pl.SpansMultipleIndexShards());
+
         // don't pass cancellation token to avoid throwing before searching is awaited below
         await foreach (var result in results.Reader.ReadAllAsync())
         {
@@ -69,19 +79,8 @@ public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository vi
                 foreach (var scope in scopes!)
                 {
                     scope.ResetProgressAndNotifications(); // to prevent state from prior searches from bleeding into this one
-                    searches.Add(SearchPlaylistAsync(command, scope, AddResult, linkedTs.Token));
+                    searches.Add(SearchPlaylistAsync(command, scope, addResult, linkedTs.Token));
                 }
-        }
-
-        ValueTask AddResult(string indexKey, VideoSearchResult result)
-        {
-            lock (locker)
-            {
-                indexKeys.Add(indexKey);
-                spansMultipleIndexes = spansMultipleIndexes || indexKeys.Count > 1;
-            }
-
-            return results.Writer.WriteAsync(result, linkedTs.Token);
         }
     }
 
