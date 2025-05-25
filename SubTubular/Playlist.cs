@@ -67,7 +67,8 @@ public sealed class Playlist
     /// and returns whether the operation resulted in any changes.</summary>
     public bool TryAddVideoId(string videoId, uint newIndex)
     {
-        changeToken!.Wait();
+        if (changeToken == null) return false; // made no changes
+        changeToken.Wait();
 
         try
         {
@@ -100,12 +101,13 @@ public sealed class Playlist
                 return true;
             }
         }
-        finally { changeToken.Release(); }
+        finally { changeToken?.Release(); }
     }
 
     internal bool Update(Video loadedVideo)
     {
-        changeToken!.Wait();
+        if (changeToken == null) return false; // made no changes
+        changeToken.Wait();
 
         try
         {
@@ -136,12 +138,13 @@ public sealed class Playlist
 
             return madeChanges;
         }
-        finally { changeToken.Release(); }
+        finally { changeToken?.Release(); }
     }
 
     public void UpdateShardNumbers()
     {
-        changeToken!.Wait();
+        if (changeToken == null) return;
+        changeToken.Wait();
 
         try
         {
@@ -165,21 +168,22 @@ public sealed class Playlist
                 }
             }
         }
-        finally { changeToken.Release(); }
+        finally { changeToken?.Release(); }
     }
 
     internal void UpdateLoaded()
     {
-        changeToken!.Wait();
+        if (changeToken == null) return;
+        changeToken.Wait();
         Loaded = DateTime.UtcNow;
         hasUnsavedChanges = true;
-        changeToken.Release();
+        changeToken?.Release();
     }
 
     private async ValueTask SaveAsync(Func<Task> save)
     {
         if (!hasUnsavedChanges || changeToken == null) return;
-        await changeToken!.WaitAsync();
+        await changeToken.WaitAsync();
 
         try
         {
@@ -188,7 +192,7 @@ public sealed class Playlist
         }
         finally
         {
-            changeToken.Release();
+            changeToken?.Release();
         }
     }
 
