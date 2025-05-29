@@ -145,6 +145,7 @@ partial class Youtube
     /// Otherwise, refreshes until sufficient videos are loaded and returns the completed refresh task.</summary>
     private async ValueTask<Task?> RefreshPlaylistAsync(PlaylistLikeScope scope, CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
         var playlist = scope.SingleValidated.Playlist!;
         var requiredVideoCount = (uint)(scope.Skip + scope.Take);
 
@@ -163,6 +164,7 @@ partial class Youtube
 
         var paging = Task.Run(async () =>
         {
+            token.ThrowIfCancellationRequested();
             uint listIndex = 0;
             var madeChanges = new Queue<bool>(10); // tracks whether adding the last x videos resulted in any changes
 

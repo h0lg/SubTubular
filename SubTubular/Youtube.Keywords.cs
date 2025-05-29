@@ -11,6 +11,8 @@ partial class Youtube
     public async IAsyncEnumerable<(string[] keywords, string videoId, CommandScope scope)> ListKeywordsAsync(ListKeywords command,
         [EnumeratorCancellation] CancellationToken token = default)
     {
+        token.ThrowIfCancellationRequested();
+
         var channel = Channel.CreateUnbounded<(string[] keywords, string videoId, CommandScope scope)>(
             new UnboundedChannelOptions { SingleReader = true });
 
@@ -30,7 +32,7 @@ partial class Youtube
                     foreach (var video in videos)
                     {
                         if (video.Keywords?.Length > 0)
-                            await channel.Writer.WriteAsync((video.Keywords, video.Id, scope));
+                            await channel.Writer.WriteAsync((video.Keywords, video.Id, scope), token);
 
                         scope.Report(video.Id, VideoList.Status.searched);
                     }
@@ -55,7 +57,7 @@ partial class Youtube
                 {
                     videos.Report(videoId, VideoList.Status.searching);
                     var video = await GetVideoAsync(videoId, token, videos);
-                    await channel.Writer.WriteAsync((video.Keywords, videoId, videos));
+                    await channel.Writer.WriteAsync((video.Keywords, videoId, videos), token);
                     videos.Report(videoId, VideoList.Status.searched);
                 })).WithAggregateException();
 

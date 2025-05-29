@@ -124,7 +124,7 @@ internal sealed class VideoIndex : IDisposable
     }
 
     internal void BeginBatchChange() => Index.BeginBatchChange();
-    internal Task CommitBatchChangeAsync() => Index.CommitBatchChangeAsync();
+    internal Task CommitBatchChangeAsync(CancellationToken token) => Index.CommitBatchChangeAsync(token);
 
     /// <summary>Searches the index according to the specified <paramref name="command"/>,
     /// recombining the matches with <see cref="Video"/>s loaded using <paramref name="getVideoAsync"/>
@@ -169,6 +169,7 @@ internal sealed class VideoIndex : IDisposable
                 // get upload dates for videos that we don't know it of (may occur if index remembers a video the Playlist forgot about)
                 if (matchesForVideosWithoutUploadDate.Length != 0)
                 {
+                    token.ThrowIfCancellationRequested();
                     var getVideos = matchesForVideosWithoutUploadDate.Select(m => getVideoAsync(m.Key, token)).ToArray();
                     await Task.WhenAll(getVideos).WithAggregateException();
                     videosWithoutUploadDate = getVideos.Select(t => t.Result).ToArray();
@@ -176,6 +177,7 @@ internal sealed class VideoIndex : IDisposable
 
                     foreach (var match in matchesForVideosWithoutUploadDate)
                     {
+                        token.ThrowIfCancellationRequested();
                         Video video = videosWithoutUploadDate.Single(v => v.Id == match.Key);
                         relevantVideos[match.Key] = video.Uploaded;
                         playlist?.Update(video);
@@ -290,18 +292,21 @@ internal sealed class VideoIndex : IDisposable
 
     private async Task UpdateAsync(IEnumerable<Video> videos, CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
         var indexedKeys = Index.Metadata.GetIndexedDocuments().Select(d => d.Key).ToArray();
         BeginBatchChange();
 
         foreach (var video in videos)
         {
+            token.ThrowIfCancellationRequested();
+
             await Task.WhenAll(indexedKeys.Where(key => key == video.Id)
                 .Select(key => Index.RemoveAsync(key))).WithAggregateException();
 
             await AddOrUpdateAsync(video, token);
         }
 
-        await CommitBatchChangeAsync();
+        await CommitBatchChangeAsync(token);
     }
 
     public void Dispose()

@@ -41,9 +41,10 @@ partial class Youtube
                     if (!video.GetCaptionTrackDownloadStatus().IsComplete())
                         await DownloadCaptionTracksAndSaveAsync(video, scope, token);
 
+                    token.ThrowIfCancellationRequested();
                     playlist?.Update(video);
 
-                    await unIndexedVideos.Writer.WriteAsync(video);
+                    await unIndexedVideos.Writer.WriteAsync(video, token);
                     scope.Report(id, VideoList.Status.indexing);
                 }
                 /* only start another download if channel has accepted the video or an error occurred */
@@ -65,9 +66,10 @@ partial class Youtube
         Func<string, CancellationToken, Task<Video>> getVideoAsync = CreateVideoLookup(uncommitted);
 
         // read synchronously from the channel because we're writing to the same video index
+        // don't pass cancellation token to avoid throwing before loadVideos is awaited below
         await foreach (var video in unIndexedVideos.Reader.ReadAllAsync())
         {
-            if (token.IsCancellationRequested) break;
+            if (token.IsCancellationRequested) break; // end loop gracefully to throw below
             if (uncommitted.Count == 0) index.BeginBatchChange();
             await index.AddOrUpdateAsync(video, token);
             uncommitted.Add(video);
@@ -77,7 +79,7 @@ partial class Youtube
                 || unIndexedVideos.Reader.Completion.IsCompleted // to save remaining changes
                 || unIndexedVideos.Reader.Count == 0) // to use resources efficiently while we've got nothing queued up for indexing
             {
-                await index.CommitBatchChangeAsync();
+                await index.CommitBatchChangeAsync(token);
 
                 var indexedVideoInfos = uncommitted.ToDictionary(v => v.Id, v => v.Uploaded as DateTime?);
                 scope.Report(uncommitted, VideoList.Status.searching);
