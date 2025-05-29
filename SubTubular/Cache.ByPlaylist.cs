@@ -98,7 +98,7 @@ static partial class CacheManager
                     await foreach (var task in Task.WhenEach(tasks))
                     {
                         if (task.IsCompletedSuccessfully && task.Result.HasValue) dispatchGroup(task.Result.Value);
-                        if (task.Exception != null) dispatchException(task.Exception);
+                        if (task.IsFaulted) dispatchException(task.Exception);
                     }
                 }
                 catch (Exception ex) { dispatchException(ex); }
