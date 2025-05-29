@@ -9,6 +9,8 @@ public static class ReleaseManager
     public const string InstallVersionConsoleCommand = "install",
         InstallFolderConsoleParameter = "--into";
 
+    private static readonly string nl = Environment.NewLine, done = "DONE" + nl;
+
     public static async Task<string> ListAsync(DataStore dataStore)
     {
         var releases = await GetAll(dataStore);
@@ -17,7 +19,7 @@ public static class ReleaseManager
 
         return releases.Select(r => $"{r.PublishedAt:yyyy-MM-dd} {r.Version.PadLeft(maxVersionLength)} {r.Name}"
             + (r.Version == AssemblyInfo.Version ? "     <<<<<  YOU ARE HERE" : null))
-            .Prepend("date       " + version.PadRight(maxVersionLength) + " name").Join(Environment.NewLine);
+            .Prepend("date       " + version.PadRight(maxVersionLength) + " name").Join(nl);
     }
 
     public static async Task InstallByTagAsync(string version, string installInto, Action<string> report, DataStore dataStore)
@@ -38,7 +40,7 @@ public static class ReleaseManager
             var productInfo = AssemblyInfo.Name + " " + AssemblyInfo.Version;
             var backupFolder = Path.Combine(archiveFolder, productInfo.ToFileSafe());
 
-            report($"Backing up installed {productInfo} binaries{Environment.NewLine}to '{backupFolder}' ... ");
+            report($"Backing up installed {productInfo} binaries{nl}to '{backupFolder}' ... ");
 
             foreach (var filePath in FileHelper.GetFilesExcluding(appFolder, archiveFolder))
             {
@@ -47,7 +49,7 @@ public static class ReleaseManager
                 File.Copy(filePath, targetFilePath);
             }
 
-            report("DONE" + Environment.NewLine);
+            report(done);
 
             /*  start STEP 2 on backed up binaries and have them replace
                 the ones in the current location with the requested version */
@@ -59,28 +61,26 @@ public static class ReleaseManager
             var archiveFolder = GetArchivePath(installInto);
             var zipPath = Path.Combine(archiveFolder, release.BinariesZip!.Name);
             var zipFile = new FileInfo(zipPath);
-            report(Environment.NewLine); // to start in a new line below the prompt
+            report(nl); // to start in a new line below the prompt
 
             // compare size of downloaded zip with online asset as a simple form of validation
             if (!zipFile.Exists || release.BinariesZip.Size != zipFile.Length)
             {
                 var url = release.BinariesZip.DownloadUrl;
-                report($"Downloading {release.Version} from '{url}'{Environment.NewLine}to '{zipPath}' ... ");
+                report($"Downloading {release.Version} from '{url}'{nl}to '{zipPath}' ... ");
                 await FileHelper.DownloadAsync(url, zipPath);
-                report("DONE" + AssemblyInfo.OutputSpacing);
+                report(done);
             }
 
             report($"Removing installed binaries from '{installInto}' ... ");
             foreach (var filePath in FileHelper.GetFilesExcluding(installInto, archiveFolder)) File.Delete(filePath);
-            report("DONE" + AssemblyInfo.OutputSpacing);
+            report(done);
 
-            report($"Unpacking '{zipPath}'{Environment.NewLine}into '{installInto}' ... ");
+            report($"Unpacking '{zipPath}'{nl}into '{installInto}' ... ");
             FileHelper.Unzip(zipPath, installInto);
-            report("DONE" + AssemblyInfo.OutputSpacing);
+            report(done);
 
-            report($"The binaries in '{installInto}'" + Environment.NewLine
-                + $"have successfully been updated to {release.Version} - opening release notes.");
-
+            report($"The binaries in '{installInto}'{nl}have successfully been updated to {release.Version} - opening release notes.");
             OpenNotes(release); // by default to update users about changes
         }
     }
