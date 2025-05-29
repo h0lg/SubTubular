@@ -320,7 +320,7 @@ module Cache =
 
             let displayPlaylistGroup (group: PlaylistGroup) =
                 (VStack() {
-                    let icon = Scope.getIcon (group.Scope.GetType())
+                    let icon = ScopeViews.getIcon (group.Scope.GetType())
                     header (icon + group.Playlist.Title)
 
                     (deletableFileFirst ("info and contents" + Icon.playlistLike) group.File).right ()

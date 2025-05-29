@@ -62,7 +62,7 @@ module SearchResult =
                     if result.Scope = null then
                         Icon.channel + result.Video.Channel
                     else
-                        Scope.getIcon (result.Scope.GetType())
+                        ScopeViews.getIcon (result.Scope.GetType())
                         + result.Scope.SingleValidated.Playlist.Title
 
                 TextBlock(reference).smallDemoted ()

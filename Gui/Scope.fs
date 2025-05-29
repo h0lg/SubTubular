@@ -10,29 +10,10 @@ open Fabulous
 open Fabulous.Avalonia
 open SubTubular
 open SubTubular.Extensions
+open ScopeDiscriminators
 open type Fabulous.Avalonia.View
 
 module Scope =
-    let private (|IsChannel|IsPlaylist|IsVideos|) (t: Type) =
-        match t with
-        | _ when t = typeof<ChannelScope> -> IsChannel
-        | _ when t = typeof<PlaylistScope> -> IsPlaylist
-        | _ when t = typeof<VideosScope> -> IsVideos
-        | _ -> failwith ("unknown scope type " + t.FullName)
-
-    let private (|Channel|Playlist|Videos|) (scope: CommandScope) =
-        match scope with
-        | :? ChannelScope as channel -> Channel channel
-        | :? PlaylistScope as playlist -> Playlist playlist
-        | :? VideosScope as videos -> Videos videos
-        | _ -> failwith $"unsupported {nameof CommandScope} type on {scope}"
-
-    let private (|PlaylistLike|Vids|) (scope: CommandScope) =
-        match scope with
-        | :? PlaylistLikeScope as playlist -> PlaylistLike playlist
-        | :? VideosScope as videos -> Vids videos
-        | _ -> failwith $"unsupported {nameof CommandScope} type on {scope}"
-
     module Alias =
         /// <summary>Removes title prefix applied by <see cref="label" />, i.e. everything before the last ':'</summary>
         let clean (alias: string) =
@@ -428,25 +409,6 @@ module Scope =
           | Playlist _ -> "ID or URL"
           | Channel _ -> "handle, slug, user name, ID or URL"
 
-    let private channelInfo channel =
-        TextBlock(Icon.channel + channel).smallDemoted ()
-
-    let getIcon (t: Type) =
-        match t with
-        | IsVideos -> Icon.video
-        | IsPlaylist -> Icon.playlist
-        | IsChannel -> Icon.channel
-
-    let displayType (t: Type) withKeyBinding =
-        getIcon t
-        + if withKeyBinding then "_" else ""
-        + match t with
-          | IsVideos -> "videos"
-          | IsPlaylist -> "playlist"
-          | IsChannel -> "channel"
-
-    let private progressText text = TextBlock(text).right().smallDemoted ()
-
     let private validated thumbnailUrl navigateUrl title channel (scope: CommandScope) progress videoId showThumbnails =
         Grid(coldefs = [ Auto; Auto; Auto; Auto ], rowdefs = [ Auto; Auto ]) {
             match videoId with
@@ -460,20 +422,20 @@ module Scope =
                 .gridRowSpan(2)
                 .isVisible (showThumbnails)
 
-            TextBlock(getIcon (scope.GetType()) + title).gridColumn(2).gridColumnSpan (2)
+            TextBlock(ScopeViews.getIcon (scope.GetType()) + title).gridColumn(2).gridColumnSpan (2)
 
             match channel with
-            | Some channel -> channelInfo(channel).gridColumn(2).gridRow (1)
+            | Some channel -> ScopeViews.channelInfo(channel).gridColumn(2).gridRow (1)
             | None -> ()
 
             match progress with
-            | Some progress -> progressText(progress).gridRow(1).gridColumn (3)
+            | Some progress -> ScopeViews.progressText(progress).gridRow(1).gridColumn (3)
             | None -> ()
         }
 
     let private search model showThumbnails =
         Grid(coldefs = [ Auto; Star ], rowdefs = [ Auto; Auto ]) {
-            Label(displayType (model.Scope.GetType()) false).padding (0)
+            Label(ScopeViews.displayType (model.Scope.GetType()) false).padding (0)
 
             let autoComplete =
                 AutoCompleteBox(model.AliasSearch.SearchAsync)
@@ -495,7 +457,7 @@ module Scope =
                                 TextBlock(result.Title)
 
                                 if result.Channel <> null then
-                                    channelInfo (result.Channel)
+                                    ScopeViews.channelInfo (result.Channel)
                             }
                         })
                     .reference(model.AliasSearch.Input)
@@ -505,7 +467,7 @@ module Scope =
 
             match model.Scope with
             | Videos videos ->
-                progressText(videos.Progress.ToString()).gridRow (1)
+                ScopeViews.progressText(videos.Progress.ToString()).gridRow (1)
                 autoComplete.acceptReturn ()
             | _ -> autoComplete
         }
@@ -548,8 +510,7 @@ module Scope =
 
                     notificationToggle model
 
-                    ToggleButton("⚙", model.ShowSettings, ToggleSettings)
-                        .tooltip ("toggle settings")
+                    ToggleButton("⚙", model.ShowSettings, ToggleSettings).tooltip ("toggle settings")
 
                     (HStack(5) {
                         Label "skip"

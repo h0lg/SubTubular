@@ -120,7 +120,7 @@ module Scopes =
                     Label "add"
 
                     for scopeType in getAddableTypes model do
-                        Button(Scope.displayType scopeType true, AddScope scopeType)
+                        Button(ScopeViews.displayType scopeType true, AddScope scopeType)
                 }
             ))
                 .padding(2)
