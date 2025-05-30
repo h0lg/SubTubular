@@ -38,8 +38,12 @@ public static class ShellCommands
         public IntPtr hProcess;
     }
 
+    /* Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
+        currently doesn't support marshalling type SHELLEXECUTEINFO */
+#pragma warning disable SYSLIB1054
     [DllImport("shell32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     static extern bool ShellExecuteEx(ref SHELLEXECUTEINFO lpExecInfo);
+#pragma warning restore SYSLIB1054
 
     private const int SW_SHOW = 5;
 

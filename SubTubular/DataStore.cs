@@ -3,7 +3,11 @@ using System.Text.Json.Serialization;
 
 namespace SubTubular;
 
+/*  Naming Styles: Missing I prefix for interfaces.
+ *  Devs should be able to figure this one out. */
+#pragma warning disable IDE1006
 public interface DataStore
+#pragma warning restore IDE1006
 {
     DateTime? GetLastModified(string key);
     ValueTask<T?> GetAsync<T>(string key);
