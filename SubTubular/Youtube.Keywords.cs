@@ -105,7 +105,7 @@ partial class Youtube
                 else videoIdsByKeyword.Add(keyword, [videoId]);
             }
         }
-        else keywordsByScope.Add(scope, keywords.ToDictionary(kw => kw, kw => new List<string> { videoId }));
+        else keywordsByScope.Add(scope, keywords.ToDictionary(kw => kw, _ => new List<string> { videoId }));
     }
 
     public static Dictionary<CommandScope, (string keyword, int foundInVideos)[]> CountKeywordVideos(
