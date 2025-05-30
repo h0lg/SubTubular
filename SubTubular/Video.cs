@@ -39,7 +39,7 @@ public sealed class CaptionTrack
     internal const string FullTextSeperator = " ";
     private string? fullText;
     private Dictionary<int, Caption>? captionAtFullTextIndex;
-    private readonly object accessToken = new(); // for thread-safe access
+    private readonly Lock accessToken = new(); // for thread-safe access
     private Timer? dropCacheTimer;
 
     // aggregates captions into fullText to enable matching phrases across caption boundaries

@@ -10,7 +10,7 @@ public class ThrottledEvent(TimeSpan interval, SynchronizationContext? syncConte
     private readonly SynchronizationContext syncContext = syncContext ?? SynchronizationContext.Current
         ?? throw new InvalidOperationException("No SynchronizationContext available. Use this from a UI thread or provide one explicitly.");
 
-    private readonly object locker = new();
+    private readonly Lock locker = new();
 
     private object? latestSender;
     private EventArgs? latestArgs;
