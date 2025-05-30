@@ -63,7 +63,7 @@ public class VideosScope(List<string> videos) : CommandScope
         => info.AddValue(nameof(Videos), Videos);*/
 }
 
-public abstract class PlaylistLikeScope : CommandScope
+public abstract class PlaylistLikeScope(string alias, ushort skip, ushort take, float cacheHours) : CommandScope
 {
     #region internal API
     /// <summary>The prefix for the <see cref="StorageKey"/>.</summary>
@@ -75,18 +75,10 @@ public abstract class PlaylistLikeScope : CommandScope
     #endregion
 
     // public options
-    public string Alias { get; set; }
-    public ushort Skip { get; set; }
-    public ushort Take { get; set; }
-    public float CacheHours { get; set; }
-
-    protected PlaylistLikeScope(string alias, ushort skip, ushort take, float cacheHours)
-    {
-        Alias = alias.Trim();
-        Skip = skip;
-        Take = take;
-        CacheHours = cacheHours;
-    }
+    public string Alias { get; set; } = alias.Trim();
+    public ushort Skip { get; set; } = skip;
+    public ushort Take { get; set; } = take;
+    public float CacheHours { get; set; } = cacheHours;
 
     public override IEnumerable<string> Describe(bool inDetail = true)
     {

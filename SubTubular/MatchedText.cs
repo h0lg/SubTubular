@@ -1,36 +1,24 @@
 namespace SubTubular;
 
 /// <summary>A group of <see cref="Matches"/> in a <see cref="Text"/>.</summary>
-public sealed class MatchedText
+public sealed class MatchedText(string text, params MatchedText.Match[] matches)
 {
     /// <summary>The complete original text containing the <see cref="Matches"/>.</summary>
-    public string Text { get; }
+    public string Text { get; } = text;
 
     /// <summary>Contains the internal match(es) with <see cref="Match.Start"/>
     /// relative to <see cref="Text"/> ordered by <see cref="Match.Start"/>.</summary>
-    public Match[] Matches { get; }
-
-    public MatchedText(string text, params Match[] matches)
-    {
-        Text = text;
-        Matches = [.. matches.Distinct().OrderBy(m => m.Start)];
-    }
+    public Match[] Matches { get; } = [.. matches.Distinct().OrderBy(m => m.Start)];
 
     /// <summary>A structure for remembering the locations of matches included in a <see cref="Text" />.
     /// Resembles a <see cref="System.Text.RegularExpressions.Match" /> semantically.</summary>
-    public sealed class Match
+    public sealed class Match(int start, int length)
     {
         /// <summary>The (included) start index of a match in <see cref="Text" />.</summary>
-        public int Start { get; }
+        public int Start { get; } = start;
 
         /// <summary>The length of the match.</summary>
-        public int Length { get; }
-
-        public Match(int start, int length)
-        {
-            Start = start;
-            Length = length;
-        }
+        public int Length { get; } = length;
 
         public int ExcludedEnd => Start + Length;
         public int IncludedEnd => ExcludedEnd - 1;
