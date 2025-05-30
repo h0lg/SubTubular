@@ -151,7 +151,7 @@ public sealed class Playlist
             var withoutShardNumber = videos.Where(v => v.ShardNumber == null).ToArray();
             if (withoutShardNumber.Length == 0) return;
 
-            videos = videos.OrderBy(v => v.PlaylistIndex).ToList();
+            videos = [.. videos.OrderBy(v => v.PlaylistIndex)];
             var firstLoaded = videos.Find(v => v.ShardNumber == 0);
             var indexOfFirstLoaded = firstLoaded == null ? 0 : videos.IndexOf(firstLoaded);
 

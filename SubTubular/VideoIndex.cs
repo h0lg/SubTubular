@@ -112,7 +112,7 @@ internal sealed class VideoIndex : IDisposable
     internal VideoIndex(FullTextIndex<string> index) => Index = index;
 
     internal string[] GetIndexed(IEnumerable<string> videoIds)
-        => videoIds.Where(Index.Metadata.Contains).ToArray();
+        => [.. videoIds.Where(Index.Metadata.Contains)];
 
     internal async Task AddOrUpdateAsync(Video video, CancellationToken token)
     {
@@ -172,7 +172,7 @@ internal sealed class VideoIndex : IDisposable
                     token.ThrowIfCancellationRequested();
                     var getVideos = matchesForVideosWithoutUploadDate.Select(m => getVideoAsync(m.Key, token)).ToArray();
                     await Task.WhenAll(getVideos).WithAggregateException();
-                    videosWithoutUploadDate = getVideos.Select(t => t.Result).ToArray();
+                    videosWithoutUploadDate = [.. getVideos.Select(t => t.Result)];
                     unIndexedVideos.AddRange(videosWithoutUploadDate.Where(v => v.UnIndexed));
 
                     foreach (var match in matchesForVideosWithoutUploadDate)
@@ -220,12 +220,12 @@ internal sealed class VideoIndex : IDisposable
             var titleMatches = match.FieldMatches.Where(m => m.FoundIn == nameof(Video.Title));
 
             if (titleMatches.Any()) result.TitleMatches = new MatchedText(video.Title,
-                titleMatches.SelectMany(m => m.Locations).Select(m => new MatchedText.Match(m.Start, m.Length)).ToArray());
+                [.. titleMatches.SelectMany(m => m.Locations).Select(m => new MatchedText.Match(m.Start, m.Length))]);
 
             var descriptionMatches = match.FieldMatches.Where(m => m.FoundIn == nameof(Video.Description));
 
             if (descriptionMatches.Any()) result.DescriptionMatches = new MatchedText(video.Description,
-                descriptionMatches.SelectMany(m => m.Locations).Select(l => new MatchedText.Match(l.Start, l.Length)).ToArray());
+                [.. descriptionMatches.SelectMany(m => m.Locations).Select(l => new MatchedText.Match(l.Start, l.Length))]);
 
             var keywordMatches = match.FieldMatches.Where(m => m.FoundIn == nameof(Video.Keywords));
 
@@ -241,7 +241,7 @@ internal sealed class VideoIndex : IDisposable
                     return info;
                 }).ToArray();
 
-                result.KeywordMatches = keywordMatches.SelectMany(match => match.Locations)
+                result.KeywordMatches = [.. keywordMatches.SelectMany(match => match.Locations)
                     .Select(location => new
                     {
                         location, // represents the match location in joinedKeywords
@@ -251,25 +251,24 @@ internal sealed class VideoIndex : IDisposable
                     .GroupBy(x => x.keywordInfo.index) // group matches by keyword
                     .OrderBy(g => g.Key)
                     .Select(g => new MatchedText(video.Keywords[g.Key],
-                        g.Select(x => new MatchedText.Match(
+                        [.. g.Select(x => new MatchedText.Match(
                             // recalculate match index relative to keyword start
                             start: x.location.Start - x.keywordInfo.Start,
-                            length: x.location.Length)).ToArray()))
-                    .ToArray();
+                            length: x.location.Length))]))];
             }
 
             var captionTrackMatches = match.FieldMatches.Where(m => !nonDynamicVideoFieldNames.Contains(m.FoundIn));
 
-            if (captionTrackMatches.Any()) result.MatchingCaptionTracks = captionTrackMatches.Select(m =>
+            if (captionTrackMatches.Any()) result.MatchingCaptionTracks = [.. captionTrackMatches.Select(m =>
             {
                 var track = video.CaptionTracks?.SingleOrDefault(t => t.LanguageName == m.FoundIn);
                 if (track == null) return null;
 
-                var matches = new MatchedText(track.GetFullText()!, m.Locations
-                    .Select(match => new MatchedText.Match(match.Start, match.Length)).ToArray());
+                MatchedText matches = new(track.GetFullText()!,
+                    [.. m.Locations.Select(match => new MatchedText.Match(match.Start, match.Length))]);
 
                 return new VideoSearchResult.CaptionTrackResult { Track = track, Matches = matches };
-            }).WithValue().ToArray();
+            }).WithValue()];
 
             yield return result;
         }

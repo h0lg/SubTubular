@@ -19,7 +19,7 @@ public abstract partial class CommandScope
 public class VideosScope(List<string> videos) : CommandScope
 {
     /// <summary>Input video IDs or URLs.</summary>
-    public List<string> Videos { get; } = videos.Select(id => id.Trim()).ToList();
+    public List<string> Videos { get; } = [.. videos.Select(id => id.Trim())];
 
     public static string? TryParseId(string id) => VideoId.TryParse(id.Trim('"'))?.ToString();
     public override bool RequiresValidation() => Videos.Except(GetRemoteValidated().Ids()).Any();
@@ -53,7 +53,7 @@ public class VideosScope(List<string> videos) : CommandScope
                 yield return validated.Title!;
         else // otherwise fall back to
         {
-            IEnumerable<string> ids = Validated.Ids().ToArray(); // pre/validated IDs
+            IEnumerable<string> ids = [.. Validated.Ids()]; // pre/validated IDs
             if (!ids.Any()) ids = Videos; // or the unvalidated inputs
             yield return "videos " + ids.Join(" "); // and join them
         }

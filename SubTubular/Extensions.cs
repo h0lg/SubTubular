@@ -128,7 +128,7 @@ internal static class HashCodeExtensions
 {
     // Convert a collection to a HashSet of hash codes
     internal static HashSet<int> AsHashCodeSet<T>(this IEnumerable<T>? collection)
-        => collection == null ? [] : collection.Select(item => item?.GetHashCode() ?? 0).ToHashSet();
+        => collection == null ? [] : [.. collection.Select(item => item?.GetHashCode() ?? 0)];
 
     // Adds the elements of a collection to the HashCode in a combined and ordered way
     internal static HashCode AddOrdered<T>(this HashCode hashCode, IEnumerable<T> collection)

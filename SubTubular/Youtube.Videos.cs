@@ -124,7 +124,7 @@ partial class Youtube
             scope.Report(VideoList.Status.searching);
 
             // indexed videos are assumed to have downloaded their caption tracks already
-            Video[] videos = scope.Validated.Select(v => v.Video!).ToArray();
+            Video[] videos = [.. scope.Validated.Select(v => v.Video!)];
 
             await foreach (var result in index.SearchAsync(command, CreateVideoLookup(videos), token: token))
                 await yieldResult(result);
@@ -183,10 +183,10 @@ partial class Youtube
                     // Get the actual closed caption track
                     var track = await Client.Videos.ClosedCaptions.GetAsync(trackInfo, token);
 
-                    captionTrack.Captions = track.Captions
+                    captionTrack.Captions = [.. track.Captions
                         .Select(c => new Caption { At = Convert.ToInt32(c.Offset.TotalSeconds), Text = c.Text })
                         // Sanitize captions, making sure cached captions as well as downloaded are cleaned of duplicates and ordered by time.
-                        .Distinct().OrderBy(c => c.At).ToList();
+                        .Distinct().OrderBy(c => c.At)];
                 }
                 catch (Exception ex)
                 {

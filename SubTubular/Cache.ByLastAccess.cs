@@ -20,12 +20,9 @@ public readonly struct LastAccessGroup(string timeSpanLabel,
     }
 
     public LastAccessGroup Remove(FileInfo[] files)
-        => new(TimeSpanLabel,
-            Searches.Except(files).ToArray(),
-            PlaylistLikes.Except(files).ToArray(),
-            Indexes.Except(files).ToArray(),
-            Videos.Except(files).ToArray(),
-            Thumbnails.Except(files).ToArray());
+        => new(TimeSpanLabel, [.. Searches.Except(files)],
+            [.. PlaylistLikes.Except(files)], [.. Indexes.Except(files)],
+            [.. Videos.Except(files)], [.. Thumbnails.Except(files)]);
 }
 
 static partial class CacheManager
@@ -34,7 +31,7 @@ static partial class CacheManager
     {
         var now = DateTime.Now;
 
-        return FileHelper
+        return [.. FileHelper
             .EnumerateFiles(cacheFolder, "*", SearchOption.AllDirectories)
             .OrderByDescending(f => f.LastAccessTime) // latest first
             .GroupBy(f => DescribeTimeSpan(now - f.LastAccessTime))
@@ -49,8 +46,7 @@ static partial class CacheManager
 
                 return new LastAccessGroup(group.Key, searches: searches,
                     playlistLikes: playlistLikes, indexes: indexes, videos: videos, thumbnails: thumbnails);
-            })
-            .ToArray();
+            })];
     }
 
     public static IEnumerable<LastAccessGroup> Remove(this IEnumerable<LastAccessGroup> groups, FileInfo[] files)

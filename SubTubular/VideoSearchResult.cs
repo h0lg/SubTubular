@@ -77,8 +77,8 @@ public sealed class VideoSearchResult
                 .Select(text => text.NormalizeWhiteSpace(CaptionTrack.FullTextSeperator)) // replace included line breaks
                 .Join(CaptionTrack.FullTextSeperator);
 
-            MatchedText synced = new(text, matched.Matches.Select(m =>
-                new MatchedText.Match(m.Start - first.Key, m.Length)).ToArray());
+            MatchedText synced = new(text, [.. matched.Matches.Select(m =>
+                new MatchedText.Match(m.Start - first.Key, m.Length))]);
 
             return (synced, first.Value.At);
         }

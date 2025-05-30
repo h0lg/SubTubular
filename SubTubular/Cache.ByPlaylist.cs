@@ -17,9 +17,7 @@ public readonly struct ScopeSearches(FileInfo[] channels, FileInfo[] playlists, 
     }
 
     public ScopeSearches Remove(FileInfo[] files)
-        => new(Channels.Except(files).ToArray(),
-            Playlists.Except(files).ToArray(),
-            Videos.Except(files).ToArray());
+        => new([.. Channels.Except(files)], [.. Playlists.Except(files)], [.. Videos.Except(files)]);
 }
 
 public readonly struct PlaylistGroup(PlaylistLikeScope scope, Playlist playlist, FileInfo file, FileInfo? thumbnail,
@@ -45,9 +43,7 @@ public readonly struct PlaylistGroup(PlaylistLikeScope scope, Playlist playlist,
     public PlaylistGroup Remove(FileInfo[] files)
         => new(Scope, Playlist, File,
             Thumbnail == null ? null : files.Contains(Thumbnail) ? null : Thumbnail,
-            Indexes.Except(files).ToArray(),
-            Videos.Except(files).ToArray(),
-            VideoThumbnails.Except(files).ToArray());
+            [.. Indexes.Except(files)], [.. Videos.Except(files)], [.. VideoThumbnails.Except(files)]);
 }
 
 public sealed record LooseFiles
@@ -66,8 +62,8 @@ public sealed record LooseFiles
     }
 
     public LooseFiles Remove(FileInfo[] files)
-        => new(Videos.Except(files).ToArray(), VideoIndexes.Except(files).ToArray(),
-            Thumbnails.Except(files).ToArray(), Other.Except(files).ToArray());
+        => new([.. Videos.Except(files)], [.. VideoIndexes.Except(files)],
+            [.. Thumbnails.Except(files)], [.. Other.Except(files)]);
 }
 
 static partial class CacheManager
@@ -124,7 +120,7 @@ static partial class CacheManager
         Func<Scope, Task<Playlist>> getPlaylist, Func<string, string> getThumbnailFileName) where Scope : PlaylistLikeScope
     {
         var (caches, allIndexes) = files.WithPrefix(prefix).PartitionByExtension();
-        return caches.Except(searches).Select(GroupForPlaylistLike).ToArray();
+        return [.. caches.Except(searches).Select(GroupForPlaylistLike)];
 
         async Task<PlaylistGroup?> GroupForPlaylistLike(FileInfo file)
         {

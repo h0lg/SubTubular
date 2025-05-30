@@ -13,7 +13,7 @@ public sealed class MatchedText
     public MatchedText(string text, params Match[] matches)
     {
         Text = text;
-        Matches = matches.Distinct().OrderBy(m => m.Start).ToArray();
+        Matches = [.. matches.Distinct().OrderBy(m => m.Start)];
     }
 
     /// <summary>A structure for remembering the locations of matches included in a <see cref="Text" />.
@@ -62,7 +62,7 @@ public static class MatchedTextExtensions
         var sortedMatches = matchedText.Matches.OrderBy(m => m.Start).ToList();
 
         // seed groups with one containing the first match
-        List<List<MatchedText.Match>> seed = [new() { sortedMatches[0] }];
+        List<List<MatchedText.Match>> seed = [[sortedMatches[0]]];
 
         // group remaining matches
         var groupedMatches = sortedMatches.Skip(1).Aggregate(seed, (groups, currentMatch) =>
@@ -98,7 +98,7 @@ public static class MatchedTextExtensions
     public static IEnumerable<T> WriteHighlightingMatches<T>(this MatchedText matchedText,
         Func<string, T> write, Func<string, T> highlight, uint? matchPadding = null)
     {
-        if (matchedText.Matches.Length == 0) return Enumerable.Empty<T>();
+        if (matchedText.Matches.Length == 0) return [];
 
         var results = new List<T>();
 

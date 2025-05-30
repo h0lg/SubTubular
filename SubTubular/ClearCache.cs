@@ -100,10 +100,10 @@ public static partial class CacheManager
                 if (invalid.Length > 0) throw new InputException(
                     $"The following inputs are not valid {keyPrefix}IDs or URLs: " + invalid.Join(" "));
 
-                deletableKeys = parsed.Values.SelectMany(ids => ids!).Where(id => id != null)
-                    .Distinct().Select(id => keyPrefix + id).ToArray();
+                deletableKeys = [.. parsed.Values.SelectMany(ids => ids!).Where(id => id != null)
+                    .Distinct().Select(id => keyPrefix + id)];
             }
-            else deletableKeys = playListLikeDataStore.GetKeysByPrefix(keyPrefix, command.NotAccessedForDays).ToArray();
+            else deletableKeys = [.. playListLikeDataStore.GetKeysByPrefix(keyPrefix, command.NotAccessedForDays)];
 
             foreach (var key in deletableKeys)
             {
@@ -150,7 +150,7 @@ public static partial class CacheManager
         videos: files.GetSearches(Video.StorageKeyPrefix));
 
     private static FileInfo[] GetSearches(this FileInfo[] files, string storageKeyPrefix)
-        => files.WithPrefix(storageKeyPrefix + Youtube.SearchAffix).ToArray();
+        => [.. files.WithPrefix(storageKeyPrefix + Youtube.SearchAffix)];
 
     private static bool HasPrefix(this FileInfo file, string prefix) => file.Name.StartsWith(prefix);
 

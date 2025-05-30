@@ -71,7 +71,7 @@ public static class Prevalidate
         var slug = ChannelSlug.TryParse(alias);
         var user = UserName.TryParse(alias);
         var id = ChannelId.TryParse(alias);
-        return new object?[] { handle, slug, user, id }.WithValue().ToArray();
+        return [.. new object?[] { handle, slug, user, id }.WithValue()];
     }
 
     private static string? Channel(ChannelScope scope)

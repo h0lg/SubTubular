@@ -21,12 +21,12 @@ public static class Folder
 
     public static View[] DisplayList()
     {
-        return Enum.GetValues<Folders>().Select(f => (Label(f), GetPath(f)))
+        return [.. Enum.GetValues<Folders>().Select(f => (Label(f), GetPath(f)))
             .Append(("other releases", ReleaseManager.GetArchivePath(GetPath(Folders.app))))
             .Where(pair => Directory.Exists(pair.Item2))
             .OrderBy(pair => (pair.Item1 != nameof(Folders.app), pair.Item2)) // sort app first, then by path
             .Aggregate(Array.Empty<View>(), MapFolderToView) // relies on prior sorting by path
-            .Reverse().ToArray();
+            .Reverse()];
 
         string Label(Folders folder) => folder == Folders.storage ? "user data" : folder.ToString();
 
@@ -43,7 +43,7 @@ public static class Folder
                     path[ancestor.Path.Length..].TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
 
             var folderView = new View(label, path, level, pathDiff);
-            return mapped.Prepend(folderView).ToArray();
+            return [.. mapped.Prepend(folderView)];
         }
     }
 

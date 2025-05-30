@@ -40,7 +40,7 @@ partial class Youtube
         {
             if (token.IsCancellationRequested) return [];
             var mapped = await searchYoutubeAsync(text);
-            cached = new YoutubeSearchResult.Cache(text, mapped.ToArray(), DateTime.Now);
+            cached = new YoutubeSearchResult.Cache(text, [.. mapped], DateTime.Now);
             await dataStore.SetAsync(key, cached);
         }
 

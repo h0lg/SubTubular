@@ -22,7 +22,7 @@ public class PlaylistTests
         // prepends shard -3 (like after Uploads playlist was added to remotely)
         await AddVideoShards(at: 0, start: 0, count: 1);
 
-        AssertCollectionsEqual(GenerateShards(0, 6, shardSize).ToList(), videoIds);
+        AssertCollectionsEqual([.. GenerateShards(0, 6, shardSize)], videoIds);
 
         await using (playlist.CreateChangeToken(() => Task.CompletedTask))
         {
@@ -55,7 +55,7 @@ public class PlaylistTests
         var playlist = new Playlist { Title = "test", ThumbnailUrl = "" };
 
         // add 3 shards
-        List<int> videoIds = GenerateShards(0, 3, shardSize).ToList();
+        List<int> videoIds = [.. GenerateShards(0, 3, shardSize)];
         await AddVideos();
 
         // drop every third video
@@ -79,7 +79,7 @@ public class PlaylistTests
         }
 
         // add all videos back, but in reverse order
-        videoIds = GenerateShards(0, 3, shardSize).Reverse().ToList();
+        videoIds = [.. GenerateShards(0, 3, shardSize).Reverse()];
         await AddVideos();
 
         await using (playlist.CreateChangeToken(() => Task.CompletedTask))
@@ -124,7 +124,7 @@ public class PlaylistTests
         // prepends shard 5 (like after Uploads playlist was added to remotely)
         await AddHalfShard(at: 0, start: 0, count: 1);
 
-        AssertCollectionsEqual(GenerateShards(0, 4, halfShardSize).ToList(), videoIds);
+        AssertCollectionsEqual([.. GenerateShards(0, 4, halfShardSize)], videoIds);
 
         await using (playlist.CreateChangeToken(() => Task.CompletedTask))
         {

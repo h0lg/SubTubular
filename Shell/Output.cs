@@ -49,7 +49,7 @@ static partial class Program
             output.WriteHeader();
         });
 
-        ConcurrentBag<string> allErrors = new();
+        ConcurrentBag<string> allErrors = [];
 
         foreach (var (scope, captionTrackDlStates) in command.GetCaptionTrackDownloadStatus())
         {

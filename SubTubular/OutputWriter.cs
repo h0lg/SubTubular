@@ -87,7 +87,7 @@ public abstract class OutputWriter(OutputCommand command)
         }
         #endregion
 
-        List<MatchedText.Match> indentedMatches = new();
+        List<MatchedText.Match> indentedMatches = [];
 
         foreach (var match in matched.Matches)
         {
@@ -107,7 +107,7 @@ public abstract class OutputWriter(OutputCommand command)
             indentedMatches.Add(new MatchedText.Match(start, length));
         }
 
-        var indented = new MatchedText(text, indentedMatches.ToArray());
+        var indented = new MatchedText(text, [.. indentedMatches]);
         indented.WriteHighlightingMatches(Write, WriteHighlighted, padding);
     }
 
