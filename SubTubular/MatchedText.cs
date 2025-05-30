@@ -67,8 +67,8 @@ public static class MatchedTextExtensions
         // group remaining matches
         var groupedMatches = sortedMatches.Skip(1).Aggregate(seed, (groups, currentMatch) =>
         {
-            var lastGroup = groups.Last();
-            var lastMatch = lastGroup.Last();
+            var lastGroup = groups[^1];
+            var lastMatch = lastGroup[^1];
 
             // if the current match overlaps or touches (considering the padding) the last match of the last group, add it to the group
             if (currentMatch.Start <= lastMatch.Start + lastMatch.Length + matchPadding) lastGroup.Add(currentMatch);

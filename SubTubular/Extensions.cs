@@ -90,8 +90,8 @@ public static class StringExtensions
         return phrases.Skip(1).Aggregate(seed: phrases.Take(1).ToList(), (lines, phrase) =>
         {
             // if length of last line gets up to or over columnWidth, add the phrase on a new line
-            if (lines.Last().Length + phrase.Length >= columnWidth) lines.Add(phrase);
-            else lines[lines.Count - 1] += " " + phrase; // otherwise add phrase to last line
+            if (lines[^1].Length + phrase.Length >= columnWidth) lines.Add(phrase);
+            else lines[^1] += " " + phrase; // otherwise add phrase to last line
 
             return lines;
         });

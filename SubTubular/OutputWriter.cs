@@ -141,7 +141,7 @@ public abstract class OutputWriter(OutputCommand command)
         if (result.KeywordMatches.HasAny())
         {
             Write("  in keywords: ");
-            var lastKeyword = result.KeywordMatches!.Last();
+            var lastKeyword = result.KeywordMatches![^1];
 
             foreach (var match in result.KeywordMatches!)
             {
