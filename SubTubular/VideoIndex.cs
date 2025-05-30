@@ -10,7 +10,7 @@ public sealed class VideoIndexRepository
     public const string FileExtension = ".idx";
 
     private readonly string directory;
-    private readonly IIndexSerializer<string> serializer;
+    private readonly BinarySerializer<string> serializer;
 
     public VideoIndexRepository(string directory)
     {
