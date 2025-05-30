@@ -287,6 +287,7 @@ public static class RemoteValidate
 
 public class InputException : Exception
 {
+    public InputException() : base() { } // for RCS1194
     public InputException(string message) : base(message) { }
     public InputException(string message, Exception innerException) : base(message, innerException) { }
 }
