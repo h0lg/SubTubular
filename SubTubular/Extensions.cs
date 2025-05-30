@@ -46,7 +46,7 @@ public static class StringExtensions
     /// From https://stackoverflow.com/a/19596821 .</summary>
     internal static bool IsDirectoryPath(this string path)
     {
-        if (path == null) throw new ArgumentNullException(nameof(path));
+        ArgumentNullException.ThrowIfNull(path);
         path = path.Trim();
 
         if (Directory.Exists(path)) return true;

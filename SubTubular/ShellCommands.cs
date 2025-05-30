@@ -47,11 +47,14 @@ public static class ShellCommands
     {
         if (!folder.IsDirectoryPath()) folder = Path.GetDirectoryName(folder)!;
 
-        var info = new SHELLEXECUTEINFO();
-        info.cbSize = Marshal.SizeOf<SHELLEXECUTEINFO>();
-        info.lpVerb = "explore";
-        info.nShow = SW_SHOW;
-        info.lpFile = folder;
+        var info = new SHELLEXECUTEINFO
+        {
+            cbSize = Marshal.SizeOf<SHELLEXECUTEINFO>(),
+            lpVerb = "explore",
+            nShow = SW_SHOW,
+            lpFile = folder
+        };
+
         return ShellExecuteEx(ref info);
     }
     #endregion
