@@ -25,7 +25,7 @@ public static class AssemblyInfo
         Copyright = assembly.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright ?? string.Empty;
         InformationalVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? string.Empty;
         var version = assembly.GetName().Version?.ToString();
-        Version = version == null ? string.Empty : version.Remove(version.LastIndexOf('.'));
+        Version = version == null ? string.Empty : version[..version.LastIndexOf('.')];
     }
 
     public static string GetProductVersion()

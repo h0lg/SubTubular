@@ -63,7 +63,7 @@ public static class FileHelper
 
         foreach (var entry in archive.Entries.Where(e => e.Name.IsNonEmpty()))
         {
-            var relativePath = hasWrappingFolder ? entry.FullName.Remove(0, wrappingFolder!.Length) : entry.FullName;
+            var relativePath = hasWrappingFolder ? entry.FullName[wrappingFolder!.Length..] : entry.FullName;
             var targetFilePath = Path.Combine(targetFolder, relativePath);
             CreateFolder(targetFilePath);
             entry.ExtractToFile(targetFilePath);
