@@ -107,7 +107,7 @@ public static class ReleaseManager
             if (cached != null)
             {
                 var valid = cached.Valid().ToList();
-                if (valid.Any()) return valid;
+                if (valid.Count != 0) return valid;
             }
         }
 

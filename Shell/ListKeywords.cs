@@ -15,7 +15,7 @@ static partial class Program
             await foreach (var (keywords, videoId, scope) in youtube.ListKeywordsAsync(command, cancellation))
                 Youtube.AggregateKeywords(keywords, videoId, scope, scopes);
 
-            if (scopes.Any())
+            if (scopes.Count > 0)
             {
                 var countedKeywords = Youtube.CountKeywordVideos(scopes);
                 outputs.ForEach(o => o.ListKeywords(countedKeywords));
