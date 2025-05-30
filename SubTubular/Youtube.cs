@@ -16,7 +16,7 @@ public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository vi
         token.ThrowIfCancellationRequested();
         using var linkedTs = CancellationTokenSource.CreateLinkedTokenSource(token); // to cancel parallel searches on InputException
         var results = Channel.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions() { SingleReader = true });
-        Func<VideoSearchResult, ValueTask> addResult = r => results.Writer.WriteAsync(r, linkedTs.Token);
+        ValueTask AddResult(VideoSearchResult r) => results.Writer.WriteAsync(r, linkedTs.Token);
         List<Task> searches = [];
         SearchPlaylistLikeScopes(command.Channels);
         SearchPlaylistLikeScopes(command.Playlists);
@@ -24,7 +24,7 @@ public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository vi
         if (command.HasValidVideos)
         {
             command.Videos!.ResetProgressAndNotifications();
-            searches.Add(SearchVideosAsync(command, addResult, linkedTs.Token));
+            searches.Add(SearchVideosAsync(command, AddResult, linkedTs.Token));
         }
 
         var searching = Task.Run(async () =>
@@ -79,7 +79,7 @@ public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository vi
                 foreach (var scope in scopes!)
                 {
                     scope.ResetProgressAndNotifications(); // to prevent state from prior searches from bleeding into this one
-                    searches.Add(SearchPlaylistAsync(command, scope, addResult, linkedTs.Token));
+                    searches.Add(SearchPlaylistAsync(command, scope, AddResult, linkedTs.Token));
                 }
         }
     }
