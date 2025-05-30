@@ -19,7 +19,7 @@ public static class TimeSpanExtensions
 }
 
 /// <summary>Extension methods for <see cref="string"/>s.</summary>
-public static class StringExtensions
+public static partial class StringExtensions
 {
     /// <summary>Determines whether <paramref name="input"/> <see cref="string.IsNullOrEmpty(string?)"/>.</summary>
     internal static bool IsNullOrEmpty(this string? input) => string.IsNullOrEmpty(input);
@@ -33,10 +33,12 @@ public static class StringExtensions
     /// <summary>Determines whether <paramref name="input"/> NOT <see cref="string.IsNullOrWhiteSpace(string?)"/>.</summary>
     public static bool IsNonWhiteSpace(this string? input) => !string.IsNullOrWhiteSpace(input);
 
-    /// <summary>Replaces all consecutive white space characters in
+    /// <summary>Replaces all <see cref="ConsecutiveWhitespace"/> characters in
     /// <paramref name="input"/> with <paramref name="normalizeTo"/>.</summary>
     internal static string NormalizeWhiteSpace(this string input, string normalizeTo = " ")
-        => Regex.Replace(input, @"\s+", normalizeTo);
+        => ConsecutiveWhitespace().Replace(input, normalizeTo);
+
+    [GeneratedRegex(@"\s+")] private static partial Regex ConsecutiveWhitespace();
 
     /// <summary>Concatenates the <paramref name="pieces"/> into a single string
     /// putting <paramref name="glue"/> in between them.</summary>
