@@ -2,7 +2,6 @@
 
 open System
 open Avalonia.Interactivity
-open Avalonia.Media
 open Fabulous.Avalonia
 open SubTubular
 open SubTubular.Extensions
@@ -25,7 +24,7 @@ module SearchResult =
         let runs =
             matched.WriteHighlightingMatches(
                 (fun text -> Run(text)),
-                (fun text -> Run(text).foreground (Colors.Orange)),
+                (fun text -> Run(text).classes ("match")),
                 padding
             )
 
@@ -34,7 +33,7 @@ module SearchResult =
         let content =
             Seq.fold (fun agg cont -> tb.Combine(agg, cont)) contents.Head contents.Tail
 
-        (tb.Run content).wrap ()
+        (tb.Run content).classes(nameof MatchedText).wrap ()
 
     let render (matchPadding: uint32) (result: VideoSearchResult) showThumbnails =
         let videoUrl = Youtube.GetVideoUrl result.Video.Id

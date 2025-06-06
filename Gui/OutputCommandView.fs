@@ -2,7 +2,6 @@
 
 open System
 open Avalonia.Controls
-open Avalonia.Media
 open Fabulous
 open Fabulous.Avalonia
 open SubTubular
@@ -20,7 +19,7 @@ module OutputCommandView =
                     TextBlock("▪ " + hint).wrap ()
 
                 TextBlock("Read more about the syntax online 📡")
-                    .background(ThemeAware.With(Colors.SkyBlue, Colors.Purple))
+                    .classes("external-link")
                     .margin(0, 10, 0, 0)
                     .right()
                     .tappable (
@@ -48,11 +47,7 @@ module OutputCommandView =
                     let keyword, videoCount = pair.ToTuple()
                     TextBlock(videoCount.ToString() + "x")
 
-                    Border(TextBlock(keyword))
-                        .background(ThemeAware.With(Colors.Thistle, Colors.Purple))
-                        .cornerRadius(2)
-                        .padding(3, 0, 3, 0)
-                        .margin (3)
+                    Border(TextBlock(keyword)).classes("keyword").cornerRadius(2).padding(3, 0, 3, 0).margin (3)
             })
                 .gridRow(1)
                 .gridColumnSpan (2)

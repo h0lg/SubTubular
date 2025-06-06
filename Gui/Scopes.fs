@@ -3,7 +3,6 @@
 open System
 open System.Linq
 open Avalonia.Controls
-open Avalonia.Media
 open Fabulous
 open Fabulous.Avalonia
 open SubTubular
@@ -101,11 +100,11 @@ module Scopes =
                     (Border(
                         View.map (fun scopeMsg -> ScopeMsg(scope, scopeMsg)) (Scope.view scope maxWidth showThumbnails)
                     ))
+                        .classes("scope")
                         .top()
                         .padding(2)
                         .margin(0, 0, 5, 5)
-                        .cornerRadius(2)
-                        .background (ThemeAware.With(Colors.Khaki, Colors.Indigo))
+                        .cornerRadius (2)
 
                 (*  Render an empty spacer the size of the add scope control stack,
                     effectively creating an empty line in the HWrap if they don't fit the current one.
@@ -123,11 +122,11 @@ module Scopes =
                         Button(ScopeViews.displayType scopeType true, AddScope scopeType)
                 }
             ))
+                .classes("add-scope")
                 .padding(2)
                 .reference(addScopeStack)
                 .bottom()
                 .right()
-                .cornerRadius(2)
-                .background (ThemeAware.With(Colors.Wheat, Colors.DarkBlue))
+                .cornerRadius (2)
         })
             .reference (container)

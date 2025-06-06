@@ -5,7 +5,6 @@ open System.Linq
 open System.Threading
 open System.Threading.Tasks
 open Avalonia.Controls
-open Avalonia.Media
 open Fabulous
 open Fabulous.Avalonia
 open SubTubular
@@ -333,7 +332,7 @@ module ScopeSearch =
 
     let validationErrors model =
         TextBlock(model.ValidationError)
-            .foreground(Colors.Red)
+            .classes("error")
             .wrap()
             // display if there is a validation error and the model state is not valid
             .isVisible (model.ValidationError <> null && not model.Scope.IsValid)

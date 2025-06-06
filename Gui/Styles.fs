@@ -72,7 +72,7 @@ module Styles =
         static member inline wrap(this: WidgetBuilder<'msg, #IFabTextBlock>) = this.textWrapping (TextWrapping.Wrap)
 
         [<Extension>]
-        static member inline demoted(this: WidgetBuilder<'msg, IFabTextBlock>) = this.foreground (Colors.Gray)
+        static member inline demoted(this: WidgetBuilder<'msg, IFabTextBlock>) = this.classes ("demoted")
 
         [<Extension>]
         static member inline header(this: WidgetBuilder<'msg, IFabTextBlock>) =
@@ -99,11 +99,8 @@ module Styles =
             this.tappable ((fun _ -> msg), tooltip)
 
         [<Extension>]
-        static member inline asToggle(this: WidgetBuilder<'msg, #IFabTemplatedControl>, condition) =
-            if condition then
-                this.background (Colors.RoyalBlue)
-            else
-                this.background(Colors.Transparent).foreground (Colors.Gray)
+        static member inline asToggle(this: WidgetBuilder<'msg, #IFabTemplatedControl>, isActive) =
+            this.classes (if isActive then "active-toggle" else "inactive-toggle")
 
         [<Extension>]
         static member inline acceptReturn(this: WidgetBuilder<'msg, #IFabAutoCompleteBox>) =

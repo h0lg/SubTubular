@@ -6,7 +6,6 @@ open Avalonia.Controls
 open Avalonia.Controls.Notifications
 open Avalonia.Controls.Primitives
 open Avalonia.Markup.Xaml.Styling
-open Avalonia.Media
 open AsyncImageLoader
 open Fabulous
 open Fabulous.Avalonia
@@ -187,7 +186,6 @@ module App =
                 .icon(appIconUrl)
                 .title("SubTubular")
                 .extendClientAreaToDecorationsHint(true)
-                .background(ThemeAware.With(Colors.BlanchedAlmond, Colors.MidnightBlue))
 #if DEBUG
                 .attachDevTools ()
 #endif
