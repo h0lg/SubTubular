@@ -141,7 +141,7 @@ module Scope =
         | Common _ -> model, Cmd.none, DoNothing
 
     let private validated thumbnailUrl navigateUrl title channel (scope: CommandScope) progress videoId showThumbnails =
-        Grid(coldefs = [ Auto; Auto; Auto; Auto ], rowdefs = [ Auto; Auto ]) {
+        (Grid(coldefs = [ Auto; Auto; Auto; Auto ], rowdefs = [ Auto; Auto ]) {
             match videoId with
             | Some videoId -> Button("❌", RemoveVideo videoId).tooltip("remove this video").gridRowSpan (2)
             | None -> ()
@@ -154,13 +154,14 @@ module Scope =
                 .gridColumnSpan (2)
 
             match channel with
-            | Some channel -> ScopeViews.channelInfo(channel).gridColumn(2).gridRow (1)
+            | Some channel -> ScopeViews.channelInfo(channel).gridRow(1).gridColumn (2)
             | None -> ()
 
             match progress with
             | Some progress -> ScopeViews.progressText(progress).gridRow(1).gridColumn (3)
             | None -> ()
-        }
+        })
+            .columnSpacing (5)
 
     let private removeBtn () =
         Button("❌", Remove).tooltip ("remove this scope")
@@ -195,10 +196,10 @@ module Scope =
                             (Some(model.Scope.Progress.ToString()))
                             None
                             showThumbnails
+
+                        notificationToggle model
                     else
                         ScopeSearch.input model.ScopeSearch showThumbnails |> View.map ScopeSearchMsg
-
-                    notificationToggle model
 
                     ToggleButton("⚙", model.ShowSettings, ToggleSettings).tooltip ("toggle settings")
 

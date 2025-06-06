@@ -85,7 +85,7 @@ module Settings =
             failwith $"unknown {nameof ThemeVariant} {v}"
 
     let view model =
-        VStack(10.) {
+        (VStack(10.) {
             HWrap() {
                 Label("Theme").centerVertical ()
 
@@ -104,4 +104,5 @@ module Settings =
                 Label("Download & display thumbnails").centerVertical ()
                 ToggleSwitch(model.ShowThumbnails, ToggleThumbnails)
             }
-        }
+        })
+            .center ()

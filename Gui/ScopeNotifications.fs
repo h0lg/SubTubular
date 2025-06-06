@@ -83,6 +83,6 @@ module ScopeNotifications =
             else if model.HasWarnings then Icon.warning
             else Icon.info
 
-        TextBlock(icon + notifications.Length.ToString())
+        TextBlock($"{icon}\n{notifications.Length}")
             .attachedFlyout(flyout notifications)
             .isVisible (not notifications.IsEmpty)

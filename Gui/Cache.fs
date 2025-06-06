@@ -396,3 +396,4 @@ module Cache =
                     .gridColumnSpan (3)
             }
         )
+            .center ()
