@@ -86,14 +86,25 @@
 
   <Style Selector="Border.keyword">
     <Setter Property="Background" Value="{DynamicResource KeywordBackground}" />
+    <Setter Property="CornerRadius" Value="2" />
+    <Setter Property="Padding" Value="3,0,3,0" />
+    <Setter Property="Margin" Value="3" />
   </Style>
 
   <Style Selector="Border.scope">
     <Setter Property="Background" Value="{DynamicResource ScopeBackground}" />
+    <Setter Property="CornerRadius" Value="2" />
+    <Setter Property="Padding" Value="2" />
+    <Setter Property="Margin" Value="0,0,5,5" />
+    <Setter Property="VerticalAlignment" Value="Top" />
   </Style>
 
   <Style Selector="Border.add-scope">
     <Setter Property="Background" Value="{DynamicResource AddScopeBackground}" />
+    <Setter Property="VerticalAlignment" Value="Bottom" />
+    <Setter Property="HorizontalAlignment" Value="Right" />
+    <Setter Property="Padding" Value="2" />
+    <Setter Property="CornerRadius" Value="2" />
   </Style>
 
   <Style Selector="SelectableTextBlock.MatchedText > Run.match">
@@ -107,10 +118,13 @@
 
   <Style Selector="TextBlock.external-link">
     <Setter Property="Background" Value="{DynamicResource ExternalLinkBackground}" />
+    <Setter Property="HorizontalAlignment" Value="Right" />
+    <Setter Property="Margin" Value="0,10,0,0" />
   </Style>
 
   <Style Selector="TextBlock.error">
     <Setter Property="Foreground" Value="{DynamicResource ErrorForeground}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
   </Style>
 
   <Style Selector="MenuItem.active-toggle">

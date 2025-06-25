@@ -100,11 +100,7 @@ module Scopes =
                     (Border(
                         View.map (fun scopeMsg -> ScopeMsg(scope, scopeMsg)) (Scope.view scope maxWidth showThumbnails)
                     ))
-                        .classes("scope")
-                        .top()
-                        .padding(2)
-                        .margin(0, 0, 5, 5)
-                        .cornerRadius (2)
+                        .classes ("scope")
 
                 (*  Render an empty spacer the size of the add scope control stack,
                     effectively creating an empty line in the HWrap if they don't fit the current one.
@@ -123,10 +119,6 @@ module Scopes =
                 }
             ))
                 .classes("add-scope")
-                .padding(2)
-                .reference(addScopeStack)
-                .bottom()
-                .right()
-                .cornerRadius (2)
+                .reference (addScopeStack)
         })
             .reference (container)

@@ -20,8 +20,6 @@ module OutputCommandView =
 
                 TextBlock("Read more about the syntax online 📡")
                     .classes("external-link")
-                    .margin(0, 10, 0, 0)
-                    .right()
                     .tappable (
                         Common(OpenUrl "https://mikegoatly.github.io/lifti/docs/searching/lifti-query-syntax/"),
                         "Open the LIFTI query syntax help page in your browser"
@@ -47,7 +45,7 @@ module OutputCommandView =
                     let keyword, videoCount = pair.ToTuple()
                     TextBlock(videoCount.ToString() + "x")
 
-                    Border(TextBlock(keyword)).classes("keyword").cornerRadius(2).padding(3, 0, 3, 0).margin (3)
+                    Border(TextBlock(keyword)).classes ("keyword")
             })
                 .gridRow(1)
                 .gridColumnSpan (2)

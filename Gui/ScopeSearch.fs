@@ -333,6 +333,5 @@ module ScopeSearch =
     let validationErrors model =
         TextBlock(model.ValidationError)
             .classes("error")
-            .wrap()
             // display if there is a validation error and the model state is not valid
             .isVisible (model.ValidationError <> null && not model.Scope.IsValid)
