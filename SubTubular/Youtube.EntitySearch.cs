@@ -32,7 +32,7 @@ partial class Youtube
     private async Task<YoutubeSearchResult[]> SearchedForCachedAsync(string text, string keyPrefix,
         Func<string, Task<IEnumerable<YoutubeSearchResult>>> searchYoutubeAsync, CancellationToken token)
     {
-        if (token.IsCancellationRequested) return [];
+        if (token.IsCancellationRequested) return []; // caller was forced to pass token and should know about cancellation without throwing
         string key = keyPrefix + SearchAffix + text.ToFileSafe();
         var cached = await dataStore.GetAsync<YoutubeSearchResult.Cache>(key);
 

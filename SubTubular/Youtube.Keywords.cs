@@ -30,8 +30,9 @@ partial class Youtube
             .ContinueWith(t =>
             {
                 channel.Writer.Complete();
-                if (t.IsFaulted) throw t.Exception;
-            }, token);
+                if (t.IsFaulted) throw t.Exception; // bubble up error
+                // cancellation needs no handling because lookups use the same token as this task
+            }, token); // reader uses the same token, writer completion is not required.
 
         // start reading
         await foreach (var keywords in channel.Reader.ReadAllAsync(token)) yield return keywords;

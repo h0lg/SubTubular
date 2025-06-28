@@ -77,21 +77,12 @@ partial class Youtube
                     }
                 }
 
-                await Task.WhenAll(searches).WithAggregateException().ContinueWith(t =>
-                {
-                    shard.Dispose();
-                    if (t.IsFaulted) throw t.Exception;
-                });
-            }).ToList();
+                try { await Task.WhenAll(searches).WithAggregateException(); }
+                finally { shard.Dispose(); }
+            }).ToArray();
 
             scope.Report(VideoList.Status.searching);
-
-            await foreach (var task in Task.WhenEach(shardSearches))
-            {
-                if (task.IsFaulted)
-                    throw task.Exception; // raise errors
-            }
-
+            await Task.WhenAll(shardSearches).WithAggregateException();
             if (continuedRefresh != null) await continuedRefresh;
 
             ValueTask Yield(VideoSearchResult result)

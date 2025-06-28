@@ -77,15 +77,17 @@ static partial class CacheManager
         Func<Action<PlaylistGroup>, Action<LooseFiles>, Action<Exception>, Task> processAsync = new((dispatchGroup, dispatchLooseFiles, dispatchException)
             => Task.Run(async () =>
             {
+                var token = CancellationToken.None;
+
                 var channels = GetPlaylistLike(files, searches.Channels, ChannelScope.StorageKeyPrefix,
                     id => Youtube.GetChannelUrl((ChannelId)id),
                     id => new ChannelScope(id, 0, 0, 0),
-                    scope => youtube.GetPlaylistAsync(scope, CancellationToken.None),
+                    scope => youtube.GetPlaylistAsync(scope, token),
                     getThumbnailFileName);
 
                 var playlists = GetPlaylistLike(files, searches.Playlists, PlaylistScope.StorageKeyPrefix,
                     Youtube.GetPlaylistUrl, id => new PlaylistScope(id, 0, 0, 0),
-                    scope => youtube.GetPlaylistAsync(scope, CancellationToken.None), getThumbnailFileName);
+                    scope => youtube.GetPlaylistAsync(scope, token), getThumbnailFileName);
 
                 var tasks = channels.Concat(playlists).ToArray();
 
@@ -95,6 +97,7 @@ static partial class CacheManager
                     {
                         if (task.IsCompletedSuccessfully && task.Result.HasValue) dispatchGroup(task.Result.Value);
                         if (task.IsFaulted) dispatchException(task.Exception);
+                        // cancellation is not possible ATM and needs no handling
                     }
                 }
                 catch (Exception ex) { dispatchException(ex); }

@@ -13,7 +13,7 @@ partial class Youtube
         [EnumeratorCancellation] CancellationToken token,
         Playlist? playlist = default)
     {
-        if (token.IsCancellationRequested) yield break;
+        token.ThrowIfCancellationRequested(); // for SearchUpdatingScope
         scope.Report(VideoList.Status.indexingAndSearching);
 
         /* limit channel capacity to avoid holding a lot of loaded but unprocessed videos in memory
@@ -51,13 +51,12 @@ partial class Youtube
                 finally { loadLimiter.Release(); }
             }, token));
 
-            await Task.WhenAll(downloads).WithAggregateException()
-               .ContinueWith(t =>
-               {
-                   // complete writing after all download tasks finished
-                   unIndexedVideos.Writer.Complete();
-                   if (t.Exception != null) throw t.Exception;
-               }, token);
+            try { await Task.WhenAll(downloads).WithAggregateException(); }
+            finally
+            {
+                // complete writing after all download tasks finished
+                unIndexedVideos.Writer.Complete();
+            }
         });
 
         var uncommitted = new List<Video>(); // batch of loaded and indexed, but uncommitted video index changes

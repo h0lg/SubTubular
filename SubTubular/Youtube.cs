@@ -43,11 +43,13 @@ public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository vi
 
                     throw task.Exception; // bubble up errors
                 }
+                // cancellation is recorded in the scope and not expected to throw or bubble, see SearchUpdatingScope
             }
         }, linkedTs.Token).ContinueWith(t =>
         {
-            results.Writer.Complete();
+            results.Writer.Complete(); // complete writer independent of cancellation to stop reader, which not guarded by it either
             if (t.IsFaulted) throw t.Exception; // bubble up errors
+            // nothing to do if search is canceled
         });
 
         /* Determine whether the search spans multiple indexes, indicating that results have to be re-scored.

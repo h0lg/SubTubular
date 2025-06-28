@@ -181,6 +181,8 @@ public static class RemoteValidate
 
     public static async Task ChannelsAsync(ChannelScope[] channelScopes, Youtube youtube, DataStore dataStore, CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
+
         // load cached info about which channel aliases map to which channel IDs and which channel IDs are accessible
         var knownAliasMaps = await ChannelAliasMap.LoadListAsync(dataStore);
 
