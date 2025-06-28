@@ -21,7 +21,12 @@ partial class Youtube
     private async Task SearchPlaylistAsync(SearchCommand command, PlaylistLikeScope scope,
         Func<VideoSearchResult, ValueTask> yieldResult, CancellationToken token = default)
     {
-        if (token.IsCancellationRequested) return;
+        if (token.IsCancellationRequested)
+        {
+            scope.Report(VideoList.Status.canceled); // because SearchUpdatingScope won't get the chance
+            return;
+        }
+
         var storageKey = scope.StorageKey;
         var playlist = scope.SingleValidated.Playlist!;
 

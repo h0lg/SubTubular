@@ -99,8 +99,14 @@ partial class Youtube
     private async Task SearchVideosAsync(SearchCommand command,
         Func<VideoSearchResult, ValueTask> yieldResult, CancellationToken token)
     {
-        if (token.IsCancellationRequested) return;
         VideosScope scope = command.Videos!;
+
+        if (token.IsCancellationRequested)
+        {
+            scope.Report(VideoList.Status.canceled); // because SearchUpdatingScope won't get the chance
+            return;
+        }
+
         var videoIds = scope.GetRemoteValidated().Ids().ToArray();
         scope.QueueVideos(videoIds);
         var storageKey = Video.StorageKeyPrefix + videoIds.Order().Join(" ");
