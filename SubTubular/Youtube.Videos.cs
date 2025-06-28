@@ -195,11 +195,9 @@ partial class Youtube
                 }
                 catch (Exception ex)
                 {
-                    var cause = ex.GetBaseException();
-
-                    if (cause is not OperationCanceledException)
+                    if (ex is not OperationCanceledException)
                     {
-                        captionTrack.ErrorMessage = cause.Message;
+                        captionTrack.ErrorMessage = ex.Message;
                         captionTrack.Error = ex.ToString();
                         errors.Add(ex);
                     }
@@ -210,8 +208,7 @@ partial class Youtube
         }
         catch (Exception ex)
         {
-            var cause = ex.GetBaseException();
-            if (cause is not OperationCanceledException) errors.Add(ex);
+            if (ex is not OperationCanceledException) errors.Add(ex);
         }
 
         if (errors.Count > 0) scope.Notify("Errors downloading caption tracks",

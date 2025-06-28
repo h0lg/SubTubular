@@ -193,7 +193,10 @@ partial class Youtube
                     }
                 }
             }
-            catch (Exception ex) { scope.Notify("Error refreshing playlist", ex.Message, [ex]); }
+            catch (Exception ex) when (!(token.IsCancellationRequested && ex.GetRootCauses().AreAll<OperationCanceledException>()))
+            {
+                scope.Notify("Error refreshing playlist", ex.Message, [ex]);
+            }
             finally
             {
                 // to enable indexing new videos - can't succeed if playlist change token has been revoked
