@@ -1,6 +1,5 @@
 ﻿namespace SubTubular.Gui
 
-open System
 open System.Runtime.CompilerServices
 open Avalonia
 open Fabulous
@@ -12,14 +11,15 @@ module StyledElement =
     let DataContext =
         Attributes.defineAvaloniaPropertyWithEquality StyledElement.DataContextProperty
 
-module CommandScopeAttributes =
-    /// Allows attaching a handler to the ProgressChanged event of a CommandScope to a StyledElement
-    let ProgressChanged =
-        Attributes.Mvu.defineEventNoArg "CommandScope_ProgressChanged" (fun target ->
+module ThrottledEventAttributes =
+    /// Allows attaching a handler to the Event of a ThrottledEvent to a StyledElement
+    let Triggered =
+        Attributes.Mvu.defineEventNoArg "ThrottledEvent_Event" (fun target ->
             let element = unbox<StyledElement> target
             let model = unbox<ThrottledEvent> element.DataContext
-            model.Event)
+            model.Triggered)
 
+module CommandScopeAttributes =
     /// Allows attaching a handler to the Notified event of a CommandScope to a StyledElement
     let Notified =
         Attributes.Mvu.defineEvent "CommandScope_Notified" (fun target ->
@@ -28,18 +28,15 @@ module CommandScopeAttributes =
             model.Notified)
 
 type StyledElementModifiers =
-    /// Dispatches a throttled msg on scope.ProgressChanged.
+    /// Dispatches a throttled msg on throttledEvent.Triggered.
     [<Extension>]
-    static member inline onScopeProgressChanged
-        (this: WidgetBuilder<'msg, #IFabStyledElement>, scope: CommandScope, msInterval: float, msg: 'msg)
+    static member inline onThrottledEvent
+        (this: WidgetBuilder<'msg, #IFabStyledElement>, throttledEvent: ThrottledEvent, msg: 'msg)
         =
-        let throttledEvent = ThrottledEvent(TimeSpan.FromMilliseconds(msInterval))
-        scope.ProgressChanged.Add(fun args -> throttledEvent.Invoke(scope, args))
-
         this
-            // set DataContext for it to be available in CommandScopeAttributes.ProgressChanged
+            // set DataContext for it to be available in ThrottledEventAttributes.Triggered
             .AddScalar(StyledElement.DataContext.WithValue(throttledEvent))
-            .AddScalar(CommandScopeAttributes.ProgressChanged.WithValue(MsgValue msg))
+            .AddScalar(ThrottledEventAttributes.Triggered.WithValue(MsgValue msg))
 
     /// Dispatches a msg on scope.Notified.
     [<Extension>]

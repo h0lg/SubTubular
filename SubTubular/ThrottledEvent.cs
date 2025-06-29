@@ -3,8 +3,8 @@ namespace SubTubular;
 /// <summary><para>A throttled event dispatcher that raises events at most once per <paramref name="interval"/>
 /// in the given <paramref name="syncContext"/> or the <see cref="SynchronizationContext.Current"/> (e.g. UI thread dispatcher).
 /// This ensures the event handlers are raised on the same thread that created the dispatcher.</para>
-/// <para>Events can be forwarded via <see cref="Invoke(object, EventArgs)"/> and the <see cref="latestSender"/> and <see cref="latestArgs"/>
-/// are dispatched via <see cref="Event"/>.</para></summary>
+/// <para>Events can be forwarded via <see cref="Trigger(object, EventArgs)"/> and the <see cref="latestSender"/> and <see cref="latestArgs"/>
+/// are dispatched via <see cref="Triggered"/>.</para></summary>
 public class ThrottledEvent(TimeSpan interval, SynchronizationContext? syncContext = null)
 {
     private readonly SynchronizationContext syncContext = syncContext ?? SynchronizationContext.Current
@@ -18,11 +18,11 @@ public class ThrottledEvent(TimeSpan interval, SynchronizationContext? syncConte
     private bool isRunning;
 
     /// <summary>Raised at most once per interval with the latest sender/args pair.</summary>
-    public event EventHandler? Event;
+    public event EventHandler? Triggered;
 
     /// <summary>Push a non-generic event into the throttler.
     /// Only the latest sender/args pair is retained during the interval.</summary>
-    public void Invoke(object sender, EventArgs args)
+    public void Trigger(object sender, EventArgs args)
     {
         lock (locker)
         {
@@ -61,7 +61,7 @@ public class ThrottledEvent(TimeSpan interval, SynchronizationContext? syncConte
 
             // Raise events on the original thread (usually the UI thread)
             if (next is var (sender, args) && args != null)
-                syncContext.Post(_ => Event?.Invoke(sender, args), null);
+                syncContext.Post(_ => Triggered?.Invoke(sender, args), null);
         }
     }
 }

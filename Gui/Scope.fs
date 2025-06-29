@@ -170,6 +170,7 @@ module Scope =
     type Model =
         { Scope: CommandScope
           CaptionStatusNotifications: CommandScope.Notification list
+          ThrottledProgressChanged: ThrottledEvent
           Aliases: string
           AliasSearch: AliasSearch
           AliasSearchDropdownOpen: bool
@@ -267,9 +268,13 @@ module Scope =
         else
             model, Cmd.none
 
-    let private init scope added =
+    let private init (scope: CommandScope) added =
+        let progressChanged = ThrottledEvent(TimeSpan.FromMilliseconds(300))
+        scope.ProgressChanged.Add(fun args -> progressChanged.Trigger(scope, args))
+
         { Scope = scope
           CaptionStatusNotifications = []
+          ThrottledProgressChanged = progressChanged
           Aliases = // set from scope to sync
             match scope with
             | PlaylistLike pl -> pl.Alias
@@ -632,5 +637,5 @@ module Scope =
 
             ProgressBar(0, model.Scope.Progress.AllJobs, model.Scope.Progress.CompletedJobs, ProgressValueChanged)
                 .isIndeterminate(model.AliasSearch.IsRunning())
-                .onScopeProgressChanged (model.Scope, 300, ProgressChanged)
+                .onThrottledEvent (model.ThrottledProgressChanged, ProgressChanged)
         }
