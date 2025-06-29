@@ -183,11 +183,10 @@ module OutputCommands =
                         dispatchCommon error
 
                     match exn.GetRootCauses() with
-                    | exns when exns.AreAll<OperationCanceledException>() ->
-                        Notify "The op was canceled" |> dispatchCommon
-                    | exns ->
-                        for inner in exns do
-                            dispatchError inner
+                    | causes when token.IsCancellationRequested && causes.AreAll<OperationCanceledException>() -> ()
+                    | causes ->
+                        for cause in causes do
+                            dispatchError cause
 
                 if not loggedErrors.IsEmpty then
                     let! logWriting =
