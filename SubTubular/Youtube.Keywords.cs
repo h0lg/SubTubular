@@ -11,8 +11,6 @@ partial class Youtube
     public async IAsyncEnumerable<(string[] keywords, string videoId, CommandScope scope)> ListKeywordsAsync(ListKeywords command,
         [EnumeratorCancellation] CancellationToken token = default)
     {
-        token.ThrowIfCancellationRequested();
-
         var channel = Channel.CreateUnbounded<(string[] keywords, string videoId, CommandScope scope)>(
             new UnboundedChannelOptions { SingleReader = true });
 
