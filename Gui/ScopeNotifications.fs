@@ -35,7 +35,9 @@ module ScopeNotifications =
             HasWarnings = all.HaveAnyOfLevel CommandScope.Notification.Levels.Warning }
 
     let private refreshCaptionTracksAfter =
-        [| VideoList.Status.searched; VideoList.Status.canceled |]
+        [| VideoList.Status.validated
+           VideoList.Status.searched
+           VideoList.Status.canceled |]
 
     let needsCaptionTracksUpdate state =
         refreshCaptionTracksAfter |> Array.contains state

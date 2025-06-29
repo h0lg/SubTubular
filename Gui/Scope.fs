@@ -126,16 +126,6 @@ module Scope =
 
         | ScopeSearchMsg ssmsg ->
             let updated, cmd = ScopeSearch.update ssmsg model.ScopeSearch
-
-            let model =
-                match ssmsg with
-                | ScopeSearch.Msg.ValidationSucceeded ->
-                    { model with
-                        (*  update CaptionTrack Notifications here because update on ProgressChanged
-                            for VideoList.Status.validated doesn't work reliably for recreated recent scopes *)
-                        Notifications = ScopeNotifications.updateCaptionTracks model.Notifications model.Scope }
-                | _ -> model
-
             { model with ScopeSearch = updated }, cmd |> Cmd.map ScopeSearchMsg, DoNothing
 
         | Common _ -> model, Cmd.none, DoNothing
