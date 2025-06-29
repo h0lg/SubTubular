@@ -23,7 +23,7 @@ public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository vi
 
         if (command.HasValidVideos)
         {
-            command.Videos!.ResetProgressAndNotifications();
+            command.Videos!.ResetProgressAndNotifications(); // to prevent state from prior searches from bleeding into this one
             searches.Add(SearchVideosAsync(command, AddResult, linkedTs.Token));
         }
 

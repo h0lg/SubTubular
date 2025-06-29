@@ -364,7 +364,7 @@ module OutputCommands =
                 if not model.Running.IsCancellationRequested then
                     model.Running.Cancel()
 
-                model.Running.Dispose()
+                model.Running.Dispose() // explicitly, before setting it null below to avoid waiting for GC
 
             let updated =
                 { model with
@@ -415,8 +415,8 @@ module OutputCommands =
             model, Cmd.none
 
         | CommandCompleted successful ->
-            if model.Running <> null then
-                model.Running.Dispose()
+            if model.Running <> null then // not canceled
+                model.Running.Dispose() // explicitly, before setting it null below to avoid waiting for GC
 
             let workload =
                 if model.Command = Commands.Search then
