@@ -100,7 +100,6 @@ module OutputCommands =
                 let loggedErrors = ConcurrentBag<string>()
                 let command = mapToCommand model
                 let token = model.Running.Token
-                let mutable failedHard = false
 
                 command.OnScopeNotification(fun scope ntf ->
                     if ntf.Errors.HasAny() then
@@ -111,7 +110,7 @@ module OutputCommands =
                                 causes
                                     .Select(fun ex -> ex.ToString())
                                     .Prepend("in " + scope.Describe(false).Join(" "))
-                                    .Prepend(ntf.Title)
+                                    .Prepend($"{DateTime.Now:O} {ntf.Title}")
                                     .Join("\n")
                             ))
 
@@ -151,44 +150,14 @@ module OutputCommands =
 
                     | _ -> failwith ("Unknown command type " + command.GetType().ToString())
                 with exn ->
-                    let dispatchError (exn: exn) =
-                        failedHard <- true
+                    let causes = exn.GetRootCauses().ToArray()
 
-                        // don't write an error log for InputExceptions
-                        if exn.IsInputError() |> not then
-                            loggedErrors.Add(exn.ToString())
+                    if causes.AnyNeedReporting() then
+                        loggedErrors.Add($"{DateTime.Now:O} {exn}")
 
-                        // collect meaningful exception messages for notification
-                        let error =
-                            match exn.InnerException with
-                            | null -> Fail exn.Message
-                            | inner ->
-                                let message =
-                                    match exn with
-                                    | :? AggregateException as ax ->
-                                        ax
-                                            .GetRootCauses()
-                                            .Select(fun e ->
-                                                let details =
-                                                    match e.InnerException with
-                                                    | null -> ""
-                                                    | iex -> " " + iex.Message
+                let failedHard = not loggedErrors.IsEmpty
 
-                                                e.Message + details)
-                                            .Join("\n")
-                                    | _ -> inner.Message
-
-                                FailLong(exn.Message, message)
-
-                        dispatchCommon error
-
-                    match exn.GetRootCauses() with
-                    | causes when token.IsCancellationRequested && causes.AreAllCancelations() -> ()
-                    | causes ->
-                        for cause in causes do
-                            dispatchError cause
-
-                if not loggedErrors.IsEmpty then
+                if failedHard then
                     let! logWriting =
                         ErrorLog.WriteAsync(
                             loggedErrors.Join(ErrorLog.OutputSpacing),
