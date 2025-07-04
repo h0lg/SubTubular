@@ -26,7 +26,7 @@ internal static partial class Program
         }
         catch (Exception ex)
         {
-            var causes = ex.GetRootCauses();
+            var causes = ex.GetRootCauses().ToArray();
 
             if (causes.AreAllCancelations())
             {
@@ -36,8 +36,11 @@ internal static partial class Program
 
             if (causes.All(c => c.IsInputError()))
             {
-                foreach (var cause in causes)
-                    WriteConsoleError(cause.Message);
+                WriteConsoleError("The command ran into input errors:");
+
+                // summarize the errors, OnScopeNotified in OutputAsync already wrote every one of them when they occurred
+                foreach (var error in causes.Select(ex => ex.Message).Distinct())
+                    WriteConsoleError(error);
 
                 return (int)ExitCode.ValidationError;
             }
