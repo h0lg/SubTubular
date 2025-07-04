@@ -183,7 +183,7 @@ module OutputCommands =
                         dispatchCommon error
 
                     match exn.GetRootCauses() with
-                    | causes when token.IsCancellationRequested && causes.AreAll<OperationCanceledException>() -> ()
+                    | causes when token.IsCancellationRequested && causes.AreAllCancelations() -> ()
                     | causes ->
                         for cause in causes do
                             dispatchError cause

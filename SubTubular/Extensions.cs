@@ -190,6 +190,7 @@ public static class ExceptionExtensions
 
     public static bool HaveInputError(this IEnumerable<Exception> exns) => exns.Any(IsInputError);
     public static bool AreAll<T>(this IEnumerable<Exception> exns) => exns.All(e => e is T);
+    public static bool AreAllCancelations(this IEnumerable<Exception> exns) => exns.AreAll<OperationCanceledException>();
 
     internal static bool IsNotFound(this HttpRequestException exception)
         => exception.StatusCode == System.Net.HttpStatusCode.NotFound || exception.Message.Contains("404 (NotFound)");

@@ -193,7 +193,7 @@ partial class Youtube
                     }
                 }
             }
-            catch (Exception ex) when (!(token.IsCancellationRequested && ex.GetRootCauses().AreAll<OperationCanceledException>()))
+            catch (Exception ex) when (!(token.IsCancellationRequested && ex.GetRootCauses().AreAllCancelations()))
             {
                 scope.Notify("Error refreshing playlist", ex.Message, [ex]);
             }

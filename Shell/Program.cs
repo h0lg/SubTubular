@@ -28,7 +28,7 @@ internal static partial class Program
         {
             var causes = ex.GetRootCauses();
 
-            if (causes.AreAll<OperationCanceledException>())
+            if (causes.AreAllCancelations())
             {
                 Console.WriteLine("The operation was canceled.");
                 return (int)ExitCode.Canceled;

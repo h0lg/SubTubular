@@ -96,7 +96,7 @@ public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository vi
         {
             var causes = ex.GetRootCauses().ToArray();
 
-            if (causes.AreAll<OperationCanceledException>()) scope.Report(VideoList.Status.canceled);
+            if (causes.AreAllCancelations()) scope.Report(VideoList.Status.canceled);
             else
             {
                 scope.Notify("Errors searching", errors: [ex]);
