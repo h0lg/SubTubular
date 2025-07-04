@@ -146,8 +146,16 @@ internal sealed class VideoIndex : IDisposable
         [EnumeratorCancellation] CancellationToken token = default)
     {
         token.ThrowIfCancellationRequested();
+        ISearchResults<string> unfiltered;
 
-        var matches = Index.Search(command.Query!)
+        try { unfiltered = Index.Search(command.Query!); }
+        catch (LiftiException ex) when (ex.Message.StartsWith("Unknown field"))
+        {
+            // rethrow to attach info about available fields
+            throw new InputException(ex.Message + ". Available are " + Index.FieldLookup.AllFieldNames.Join(", "), ex);
+        }
+
+        var matches = unfiltered
             // make sure to only return results for the requested videos if specified; playlist or channel indexes may contain more
             .Where(m => relevantVideos?.ContainsKey(m.Key) != false).ToList();
 
