@@ -3,13 +3,6 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net9.0</TargetFramework>
-    <ApplicationIcon>../SubTubular.ico</ApplicationIcon>
-    <AssemblyTitle>SubTubular - full-text search for YouTube videos</AssemblyTitle>
-    <Product>SubTubular</Product>
-    <VersionPrefix>3.1.2</VersionPrefix>
-    <Description>A command-line interface for full-text-searching YouTube video subtitles and metadata.</Description>
-    <Authors>Holger Schmidt</Authors>
-    <Copyright>Copyright © Holger Schmidt 2020-24</Copyright>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AssemblyName>SubTubular.Shell</AssemblyName>
@@ -23,8 +16,8 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\SubTubular\SubTubular.csproj" />
-  </ItemGroup><!--
-    appends git commit hash to assembly informational version; from https://stackoverflow.com/a/45248069
+  </ItemGroup>
+  <!-- appends git commit hash to assembly informational version; from https://stackoverflow.com/a/45248069
     see also https://andrewlock.net/version-vs-versionsuffix-vs-packageversion-what-do-they-all-mean/ -->
   <Target Name="InitializeSourceControlInformation2" BeforeTargets="AddSourceRevisionToInformationalVersion">
     <Exec Command="git describe --long --always --dirty --exclude=* --abbrev=8" ConsoleToMSBuild="True" IgnoreExitCode="False">
