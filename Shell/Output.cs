@@ -69,7 +69,7 @@ static partial class Program
             await runCommand(youtube, outputs, cancellation.Token);
         }
         // record unexpected error here to have it in the same log file as the scope errors
-        catch (Exception ex) when (ex.GetRootCauses().Any(e => e is not OperationCanceledException && !e.IsInputError()))
+        catch (Exception ex) when (ex.GetRootCauses().AnyNeedReporting())
         {
             allErrors.Add($"{DateTime.Now:O} {ex}");
             throw new OperationCanceledException(); // throw an error ignored upstream to signal execution error without triggering duplicate logging
@@ -112,16 +112,21 @@ static partial class Program
 
             if (hasErrors)
             {
-                // collect error details for log
-                var errorDetails = notification.Errors!.Select(e => e.ToString())
-                    .Prepend(notification.Message)
-                    .Prepend($"{DateTime.Now:O} {titleAndScope}")
-                    .WithValue().Join(ErrorLog.OutputSpacing);
+                var causes = notification.Errors!.GetRootCauses().ToArray();
 
-                allErrors.Add(errorDetails);
+                if (causes.AnyNeedReporting())
+                {
+                    // collect error details for log
+                    var errorDetails = causes.Select(e => e.ToString())
+                        .Prepend(notification.Message)
+                        .Prepend($"{DateTime.Now:O} {titleAndScope}")
+                        .WithValue().Join(ErrorLog.OutputSpacing);
+
+                    allErrors.Add(errorDetails);
+                }
 
                 // output messages immediately
-                foreach (var error in notification.Errors!.GetRootCauses())
+                foreach (var error in causes)
                     write(error.Message);
             }
 

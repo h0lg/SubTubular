@@ -188,6 +188,9 @@ public static class ExceptionExtensions
     public static bool IsInputError(this Exception ex) => ex is InputException || ex is LiftiException
         || ex is VideoUnavailableException || ex is PlaylistUnavailableException;
 
+    public static bool AnyNeedReporting(this IEnumerable<Exception> exns)
+        => exns.Any(e => e is not OperationCanceledException && !e.IsInputError());
+
     public static bool HaveInputError(this IEnumerable<Exception> exns) => exns.Any(IsInputError);
     public static bool AreAll<T>(this IEnumerable<Exception> exns) => exns.All(e => e is T);
     public static bool AreAllCancelations(this IEnumerable<Exception> exns) => exns.AreAll<OperationCanceledException>();

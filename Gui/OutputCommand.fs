@@ -106,7 +106,7 @@ module OutputCommands =
                     if ntf.Errors.HasAny() then
                         let causes = ntf.Errors.GetRootCauses().ToArray()
 
-                        if not (causes.HaveInputError()) then
+                        if causes.AnyNeedReporting() then
                             loggedErrors.Add(
                                 causes
                                     .Select(fun ex -> ex.ToString())
