@@ -46,11 +46,19 @@ module ScopeSearch =
 
             let searchTerms =
                 split input
-                |> List.ofArray
-                // exclude remote-validated
-                |> List.filter (fun phrase -> phrase |> Alias.clean |> remoteValidatedIds.Contains |> not)
+                |> Array.map Alias.clean
+                |> Array.filter (fun alias ->
+                    if remoteValidatedIds.Contains alias then
+                        false // exclude remote-validated ID
+                    else
+                        let preValidated = VideosScope.TryParseId(alias)
 
-            remoteValidatedIds, searchTerms
+                        if preValidated = null then
+                            true // include terms that don't pre-validate
+                        else
+                            remoteValidatedIds.Contains preValidated |> not) // exclude remote-validated URL
+
+            remoteValidatedIds, searchTerms |> List.ofArray
 
     type AliasSearch(scope: CommandScope) =
         let mutable searching: CancellationTokenSource = null
