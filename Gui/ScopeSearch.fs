@@ -190,26 +190,16 @@ module ScopeSearch =
                 aliases
             | Vids vids ->
                 let _, searchTerms = VideosInput.partition aliases vids
-
-                // inputs that pre-validate, but don't remote-validate
-                let remoteInvalid = vids.GetRemoteInvalidatedIds().ToArray()
-
-                let preValidating =
-                    searchTerms
-                    |> List.filter (fun phrase ->
-                        let alias = Alias.clean phrase
-                        let id = VideosScope.TryParseId(alias)
-
-                        // pre-vadidates and was not already remotely invalidated
-                        id <> null && not (remoteInvalid.Contains(id)))
+                let parsed = searchTerms |> List.map Alias.clean |> VideosScope.ParseIds
+                let preValidatedIds, _ = parsed.ToTuple()
 
                 let missing =
-                    preValidating
-                    |> List.map Alias.clean
-                    |> List.except vids.Videos // already added to inputs
-                    |> List.except remoteInvalid // already remotely invalidated
+                    preValidatedIds
+                    |> Seq.except vids.Videos // already added to inputs
+                    |> Seq.except (vids.GetRemoteInvalidatedIds()) // inputs that pre-validate, but don't remote-validate
+                    |> Seq.toArray
 
-                if not missing.IsEmpty then
+                if missing.Length > 0 then
                     vids.Videos.AddRange missing // to have them validated
 
                 searchTerms |> VideosInput.join

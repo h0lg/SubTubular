@@ -110,20 +110,20 @@ public static class Prevalidate
     private static string[] VideosSeperately(VideosScope? scope)
     {
         if (scope == null) return [];
-        var idsToValid = scope.Videos.ToDictionary(id => id, VideosScope.TryParseId);
-        var validIds = idsToValid.Select(pair => pair.Value).WithValue().Distinct().ToArray();
-        scope.QueueVideos(validIds); // ignores already queued
+        (IEnumerable<string> preValidatedIds, IEnumerable<string> invalidAliases) = VideosScope.ParseIds(scope.Videos);
+        string[] preValidated = [.. preValidatedIds];
+        scope.QueueVideos(preValidated); // ignores already queued
         var alreadyValidated = scope.Validated.Ids(); // pre/validated
 
-        foreach (var id in validIds.Except(alreadyValidated))
+        foreach (var id in preValidated.Except(alreadyValidated))
         {
             scope.AddPrevalidated(id, Youtube.GetVideoUrl(id));
             scope.Report(id, VideoList.Status.preValidated);
         }
 
-        var invalidIds = idsToValid.Where(pair => !validIds.Contains(pair.Value)).Select(pair => pair.Key).ToArray();
-        if (invalidIds.Length == 0) scope.Report(VideoList.Status.preValidated);
-        return invalidIds; // return invalid
+        string[] invalid = [.. invalidAliases];
+        if (invalid.Length == 0) scope.Report(VideoList.Status.preValidated);
+        return invalid; // aliases
     }
 }
 
@@ -156,7 +156,7 @@ public static class RemoteValidate
 
     private static IEnumerable<Task> Videos(VideosScope videosScope, Youtube youtube, CancellationToken token)
         // rely on pre-validation to have added an entry in Validated, skipping previously remote-validated
-        => videosScope.GetRemoteValidated(false).Select(async validationResult =>
+        => videosScope.GetRemoteValidated(isRemoteValidated: false).Select(async validationResult =>
         {
             string id = validationResult.Id;
 

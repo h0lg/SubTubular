@@ -24,6 +24,16 @@ public class VideosScope(List<string> videos) : CommandScope
     public static string? TryParseId(string id) => VideoId.TryParse(id.Trim('"'))?.ToString();
     public override bool RequiresValidation() => Videos.Except(GetRemoteValidated().Ids()).Any();
 
+    /// <summary>Converts the <paramref name="videoIdsOrUrls"/> into a dictionary
+    /// with the input as key and a pre-validated video ID or null as value.</summary>
+    public static (IEnumerable<string> preValidatedIds, IEnumerable<string> invalidAliases) ParseIds(IEnumerable<string> videoIdsOrUrls)
+    {
+        Dictionary<string, string?> aliasToPrevalidatedId = videoIdsOrUrls.ToDictionary(alias => alias, TryParseId);
+
+        return (preValidatedIds: aliasToPrevalidatedId.Values.WithValue().Distinct(),
+            invalidAliases: aliasToPrevalidatedId.Where(pair => pair.Value == null).Select(pair => pair.Key));
+    }
+
     /// <summary>Returns inputs that pre-validate as video ID or URL but don't remote-validate.</summary>
     public IEnumerable<string> GetRemoteInvalidatedIds()
         => Progress.Videos?.Where(pair => pair.Value == VideoList.Status.invalid).Select(pair => pair.Key) ?? [];
