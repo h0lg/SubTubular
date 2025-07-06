@@ -10,8 +10,23 @@ public static class RecentCommands
     public static async Task<List<Item>> ListAsync()
     {
         if (!File.Exists(recentPath)) return [];
-        var json = await File.ReadAllTextAsync(recentPath);
-        return JsonSerializer.Deserialize<List<Item>>(json!) ?? [];
+
+        try
+        {
+            string json = await File.ReadAllTextAsync(recentPath);
+            return JsonSerializer.Deserialize<List<Item>>(json) ?? [];
+        }
+        catch (Exception ex)
+        {
+            var copyPath = Path.Combine(Path.GetDirectoryName(recentPath)!, $"recent {DateTime.Now:yyyy-MM-dd HHmmss}.json");
+            File.Copy(recentPath, copyPath, overwrite: false); // create a copy of the recent file to avoid losing it completely, may still be manually fixed
+
+            await ErrorLog.WriteAsync(ex.ToString(),
+                header: "Error loading recent commands. A copy has been saved to " + copyPath,
+                fileNameDescription: "loading recent commands");
+
+            return [];
+        }
     }
 
     public static async Task SaveAsync(IEnumerable<Item> commands)
