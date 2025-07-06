@@ -39,7 +39,7 @@ module Settings =
     let private path = Path.Combine(Folder.GetPath Folders.storage, "ui-settings.json")
     let requestSave = Cmd.debounce 1000 (fun () -> Save)
 
-    let load =
+    let private loadFrom path =
         task {
             if File.Exists path then
                 let! json = File.ReadAllTextAsync(path)
@@ -49,6 +49,10 @@ module Settings =
                 return None
         }
         |> Cmd.OfTask.msgOption
+
+    (*  a hack to avoid warning FS3511 'This state machine is not statically compilable' in loadFrom on Release builds
+        watch https://github.com/dotnet/fsharp/issues/12839 and try removing this again in a future F# release *)
+    let load = loadFrom path
 
     let save model =
         task {
