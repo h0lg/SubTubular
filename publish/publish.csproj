@@ -1,6 +1,6 @@
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="Directory.Build.props" />
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <TargetFrameworks>net9.0</TargetFrameworks>
     <PublishDir>$(MSBuildThisFileDirectory)published\$(Product) $(VersionPrefix)</PublishDir>
   </PropertyGroup>
 
@@ -9,12 +9,12 @@
   </Target>
 
   <Target Name="PublishShell">
-    <MSBuild Projects="Shell\Shell.csproj" Targets="Publish"
+    <MSBuild Projects="..\Shell\Shell.csproj" Targets="Publish"
              Properties="Configuration=Release;PublishDir=$(PublishDir);PublishSingleFile=false;SelfContained=false;RuntimeIdentifier=$(RuntimeIdentifier)" />
   </Target>
 
   <Target Name="PublishGui">
-    <MSBuild Projects="Gui\Gui.fsproj" Targets="Publish"
+    <MSBuild Projects="..\Gui\Gui.fsproj" Targets="Publish"
              Properties="Configuration=Release;PublishDir=$(PublishDir);PublishSingleFile=false;SelfContained=false;RuntimeIdentifier=$(RuntimeIdentifier);TargetFramework=net9.0" />
   </Target>
 
