@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>net9.0</TargetFrameworks>
-    <PublishDir>$(MSBuildThisFileDirectory)published\$(Product) $(VersionPrefix)</PublishDir>
+    <PublishDir>$(MSBuildThisFileDirectory)packages\$(Product) $(VersionPrefix)</PublishDir>
   </PropertyGroup>
 
   <Target Name="CleanOutput">

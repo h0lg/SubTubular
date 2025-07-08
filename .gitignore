@@ -9,4 +9,4 @@ obj/
 *.user
 
 #publish.proj output
-published/
+/publish/packages/
