@@ -55,6 +55,9 @@ static partial class CommandInterpreter
 
 internal static partial class BindingExtensions
 {
+    internal static T ValueAtIndexOrLastOrDefault<T>(this T[]? values, int index, T defaultValue)
+        => values == null ? defaultValue : index < values.Length ? values[index] : values[^1];
+
     internal static T BindScopes<T>(this T command, InvocationContext ctx,
         Option<IEnumerable<string>> videos, Option<IEnumerable<string>> channels, Option<IEnumerable<string>> playlists,
         Option<IEnumerable<ushort>?> skip, Option<IEnumerable<ushort>?> take, Option<IEnumerable<float>?> cacheHours) where T : OutputCommand
@@ -67,25 +70,28 @@ internal static partial class BindingExtensions
         int channelCount = channelScopes?.Count() ?? 0;
         var playlistLikes = channelCount + (playlistScopes?.Count() ?? 0);
 
-        var skips = ctx.Parsed(skip)?.ToArray() ?? [.. Enumerable.Repeat((ushort)0, playlistLikes)];
-        var takes = ctx.Parsed(take)?.ToArray() ?? [.. Enumerable.Repeat((ushort)50, playlistLikes)];
-        var cacheHour = ctx.Parsed(cacheHours)?.ToArray() ?? [.. Enumerable.Repeat(24f, playlistLikes)];
+        var skips = ctx.Parsed(skip)?.ToArray();
+        var takes = ctx.Parsed(take)?.ToArray();
+        var cacheHour = ctx.Parsed(cacheHours)?.ToArray();
 
-        var errors = new List<string>();
-        if (skips.Length != playlistLikes) errors.Add($"The number of values for '{Args.skip}' must match the sum of searched channels and playlists.");
-        if (takes.Length != playlistLikes) errors.Add($"The number of values for '{Args.take}' must match the sum of searched channels and playlists.");
-        if (cacheHour.Length != playlistLikes) errors.Add($"The number of values for '{Args.cacheHours}' must match the sum of searched channels and playlists.");
-        if (errors.Count > 0) ctx.ParseResult.CommandResult.ErrorMessage = errors.Join(Environment.NewLine);
-
-        if (channelScopes.HasAny()) command.Channels = [.. channelScopes!.Select((alias, i)
-            => new ChannelScope(alias, skips[i], takes[i], cacheHour[i]))];
+        if (channelScopes.HasAny()) command.Channels = [.. channelScopes!.Select((alias, i) =>
+        {
+            (ushort skip, ushort take, float cacheHrs) = GetOptions(i);
+            return new ChannelScope(alias, skip, take, cacheHrs);
+        })];
 
         if (playlistScopes.HasAny()) command.Playlists = [.. playlistScopes!.Select((playlist, idx) =>
         {
             var i = channelCount + idx;
-            return new PlaylistScope(playlist, skips[i], takes[i], cacheHour[i]);
+            (ushort skip, ushort take, float cacheHrs) = GetOptions(i);
+            return new PlaylistScope(playlist, skip, take, cacheHrs);
         })];
 
         return command;
+
+        (ushort skip, ushort take, float cacheHrs) GetOptions(int index)
+            => (skips.ValueAtIndexOrLastOrDefault(index, (ushort)0),
+                takes.ValueAtIndexOrLastOrDefault(index, (ushort)50),
+                cacheHour.ValueAtIndexOrLastOrDefault(index, 24f));
     }
 }
