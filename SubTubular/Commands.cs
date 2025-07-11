@@ -18,7 +18,7 @@ internal abstract class SearchCommand
         + @" Combine multiple & terms | ""phrases or queries"" using AND '&' and OR '|'"
         + " and ( use | brackets | for ) & ( complex | expressions )."
         + $" You can restrict your search to the video '{nameof(Video.Title)}', '{nameof(Video.Description)}',"
-        + $@" '{nameof(Video.Keywords)}' and/or '{nameof(CaptionTrack.Captions)}'; e.g. '{nameof(Video.Title)}=""click bait""'."
+        + $@" '{nameof(Video.Keywords)}' and/or language-specific captions; e.g. '{nameof(Video.Title)}=""click bait""'."
         + " Learn more about the query syntax at https://mikegoatly.github.io/lifti/docs/searching/lifti-query-syntax/ .")]
     public IEnumerable<string> QueryWords { set { Query = value.Join(" "); } }
 

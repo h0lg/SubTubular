@@ -19,32 +19,29 @@ internal sealed class VideoIndexRepository
         serializer = new BinarySerializer<string>();
     }
 
-    private FullTextIndexBuilder<string> CreateIndexBuilder()
-    {
+    private static FullTextIndexBuilder<string> CreateIndexBuilder()
         //see https://mikegoatly.github.io/lifti/docs/getting-started/indexing-objects/
-        return new FullTextIndexBuilder<string>()
+        => new FullTextIndexBuilder<string>()
             .WithDefaultTokenization(o => o.AccentInsensitive().CaseInsensitive())
             // see https://mikegoatly.github.io/lifti/docs/index-construction/withobjecttokenization/
             .WithObjectTokenization<Video>(itemOptions => itemOptions
                 .WithKey(v => v.Id)
                 .WithField(nameof(Video.Title), v => v.Title)
                 .WithField(nameof(Video.Keywords), v => v.Keywords)
-                .WithField(nameof(Video.Description), v => v.Description))
-            .WithObjectTokenization<CaptionTrack>(itemOptions => itemOptions
-                .WithKey(t => t.Key)
-                .WithField(nameof(CaptionTrack.Captions), t => t.GetFullText()))
+                .WithField(nameof(Video.Description), v => v.Description)
+                .WithDynamicFields(nameof(Video.CaptionTracks), v => v.CaptionTracks,
+                    ct => ct.LanguageName, ct => ct.GetFullText()))
             .WithQueryParser(o => o.WithFuzzySearchDefaults(
                 maxEditDistance: termLength => (ushort)(termLength / 3),
                 // avoid returning zero here to allow for edits in the first place
                 maxSequentialEdits: termLength => (ushort)(termLength < 6 ? 1 : termLength / 6)));
-    }
 
     internal VideoIndex Build(string key)
     {
         VideoIndex videoIndex = null;
 
         // see https://mikegoatly.github.io/lifti/docs/index-construction/withindexmodificationaction/
-        FullTextIndex<string> index = CreateIndexBuilder().WithIndexModificationAction(async idx => await SaveAsync(videoIndex, key)).Build();
+        FullTextIndex<string> index = CreateIndexBuilder().WithIndexModificationAction(async indexSnapshot => await SaveAsync(indexSnapshot, key)).Build();
 
         videoIndex = new VideoIndex(index);
         return videoIndex;
@@ -75,16 +72,18 @@ internal sealed class VideoIndexRepository
         }
     }
 
-    private async Task SaveAsync(VideoIndex index, string key)
+    private async Task SaveAsync(IIndexSnapshot<string> indexSnapshot, string key)
     {
         // see https://mikegoatly.github.io/lifti/docs/serialization/
         using var writer = new FileStream(GetPath(key), FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
-        await serializer.SerializeAsync(index.Index, writer, disposeStream: false);
+        await serializer.SerializeAsync(indexSnapshot, writer, disposeStream: false);
     }
 }
 
 internal sealed class VideoIndex
 {
+    private static readonly string[] nonDynamicVideoFieldNames = [nameof(Video.Title), nameof(Video.Description), nameof(Video.Keywords)];
+
     internal FullTextIndex<string> Index { get; }
 
     internal VideoIndex(FullTextIndex<string> index) => Index = index;
@@ -96,13 +95,6 @@ internal sealed class VideoIndex
     {
         cancellation.ThrowIfCancellationRequested();
         await Index.AddAsync(video);
-
-        foreach (var track in video.CaptionTracks)
-        {
-            track.VideoId = video.Id; // set for indexing
-            await Index.AddAsync(track);
-        }
-
         video.UnIndexed = false; // to reset the flag
     }
 
@@ -135,23 +127,8 @@ internal sealed class VideoIndex
         catch (QueryParserException ex) { throw new InputException("Error parsing query from --for | -f parameter: " + ex.Message, ex); }
 
         var matches = results
-            .Select(result =>
-            {
-                var ids = result.Key.Split(CaptionTrack.MultiPartKeySeparator);
-                var videoId = ids[0];
-                var language = ids.Length > 1 ? ids[1] : null;
-                return new { videoId, language, result };
-            })
             // make sure to only return results for the requested videos if specified; index may contain more
-            .Where(m => relevantVideos == default || relevantVideos.ContainsKey(m.videoId))
-            .GroupBy(m => m.videoId)
-            .Select(group => new
-            {
-                VideoId = group.Key,
-                InMetaData = group.SingleOrDefault(m => m.language == null)?.result,
-                InCaptions = group.Where(m => m.language != null),
-                Score = group.Select(r => r.result.Score).Average()
-            })
+            .Where(m => relevantVideos == default || relevantVideos.ContainsKey(m.Key))
             .ToList();
 
         var previouslyLoadedVideos = Array.Empty<Video>();
@@ -165,18 +142,18 @@ internal sealed class VideoIndex
             {
                 if (relevantVideos == default) relevantVideos = new Dictionary<string, DateTime?>();
 
-                var withoutUploadDate = matches.Where(m => !relevantVideos.ContainsKey(m.VideoId)
-                    || relevantVideos[m.VideoId] == null).ToArray();
+                var withoutUploadDate = matches.Where(m => !relevantVideos.ContainsKey(m.Key)
+                    || relevantVideos[m.Key] == null).ToArray();
 
                 if (withoutUploadDate.Any()) // get upload dates for videos that we don't know it of
                 {
-                    var getVideos = withoutUploadDate.Select(m => getVideoAsync(m.VideoId, cancellation)).ToArray();
+                    var getVideos = withoutUploadDate.Select(m => getVideoAsync(m.Key, cancellation)).ToArray();
                     await Task.WhenAll(getVideos).WithAggregateException();
                     previouslyLoadedVideos = getVideos.Select(t => t.Result).ToArray();
                     unIndexedVideos.AddRange(previouslyLoadedVideos.Where(v => v.UnIndexed));
 
                     foreach (var match in withoutUploadDate)
-                        relevantVideos[match.VideoId] = previouslyLoadedVideos.Single(v => v.Id == match.VideoId).Uploaded;
+                        relevantVideos[match.Key] = previouslyLoadedVideos.Single(v => v.Id == match.Key).Uploaded;
 
                     if (updatePlaylistVideosUploaded != default)
                         await updatePlaylistVideosUploaded(previouslyLoadedVideos);
@@ -186,8 +163,8 @@ internal sealed class VideoIndex
             if (searchPlaylist.OrderBy.ContainsAny(SearchPlaylistCommand.Orders))
             {
                 var orderded = searchPlaylist.OrderBy.Contains(SearchPlaylistCommand.OrderOptions.asc)
-                    ? matches.OrderBy(m => orderByUploaded ? relevantVideos[m.VideoId] : m.Score as object)
-                    : matches.OrderByDescending(m => orderByUploaded ? relevantVideos[m.VideoId] : m.Score as object);
+                    ? matches.OrderBy(m => orderByUploaded ? relevantVideos[m.Key] : m.Score as object)
+                    : matches.OrderByDescending(m => orderByUploaded ? relevantVideos[m.Key] : m.Score as object);
 
                 matches = orderded.ToList();
             }
@@ -198,13 +175,13 @@ internal sealed class VideoIndex
             cancellation.ThrowIfCancellationRequested();
 
             // consider results for un-cached videos stale
-            if (unIndexedVideos.Any(video => video.Id == match.VideoId)) continue;
+            if (unIndexedVideos.Any(video => video.Id == match.Key)) continue;
 
-            var video = previouslyLoadedVideos.SingleOrDefault(v => v.Id == match.VideoId);
+            var video = previouslyLoadedVideos.SingleOrDefault(v => v.Id == match.Key);
 
             if (video == null)
             {
-                video = await getVideoAsync(match.VideoId, cancellation);
+                video = await getVideoAsync(match.Key, cancellation);
 
                 if (video.UnIndexed)
                 {
@@ -215,63 +192,61 @@ internal sealed class VideoIndex
 
             var result = new VideoSearchResult { Video = video };
 
-            if (match.InMetaData != null)
+            var titleMatches = match.FieldMatches.Where(m => m.FoundIn == nameof(Video.Title));
+
+            if (titleMatches.Any()) result.TitleMatches = new PaddedMatch(video.Title,
+                titleMatches.SelectMany(m => m.Locations)
+                    .Select(m => new PaddedMatch.IncludedMatch { Start = m.Start, Length = m.Length }).ToArray());
+
+            result.DescriptionMatches = match.FieldMatches
+                .Where(m => m.FoundIn == nameof(Video.Description))
+                .SelectMany(m => m.Locations)
+                .Select(l => new PaddedMatch(l.Start, l.Length, command.Padding, video.Description))
+                .MergeOverlapping(video.Description)
+                .ToArray();
+
+            var keywordMatches = match.FieldMatches
+                .Where(m => m.FoundIn == nameof(Video.Keywords))
+                .ToArray();
+
+            if (keywordMatches.Any())
             {
-                var titleMatches = match.InMetaData.FieldMatches.Where(m => m.FoundIn == nameof(Video.Title));
+                var joinedKeywords = string.Empty;
 
-                if (titleMatches.Any()) result.TitleMatches = new PaddedMatch(video.Title,
-                    titleMatches.SelectMany(m => m.Locations)
-                        .Select(m => new PaddedMatch.IncludedMatch { Start = m.Start, Length = m.Length }).ToArray());
-
-                result.DescriptionMatches = match.InMetaData.FieldMatches
-                    .Where(m => m.FoundIn == nameof(Video.Description))
-                    .SelectMany(m => m.Locations)
-                    .Select(l => new PaddedMatch(l.Start, l.Length, command.Padding, video.Description))
-                    .MergeOverlapping(video.Description)
-                    .ToArray();
-
-                var keywordMatches = match.InMetaData.FieldMatches
-                    .Where(m => m.FoundIn == nameof(Video.Keywords))
-                    .ToArray();
-
-                if (keywordMatches.Any())
+                // remembers the index in the list of keywords and start index in joinedKeywords for each keyword
+                var keywordInfos = video.Keywords.Select((keyword, index) =>
                 {
-                    var joinedKeywords = string.Empty;
+                    var info = new { index, Start = joinedKeywords.Length };
+                    joinedKeywords += keyword;
+                    return info;
+                }).ToArray();
 
-                    // remembers the index in the list of keywords and start index in joinedKeywords for each keyword
-                    var keywordInfos = video.Keywords.Select((keyword, index) =>
+                result.KeywordMatches = keywordMatches.SelectMany(match => match.Locations)
+                    .Select(location => new
                     {
-                        var info = new { index, Start = joinedKeywords.Length };
-                        joinedKeywords += keyword;
-                        return info;
-                    }).ToArray();
-
-                    result.KeywordMatches = keywordMatches.SelectMany(match => match.Locations)
-                        .Select(location => new
+                        location, // represents the match location in joinedKeywords
+                                  // used to calculate the match index within a matched keyword
+                        keywordInfo = keywordInfos.TakeWhile(info => info.Start <= location.Start).Last()
+                    })
+                    .GroupBy(x => x.keywordInfo.index) // group matches by keyword
+                    .Select(g => new PaddedMatch(video.Keywords[g.Key],
+                        g.Select(x => new PaddedMatch.IncludedMatch
                         {
-                            location, // represents the match location in joinedKeywords
-                                      // used to calculate the match index within a matched keyword
-                            keywordInfo = keywordInfos.TakeWhile(info => info.Start <= location.Start).Last()
-                        })
-                        .GroupBy(x => x.keywordInfo.index) // group matches by keyword
-                        .Select(g => new PaddedMatch(video.Keywords[g.Key],
-                            g.Select(x => new PaddedMatch.IncludedMatch
-                            {
-                                // recalculate match index relative to keyword start
-                                Start = x.location.Start - x.keywordInfo.Start,
-                                Length = x.location.Length
-                            }).ToArray()))
-                        .ToArray();
-                }
+                            // recalculate match index relative to keyword start
+                            Start = x.location.Start - x.keywordInfo.Start,
+                            Length = x.location.Length
+                        }).ToArray()))
+                    .ToArray();
             }
 
-            result.MatchingCaptionTracks = match.InCaptions.Where(m => m.language != null).Select(m =>
+            result.MatchingCaptionTracks = match.FieldMatches.Where(m => !nonDynamicVideoFieldNames.Contains(m.FoundIn)).Select(m =>
             {
-                var track = video.CaptionTracks.Single(t => t.LanguageName == m.language);
+                var track = video.CaptionTracks.SingleOrDefault(t => t.LanguageName == m.FoundIn);
+                if (track == null) return null;
                 var fullText = track.GetFullText();
                 var captionAtFullTextIndex = track.GetCaptionAtFullTextIndex();
 
-                var matches = m.result.FieldMatches.First().Locations
+                var matches = m.Locations
                     // use a temporary/transitory PaddedMatch to ensure the minimum configured padding
                     .Select(l => new PaddedMatch(l.Start, l.Length, command.Padding, fullText))
                     .MergeOverlapping(fullText)
@@ -301,7 +276,7 @@ internal sealed class VideoIndex
                     .OrderBy(tuple => tuple.Item2.At).ToList(); // return captions in order
 
                 return new VideoSearchResult.CaptionTrackResult { Track = track, Matches = matches };
-            }).ToArray();
+            }).Where(t => t != null).Cast<VideoSearchResult.CaptionTrackResult>().ToArray();
 
             yield return result;
         }
@@ -329,9 +304,7 @@ internal sealed class VideoIndex
 
         foreach (var video in videos)
         {
-            var captionTrackKeyPrefix = video.Id + CaptionTrack.MultiPartKeySeparator;
-
-            await Task.WhenAll(indexedKeys.Where(key => key == video.Id || key.StartsWith(captionTrackKeyPrefix))
+            await Task.WhenAll(indexedKeys.Where(key => key == video.Id)
                 .Select(key => Index.RemoveAsync(key))).WithAggregateException();
 
             await AddAsync(video, cancellation);
