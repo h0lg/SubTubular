@@ -39,9 +39,17 @@ partial class Youtube
         if (cached == null || cached.Search != text || cached.Created.AddHours(1) < DateTime.Now)
         {
             if (token.IsCancellationRequested) return [];
-            var mapped = await searchYoutubeAsync(text);
-            cached = new YoutubeSearchResult.Cache(text, [.. mapped], DateTime.Now);
-            await dataStore.SetAsync(key, cached);
+
+            try
+            {
+                var mapped = await searchYoutubeAsync(text);
+                cached = new YoutubeSearchResult.Cache(text, [.. mapped], DateTime.Now);
+                await dataStore.SetAsync(key, cached);
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                return [];
+            }
         }
 
         return cached.Results;
