@@ -19,17 +19,30 @@ public abstract class OutputWriter(OutputCommand command)
 
     public virtual void WriteHeader()
     {
-        //provide link(s) to the searched playlist or videos for debugging IDs
-        Write(command.Describe() + " ");
+        Write(command.Describe(withScopes: false));
+        WriteLine();
+        WriteScopes("channels", command.Channels);
+        WriteScopes("playlists", command.Playlists);
+        WriteScopes("videos", command.Videos);
+        WriteLine();
 
-        foreach (var url in command.Scope.ValidUrls!)
+        void WriteScopes(string label, params CommandScope?[]? scopes)
         {
-            WriteUrl(url);
-            Write(" ");
-        }
+            if (scopes == null) return;
+            var validScopes = scopes.WithValue().GetValid();
+            if (!validScopes.Any()) return;
+            Write(label + " ");
+            var indent = CreateIndent();
 
-        WriteLine();
-        WriteLine();
+            foreach (var scope in validScopes)
+            {
+                foreach (var line in scope.Describe())
+                {
+                    Write(line);
+                    indent.StartNewLine(this);
+                }
+            }
+        }
     }
 
     private void WriteHighlightingMatches(MatchedText matched, IndentedText? indent = null, uint? padding = null)

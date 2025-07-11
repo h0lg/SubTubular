@@ -35,36 +35,50 @@ public sealed class Youtube
 
     public async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command, [EnumeratorCancellation] CancellationToken cancellation = default)
     {
-        var search = command.Scope is VideosScope ? SearchVideosAsync(command, cancellation) : SearchPlaylistAsync(command, cancellation);
-        await foreach (var result in search) yield return result;
+        List<IAsyncEnumerable<VideoSearchResult>> searches = [];
+
+        if (command.Channels.HasAny()) searches.AddRange(command.Channels!.GetValid()
+            .Select(channel => SearchPlaylistAsync(command, channel, command.ProgressReporter?.CreateVideoListProgress(channel), cancellation)));
+
+        if (command.Playlists.HasAny()) searches.AddRange(command.Playlists!.GetValid()
+            .Select(playlist => SearchPlaylistAsync(command, playlist, command.ProgressReporter?.CreateVideoListProgress(playlist), cancellation)));
+
+        if (command.Videos?.IsValid == true) searches.Add(SearchVideosAsync(command, command.ProgressReporter?.CreateVideoListProgress(command.Videos), cancellation));
+
+        await foreach (var result in searches.Parallelize(cancellation)) yield return result;
     }
 
     /// <summary>Searches videos defined by a playlist.</summary>
     /// <param name="cancellation">Passed in either explicitly or by the IAsyncEnumerable.WithCancellation() extension,
     /// see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables</param>
-    private async IAsyncEnumerable<VideoSearchResult> SearchPlaylistAsync(
-        SearchCommand command, [EnumeratorCancellation] CancellationToken cancellation = default)
+    private async IAsyncEnumerable<VideoSearchResult> SearchPlaylistAsync(SearchCommand command, PlaylistLikeScope scope,
+        BatchProgressReporter.VideoListProgress? progress, [EnumeratorCancellation] CancellationToken cancellation = default)
     {
         cancellation.ThrowIfCancellationRequested();
-        var playListLike = (PlaylistLikeScope)command.Scope;
-        var storageKey = playListLike.StorageKey;
+        var storageKey = scope.StorageKey;
         var index = await videoIndexRepo.GetAsync(storageKey);
         if (index == null) index = videoIndexRepo.Build(storageKey);
-        var playlist = await GetPlaylistAsync(playListLike, cancellation);
-        var videoIds = playlist.Videos.Keys.Take(playListLike.Top).ToArray();
+        var playlist = await RefreshPlaylistAsync(scope, cancellation, progress);
+        var videoIds = playlist.Videos.Keys.Take(scope.Top).ToArray();
+        progress?.SetVideos(videoIds);
         var indexedVideoIds = index.GetIndexed(videoIds);
-        var indexedVideoInfos = indexedVideoIds.ToDictionary(id => id, id => playlist.Videos[id]);
 
-        List<IAsyncEnumerable<VideoSearchResult>> searches = [
-            /*  search already indexed videos in one go - but on background task
-                to start downloading and indexing videos in parallel */
-           index.SearchAsync(command, GetVideoAsync, indexedVideoInfos, UpdatePlaylistVideosUploaded, cancellation)];
+        List<IAsyncEnumerable<VideoSearchResult>> searches = [];
+
+        if (indexedVideoIds.Length != 0)
+        {
+            var indexedVideoInfos = indexedVideoIds.ToDictionary(id => id, id => playlist.Videos[id]);
+
+            // search already indexed videos in one go - but on background task to start downloading and indexing videos in parallel
+            searches.Add(index.SearchAsync(command, CreateVideoLookup(progress), indexedVideoInfos, UpdatePlaylistVideosUploaded, cancellation));
+            progress?.Report(BatchProgress.Status.searching);
+        }
 
         var unIndexedVideoIds = videoIds.Except(indexedVideoIds).ToArray();
 
         // load, index and search not yet indexed videos
         if (unIndexedVideoIds.Length > 0) searches.Add(SearchUnindexedVideos(command,
-            unIndexedVideoIds, index, cancellation, UpdatePlaylistVideosUploaded));
+            unIndexedVideoIds, index, progress, cancellation, UpdatePlaylistVideosUploaded));
 
         await foreach (var result in searches.Parallelize(cancellation)) yield return result;
 
@@ -85,54 +99,72 @@ public sealed class Youtube
         }
     }
 
-    private async Task<Playlist> GetPlaylistAsync(PlaylistLikeScope command, CancellationToken cancellation)
+    internal Task<Playlist?> GetPlaylistAsync(PlaylistScope scope, CancellationToken cancellation, BatchProgressReporter.VideoListProgress? progress) =>
+        GetPlaylistAsync(scope, progress, async () => (await Client.Playlists.GetAsync(scope.SingleValidated.Id, cancellation)).Title);
+
+    internal Task<Playlist?> GetPlaylistAsync(ChannelScope scope, CancellationToken cancellation, BatchProgressReporter.VideoListProgress? progress) =>
+        GetPlaylistAsync(scope, progress, async () => (await Client.Channels.GetAsync(scope.SingleValidated.Id, cancellation)).Title);
+
+    private async Task<Playlist?> GetPlaylistAsync(PlaylistLikeScope scope, BatchProgressReporter.VideoListProgress? progress, Func<Task<string>> downloadTitle)
     {
-        var storageKey = command.StorageKey;
-        var playlist = await dataStore.GetAsync<Playlist>(storageKey); //get cached
+        var playlist = await dataStore.GetAsync<Playlist>(scope.StorageKey); // get cached
+        if (playlist != null) return playlist;
 
-        if (playlist == null //playlist cache is missing, outdated or lacking sufficient videos
-            || playlist.Loaded < DateTime.UtcNow.AddHours(-Math.Abs(command.CacheHours))
-            || playlist.Videos.Count < command.Top)
-        {
-            if (playlist == null) playlist = new Playlist();
-
-            try
-            {
-                // load and update videos in playlist while keeping existing video info
-                var freshVideos = await GetVideosAsync(command, cancellation).CollectAsync(command.Top);
-                playlist.Loaded = DateTime.UtcNow;
-
-                // use new order but append older entries; note that this leaves remotely deleted videos in the playlist
-                var freshKeys = freshVideos.Select(v => v.Id.Value).ToArray();
-
-                playlist.Videos = freshKeys.Concat(playlist.Videos.Keys.Except(freshKeys))
-                    .ToDictionary(id => id, id => playlist.Videos.TryGetValue(id, out var uploaded) ? uploaded : null);
-
-                await dataStore.SetAsync(storageKey, playlist);
-            }
-            /*  treat playlist identified by user input not being available as input error
-                and re-throw otherwise; the uploads playlist of a channel being unavailable is unexpected */
-            catch (PlaylistUnavailableException ex) when (command is PlaylistScope searchPlaylist)
-            { throw new InputException($"Could not find {searchPlaylist.Describe()}.", ex); }
-        }
-
+        progress?.Report(BatchProgress.Status.downloading);
+        playlist = new Playlist { Title = await downloadTitle() };
+        await dataStore.SetAsync(scope.StorageKey, playlist);
         return playlist;
     }
 
-    private IAsyncEnumerable<PlaylistVideo> GetVideosAsync(PlaylistLikeScope scope, CancellationToken cancellation)
+    private async Task<Playlist> RefreshPlaylistAsync(PlaylistLikeScope scope,
+        CancellationToken cancellation, BatchProgressReporter.VideoListProgress? progress)
     {
-        cancellation.ThrowIfCancellationRequested();
-        if (scope is ChannelScope searchChannel) return Client.Channels.GetUploadsAsync(searchChannel.ValidId!, cancellation);
-        if (scope is PlaylistScope searchPlaylist) return Client.Playlists.GetVideosAsync(searchPlaylist.Playlist, cancellation);
-        throw new NotImplementedException($"Getting videos for the {scope.GetType()} is not implemented.");
+        var playlist = scope.SingleValidated.Playlist!;
+
+        // return fresh playlist with sufficient videos loaded
+        if (DateTime.UtcNow.AddHours(-Math.Abs(scope.CacheHours)) <= playlist.Loaded
+            && scope.Top <= playlist.Videos.Count) return playlist;
+
+        // playlist cache is outdated or lacking sufficient videos
+        progress?.Report(BatchProgress.Status.refreshing);
+
+        try
+        {
+            // load and update videos in playlist while keeping existing video info
+            var freshVideos = await GetVideos(scope, cancellation).CollectAsync(scope.Top);
+            playlist.Loaded = DateTime.UtcNow;
+
+            // use new order but append older entries; note that this leaves remotely deleted videos in the playlist
+            var freshKeys = freshVideos.Select(v => v.Id.Value).ToArray();
+
+            playlist.Videos = freshKeys.Concat(playlist.Videos.Keys.Except(freshKeys))
+                .ToDictionary(id => id, id => playlist.Videos.TryGetValue(id, out var uploaded) ? uploaded : null);
+
+            await dataStore.SetAsync(scope.StorageKey, playlist);
+        }
+        /*  treat playlist identified by user input not being available as input error
+            and re-throw otherwise; the uploads playlist of a channel being unavailable is unexpected */
+        catch (PlaylistUnavailableException ex) when (scope is PlaylistScope playlistScope)
+        { throw new InputException($"Could not find {playlistScope.Describe().Join(" ")}.", ex); }
+
+        return playlist;
+
+        IAsyncEnumerable<PlaylistVideo> GetVideos(PlaylistLikeScope scope, CancellationToken cancellation) => scope switch
+        {
+            ChannelScope searchChannel => Client.Channels.GetUploadsAsync(searchChannel.GetValidatedId(), cancellation),
+            PlaylistScope searchPlaylist => Client.Playlists.GetVideosAsync(searchPlaylist.Alias, cancellation),
+            _ => throw new NotImplementedException($"Getting videos for the {scope.GetType()} is not implemented.")
+        };
     }
 
     private async IAsyncEnumerable<VideoSearchResult> SearchUnindexedVideos(SearchCommand command,
-        string[] unIndexedVideoIds, VideoIndex index, [EnumeratorCancellation] CancellationToken cancellation,
-        Func<IEnumerable<Video>, Task> updatePlaylistVideosUploaded)
+        string[] unIndexedVideoIds, VideoIndex index,
+        BatchProgressReporter.VideoListProgress? progress,
+        [EnumeratorCancellation] CancellationToken cancellation,
+        Func<IEnumerable<Video>, Task>? updatePlaylistVideosUploaded = default)
     {
         cancellation.ThrowIfCancellationRequested();
-        var storageKey = ((PlaylistLikeScope)command.Scope).StorageKey;
+        progress?.Report(BatchProgress.Status.indexingAndSearching);
 
         /* limit channel capacity to avoid holding a lot of loaded but unprocessed videos in memory
             SingleReader because we're reading from it synchronously */
@@ -152,8 +184,13 @@ public sealed class Youtube
                 try
                 {
                     cancellation.ThrowIfCancellationRequested();
-                    var video = await GetVideoAsync(id, cancellation);
+
+                    Video? video = command.Videos?.Validated.SingleOrDefault(v => v.Id == id)?.Video;
+                    video ??= await GetVideoAsync(id, cancellation, progress, downloadCaptionTracksAndSave: false);
+                    if (video.CaptionTracks.Count == 0) await DownloadCaptionTracksAndSaveAsync(video, cancellation);
+
                     await unIndexedVideos.Writer.WriteAsync(video);
+                    progress?.Report(id, BatchProgress.Status.indexing);
                 }
                 /* only start another download if channel has accepted the video or an error occurred */
                 finally { loadLimiter.Release(); }
@@ -169,9 +206,8 @@ public sealed class Youtube
 
         var uncommitted = new List<Video>(); // batch of loaded and indexed, but uncommitted video index changes
 
-        // local getter preferring to reuse already loaded video from uncommitted bag for better performance
-        Func<string, CancellationToken, Task<Video>> getVideoAsync = async (videoId, cancellation)
-            => uncommitted.SingleOrDefault(v => v.Id == videoId) ?? await GetVideoAsync(videoId, cancellation);
+        // local getter reusing already loaded video from uncommitted bag for better performance
+        Func<string, CancellationToken, Task<Video>> getVideoAsync = CreateVideoLookup(uncommitted);
 
         // read synchronously from the channel because we're writing to the same video index
         await foreach (var video in unIndexedVideos.Reader.ReadAllAsync())
@@ -186,14 +222,18 @@ public sealed class Youtube
                 || unIndexedVideos.Reader.Completion.IsCompleted // to save remaining changes
                 || unIndexedVideos.Reader.Count == 0) // to use resources efficiently while we've got nothing queued up for indexing
             {
-                await Task.WhenAll(index.CommitBatchChangeAsync(), updatePlaylistVideosUploaded(uncommitted)).WithAggregateException();
+                List<Task> saveJobs = [index.CommitBatchChangeAsync()];
+                if (updatePlaylistVideosUploaded != null) saveJobs.Add(updatePlaylistVideosUploaded(uncommitted));
+                await Task.WhenAll(saveJobs).WithAggregateException();
 
                 var indexedVideoInfos = uncommitted.ToDictionary(v => v.Id, v => v.Uploaded as DateTime?);
+                progress?.Report(uncommitted, BatchProgress.Status.searching);
 
                 // search after committing index changes to output matches as we go
                 await foreach (var result in index.SearchAsync(command, getVideoAsync, indexedVideoInfos, cancellation: cancellation))
                     yield return result;
 
+                progress?.Report(uncommitted, BatchProgress.Status.searched);
                 uncommitted.Clear(); // safe to do because we're reading synchronously and no other thread could have added to it in between
             }
         }
@@ -204,91 +244,100 @@ public sealed class Youtube
     /// <summary>Searches videos scoped by the specified <paramref name="command"/>.</summary>
     /// <param name="cancellation">Passed in either explicitly or by the IAsyncEnumerable.WithCancellation() extension,
     /// see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables</param>
-    private async IAsyncEnumerable<VideoSearchResult> SearchVideosAsync(
-        SearchCommand command, [EnumeratorCancellation] CancellationToken cancellation = default)
-    {
-        var videoResults = Pipe.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions() { SingleReader = true });
-
-        var searches = ((VideosScope)command.Scope).ValidIds!.Select(async videoId =>
-        {
-            var result = await SearchVideoAsync(videoId, command, cancellation);
-            if (result != null) await videoResults.Writer.WriteAsync(result);
-        });
-
-        // hook up writer completion before starting to read to ensure the reader knows when it's done
-        var searchCompletion = Task.WhenAll(searches).ContinueWith(t =>
-        {
-            videoResults.Writer.Complete();
-            if (t.Exception != null) throw t.Exception;
-        });
-
-        // start reading from result channel and return results as they are available
-        await foreach (var result in videoResults.Reader.ReadAllAsync(cancellation))
-        {
-            yield return result;
-            cancellation.ThrowIfCancellationRequested();
-        }
-
-        await searchCompletion; // just to rethrow possible exceptions; should have completed at this point
-    }
-
-    /// <summary>Searches the video with <paramref name="videoId"/> according to the <paramref name="command"/>.</summary>
-    private async Task<VideoSearchResult?> SearchVideoAsync(string videoId, SearchCommand command, CancellationToken cancellation)
+    private async IAsyncEnumerable<VideoSearchResult> SearchVideosAsync(SearchCommand command,
+        BatchProgressReporter.VideoListProgress? progress, [EnumeratorCancellation] CancellationToken cancellation = default)
     {
         cancellation.ThrowIfCancellationRequested();
-        var storageKey = Video.StorageKeyPrefix + videoId;
+        var videoIds = command.Videos!.GetValidatedIds();
+        progress?.SetVideos(videoIds);
+        var storageKey = Video.StorageKeyPrefix + videoIds.Order().Join(" ");
         var index = await videoIndexRepo.GetAsync(storageKey);
-
-        // used to get a video during search
-        Func<string, CancellationToken, Task<Video>> getVideoAsync = GetVideoAsync;
 
         if (index == null)
         {
             index = videoIndexRepo.Build(storageKey);
-            var video = await GetVideoAsync(videoId, cancellation);
-            index.BeginBatchChange();
-            await index.AddAsync(video, cancellation);
-            await index.CommitBatchChangeAsync();
 
-            // reuse already loaded video for better performance
-            getVideoAsync = (_, __) => Task.FromResult(video);
+            await foreach (var result in SearchUnindexedVideos(command, videoIds, index, progress, cancellation))
+                yield return result;
+        }
+        else
+        {
+            progress?.Report(BatchProgress.Status.searching);
+
+            // indexed videos are assumed to have downloaded their caption tracks already
+            Video[] videos = command.Videos!.Validated.Select(v => v.Video!).ToArray();
+
+            await foreach (var result in index.SearchAsync(command, CreateVideoLookup(videos), cancellation: cancellation))
+                yield return result;
         }
 
-        var results = await index.SearchAsync(command, getVideoAsync, cancellation: cancellation).ToListAsync();
-        return results.SingleOrDefault(); // there can only be one
+        progress?.Report(BatchProgress.Status.searched);
     }
 
     /// <summary>Returns the <see cref="Video.Keywords"/> and their corresponding number of occurrences
     /// from the videos scoped by <paramref name="command"/>.</summary>
-    public async Task<Dictionary<string, ushort>> ListKeywordsAsync(ListKeywords command, CancellationToken cancellation)
+    public async IAsyncEnumerable<(string keyword, string videoId, CommandScope scope)> ListKeywordsAsync(ListKeywords command,
+        [EnumeratorCancellation] CancellationToken cancellation = default)
     {
-        string[] videoIds;
+        var channel = Pipe.CreateBounded<(string keyword, string videoId, CommandScope scope)>(
+            new BoundedChannelOptions(5) { SingleReader = true });
 
-        if (command.Scope is VideosScope searchVideos) videoIds = searchVideos.ValidIds!;
-        else if (command.Scope is PlaylistLikeScope searchPlaylist)
+        async Task GetKeywords(string videoId, CommandScope scope, BatchProgressReporter.VideoListProgress? listProgress)
         {
-            var playlist = await GetPlaylistAsync(searchPlaylist, cancellation);
-            videoIds = playlist.Videos.Keys.Take(searchPlaylist.Top).ToArray();
+            var video = await GetVideoAsync(videoId, cancellation, listProgress);
+            listProgress?.Report(videoId, BatchProgress.Status.searching);
+
+            foreach (var keyword in video.Keywords)
+                await channel.Writer.WriteAsync((keyword, videoId, scope));
+
+            listProgress?.Report(videoId, BatchProgress.Status.searched);
         }
-        else throw new NotImplementedException(
-            $"Listing keywords for search command {command.GetType().Name} is not implemented.");
 
-        var downloadLimiter = new SemaphoreSlim(5, 5);
+        var lookupTasks = command.GetPlaylistLikeScopes().GetValid().Select(scope =>
+            Task.Run(async () =>
+            {
+                var listProgress = command.ProgressReporter?.CreateVideoListProgress(scope);
+                var playlist = await RefreshPlaylistAsync(scope, cancellation, listProgress);
+                var videoIds = playlist.Videos.Keys.Take(scope.Top).ToArray();
+                listProgress?.SetVideos(videoIds);
+                listProgress?.Report(BatchProgress.Status.searching);
+                foreach (var videoId in videoIds) await GetKeywords(videoId, scope, listProgress);
+                listProgress?.Report(BatchProgress.Status.searched);
+            }, cancellation))
+            .ToList();
 
-        var videoTasks = videoIds.Select(async id =>
+        if (command.Videos?.IsValid == true)
         {
-            await downloadLimiter.WaitAsync();
-            try { return await GetVideoAsync(id, cancellation); }
-            finally { downloadLimiter.Release(); }
-        });
+            var listProgress = command.ProgressReporter?.CreateVideoListProgress(command.Videos);
+            IEnumerable<string> videoIds = command.Videos.GetValidatedIds();
+            listProgress?.SetVideos(videoIds);
 
-        await Task.WhenAll(videoTasks).WithAggregateException();
+            lookupTasks.Add(Task.Run(async () =>
+            {
+                listProgress?.Report(BatchProgress.Status.searching);
 
-        return videoTasks.SelectMany(t => t.Result.Keywords).GroupBy(keyword => keyword)
-            .ToDictionary(group => group.Key, group => (ushort)group.Count());
+                foreach (var videoId in videoIds)
+                    await GetKeywords(videoId, command.Videos, listProgress);
+
+                listProgress?.Report(BatchProgress.Status.searched);
+            }, cancellation));
+        }
+
+        // hook up writer completion before starting to read to ensure the reader knows when it's done
+        var lookups = Task.WhenAll(lookupTasks).ContinueWith(t =>
+        {
+            channel.Writer.Complete();
+            //if (t.Exception != null) throw t.Exception;
+        }).WithAggregateException();
+
+        // start reading
+        await foreach (var keyword in channel.Reader.ReadAllAsync(cancellation)) yield return keyword;
+
+        await lookups; // to propagate exceptions
     }
 
-    private async Task<Video> GetVideoAsync(string videoId, CancellationToken cancellation)
+    internal async Task<Video> GetVideoAsync(string videoId, CancellationToken cancellation,
+        BatchProgressReporter.VideoListProgress? progress = null, bool downloadCaptionTracksAndSave = true)
     {
         cancellation.ThrowIfCancellationRequested();
         var storageKey = Video.StorageKeyPrefix + videoId;
@@ -296,22 +345,28 @@ public sealed class Youtube
 
         if (video == null)
         {
+            progress?.Report(videoId, BatchProgress.Status.downloading);
+
             try
             {
                 var vid = await Client.Videos.GetAsync(videoId, cancellation);
                 video = MapVideo(vid);
                 video.UnIndexed = true; // to re-index it if it was already indexed
-
-                await foreach (var track in DownloadCaptionTracksAsync(videoId, cancellation))
-                    video.CaptionTracks.Add(track);
-
-                await dataStore.SetAsync(storageKey, video);
+                if (downloadCaptionTracksAndSave) await DownloadCaptionTracksAndSaveAsync(video, cancellation);
             }
             catch (HttpRequestException ex) when (ex.IsNotFound())
             { throw new InputException($"Video '{videoId}' could not be found.", ex); }
         }
 
         return video;
+    }
+
+    private async Task DownloadCaptionTracksAndSaveAsync(Video video, CancellationToken cancellation)
+    {
+        await foreach (var track in DownloadCaptionTracksAsync(video.Id, cancellation))
+            video.CaptionTracks.Add(track);
+
+        await dataStore.SetAsync(Video.StorageKeyPrefix + video.Id, video);
     }
 
     private static Video MapVideo(YoutubeExplode.Videos.Video video) => new()
@@ -353,53 +408,13 @@ public sealed class Youtube
             yield return captionTrack;
         }
     }
-}
 
-public sealed class VideoSearchResult
-{
-    public required Video Video { get; set; }
-    public MatchedText? TitleMatches { get; set; }
-    public MatchedText? DescriptionMatches { get; set; }
-    public MatchedText[]? KeywordMatches { get; set; }
-    public CaptionTrackResult[]? MatchingCaptionTracks { get; set; }
-    public double Score { get; internal set; }
+    /// <summary>Returns a video lookup that used the local <paramref name="videos"/> collection for better performance.</summary>
+    private static Func<string, CancellationToken, Task<Video>> CreateVideoLookup(IEnumerable<Video> videos)
+        => (videoId, _cancellation) => Task.FromResult(videos.Single(v => v.Id == videoId));
 
-    public sealed class CaptionTrackResult
-    {
-        public required CaptionTrack Track { get; set; }
-        public required MatchedText Matches { get; set; }
-
-        public (MatchedText synced, int captionStart) SyncWithCaptions(MatchedText matched, uint matchPadding)
-        {
-            // get (included) padded start and end index of matched Text
-            var start = Math.Max(0, matched.Matches.Min(m => m.Start) - (int)matchPadding);
-            var end = Math.Min(matched.Text.Length - 1, matched.Matches.Max(m => m.IncludedEnd) + (int)matchPadding);
-            var captionAtFullTextIndex = Track.GetCaptionAtFullTextIndex();
-
-            // find first and last captions containing parts of the padded match
-            var first = captionAtFullTextIndex.Last(x => x.Key <= start);
-            var last = captionAtFullTextIndex.Last(x => first.Key <= x.Key && x.Key <= end);
-
-            var captions = captionAtFullTextIndex // span of captions containing the padded match
-                .Where(x => first.Key <= x.Key && x.Key <= last.Key).ToArray();
-
-            var text = captions.Select(x => x.Value.Text)
-                .Where(text => text.IsNonWhiteSpace()) // skip included line breaks
-                .Select(text => text.NormalizeWhiteSpace(CaptionTrack.FullTextSeperator)) // replace included line breaks
-                .Join(CaptionTrack.FullTextSeperator);
-
-            MatchedText synced = new(text, matched.Matches.Select(m =>
-                new MatchedText.Match(m.Start - first.Key, m.Length)).ToArray());
-
-            return (synced, first.Value.At);
-        }
-
-        public bool HasMatchesWithHours(uint matchPadding)
-        {
-            var fulltextStart = Math.Max(0, Matches.Matches.Max(m => m.Start) - matchPadding);
-            var captionAtFullTextIndex = Track.GetCaptionAtFullTextIndex();
-            var lastCaptionStart = captionAtFullTextIndex.Last(x => x.Key <= fulltextStart).Value;
-            return lastCaptionStart.At > 3600; // sec per hour
-        }
-    }
+    /// <summary>Returns a curried <see cref="GetVideoAsync(string, CancellationToken, BatchProgressReporter.VideoListProgress?)"/>
+    /// with the <paramref name="progress"/> supplied.</summary>
+    private Func<string, CancellationToken, Task<Video>> CreateVideoLookup(BatchProgressReporter.VideoListProgress? progress)
+        => (videoId, cancellation) => GetVideoAsync(videoId, cancellation, progress);
 }

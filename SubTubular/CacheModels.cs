@@ -6,6 +6,7 @@ namespace SubTubular;
 [Serializable]
 public sealed class Playlist
 {
+    public required string Title { get; set; }
     public DateTime Loaded { get; set; }
 
     /// <summary>The <see cref="Video.Id"/>s and (optional) upload dates
@@ -108,9 +109,9 @@ public sealed class ChannelAliasMap
 
     internal static (string, string) GetTypeAndValue(object alias) => (alias.GetType().Name, alias.ToString()!);
 
-    internal static async Task<List<ChannelAliasMap>> LoadList(DataStore dataStore)
-        => await dataStore.GetAsync<List<ChannelAliasMap>>(StorageKey) ?? [];
+    internal static async Task<HashSet<ChannelAliasMap>> LoadList(DataStore dataStore)
+        => await dataStore.GetAsync<HashSet<ChannelAliasMap>>(StorageKey) ?? [];
 
-    internal static Task SaveList(List<ChannelAliasMap> maps, DataStore dataStore)
-        => dataStore.SetAsync(StorageKey, maps);
+    internal static async Task SaveList(HashSet<ChannelAliasMap> maps, DataStore dataStore)
+        => await dataStore.SetAsync(StorageKey, maps);
 }

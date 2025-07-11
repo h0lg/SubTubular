@@ -11,6 +11,7 @@
     <Authors>Holger Schmidt</Authors>
     <Copyright>Copyright © Holger Schmidt 2020-24</Copyright>
     <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
     <AssemblyName>SubTubular.Shell</AssemblyName>
     <RootNamespace>SubTubular.Shell</RootNamespace>
   </PropertyGroup>
