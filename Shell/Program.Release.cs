@@ -1,6 +1,6 @@
 ﻿using System.CommandLine;
 
-namespace SubTubular;
+namespace SubTubular.Shell;
 
 static partial class Program
 {

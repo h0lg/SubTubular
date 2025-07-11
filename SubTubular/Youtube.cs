@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
+using SubTubular.Extensions;
 using YoutubeExplode;
 using YoutubeExplode.Channels;
 using YoutubeExplode.Common;
@@ -9,9 +10,9 @@ using Pipe = System.Threading.Channels.Channel; // to avoid conflict with Youtub
 
 namespace SubTubular;
 
-internal sealed class Youtube
+public sealed class Youtube
 {
-    internal static string GetVideoUrl(string videoId) => "https://youtu.be/" + videoId;
+    public static string GetVideoUrl(string videoId) => "https://youtu.be/" + videoId;
 
     internal static string GetChannelUrl(object alias)
     {
@@ -26,13 +27,13 @@ internal sealed class Youtube
     private readonly DataStore dataStore;
     private readonly VideoIndexRepository videoIndexRepo;
 
-    internal Youtube(DataStore dataStore, VideoIndexRepository videoIndexRepo)
+    public Youtube(DataStore dataStore, VideoIndexRepository videoIndexRepo)
     {
         this.dataStore = dataStore;
         this.videoIndexRepo = videoIndexRepo;
     }
 
-    internal async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command, [EnumeratorCancellation] CancellationToken cancellation = default)
+    public async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command, [EnumeratorCancellation] CancellationToken cancellation = default)
     {
         var search = command.Scope is VideosScope ? SearchVideosAsync(command, cancellation) : SearchPlaylistAsync(command, cancellation);
         await foreach (var result in search) yield return result;
@@ -45,52 +46,27 @@ internal sealed class Youtube
         SearchCommand command, [EnumeratorCancellation] CancellationToken cancellation = default)
     {
         cancellation.ThrowIfCancellationRequested();
-        var playListLike = command.Scope as PlaylistLikeScope;
+        var playListLike = (PlaylistLikeScope)command.Scope;
         var storageKey = playListLike.StorageKey;
         var index = await videoIndexRepo.GetAsync(storageKey);
         if (index == null) index = videoIndexRepo.Build(storageKey);
         var playlist = await GetPlaylistAsync(playListLike, cancellation);
-        var searches = new List<Task>();
-        var videoResults = Pipe.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions() { SingleReader = true });
         var videoIds = playlist.Videos.Keys.Take(playListLike.Top).ToArray();
         var indexedVideoIds = index.GetIndexed(videoIds);
         var indexedVideoInfos = indexedVideoIds.ToDictionary(id => id, id => playlist.Videos[id]);
 
-        /*  search already indexed videos in one go - but on background task
-            to start downloading and indexing videos in parallel */
-        searches.Add(Task.Run(async () =>
-        {
-            await foreach (var result in index.SearchAsync(command, GetVideoAsync,
-                indexedVideoInfos, UpdatePlaylistVideosUploaded, cancellation))
-                await videoResults.Writer.WriteAsync(result);
-        }));
+        List<IAsyncEnumerable<VideoSearchResult>> searches = [
+            /*  search already indexed videos in one go - but on background task
+                to start downloading and indexing videos in parallel */
+           index.SearchAsync(command, GetVideoAsync, indexedVideoInfos, UpdatePlaylistVideosUploaded, cancellation)];
 
         var unIndexedVideoIds = videoIds.Except(indexedVideoIds).ToArray();
 
         // load, index and search not yet indexed videos
-        if (unIndexedVideoIds.Length > 0) searches.Add(Task.Run(async () =>
-        {
-            // search already indexed videos in one go
-            await foreach (var result in SearchUnindexedVideos(command,
-                unIndexedVideoIds, index, cancellation, UpdatePlaylistVideosUploaded))
-                await videoResults.Writer.WriteAsync(result);
-        }));
+        if (unIndexedVideoIds.Length > 0) searches.Add(SearchUnindexedVideos(command,
+            unIndexedVideoIds, index, cancellation, UpdatePlaylistVideosUploaded));
 
-        // hook up writer completion before starting to read to ensure the reader knows when it's done
-        var searchCompletion = Task.WhenAll(searches).ContinueWith(t =>
-        {
-            videoResults.Writer.Complete();
-            if (t.Exception != null) throw t.Exception;
-        });
-
-        // start reading from result channel and return results as they are available
-        await foreach (var result in videoResults.Reader.ReadAllAsync())
-        {
-            yield return result;
-            cancellation.ThrowIfCancellationRequested();
-        }
-
-        await searchCompletion; // just to rethrow possible exceptions; should have completed at this point
+        await foreach (var result in searches.Parallelize(cancellation)) yield return result;
 
         async Task UpdatePlaylistVideosUploaded(IEnumerable<Video> videos)
         {
@@ -143,12 +119,12 @@ internal sealed class Youtube
         return playlist;
     }
 
-    private IAsyncEnumerable<PlaylistVideo> GetVideosAsync(PlaylistLikeScope command, CancellationToken cancellation)
+    private IAsyncEnumerable<PlaylistVideo> GetVideosAsync(PlaylistLikeScope scope, CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
-        if (command is ChannelScope searchChannel) return Client.Channels.GetUploadsAsync(searchChannel.ValidId, cancellation);
-        if (command is PlaylistScope searchPlaylist) return Client.Playlists.GetVideosAsync(searchPlaylist.Playlist, cancellation);
-        throw new NotImplementedException($"Getting videos for the {command.GetType()} is not implemented.");
+        if (scope is ChannelScope searchChannel) return Client.Channels.GetUploadsAsync(searchChannel.ValidId!, cancellation);
+        if (scope is PlaylistScope searchPlaylist) return Client.Playlists.GetVideosAsync(searchPlaylist.Playlist, cancellation);
+        throw new NotImplementedException($"Getting videos for the {scope.GetType()} is not implemented.");
     }
 
     private async IAsyncEnumerable<VideoSearchResult> SearchUnindexedVideos(SearchCommand command,
@@ -156,7 +132,7 @@ internal sealed class Youtube
         Func<IEnumerable<Video>, Task> updatePlaylistVideosUploaded)
     {
         cancellation.ThrowIfCancellationRequested();
-        var storageKey = (command.Scope as PlaylistLikeScope).StorageKey;
+        var storageKey = ((PlaylistLikeScope)command.Scope).StorageKey;
 
         /* limit channel capacity to avoid holding a lot of loaded but unprocessed videos in memory
             SingleReader because we're reading from it synchronously */
@@ -201,12 +177,7 @@ internal sealed class Youtube
         await foreach (var video in unIndexedVideos.Reader.ReadAllAsync())
         {
             cancellation.ThrowIfCancellationRequested();
-
-            if (uncommitted.Count == 0)
-            {
-                index.BeginBatchChange();
-            }
-
+            if (uncommitted.Count == 0) index.BeginBatchChange();
             await index.AddAsync(video, cancellation);
             uncommitted.Add(video);
 
@@ -238,7 +209,7 @@ internal sealed class Youtube
     {
         var videoResults = Pipe.CreateUnbounded<VideoSearchResult>(new UnboundedChannelOptions() { SingleReader = true });
 
-        var searches = (command.Scope as VideosScope).ValidIds.Select(async videoId =>
+        var searches = ((VideosScope)command.Scope).ValidIds!.Select(async videoId =>
         {
             var result = await SearchVideoAsync(videoId, command, cancellation);
             if (result != null) await videoResults.Writer.WriteAsync(result);
@@ -262,7 +233,7 @@ internal sealed class Youtube
     }
 
     /// <summary>Searches the video with <paramref name="videoId"/> according to the <paramref name="command"/>.</summary>
-    private async Task<VideoSearchResult> SearchVideoAsync(string videoId, SearchCommand command, CancellationToken cancellation)
+    private async Task<VideoSearchResult?> SearchVideoAsync(string videoId, SearchCommand command, CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
         var storageKey = Video.StorageKeyPrefix + videoId;
@@ -289,11 +260,11 @@ internal sealed class Youtube
 
     /// <summary>Returns the <see cref="Video.Keywords"/> and their corresponding number of occurrences
     /// from the videos scoped by <paramref name="command"/>.</summary>
-    internal async Task<Dictionary<string, ushort>> ListKeywordsAsync(ListKeywords command, CancellationToken cancellation)
+    public async Task<Dictionary<string, ushort>> ListKeywordsAsync(ListKeywords command, CancellationToken cancellation)
     {
         string[] videoIds;
 
-        if (command.Scope is VideosScope searchVideos) videoIds = searchVideos.ValidIds;
+        if (command.Scope is VideosScope searchVideos) videoIds = searchVideos.ValidIds!;
         else if (command.Scope is PlaylistLikeScope searchPlaylist)
         {
             var playlist = await GetPlaylistAsync(searchPlaylist, cancellation);
@@ -384,17 +355,51 @@ internal sealed class Youtube
     }
 }
 
-internal sealed class VideoSearchResult
+public sealed class VideoSearchResult
 {
-    internal Video Video { get; set; }
-    internal PaddedMatch TitleMatches { get; set; }
-    internal PaddedMatch[] DescriptionMatches { get; set; }
-    internal PaddedMatch[] KeywordMatches { get; set; }
-    internal CaptionTrackResult[] MatchingCaptionTracks { get; set; }
+    public required Video Video { get; set; }
+    public MatchedText? TitleMatches { get; set; }
+    public MatchedText? DescriptionMatches { get; set; }
+    public MatchedText[]? KeywordMatches { get; set; }
+    public CaptionTrackResult[]? MatchingCaptionTracks { get; set; }
+    public double Score { get; internal set; }
 
-    internal sealed class CaptionTrackResult
+    public sealed class CaptionTrackResult
     {
-        public CaptionTrack Track { get; set; }
-        internal List<(PaddedMatch, Caption)> Matches { get; set; }
+        public required CaptionTrack Track { get; set; }
+        public required MatchedText Matches { get; set; }
+
+        public (MatchedText synced, int captionStart) SyncWithCaptions(MatchedText matched, uint matchPadding)
+        {
+            // get (included) padded start and end index of matched Text
+            var start = Math.Max(0, matched.Matches.Min(m => m.Start) - (int)matchPadding);
+            var end = Math.Min(matched.Text.Length - 1, matched.Matches.Max(m => m.IncludedEnd) + (int)matchPadding);
+            var captionAtFullTextIndex = Track.GetCaptionAtFullTextIndex();
+
+            // find first and last captions containing parts of the padded match
+            var first = captionAtFullTextIndex.Last(x => x.Key <= start);
+            var last = captionAtFullTextIndex.Last(x => first.Key <= x.Key && x.Key <= end);
+
+            var captions = captionAtFullTextIndex // span of captions containing the padded match
+                .Where(x => first.Key <= x.Key && x.Key <= last.Key).ToArray();
+
+            var text = captions.Select(x => x.Value.Text)
+                .Where(text => text.IsNonWhiteSpace()) // skip included line breaks
+                .Select(text => text.NormalizeWhiteSpace(CaptionTrack.FullTextSeperator)) // replace included line breaks
+                .Join(CaptionTrack.FullTextSeperator);
+
+            MatchedText synced = new(text, matched.Matches.Select(m =>
+                new MatchedText.Match(m.Start - first.Key, m.Length)).ToArray());
+
+            return (synced, first.Value.At);
+        }
+
+        public bool HasMatchesWithHours(uint matchPadding)
+        {
+            var fulltextStart = Math.Max(0, Matches.Matches.Max(m => m.Start) - matchPadding);
+            var captionAtFullTextIndex = Track.GetCaptionAtFullTextIndex();
+            var lastCaptionStart = captionAtFullTextIndex.Last(x => x.Key <= fulltextStart).Value;
+            return lastCaptionStart.At > 3600; // sec per hour
+        }
     }
 }

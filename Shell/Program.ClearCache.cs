@@ -1,12 +1,14 @@
 ﻿using System.CommandLine;
+using SubTubular.Extensions;
 
-namespace SubTubular;
+namespace SubTubular.Shell;
 
 static partial class Program
 {
     private static async Task ApplyClearCacheAsync(ClearCache command)
     {
-        (IEnumerable<string> cachesDeleted, IEnumerable<string> indexesDeleted) = await CacheClearer.Process(command);
+        (IEnumerable<string> cachesDeleted, IEnumerable<string> indexesDeleted) =
+            await CacheClearer.Process(command, CreateDataStore(), CreateVideoIndexRepo());
 
         if (command.Mode != ClearCache.Modes.summary)
         {

@@ -1,109 +1,120 @@
-﻿using YoutubeExplode.Channels;
+﻿using SubTubular.Extensions;
+using YoutubeExplode.Channels;
 using YoutubeExplode.Playlists;
 using YoutubeExplode.Videos;
 
 namespace SubTubular;
 
-internal sealed class ClearCache
+public sealed class ClearCache
 {
     public Scopes Scope { get; set; }
-    public IEnumerable<string> Ids { get; set; }
+    public IEnumerable<string>? Ids { get; set; }
     public ushort? NotAccessedForDays { get; set; }
     public Modes Mode { get; set; }
 
-    internal enum Scopes { all, videos, playlists, channels }
-    internal enum Modes { summary, verbose, simulate }
+    public enum Scopes { all, videos, playlists, channels }
+    public enum Modes { summary, verbose, simulate }
 }
 
-internal static class CacheClearer
+public static class CacheClearer
 {
-    internal static async Task<(IEnumerable<string>, IEnumerable<string>)> Process(ClearCache command)
+    public static async Task<(IEnumerable<string> cachesDeleted, IEnumerable<string> indexesDeleted)> Process(
+        ClearCache command, DataStore cacheDataStore, VideoIndexRepository videoIndexRepo)
     {
-        var filesDeleted = new List<string>();
-        var cacheFolder = Folder.GetPath(Folders.cache);
+        List<string> cachesDeleted = new(), indexesDeleted = new();
         var simulate = command.Mode == ClearCache.Modes.simulate;
 
         switch (command.Scope)
         {
             case ClearCache.Scopes.all:
-                filesDeleted.AddRange(FileHelper.DeleteFiles(cacheFolder,
-                    notAccessedForDays: command.NotAccessedForDays, simulate: simulate));
+                indexesDeleted.AddRange(videoIndexRepo.Delete(notAccessedForDays: command.NotAccessedForDays, simulate: simulate));
+                cachesDeleted.AddRange(cacheDataStore.Delete(notAccessedForDays: command.NotAccessedForDays, simulate: simulate));
 
                 break;
             case ClearCache.Scopes.videos:
                 if (command.Ids.HasAny())
                 {
-                    var parsed = command.Ids.ToDictionary(id => id, id => VideoId.TryParse(id.Trim('"')));
+                    var parsed = command.Ids!.ToDictionary(id => id, id => VideoId.TryParse(id.Trim('"')));
                     var invalid = parsed.Where(pair => pair.Value == null).Select(pair => pair.Key).ToArray();
 
                     if (invalid.Length > 0) throw new InputException(
                         "The following inputs are not valid video IDs or URLs: " + invalid.Join(" "));
 
-                    DeleteFilesByNames(parsed.Values.Select(videoId => Video.StorageKeyPrefix + videoId.Value));
+                    DeleteByNames(parsed.Values.Select(videoId => Video.StorageKeyPrefix + videoId!.Value));
                 }
-                else filesDeleted.AddRange(FileHelper.DeleteFiles(cacheFolder, Video.StorageKeyPrefix + "*",
-                    notAccessedForDays: command.NotAccessedForDays, simulate: simulate));
+                else
+                {
+                    cachesDeleted.AddRange(cacheDataStore.Delete(keyPrefix: Video.StorageKeyPrefix,
+                       notAccessedForDays: command.NotAccessedForDays, simulate: simulate));
 
+                    indexesDeleted.AddRange(videoIndexRepo.Delete(Video.StorageKeyPrefix,
+                       notAccessedForDays: command.NotAccessedForDays, simulate: simulate));
+                }
                 break;
             case ClearCache.Scopes.playlists:
-                await ClearPlaylists(PlaylistScope.StorageKeyPrefix, new JsonFileDataStore(cacheFolder),
-                    v => new[] { PlaylistId.TryParse(v)?.Value });
+                await ClearPlaylists(PlaylistScope.StorageKeyPrefix, cacheDataStore,
+                    v =>
+                    {
+                        var id = PlaylistId.TryParse(v);
+                        return id.HasValue ? [id] : [];
+                    });
 
                 break;
             case ClearCache.Scopes.channels:
-                var dataStore = new JsonFileDataStore(cacheFolder);
-                Func<string, string[]> parseAlias = null;
+                Func<string, string[]?>? parseAlias = null;
 
                 if (command.Ids.HasAny())
                 {
-                    var aliasToChannelIds = await ClearChannelAliases(command.Ids, dataStore, simulate);
+                    var aliasToChannelIds = await ClearChannelAliases(command.Ids!, cacheDataStore, simulate);
                     parseAlias = alias => aliasToChannelIds.TryGetValue(alias, out var channelIds) ? channelIds : null;
                 }
-                else DeleteFileByName(ChannelAliasMap.StorageKey);
+                else DeleteByName(ChannelAliasMap.StorageKey);
 
-                await ClearPlaylists(ChannelScope.StorageKeyPrefix, dataStore, parseAlias);
+                await ClearPlaylists(ChannelScope.StorageKeyPrefix, cacheDataStore, parseAlias!);
                 break;
             default: throw new NotImplementedException($"Clearing {nameof(ClearCache.Scope)} {command.Scope} is not implemented.");
         }
 
-        return (filesDeleted.Where(fileName => fileName.EndsWith(JsonFileDataStore.FileExtension)),
-            filesDeleted.Where(fileName => fileName.EndsWith(VideoIndexRepository.FileExtension)));
+        return (cachesDeleted, indexesDeleted);
 
-        void DeleteFileByName(string name) => filesDeleted.AddRange(
-            FileHelper.DeleteFiles(cacheFolder, name + ".*", simulate: simulate));
+        void DeleteByName(string name)
+        {
+            cachesDeleted.AddRange(cacheDataStore.Delete(key: name, simulate: simulate));
+            indexesDeleted.AddRange(videoIndexRepo.Delete(key: name, simulate: simulate));
+        }
 
-        void DeleteFilesByNames(IEnumerable<string> names) { foreach (var name in names) DeleteFileByName(name); }
+        void DeleteByNames(IEnumerable<string> names) { foreach (var name in names) DeleteByName(name); }
 
-        async Task ClearPlaylists(string keyPrefix, JsonFileDataStore dataStore, Func<string, string[]> parseId)
+        async Task ClearPlaylists(string keyPrefix, DataStore playListLikeDataStore, Func<string, string[]?> parseId)
         {
             string[] deletableKeys;
 
             if (command.Ids.HasAny())
             {
-                var parsed = command.Ids.ToDictionary(id => id, id => parseId(id));
+                var parsed = command.Ids!.ToDictionary(id => id, id => parseId(id));
 
-                var invalid = parsed.Where(pair => !pair.Value.HasAny() || pair.Value.All(id => id == null))
+                var invalid = parsed.Where(pair => !pair.Value.HasAny() || pair.Value!.All(id => id == null))
                     .Select(pair => pair.Key).ToArray();
 
                 if (invalid.Length > 0) throw new InputException(
                     $"The following inputs are not valid {keyPrefix}IDs or URLs: " + invalid.Join(" "));
 
-                deletableKeys = parsed.Values.SelectMany(ids => ids).Where(id => id != null)
+                deletableKeys = parsed.Values.SelectMany(ids => ids!).Where(id => id != null)
                     .Distinct().Select(id => keyPrefix + id).ToArray();
             }
-            else deletableKeys = dataStore.GetKeysByPrefix(keyPrefix, command.NotAccessedForDays).ToArray();
+            else deletableKeys = playListLikeDataStore.GetKeysByPrefix(keyPrefix, command.NotAccessedForDays).ToArray();
 
             foreach (var key in deletableKeys)
             {
-                var playlist = await dataStore.GetAsync<Playlist>(key);
-                if (playlist != null) DeleteFilesByNames(playlist.Videos.Keys.Select(videoId => Video.StorageKeyPrefix + videoId));
-                DeleteFileByName(key);
+                var playlist = await playListLikeDataStore.GetAsync<Playlist>(key);
+                if (playlist != null) DeleteByNames(playlist.Videos.Keys.Select(videoId => Video.StorageKeyPrefix + videoId));
+                DeleteByName(key);
             }
         }
     }
 
     private static async Task<Dictionary<string, string[]>> ClearChannelAliases(
-        IEnumerable<string> aliases, JsonFileDataStore dataStore, bool simulate)
+        IEnumerable<string> aliases, DataStore dataStore, bool simulate)
     {
         var cachedMaps = await ChannelAliasMap.LoadList(dataStore);
         var matchedMaps = new List<ChannelAliasMap>();
@@ -111,13 +122,14 @@ internal static class CacheClearer
         var aliasToChannelIds = aliases.ToDictionary(alias => alias, alias =>
         {
             var valid = CommandValidator.ValidateChannelAlias(alias);
-            var matching = valid.Select(alias => cachedMaps.ForAlias(alias)).Where(map => map != null).ToArray();
+            var matching = valid.Select(alias => cachedMaps.ForAlias(alias)).WithValue().ToArray();
+
             matchedMaps.AddRange(matching);
 
             return matching.Select(map => map.ChannelId)
                 // append incoming ChannelId even if it isn't included in cached idMaps
                 .Append(valid.SingleOrDefault(alias => alias is ChannelId)?.ToString())
-                .Distinct().Where(id => id != null).ToArray();
+                .Distinct().WithValue().ToArray();
         });
 
         if (!simulate)

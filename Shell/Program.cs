@@ -1,7 +1,8 @@
 ﻿using System.Runtime.InteropServices;
 using Lifti;
+using SubTubular.Extensions;
 
-namespace SubTubular;
+namespace SubTubular.Shell;
 
 internal static partial class Program
 {
@@ -39,7 +40,9 @@ internal static partial class Program
         }
     }
 
-    private static JsonFileDataStore CreateDataStore() => new JsonFileDataStore(Folder.GetPath(Folders.cache));
+    private static readonly string cacheFolder = Folder.GetPath(Folders.cache);
+    private static DataStore CreateDataStore() => new JsonFileDataStore(cacheFolder);
+    private static VideoIndexRepository CreateVideoIndexRepo() => new(cacheFolder);
 
     private static async Task WriteErrorLogAsync(string originalCommand, string errors, string name = null)
     {
@@ -55,7 +58,7 @@ internal static partial class Program
         {
             var fileSafeName = name == null ? null : (" " + name.ToFileSafe());
             var path = Path.Combine(Folder.GetPath(Folders.errors), $"error {DateTime.Now:yyyy-MM-dd HHmmss}{fileSafeName}.txt");
-            await OutputWriter.WriteTextToFileAsync(report, path);
+            await FileHelper.WriteTextAsync(report, path);
             Console.WriteLine("Errors were logged to " + path);
             fileWritten = true;
         }

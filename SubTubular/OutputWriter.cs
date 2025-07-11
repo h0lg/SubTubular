@@ -1,58 +1,28 @@
-using AngleSharp;
-using AngleSharp.Dom;
+﻿using SubTubular.Extensions;
 
 namespace SubTubular;
 
-/// <summary>
-/// Provides formatted and highlighted output for Console
-/// as well as either plain text or HTML.
-/// </summary>
-internal sealed class OutputWriter : IDisposable
+public abstract class OutputWriter(OutputCommand command)
 {
-    private const ConsoleColor highlightColor = ConsoleColor.Yellow;
-    private readonly ConsoleColor regularForeGround;
-    private readonly bool outputHtml, hasOutputPath, writeOutputFile;
-    private readonly string fileOutputPath;
-    private readonly OutputCommand command;
-    private readonly IDocument document;
-    private readonly IElement output;
-    private readonly StringWriter textOut;
+    protected readonly OutputCommand command = command;
 
     public bool WroteResults { get; private set; }
 
-    internal OutputWriter(OutputCommand command)
+    public virtual short GetWidth() => command.OutputWidth;
+    public abstract short GetWrittenInCurrentLine();
+    private IndentedText CreateIndent() => new(GetWrittenInCurrentLine(), GetWidth(), () => GetWrittenInCurrentLine());
+
+    public abstract void Write(string text);
+    public abstract void WriteHighlighted(string text);
+    public abstract void WriteLine(string? text = null);
+    public abstract void WriteUrl(string url);
+
+    public virtual void WriteHeader()
     {
-        regularForeGround = Console.ForegroundColor; //using current
-        this.outputHtml = command.OutputHtml;
-        this.fileOutputPath = command.FileOutputPath?.Trim('"');
-        this.command = command;
-        hasOutputPath = !string.IsNullOrEmpty(fileOutputPath);
-        writeOutputFile = outputHtml || hasOutputPath;
-
-        if (outputHtml) //prepare empty document
-        {
-            var context = BrowsingContext.New(Configuration.Default);
-            document = context.OpenNewAsync().Result;
-
-            var style = document.CreateElement("style");
-            style.TextContent = "pre > em { background-color: yellow }";
-            document.Head.Append(style);
-
-            output = document.CreateElement("pre");
-            document.Body.Append(output);
-        }
-        else textOut = new StringWriter();
-    }
-
-    internal void WriteHeader(string originalCommand)
-    {
-        //write original search into file header for reference and repeating
-        if (writeOutputFile) WriteLine(originalCommand);
-
         //provide link(s) to the searched playlist or videos for debugging IDs
         Write(command.Describe() + " ");
 
-        foreach (var url in command.Scope.ValidUrls)
+        foreach (var url in command.Scope.ValidUrls!)
         {
             WriteUrl(url);
             Write(" ");
@@ -62,140 +32,73 @@ internal sealed class OutputWriter : IDisposable
         WriteLine();
     }
 
-    private void Write(string text)
+    private void WriteHighlightingMatches(MatchedText matched, IndentedText? indent = null, uint? padding = null)
     {
-        Console.Write(text);
-        if (!writeOutputFile) return;
-
-        if (outputHtml) output.InnerHtml += text;
-        else textOut.Write(text);
-    }
-
-    private void WriteLine(string text = null)
-    {
-        if (text != null) Write(text);
-        Console.WriteLine();
-        if (!writeOutputFile) return;
-
-        if (outputHtml) output.InnerHtml += Environment.NewLine;
-        else textOut.WriteLine();
-    }
-
-    private void WriteHighlighted(string text)
-    {
-        Console.ForegroundColor = highlightColor;
-        Console.Write(text);
-        ResetConsoleColor();
-        if (!writeOutputFile) return;
-
-        if (outputHtml)
+        if (indent == null)
         {
-            var em = document.CreateElement("em");
-            em.TextContent = text;
-            output.Append(em);
+            matched.WriteHighlightingMatches(Write, WriteHighlighted, padding);
+            return;
         }
-        else textOut.Write($"*{text}*");
-    }
 
-    private void WriteUrl(string url)
-    {
-        Console.Write(url);
-        if (!writeOutputFile) return;
+        var text = matched.Text;
+        text = indent.Wrap(text); // inserts line breaks to wrap and spaces to indent into block
 
-        if (outputHtml)
+        #region accumulate info about wrapped lines for mapping padded matches (relative to unwrapped text)
+
+        /*  a list of infos about each wrapped line with each item containing:
+            1 number of characters inserted before text in wrapped line compared to unwrapped text
+                (index diff between wrapped and unwrapped text)
+            2 first index of line in unwrapped text
+            3 last index of line in unwrapped text */
+        var lineInfos = new List<(int charOffset, int firstIndex, int lastIndex)>();
+
+        foreach (var line in text.Split(Environment.NewLine).Select(line => line.Trim()))
         {
-            var hlink = document.CreateElement("a");
-            hlink.SetAttribute("href", url);
-            hlink.SetAttribute("target", "_blank");
-            hlink.TextContent = url;
-            output.Append(hlink);
-        }
-        else textOut.Write(url);
-    }
+            var previousLine = lineInfos.LastOrDefault();
 
-    private void WriteHighlightingMatches(PaddedMatch paddedMatch, IndentedText indent = null)
-    {
-        var charsWritten = 0; // counts characters written
-        var text = new string(paddedMatch.Value);
-
-        if (indent != null)
-        {
-            text = indent.Wrap(text); // inserts line breaks to wrap and spaces to indent into block
-
-            #region accumulate info about wrapped lines for mapping padded matches (relative to unwrapped text)
-
-            /*  a list of infos about each wrapped line with each item containing:
-                1 number of characters inserted before text in wrapped line compared to unwrapped text
-                    (index diff between wrapped and unwrapped text)
-                2 first index of line in unwrapped text
-                3 last index of line in unwrapped text */
-            var lineInfos = new List<(int charOffset, int firstIndex, int lastIndex)>();
-
-            foreach (var line in text.Split(Environment.NewLine).Select(line => line.Trim()))
+            if (previousLine == default) lineInfos.Add((0, 0, line.Length)); // first line
+            else
             {
-                var previousLine = lineInfos.LastOrDefault();
+                // start search from previous line's end index to avoid accidental matches in duplicate lines
+                var previousLineEnd = previousLine.lastIndex; // in unwrapped text
+                var startInWrappedText = text.IndexOf(line, startIndex: previousLine.charOffset + previousLineEnd);
+                var startInUnwrappedText = matched.Text.IndexOf(line, startIndex: previousLineEnd);
 
-                if (previousLine == default) lineInfos.Add((0, 0, line.Length)); // first line
-                else
-                {
-                    // start search from previous line's end index to avoid accidental matches in duplicate lines
-                    var previousLineEnd = previousLine.lastIndex; // in unwrapped text
-                    var startInWrappedText = text.IndexOf(line, startIndex: previousLine.charOffset + previousLineEnd);
-                    var startInUnwrappedText = paddedMatch.Value.IndexOf(line, startIndex: previousLineEnd);
-
-                    lineInfos.Add((startInWrappedText - startInUnwrappedText,
-                        startInUnwrappedText, startInUnwrappedText + line.Length));
-                }
-            }
-            #endregion
-
-            foreach (var match in paddedMatch.Included)
-            {
-                /*  shift match Length the number of chars inserted between
-                    line containing Start and line containing end of match
-                    and do so before modifying match Start */
-                var end = match.Start + match.Length;
-                var lineContainingMatchEnd = lineInfos.LastOrDefault(x => x.firstIndex <= end);
-
-                // shift match Start the number of characters inserted in wrapped text before line
-                var lineContainingMatchStart = lineInfos.LastOrDefault(x => x.firstIndex <= match.Start);
-                if (lineContainingMatchStart != default) match.Start += lineContainingMatchStart.charOffset;
-
-                if (lineContainingMatchEnd != lineContainingMatchStart)
-                    match.Length += lineContainingMatchEnd.charOffset - lineContainingMatchStart.charOffset;
+                lineInfos.Add((startInWrappedText - startInUnwrappedText,
+                    startInUnwrappedText, startInUnwrappedText + line.Length));
             }
         }
+        #endregion
 
-        void writeCounting(int length, bool highlight = false)
+        List<MatchedText.Match> indentedMatches = new();
+
+        foreach (var match in matched.Matches)
         {
-            var phrase = text.Substring(charsWritten, length);
+            /*  shift match Length the number of chars inserted between
+                line containing Start and line containing end of match
+                and do so before modifying match Start */
+            var end = match.Start + match.Length;
+            var lineContainingMatchEnd = lineInfos.LastOrDefault(x => x.firstIndex <= end);
 
-            if (highlight) WriteHighlighted(phrase);
-            else Write(phrase);
+            // shift match Start the number of characters inserted in wrapped text before line
+            var lineContainingMatchStart = lineInfos.LastOrDefault(x => x.firstIndex <= match.Start);
+            var start = lineContainingMatchStart == default ? match.Start : match.Start + lineContainingMatchStart.charOffset;
 
-            charsWritten += length;
+            var length = lineContainingMatchEnd == lineContainingMatchStart ? match.Length
+                : match.Length + lineContainingMatchEnd.charOffset - lineContainingMatchStart.charOffset;
+
+            indentedMatches.Add(new MatchedText.Match(start, length));
         }
 
-        foreach (var match in paddedMatch.Included.OrderBy(m => m.Start))
-        {
-            if (charsWritten < match.Start) writeCounting(match.Start - charsWritten); // write text preceding match
-
-            // matched characters are already written; this may happen if included matches overlap each other
-            if (match.Start < charsWritten && match.Start <= charsWritten - match.Length) continue;
-
-            writeCounting(match.Length - (charsWritten - match.Start), true); // write (remaining) matched characters
-        }
-
-        if (charsWritten < text.Length) writeCounting(text.Length - charsWritten); // write text trailing last included match
+        var indented = new MatchedText(text, indentedMatches.ToArray());
+        indented.WriteHighlightingMatches(Write, WriteHighlighted, padding);
     }
 
-    internal void DisplayVideoResult(VideoSearchResult result)
+    public void WriteVideoResult(VideoSearchResult result, uint matchPadding)
     {
         var videoUrl = Youtube.GetVideoUrl(result.Video.Id);
 
-        if (result.TitleMatches != null)
-            using (var indent = new IndentedText())
-                WriteHighlightingMatches(result.TitleMatches, indent);
+        if (result.TitleMatches != null) WriteHighlightingMatches(result.TitleMatches, CreateIndent());
         else Write(result.Video.Title);
 
         WriteLine();
@@ -203,17 +106,17 @@ internal sealed class OutputWriter : IDisposable
         WriteUrl(videoUrl);
         WriteLine();
 
-        if (result.DescriptionMatches.HasAny())
+        if (result.DescriptionMatches != null)
         {
             Write("  in description: ");
 
-            for (int i = 0; i < result.DescriptionMatches.Length; i++)
+            var splitMatches = result.DescriptionMatches.SplitIntoPaddedGroups(matchPadding).ToArray();
+
+            for (int i = 0; i < splitMatches.Length; i++)
             {
                 if (i > 0) Write("    ");
 
-                using (var indent = new IndentedText())
-                    WriteHighlightingMatches(result.DescriptionMatches[i], indent);
-
+                WriteHighlightingMatches(splitMatches[i], CreateIndent(), matchPadding);
                 WriteLine();
             }
         }
@@ -221,9 +124,9 @@ internal sealed class OutputWriter : IDisposable
         if (result.KeywordMatches.HasAny())
         {
             Write("  in keywords: ");
-            var lastKeyword = result.KeywordMatches.Last();
+            var lastKeyword = result.KeywordMatches!.Last();
 
-            foreach (var match in result.KeywordMatches)
+            foreach (var match in result.KeywordMatches!)
             {
                 WriteHighlightingMatches(match);
 
@@ -232,27 +135,34 @@ internal sealed class OutputWriter : IDisposable
             }
         }
 
-        foreach (var trackResult in result.MatchingCaptionTracks)
+        if (result.MatchingCaptionTracks.HasAny())
         {
-            WriteLine("  " + trackResult.Track.LanguageName);
-            var displaysHour = trackResult.Matches.Any(c => c.Item2.At > 3600);
-
-            foreach (var (match, caption) in trackResult.Matches)
+            foreach (var trackResult in result.MatchingCaptionTracks!)
             {
-                var offset = TimeSpan.FromSeconds(caption.At).FormatWithOptionalHours().PadLeft(displaysHour ? 7 : 5);
-                Write($"    {offset} ");
+                WriteLine("  " + trackResult.Track.LanguageName);
 
-                using var indent = new IndentedText();
-                WriteHighlightingMatches(match, indent);
+                var displaysHour = trackResult.HasMatchesWithHours(matchPadding);
+                var splitMatches = trackResult.Matches.SplitIntoPaddedGroups(matchPadding);
 
-                const string padding = "    ";
-                var url = $"{videoUrl}?t={caption.At}";
+                foreach (var matched in splitMatches)
+                {
+                    var (synced, captionAt) = trackResult.SyncWithCaptions(matched, matchPadding);
+                    var offset = TimeSpan.FromSeconds(captionAt).FormatWithOptionalHours().PadLeft(displaysHour ? 7 : 5);
+                    Write($"    {offset} ");
 
-                if (indent.FitsCurrentLine(padding.Length + url.Length)) Write(padding);
-                else indent.StartNewLine(this);
+                    var indent = CreateIndent();
+                    WriteHighlightingMatches(synced, indent, matchPadding);
 
-                WriteUrl(url);
-                WriteLine();
+                    const string urlPadding = "    ";
+                    var url = $"{videoUrl}?t={captionAt}";
+
+                    if (indent == null) WriteLine();
+                    else if (indent.FitsCurrentLine(urlPadding.Length + url.Length)) Write(urlPadding);
+                    else indent.StartNewLine(this);
+
+                    WriteUrl(url);
+                    WriteLine();
+                }
             }
         }
 
@@ -271,10 +181,10 @@ internal sealed class OutputWriter : IDisposable
     /// <summary>Displays the <paramref name="keywords"/> on the <see cref="Console"/>,
     /// most often occurring keyword first.</summary>
     /// <param name="keywords">The keywords and their corresponding number of occurrences.</param>
-    internal void ListKeywords(Dictionary<string, ushort> keywords)
+    public void ListKeywords(Dictionary<string, ushort> keywords)
     {
         const string separator = " | ";
-        var width = Console.WindowWidth;
+        var width = GetWidth();
         var line = string.Empty;
 
         /*  prevent breaking line mid-keyword on Console and breaks output into multiple lines for file
@@ -296,85 +206,19 @@ internal sealed class OutputWriter : IDisposable
         WroteResults = true;
     }
 
-    internal async ValueTask<string> WriteOutputFile(Func<string> getDefaultStorageFolder)
+    /// <summary>A helper for writing multiple lines of text at the same indent.
+    /// This is not quite block format, but almost.</summary>
+    /// <remarks>Creates a new indented text block remembering the <paramref name="left"/> position
+    /// and the <see cref="width"/> available for output.</remarks>
+    public sealed class IndentedText(int left, int width, Func<int> getLeft)
     {
-        if (!writeOutputFile) return null;
-
-        string path;
-
-        if (!hasOutputPath || fileOutputPath.IsDirectoryPath())
-        {
-            var extension = outputHtml ? ".html" : ".txt";
-            var fileName = command.Describe().ToFileSafe() + extension;
-            var folder = hasOutputPath ? fileOutputPath : getDefaultStorageFolder();
-            path = Path.Combine(folder, fileName);
-        }
-        else path = fileOutputPath; // treat as full file path
-
-        await WriteTextToFileAsync(outputHtml ? document.DocumentElement.OuterHtml : textOut.ToString(), path);
-        return path;
-    }
-
-    private void ResetConsoleColor() => Console.ForegroundColor = regularForeGround;
-
-    internal static Task WriteTextToFileAsync(string text, string path)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(path));
-        return File.WriteAllTextAsync(path, text);
-    }
-
-    #region IDisposable implementation
-    private bool disposedValue;
-
-    private void Dispose(bool disposing)
-    {
-        if (!disposedValue)
-        {
-            if (disposing)
-            {
-                // dispose managed state (managed objects)
-                textOut?.Dispose();
-                document?.Dispose();
-                ResetConsoleColor(); //just to make sure we revert changes to the global Console state if an error occurs while writing sth. highlighted
-            }
-
-            // free unmanaged resources (unmanaged objects) and override finalizer
-            // set large fields to null
-            disposedValue = true;
-        }
-    }
-
-    public void Dispose()
-    {
-        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-        Dispose(disposing: true);
-        GC.SuppressFinalize(this);
-    }
-    #endregion
-
-    /// <summary>A helper for writing multiple lines of text at the same indent
-    /// in the <see cref="Console"/>. This is not quite block format, but almost.</summary>
-    internal sealed class IndentedText : IDisposable
-    {
-        private readonly int left, width;
-
-        /// <summary>
-        /// Creates a new indented text block remembering the <see cref="Console.CursorLeft"/> position
-        /// and the <see cref="Console.WindowWidth"/> available for output.
-        /// </summary>
-        internal IndentedText()
-        {
-            left = Console.CursorLeft;
-            width = Console.WindowWidth - 1; // allowing for a buffer to avoid irregular text wrapping
-        }
-
         /// <summary>Wraps <paramref name="text"/> into multiple lines
-        /// indented by the remembered <see cref="Console.CursorLeft"/>
-        /// fitting the remembered <see cref="Console.WindowWidth"/>.</summary>
+        /// indented by the remembered <see cref="left"/>
+        /// fitting the remembered <see cref="width"/>.</summary>
         internal string Wrap(string text) => text.Wrap(width - left).Indent(left).Join(Environment.NewLine).TrimStart();
 
         /// <summary>Indicates whether the number of <paramref name="characters"/> fit the current line.</summary>
-        internal bool FitsCurrentLine(int characters) => characters <= width - Console.CursorLeft;
+        internal bool FitsCurrentLine(int characters) => characters <= width - getLeft();
 
         /// <summary>Starts a new indented line using the supplied <paramref name="outputWriter"/>.</summary>
         internal void StartNewLine(OutputWriter outputWriter)
@@ -382,7 +226,5 @@ internal sealed class OutputWriter : IDisposable
             outputWriter.WriteLine(); // start a new one
             outputWriter.Write(string.Empty.PadLeft(left)); //and output the correct padding
         }
-
-        public void Dispose() { } // implementing IDisposable just to enable usage with using() block
     }
 }

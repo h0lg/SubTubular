@@ -1,14 +1,15 @@
 ﻿using System.Diagnostics;
 using Octokit;
+using SubTubular.Extensions;
 
 namespace SubTubular;
 
-internal static class ReleaseManager
+public static class ReleaseManager
 {
-    internal const string InstallVersionConsoleCommand = "install",
+    public const string InstallVersionConsoleCommand = "install",
         InstallFolderConsoleParameter = "--into";
 
-    internal static async Task<string> ListAsync(DataStore dataStore)
+    public static async Task<string> ListAsync(DataStore dataStore)
     {
         var releases = await GetAll(dataStore);
         const string version = "version";
@@ -19,7 +20,7 @@ internal static class ReleaseManager
             .Prepend("date       " + version.PadRight(maxVersionLength) + " name").Join(Environment.NewLine);
     }
 
-    internal static async Task InstallByTagAsync(string version, string installInto, Action<string> report, DataStore dataStore)
+    public static async Task InstallByTagAsync(string version, string installInto, Action<string> report, DataStore dataStore)
     {
         var release = await GetRelease(version, dataStore);
 
@@ -29,10 +30,10 @@ internal static class ReleaseManager
         if (release.BinariesZipError != null) throw new InputException(
             $"Installing release {release.Version} is not supported because it contains {release.BinariesZipError}.");
 
-        if (string.IsNullOrEmpty(installInto)) // STEP 1, running in app to be replaced
+        if (installInto.IsNullOrEmpty()) // STEP 1, running in app to be replaced
         {
             // back up current app
-            var appFolder = Path.GetDirectoryName(AssemblyInfo.Location);
+            var appFolder = Path.GetDirectoryName(AssemblyInfo.Location)!;
             var archiveFolder = GetArchivePath(appFolder);
             var productInfo = AssemblyInfo.Name + " " + AssemblyInfo.Version;
             var backupFolder = Path.Combine(archiveFolder, productInfo.ToFileSafe());
@@ -56,7 +57,7 @@ internal static class ReleaseManager
         else // STEP 2, running on backed up binaries of app to be replaced (in archive sub folder)
         {
             var archiveFolder = GetArchivePath(installInto);
-            var zipPath = Path.Combine(archiveFolder, release.BinariesZip.Name);
+            var zipPath = Path.Combine(archiveFolder, release.BinariesZip!.Name);
             var zipFile = new FileInfo(zipPath);
             report(Environment.NewLine); // to start in a new line below the prompt
 
@@ -84,14 +85,14 @@ internal static class ReleaseManager
         }
     }
 
-    internal static async Task OpenNotesAsync(string version, DataStore dataStore)
+    public static async Task OpenNotesAsync(string version, DataStore dataStore)
         => OpenNotes(await GetRelease(version, dataStore));
 
     private static void OpenNotes(CacheModel release) => ShellCommands.OpenUri(release.HtmlUrl);
     private static string GetArchivePath(string appFolder) => Path.Combine(appFolder, "other releases");
 
     private static GitHubClient GetGithubClient()
-        => new GitHubClient(new ProductHeaderValue(AssemblyInfo.Name, AssemblyInfo.GetProductVersion()));
+        => new(new ProductHeaderValue(AssemblyInfo.Name, AssemblyInfo.GetProductVersion()));
 
     private static async Task<List<CacheModel>> GetAll(DataStore dataStore)
     {
@@ -102,11 +103,16 @@ internal static class ReleaseManager
         if (lastModified.HasValue && DateTime.Now.Subtract(lastModified.Value).TotalHours < 1)
         {
             var cached = await dataStore.GetAsync<List<CacheModel>>(cacheKey);
-            if (cached != null) return cached;
+
+            if (cached != null)
+            {
+                var valid = cached.Valid().ToList();
+                if (valid.Any()) return valid;
+            }
         }
 
         var freshReleases = await GetGithubClient().Repository.Release.GetAll(AssemblyInfo.RepoOwner, AssemblyInfo.RepoName);
-        var releases = freshReleases.Select(release => new CacheModel(release)).ToList();
+        var releases = freshReleases.Select(release => new CacheModel(release)).Valid().ToList();
         await dataStore.SetAsync(cacheKey, releases);
         return releases;
     }
@@ -129,23 +135,26 @@ internal static class ReleaseManager
             + " Specify a unique value: " + containing.Select(r => r.Version).Join(" | "));
     }
 
+    private static IEnumerable<CacheModel> Valid(this IEnumerable<CacheModel> releases)
+        => releases.Where(r => r?.Version.IsNonWhiteSpace() == true && r.HtmlUrl.IsNonWhiteSpace());
+
     [Serializable]
     public sealed class CacheModel
     {
-        public string Name { get; set; }
-        public string Version { get; set; }
-        public string HtmlUrl { get; set; }
+        public string? Name { get; set; }
+        public string Version { get; set; } = string.Empty;
+        public string HtmlUrl { get; set; } = string.Empty;
         public DateTime PublishedAt { get; set; }
 
         /// <summary>The .zip asset containing the binaries if <see cref="BinariesZipError"/> is null.</summary>
-        public BinariesZipAsset BinariesZip { get; set; }
+        public BinariesZipAsset? BinariesZip { get; set; }
 
         /// <summary>The error identifying the <see cref="BinariesZip"/>, if any.</summary>
-        public string BinariesZipError { get; set; }
+        public string? BinariesZipError { get; set; }
 
         public CacheModel() { } // required for serialization
 
-        internal CacheModel(Octokit.Release release)
+        internal CacheModel(Release release)
         {
             Name = release.Name;
             Version = release.TagName.TrimStart('v');
@@ -176,8 +185,8 @@ internal static class ReleaseManager
         [Serializable]
         public sealed class BinariesZipAsset
         {
-            public string Name { get; set; }
-            public string DownloadUrl { get; set; }
+            public required string Name { get; set; }
+            public required string DownloadUrl { get; set; }
             public int Size { get; set; }
         }
     }

@@ -1,26 +1,56 @@
+using SubTubular.Extensions;
+
 namespace SubTubular;
 
-internal abstract class OutputCommand
+public abstract class OutputCommand
 {
-    internal CommandScope Scope { get; set; }
+    public required CommandScope Scope { get; set; }
 
-    internal bool OutputHtml { get; set; }
-    internal string FileOutputPath { get; set; }
-    internal Shows? Show { get; set; }
+    public short OutputWidth { get; set; } = 80;
+    public bool OutputHtml { get; set; }
+    public string? FileOutputPath { get; set; }
+    public Shows? Show { get; set; }
 
-    internal abstract string Describe();
+    public bool HasOutputPath(out string? outputPath)
+    {
+        var fileOutputPath = FileOutputPath?.Trim('"');
+        var hasOutputPath = fileOutputPath.IsNonEmpty();
+
+        if (hasOutputPath)
+        {
+            outputPath = fileOutputPath;
+            return true;
+        }
+        else
+        {
+            outputPath = null;
+            return false;
+        }
+    }
+
+    public abstract string Describe();
 
     public enum Shows { file, folder }
 }
 
-internal sealed class SearchCommand : OutputCommand
+public sealed class SearchCommand : OutputCommand
 {
-    internal string Query { get; set; }
-    internal ushort Padding { get; set; }
-    internal override string Describe() => "searching " + Scope.Describe() + " for " + Query;
+    public string? Query { get; set; }
+    public ushort Padding { get; set; }
+
+    // default to ordering by highest score which is probably most useful for most purposes
+    public IEnumerable<OrderOptions> OrderBy { get; set; } = [OrderOptions.score];
+
+    public override string Describe() => "searching " + Scope.Describe() + " for " + Query;
+
+    /// <summary>Mutually exclusive <see cref="OrderOptions"/>.</summary>
+    internal static OrderOptions[] Orders = [OrderOptions.uploaded, OrderOptions.score];
+
+    /// <summary><see cref="Orders"/> and modifiers.</summary>
+    public enum OrderOptions { uploaded, score, asc }
 }
 
-internal sealed class ListKeywords : OutputCommand
+public sealed class ListKeywords : OutputCommand
 {
-    internal override string Describe() => "listing keywords in " + Scope.Describe();
+    public override string Describe() => "listing keywords in " + Scope.Describe();
 }

@@ -1,12 +1,12 @@
 ﻿using System.CommandLine;
 using System.CommandLine.Invocation;
 
-namespace SubTubular;
+namespace SubTubular.Shell;
 
 static partial class Program
 {
     private static async Task OutputAsync(OutputCommand command, string originalCommand,
-        Func<Youtube, CancellationToken, OutputWriter, Task> runCommand)
+        Func<Youtube, List<OutputWriter>, CancellationToken, Task> runCommand)
     {
         //inspired by https://johnthiriet.com/cancel-asynchronous-operation-in-csharp/
         using var cancellation = new CancellationTokenSource();
@@ -25,43 +25,50 @@ static partial class Program
             if (running) cancellation.Cancel();
         });
 
-        var cacheFolder = Folder.GetPath(Folders.cache);
-        DataStore dataStore = new JsonFileDataStore(cacheFolder);
-        var youtube = new Youtube(dataStore, new VideoIndexRepository(cacheFolder));
+        DataStore dataStore = CreateDataStore();
+        var youtube = new Youtube(dataStore, CreateVideoIndexRepo());
 
         if (command.Scope is ChannelScope channel)
             await CommandValidator.RemoteValidateChannelAsync(channel, youtube.Client, dataStore, cancellation.Token);
 
-        using (var output = new OutputWriter(command))
+        List<OutputWriter> outputs = [new ConsoleOutputWriter(command)];
+
+        if (command.OutputHtml) outputs.Add(new HtmlOutputWriter(command));
+        else if (command.HasOutputPath(out var _path)) outputs.Add(new TextOutputWriter(command));
+
+        outputs.ForEach(output =>
         {
-            output.WriteHeader(originalCommand);
+            if (output is FileOutputWriter) output.WriteLine(originalCommand); // for reference and repeating
+            output.WriteHeader();
+        });
 
-            try
+        try
+        {
+            /*  passing token into command for it to react to cancellation,
+                see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables */
+            await runCommand(youtube, outputs, cancellation.Token);
+        }
+        catch (OperationCanceledException) { Console.WriteLine("The operation was cancelled."); }
+        finally // write output file even if exception occurs
+        {
+            if (outputs.Any(o => o.WroteResults)) // if we displayed a result before running into an error
             {
-                /*  passing token into command for it to react to cancellation,
-                    see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables */
-                await runCommand(youtube, cancellation.Token, output);
-            }
-            catch (OperationCanceledException) { Console.WriteLine("The operation was cancelled."); }
-            finally // write output file even if exception occurs
-            {
-                if (output.WroteResults) // if we displayed a result before running into an error
+                // only writes an output file if command requires it
+                var fileOutput = outputs.OfType<FileOutputWriter>().SingleOrDefault();
+                var outputPath = fileOutput == null ? null : await fileOutput.SaveFile();
+
+                if (outputPath != null)
                 {
-                    // only writes an output file if command requires it
-                    var path = await output.WriteOutputFile(() => Folder.GetPath(Folders.output));
+                    Console.WriteLine("Results were written to " + outputPath);
 
-                    if (path != null)
-                    {
-                        Console.WriteLine("Results were written to " + path);
-
-                        // spare the user some file browsing
-                        if (command.Show == OutputCommand.Shows.file) ShellCommands.OpenFile(path);
-                        if (command.Show == OutputCommand.Shows.folder) ShellCommands.ExploreFolder(path);
-                    }
+                    // spare the user some file browsing
+                    if (command.Show == OutputCommand.Shows.file) ShellCommands.OpenFile(outputPath);
+                    if (command.Show == OutputCommand.Shows.folder) ShellCommands.ExploreFolder(outputPath);
                 }
             }
         }
 
+        foreach (var output in outputs.OfType<IDisposable>()) output.Dispose();
         running = false; // to let the cancel task complete if operation did before it
         await cancel; // just to rethrow possible exceptions
     }

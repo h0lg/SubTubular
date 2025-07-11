@@ -1,19 +1,38 @@
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
+using System.Threading.Channels;
 
-namespace SubTubular;
+/*  Namespace does not match folder structure.
+ *  It was deliberately chosen to avoid including maybe conflicting extensions accidentally
+ *  with the reference to other public types in the top-level namespace. */
+#pragma warning disable IDE0130
+namespace SubTubular.Extensions;
+#pragma warning restore IDE0130
 
-internal static class TimeSpanExtensions
+public static class TimeSpanExtensions
 {
     private const string minSec = "mm':'ss";
 
     //inspired by https://stackoverflow.com/a/4709641
-    internal static string FormatWithOptionalHours(this TimeSpan timeSpan)
+    public static string FormatWithOptionalHours(this TimeSpan timeSpan)
         => timeSpan.ToString(timeSpan.TotalHours >= 1 ? "h':'" + minSec : minSec);
 }
 
 /// <summary>Extension methods for <see cref="string"/>s.</summary>
-internal static class StringExtensions
+public static class StringExtensions
 {
+    /// <summary>Determines whether <paramref name="input"/> <see cref="string.IsNullOrEmpty(string?)"/>.</summary>
+    internal static bool IsNullOrEmpty(this string? input) => string.IsNullOrEmpty(input);
+
+    /// <summary>Determines whether <paramref name="input"/> NOT <see cref="string.IsNullOrEmpty(string?)"/>.</summary>
+    internal static bool IsNonEmpty(this string? input) => !string.IsNullOrEmpty(input);
+
+    /// <summary>Determines whether <paramref name="input"/> <see cref="string.IsNullOrWhiteSpace(string?)"/>.</summary>
+    internal static bool IsNullOrWhiteSpace(this string? input) => string.IsNullOrWhiteSpace(input);
+
+    /// <summary>Determines whether <paramref name="input"/> NOT <see cref="string.IsNullOrWhiteSpace(string?)"/>.</summary>
+    internal static bool IsNonWhiteSpace(this string? input) => !string.IsNullOrWhiteSpace(input);
+
     /// <summary>Replaces all consecutive white space characters in
     /// <paramref name="input"/> with <paramref name="normalizeTo"/>.</summary>
     internal static string NormalizeWhiteSpace(this string input, string normalizeTo = " ")
@@ -21,7 +40,7 @@ internal static class StringExtensions
 
     /// <summary>Concatenates the <paramref name="pieces"/> into a single string
     /// putting <paramref name="glue"/> in between them.</summary>
-    internal static string Join(this IEnumerable<string> pieces, string glue) => string.Join(glue, pieces);
+    public static string Join(this IEnumerable<string> pieces, string glue) => string.Join(glue, pieces);
 
     /// <summary>Indicates whether <paramref name="path"/> points to a directory rather than a file.
     /// From https://stackoverflow.com/a/19596821 .</summary>
@@ -40,12 +59,12 @@ internal static class StringExtensions
             return true;
 
         // if has extension then its a file; directory otherwise
-        return string.IsNullOrWhiteSpace(Path.GetExtension(path));
+        return Path.GetExtension(path).IsNullOrWhiteSpace();
     }
 
     /// <summary>Replaces all characters unsafe for file or directory names in <paramref name="value"/>
     /// with <paramref name="replacement"/>.</summary>
-    internal static string ToFileSafe(this string value, string replacement = "_")
+    public static string ToFileSafe(this string value, string replacement = "_")
         => Regex.Replace(value, "[" + Regex.Escape(new string(Path.GetInvalidFileNameChars())) + "]", replacement);
 
     internal static IEnumerable<string> Wrap(this string input, int columnWidth)
@@ -81,7 +100,7 @@ internal static class StringExtensions
 }
 
 /// <summary>Extension methods for <see cref="IEnumerable{T}"/> types.</summary>
-internal static class EnumerableExtensions
+public static class EnumerableExtensions
 {
     /// <summary>Indicates whether <paramref name="collection"/>
     /// contains any of the supplied <paramref name="values"/>.</summary>
@@ -89,30 +108,13 @@ internal static class EnumerableExtensions
         => values.Intersect(collection).Any();
 
     /// <summary>Indicates whether <paramref name="collection"/> is not null and contains any items.</summary>
-    internal static bool HasAny<T>(this IEnumerable<T> collection) => collection != null && collection.Any();
+    public static bool HasAny<T>(this IEnumerable<T>? collection) => collection?.Any() == true;
+
+    public static IEnumerable<T> WithValue<T>(this IEnumerable<T?> nullables)
+        => nullables.Where(v => v != null).Select(v => v!);
 }
 
-/// <summary>Extension methods for <see cref="IComparable"/> types.</summary>
-internal static class ComparableExtensions
-{
-    /// <summary>Determines whether <paramref name="other"/> is greater than
-    /// <paramref name="orEqualTo"/> the <paramref name="other"/>.</summary>
-    internal static bool IsGreaterThan(this IComparable comparable, IComparable other, bool orEqualTo = false)
-    {
-        var position = comparable.CompareTo(other);
-        return orEqualTo ? position >= 0 : position > 0;
-    }
-
-    /// <summary>Determines whether <paramref name="other"/> is less than
-    /// <paramref name="orEqualTo"/> the <paramref name="other"/>.</summary>
-    internal static bool IsLessThan(this IComparable comparable, IComparable other, bool orEqualTo = false)
-    {
-        var position = comparable.CompareTo(other);
-        return orEqualTo ? position <= 0 : position < 0;
-    }
-}
-
-internal static class AsyncEnumerableExtensions
+public static class AsyncEnumerableExtensions
 {
     /// <summary>Enumerates the <paramref name="asyncEnumerable"/> and returns a list with all results.
     /// Inspired by https://stackoverflow.com/a/58915390 .</summary>
@@ -122,6 +124,30 @@ internal static class AsyncEnumerableExtensions
         var list = new List<T>();
         await foreach (var t in asyncEnumerable) list.Add(t);
         return list;
+    }
+
+    public static async IAsyncEnumerable<T> Parallelize<T>(this IEnumerable<IAsyncEnumerable<T>> asyncProducers,
+        [EnumeratorCancellation] CancellationToken cancellation)
+    {
+        var products = Channel.CreateUnbounded<T>(new UnboundedChannelOptions() { SingleReader = true });
+
+        var productionLines = asyncProducers.Select(async asyncProducer =>
+        {
+            try
+            {
+                await foreach (var product in asyncProducer.WithCancellation(cancellation))
+                    await products.Writer.WriteAsync(product, cancellation);
+            }
+            catch (OperationCanceledException) { } // Catch cancellation from outer loop
+        }).ToList();
+
+        // hook up writer completion before starting to read to ensure the reader knows when it's done
+        var completion = Task.WhenAll(productionLines).ContinueWith(_ => products.Writer.Complete()).WithAggregateException();
+
+        // Read from product channel and yield each product
+        await foreach (var product in products.Reader.ReadAllAsync(cancellation)) yield return product;
+
+        await completion; // to ensure any exceptions are propagated
     }
 }
 
@@ -142,7 +168,7 @@ internal static class ValueTasks
         return (results, exceptions);
     }
 
-    internal static ValueTask<(T[], Exception[])> WhenAll<T>(IEnumerable<ValueTask<T>> tasks) => WhenAll(tasks?.ToArray());
+    internal static ValueTask<(T[], Exception[])> WhenAll<T>(IEnumerable<ValueTask<T>> tasks) => WhenAll(tasks!.ToArray());
 }
 
 internal static class TaskExtensions
@@ -166,7 +192,7 @@ internal static class HttpRequestExceptionExtensions
 
 internal static class ChannelAliasMapExtensions
 {
-    internal static ChannelAliasMap ForAlias(this List<ChannelAliasMap> maps, object alias)
+    internal static ChannelAliasMap? ForAlias(this List<ChannelAliasMap> maps, object alias)
     {
         var (type, value) = ChannelAliasMap.GetTypeAndValue(alias);
 
