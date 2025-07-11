@@ -1,6 +1,5 @@
 using AngleSharp;
 using AngleSharp.Dom;
-using CommandLine.Text;
 
 namespace SubTubular;
 
@@ -14,12 +13,14 @@ internal sealed class OutputWriter : IDisposable
     private readonly ConsoleColor regularForeGround;
     private readonly bool outputHtml, hasOutputPath, writeOutputFile;
     private readonly string fileOutputPath;
-    private readonly SearchCommand command;
+    private readonly OutputCommand command;
     private readonly IDocument document;
     private readonly IElement output;
     private readonly StringWriter textOut;
 
-    internal OutputWriter(SearchCommand command)
+    public bool WroteResults { get; private set; }
+
+    internal OutputWriter(OutputCommand command)
     {
         regularForeGround = Console.ForegroundColor; //using current
         this.outputHtml = command.OutputHtml;
@@ -51,7 +52,7 @@ internal sealed class OutputWriter : IDisposable
         //provide link(s) to the searched playlist or videos for debugging IDs
         Write(command.Describe() + " ");
 
-        foreach (var url in command.ValidUrls)
+        foreach (var url in command.Scope.ValidUrls)
         {
             WriteUrl(url);
             Write(" ");
@@ -190,7 +191,7 @@ internal sealed class OutputWriter : IDisposable
 
     internal void DisplayVideoResult(VideoSearchResult result)
     {
-        var videoUrl = SearchVideos.GetVideoUrl(result.Video.Id);
+        var videoUrl = Youtube.GetVideoUrl(result.Video.Id);
 
         if (result.TitleMatches != null)
             using (var indent = new IndentedText())
@@ -264,6 +265,7 @@ internal sealed class OutputWriter : IDisposable
         }
 
         WriteLine();
+        WroteResults = true;
     }
 
     /// <summary>Displays the <paramref name="keywords"/> on the <see cref="Console"/>,
@@ -290,6 +292,8 @@ internal sealed class OutputWriter : IDisposable
                 line = keyword; // and start a new one
             }
         }
+
+        WroteResults = true;
     }
 
     internal async ValueTask<string> WriteOutputFile(Func<string> getDefaultStorageFolder)
@@ -367,7 +371,7 @@ internal sealed class OutputWriter : IDisposable
         /// <summary>Wraps <paramref name="text"/> into multiple lines
         /// indented by the remembered <see cref="Console.CursorLeft"/>
         /// fitting the remembered <see cref="Console.WindowWidth"/>.</summary>
-        internal string Wrap(string text) => TextWrapper.WrapAndIndentText(text, left, width - left).TrimStart();
+        internal string Wrap(string text) => text.Wrap(width - left).Indent(left).Join(Environment.NewLine).TrimStart();
 
         /// <summary>Indicates whether the number of <paramref name="characters"/> fit the current line.</summary>
         internal bool FitsCurrentLine(int characters) => characters <= width - Console.CursorLeft;

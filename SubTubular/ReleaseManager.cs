@@ -1,29 +1,12 @@
-using System.Diagnostics;
-using CommandLine;
+﻿using System.Diagnostics;
 using Octokit;
 
 namespace SubTubular;
 
-[Verb("release", aliases: new[] { "r" }, HelpText = $"List, browse and install other {Program.Name} releases.")]
-internal sealed class Release
+internal static class ReleaseManager
 {
-    private const string actions = "actions", into = "into", install = "install";
-
-    [Option('l', "list", Group = actions,
-        HelpText = $"Lists available releases from {Program.ReleasesUrl} .")]
-    public bool List { get; set; }
-
-    [Option('n', "notes", Group = actions, HelpText = "Opens the github release notes for a single release."
-        + " Supply either the version of the release you're interested in or 'latest'.")]
-    public string Notes { get; set; }
-
-    [Option('t', into, Hidden = true)]
-    public string InstallFolder { get; set; }
-
-    [Option('i', install, Group = actions, HelpText = "Downloads a release from github"
-        + " and unzips it to the current installation folder while backing up the running version."
-        + " Supply either the version of the release to install or 'latest'.")]
-    public string InstallVersion { get; set; }
+    internal const string InstallVersionConsoleCommand = "install",
+        InstallFolderConsoleParameter = "--into";
 
     internal static async Task<string> ListAsync(DataStore dataStore)
     {
@@ -36,9 +19,9 @@ internal sealed class Release
             .Prepend("date       " + version.PadRight(maxVersionLength) + " name").Join(Environment.NewLine);
     }
 
-    internal async Task InstallByTagAsync(Action<string> report, DataStore dataStore)
+    internal static async Task InstallByTagAsync(string version, string installInto, Action<string> report, DataStore dataStore)
     {
-        var release = await GetRelease(InstallVersion, dataStore);
+        var release = await GetRelease(version, dataStore);
 
         if (release.Version == AssemblyInfo.Version)
             throw new InputException($"Release {release.Version} is already installed.");
@@ -46,12 +29,12 @@ internal sealed class Release
         if (release.BinariesZipError != null) throw new InputException(
             $"Installing release {release.Version} is not supported because it contains {release.BinariesZipError}.");
 
-        if (string.IsNullOrEmpty(InstallFolder)) // STEP 1, running in app to be replaced
+        if (string.IsNullOrEmpty(installInto)) // STEP 1, running in app to be replaced
         {
             // back up current app
             var appFolder = Path.GetDirectoryName(AssemblyInfo.Location);
             var archiveFolder = GetArchivePath(appFolder);
-            var productInfo = Program.Name + " " + AssemblyInfo.Version;
+            var productInfo = AssemblyInfo.Name + " " + AssemblyInfo.Version;
             var backupFolder = Path.Combine(archiveFolder, productInfo.ToFileSafe());
 
             report($"Backing up installed {productInfo} binaries{Environment.NewLine}to '{backupFolder}' ... ");
@@ -67,12 +50,12 @@ internal sealed class Release
 
             /*  start STEP 2 on backed up binaries and have them replace
                 the ones in the current location with the requested version */
-            Process.Start(Path.Combine(backupFolder, Program.Name + ".exe"),
-                $"release --{install} {release.Version} --{into} {appFolder}");
+            Process.Start(Path.Combine(backupFolder, AssemblyInfo.Name + ".exe"),
+                $"release {InstallVersionConsoleCommand} {release.Version} {InstallFolderConsoleParameter} {appFolder}");
         }
         else // STEP 2, running on backed up binaries of app to be replaced (in archive sub folder)
         {
-            var archiveFolder = GetArchivePath(InstallFolder);
+            var archiveFolder = GetArchivePath(installInto);
             var zipPath = Path.Combine(archiveFolder, release.BinariesZip.Name);
             var zipFile = new FileInfo(zipPath);
             report(Environment.NewLine); // to start in a new line below the prompt
@@ -83,18 +66,18 @@ internal sealed class Release
                 var url = release.BinariesZip.DownloadUrl;
                 report($"Downloading {release.Version} from '{url}'{Environment.NewLine}to '{zipPath}' ... ");
                 await FileHelper.DownloadAsync(url, zipPath);
-                report("DONE" + Program.OutputSpacing);
+                report("DONE" + AssemblyInfo.OutputSpacing);
             }
 
-            report($"Removing installed binaries from '{InstallFolder}' ... ");
-            foreach (var filePath in FileHelper.GetFilesExcluding(InstallFolder, archiveFolder)) File.Delete(filePath);
-            report("DONE" + Program.OutputSpacing);
+            report($"Removing installed binaries from '{installInto}' ... ");
+            foreach (var filePath in FileHelper.GetFilesExcluding(installInto, archiveFolder)) File.Delete(filePath);
+            report("DONE" + AssemblyInfo.OutputSpacing);
 
-            report($"Unpacking '{zipPath}'{Environment.NewLine}into '{InstallFolder}' ... ");
-            FileHelper.Unzip(zipPath, InstallFolder);
-            report("DONE" + Program.OutputSpacing);
+            report($"Unpacking '{zipPath}'{Environment.NewLine}into '{installInto}' ... ");
+            FileHelper.Unzip(zipPath, installInto);
+            report("DONE" + AssemblyInfo.OutputSpacing);
 
-            report($"The binaries in '{InstallFolder}'" + Environment.NewLine
+            report($"The binaries in '{installInto}'" + Environment.NewLine
                 + $"have successfully been updated to {release.Version} - opening release notes.");
 
             OpenNotes(release); // by default to update users about changes
@@ -108,7 +91,7 @@ internal sealed class Release
     private static string GetArchivePath(string appFolder) => Path.Combine(appFolder, "other releases");
 
     private static GitHubClient GetGithubClient()
-        => new GitHubClient(new ProductHeaderValue(Program.Name, AssemblyInfo.GetProductVersion()));
+        => new GitHubClient(new ProductHeaderValue(AssemblyInfo.Name, AssemblyInfo.GetProductVersion()));
 
     private static async Task<List<CacheModel>> GetAll(DataStore dataStore)
     {
@@ -122,7 +105,7 @@ internal sealed class Release
             if (cached != null) return cached;
         }
 
-        var freshReleases = await GetGithubClient().Repository.Release.GetAll(Program.RepoOwner, Program.RepoName);
+        var freshReleases = await GetGithubClient().Repository.Release.GetAll(AssemblyInfo.RepoOwner, AssemblyInfo.RepoName);
         var releases = freshReleases.Select(release => new CacheModel(release)).ToList();
         await dataStore.SetAsync(cacheKey, releases);
         return releases;

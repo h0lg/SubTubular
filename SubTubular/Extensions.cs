@@ -47,6 +47,37 @@ internal static class StringExtensions
     /// with <paramref name="replacement"/>.</summary>
     internal static string ToFileSafe(this string value, string replacement = "_")
         => Regex.Replace(value, "[" + Regex.Escape(new string(Path.GetInvalidFileNameChars())) + "]", replacement);
+
+    internal static IEnumerable<string> Wrap(this string input, int columnWidth)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+        return input.Split(' ').Wrap(columnWidth);
+    }
+
+    internal static IEnumerable<string> Wrap(this IEnumerable<string> phrases, int columnWidth)
+    {
+        ArgumentNullException.ThrowIfNull(phrases);
+        if (phrases.Count() <= 1) return phrases;
+        if (columnWidth <= 0) throw new ArgumentException("Column width must be greater than 0.", nameof(columnWidth));
+
+        // from https://stackoverflow.com/a/29689349
+        return phrases.Skip(1).Aggregate(seed: phrases.Take(1).ToList(), (lines, phrase) =>
+        {
+            // if length of last line gets up to or over columnWidth, add the phrase on a new line
+            if (lines.Last().Length + phrase.Length >= columnWidth) lines.Add(phrase);
+            else lines[lines.Count - 1] += " " + phrase; // otherwise add phrase to last line
+
+            return lines;
+        });
+    }
+
+    internal static IEnumerable<string> Indent(this IEnumerable<string> lines, int indentLevel)
+    {
+        ArgumentNullException.ThrowIfNull(lines);
+        if (indentLevel < 0) throw new ArgumentException("Only positive non-zero indents are supported.", nameof(indentLevel));
+        if (indentLevel == 0) return lines;
+        return lines.Select(l => new string(' ', indentLevel) + l);
+    }
 }
 
 /// <summary>Extension methods for <see cref="IEnumerable{T}"/> types.</summary>
