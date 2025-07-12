@@ -22,7 +22,14 @@ public sealed class VideoIndexRepository
     private static FullTextIndexBuilder<string> CreateIndexBuilder()
         //see https://mikegoatly.github.io/lifti/docs/getting-started/indexing-objects/
         => new FullTextIndexBuilder<string>()
-            .WithDefaultTokenization(o => o.AccentInsensitive().CaseInsensitive())
+            .WithDefaultTokenization(o => o.AccentInsensitive().CaseInsensitive() // allows for easier matches
+                /* only split on custom punctuation chars to enable searching for placeholders and compound words
+                 * like "ever-lasting" or "can't" or "[Laughter]" or "[ __ ]", see
+                 * https://github.com/mikegoatly/lifti/discussions/125
+                 * https://mikegoatly.github.io/lifti/docs/index-construction/withdefaulttokenization/#splitonpunctuationbool
+                 * https://research.google/blog/adding-sound-effect-information-to-youtube-captions/
+                 * https://support.google.com/youtube/answer/6373554?hl=en#zippy=%2Cpotentially-inappropriate-words-in-automatic-captions */
+                .SplitOnPunctuation(false).SplitOnCharacters(',', '.', '?', '!', '"'))
             // see https://mikegoatly.github.io/lifti/docs/index-construction/withobjecttokenization/
             .WithObjectTokenization<Video>(itemOptions => itemOptions
                 .WithKey(v => v.Id)
