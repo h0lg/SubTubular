@@ -297,7 +297,6 @@ module ScopeSearch =
                 AutoCompleteBox(model.AliasSearch.SearchAsync)
                     .minimumPopulateDelay(TimeSpan.FromMilliseconds 300)
                     .onTextChanged(model.Aliases, AliasesUpdated)
-                    .onDropDownOpened(model.AliasSearchDropdownOpen, AliasesSearchDropdownToggled)
                     .onLostFocus(fun _ -> AliasesFocusToggled false)
                     .onGotFocus(fun _ -> AliasesFocusToggled true)
                     .minimumPrefixLength(3)
@@ -324,7 +323,10 @@ module ScopeSearch =
             match model.Scope with
             | Videos videos ->
                 ScopeViews.progressText(videos.Progress.ToString()).gridRow (1)
-                autoComplete.acceptReturn ()
+
+                autoComplete
+                    .onDropDownOpened(model.AliasSearchDropdownOpen, AliasesSearchDropdownToggled)
+                    .acceptReturn ()
             | _ -> autoComplete
         }
 
