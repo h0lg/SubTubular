@@ -102,8 +102,8 @@ module ScopeSearch =
                 let _, searchTerms = VideosInput.partition text vids
                 let labeledId = Alias.label result.Title result.Id
                 selectedText <- labeledId :: searchTerms |> VideosInput.join
-            // replace search term for playlist-like scopes
-            | PlaylistLike _ -> selectedText <- Alias.label result.Title result.Id
+            // keep search term and append selected item for playlist-like scopes
+            | PlaylistLike _ -> selectedText <- text + " | " + Alias.label result.Title result.Id
 
             selectedText
 
