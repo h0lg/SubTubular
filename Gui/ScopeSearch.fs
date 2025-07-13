@@ -155,14 +155,14 @@ module ScopeSearch =
         { Scope: CommandScope
           Aliases: string
           AliasSearch: AliasSearch
-          AliasSearchDropdownOpen: bool
+          DropdownOpen: bool
           ValidationError: string
           Added: bool }
 
     type Msg =
         | AliasesUpdated of string
-        | AliasesFocusToggled of bool
-        | AliasesSearchDropdownToggled of bool
+        | FocusToggled of bool
+        | DropdownToggled of bool
         | ValidationSucceeded
         | ValidationFailed of exn
 
@@ -226,7 +226,7 @@ module ScopeSearch =
             match scope with
             | PlaylistLike pl -> pl.Alias
             | Vids v -> v.Videos |> VideosInput.join
-          AliasSearchDropdownOpen = false
+          DropdownOpen = false
           AliasSearch = AliasSearch(scope)
           ValidationError = null
           Added = added }
@@ -240,14 +240,12 @@ module ScopeSearch =
                 Aliases = aliases },
             Cmd.none
 
-        | AliasesFocusToggled gained ->
+        | FocusToggled gained ->
             if gained then
                 // open dropdown on gaining focus if possible to assist selection
                 Dispatch.toUiThread (fun () -> model.AliasSearch.Input.Value.IsDropDownOpen <- true)
 
-                { model with
-                    AliasSearchDropdownOpen = true },
-                Cmd.none
+                { model with DropdownOpen = true }, Cmd.none
             else
                 model.AliasSearch.Cancel() // to avoid population after losing focus
 
@@ -256,10 +254,8 @@ module ScopeSearch =
 
                 model, cmd
 
-        | AliasesSearchDropdownToggled isOpen ->
-            let model =
-                { model with
-                    AliasSearchDropdownOpen = isOpen }
+        | DropdownToggled isOpen ->
+            let model = { model with DropdownOpen = isOpen }
 
             let model, cmd =
                 if isOpen then
@@ -297,8 +293,8 @@ module ScopeSearch =
                 AutoCompleteBox(model.AliasSearch.SearchAsync)
                     .minimumPopulateDelay(TimeSpan.FromMilliseconds 300)
                     .onTextChanged(model.Aliases, AliasesUpdated)
-                    .onLostFocus(fun _ -> AliasesFocusToggled false)
-                    .onGotFocus(fun _ -> AliasesFocusToggled true)
+                    .onLostFocus(fun _ -> FocusToggled false)
+                    .onGotFocus(fun _ -> FocusToggled true)
                     .minimumPrefixLength(3)
                     .filterMode(AutoCompleteFilterMode.None)
                     .focus(model.Added)
@@ -323,10 +319,7 @@ module ScopeSearch =
             match model.Scope with
             | Videos videos ->
                 ScopeViews.progressText(videos.Progress.ToString()).gridRow (1)
-
-                autoComplete
-                    .onDropDownOpened(model.AliasSearchDropdownOpen, AliasesSearchDropdownToggled)
-                    .acceptReturn ()
+                autoComplete.onDropDownOpened(model.DropdownOpen, DropdownToggled).acceptReturn ()
             | _ -> autoComplete
         }
 
