@@ -1,6 +1,7 @@
 ﻿namespace SubTubular.Gui
 
 open Avalonia.Controls
+open Avalonia.Media
 open Fabulous.Avalonia
 open SubTubular
 open SubTubular.Extensions
@@ -48,6 +49,9 @@ module ScopeNotifications =
         |> update model scope
 
     let private flyout (notifications: CommandScope.Notification list) =
+        let tb text = // TextAlignment override is required because centered text is inherited from host :(
+            TextBlock(text).textAlignment (TextAlignment.Left)
+
         Flyout(
             ItemsControl(
                 notifications,
@@ -60,17 +64,17 @@ module ScopeNotifications =
                             | CommandScope.Notification.Levels.Info -> Icon.info
                             | _ -> ""
 
-                        TextBlock(icon + ntf.Title)
+                        tb (icon + ntf.Title)
 
                         if ntf.Video <> null then
-                            TextBlock ntf.Video.Title
+                            tb ntf.Video.Title
 
                         if ntf.Message.IsNonEmpty() then
-                            TextBlock ntf.Message
+                            tb ntf.Message
 
                         if ntf.Errors <> null then
                             for err in ntf.Errors.GetRootCauses() do
-                                TextBlock err.Message
+                                tb err.Message
                     }
             )
         )
@@ -86,5 +90,6 @@ module ScopeNotifications =
             else Icon.info
 
         TextBlock($"{icon}\n{notifications.Length}")
+            .centerText()
             .attachedFlyout(flyout notifications)
             .isVisible (not notifications.IsEmpty)
