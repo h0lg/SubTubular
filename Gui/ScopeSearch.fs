@@ -288,8 +288,8 @@ module ScopeSearch =
         "search YouTube - or enter "
         + match model.Scope with
           | Videos _ -> "IDs or URLs; one per line"
-          | Playlist _ -> "ID or URL"
-          | Channel _ -> "handle, slug, user name, ID or URL"
+          | Playlist _ -> "an ID or URL"
+          | Channel _ -> "a handle, slug, user name, ID or URL"
 
     let input model showThumbnails =
         Grid(coldefs = [ Auto; Star ], rowdefs = [ Auto; Auto ]) {
