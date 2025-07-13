@@ -147,19 +147,17 @@ static partial class CommandInterpreter
 
     private static (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) AddOutputOptions(Command command)
     {
-        const string htmlName = "--html", outputPathName = "--out",
-            existingFilesAreOverWritten = " Existing files with the same name will be overwritten.";
+        const string htmlName = "--html", outputPathName = "--out";
 
         Option<bool> html = new([htmlName, "-m"],
             "If set, outputs the highlighted search result in an HTML file including hyperlinks for easy navigation."
             + $" The output path can be configured in the '{outputPathName}' parameter."
             + " Omitting it will save the file into the default 'output' folder - named according to your search parameters."
-            + existingFilesAreOverWritten);
+            + OutputCommand.ExistingFilesAreOverWritten);
 
         Option<string> fileOutputPath = new([outputPathName, "-o"],
-            $"Writes the search results to a file, the format of which is either text or HTML depending on the '{htmlName}' flag."
-            + " Supply either a file or folder path. If the path doesn't contain a file name, the file will be named according to your search parameters."
-            + existingFilesAreOverWritten);
+            $"Writes the search results to a file, the format of which is either text or HTML depending on the '{htmlName}' flag. "
+            + OutputCommand.FileOutputPathHint + OutputCommand.ExistingFilesAreOverWritten);
 
         Option<OutputCommand.Shows?> show = new(["--show", "-s"], "The output to open if a file was written.");
 

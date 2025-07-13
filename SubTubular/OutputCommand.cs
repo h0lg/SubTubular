@@ -8,6 +8,9 @@ namespace SubTubular;
 [JsonDerivedType(typeof(ListKeywords), "list keywords")]
 public abstract class OutputCommand
 {
+    public const string ExistingFilesAreOverWritten = " Existing files with the same name will be overwritten.",
+        FileOutputPathHint = "Supply either a file or folder path. If the path doesn't contain a file name, the file will be named according to your search parameters.";
+
     public VideosScope? Videos { get; set; }
     internal bool HasValidVideos => Videos?.IsValid == true;
 
