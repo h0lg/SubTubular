@@ -161,6 +161,7 @@ module ScopeSearch =
 
     type Msg =
         | AliasesUpdated of string
+        | Populated
         | FocusToggled of bool
         | DropdownToggled of bool
         | ValidationSucceeded
@@ -231,6 +232,9 @@ module ScopeSearch =
           ValidationError = null
           Added = added }
 
+    let private openDropdown model =
+        Dispatch.toUiThread (fun () -> model.AliasSearch.Input.Value.IsDropDownOpen <- true)
+
     let update msg model =
         match msg with
         | AliasesUpdated aliases ->
@@ -240,11 +244,13 @@ module ScopeSearch =
                 Aliases = aliases },
             Cmd.none
 
+        | Populated ->
+            openDropdown model // to assist selection
+            { model with DropdownOpen = true }, Cmd.none
+
         | FocusToggled gained ->
             if gained then
-                // open dropdown on gaining focus if possible to assist selection
-                Dispatch.toUiThread (fun () -> model.AliasSearch.Input.Value.IsDropDownOpen <- true)
-
+                openDropdown model // to assist selection
                 { model with DropdownOpen = true }, Cmd.none
             else
                 model.AliasSearch.Cancel() // to avoid population after losing focus
@@ -295,6 +301,7 @@ module ScopeSearch =
                     .onTextChanged(model.Aliases, AliasesUpdated)
                     .onLostFocus(fun _ -> FocusToggled false)
                     .onGotFocus(fun _ -> FocusToggled true)
+                    .onPopulated(fun _ -> Populated)
                     .minimumPrefixLength(3)
                     .filterMode(AutoCompleteFilterMode.None)
                     .focus(model.Added)
