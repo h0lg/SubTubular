@@ -7,3 +7,6 @@ Thumbs.db
 [Bb]in
 obj/
 *.user
+
+#publish.proj output
+/publish/packages/

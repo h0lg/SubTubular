@@ -1,0 +1,34 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net9.0</TargetFrameworks>
+    <PublishDir>$(MSBuildThisFileDirectory)packages\$(Product) $(VersionPrefix)</PublishDir>
+  </PropertyGroup>
+
+  <Target Name="CleanOutput">
+    <RemoveDir Directories="$(PublishDir)" />
+  </Target>
+
+  <Target Name="PublishShell">
+    <MSBuild Projects="..\Shell\Shell.csproj" Targets="Publish"
+             Properties="Configuration=Release;PublishDir=$(PublishDir);PublishSingleFile=false;SelfContained=false;RuntimeIdentifier=$(RuntimeIdentifier)" />
+  </Target>
+
+  <Target Name="PublishGui">
+    <MSBuild Projects="..\Gui\Gui.fsproj" Targets="Publish"
+             Properties="Configuration=Release;PublishDir=$(PublishDir);PublishSingleFile=false;SelfContained=false;RuntimeIdentifier=$(RuntimeIdentifier);TargetFramework=net9.0" />
+  </Target>
+
+  <Target Name="ZipOutput">
+    <PropertyGroup>
+      <ZipPath>$(PublishDir).zip</ZipPath>
+    </PropertyGroup>
+
+    <!-- Delete existing zip -->
+    <Exec Command="powershell -Command &quot;if (Test-Path '$(ZipPath)') { Remove-Item '$(ZipPath)' -Force }&quot;" />
+
+    <!-- Create new zip including the folder -->
+    <Exec Command="powershell -Command &quot;Compress-Archive -Path '$(PublishDir)' -DestinationPath '$(ZipPath)'&quot;" />
+
+    <Message Text="Packed $(ZipPath)" Importance="high" />
+  </Target>
+</Project>
