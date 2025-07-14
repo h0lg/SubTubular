@@ -138,7 +138,10 @@ module OutputCommandView =
         }
 
     let render model showThumbnails =
-        (Grid(coldefs = [ Star ], rowdefs = [ Auto; Auto; Auto; Auto; Star ]) {
+        // Star Height allows ScrollViewer to work by limiting its height
+        let scopesHeight = if model.ShowScopes then Star else Auto
+
+        (Grid(coldefs = [ Star ], rowdefs = [ scopesHeight; Auto; Auto; Stars(2) ]) {
             let isSearch = model.Command = Commands.Search
 
             let hasResults =
@@ -186,6 +189,6 @@ module OutputCommandView =
             )
                 .isVisible(hasResults)
                 .card()
-                .gridRow (4)
+                .gridRow (3)
         })
             .margin (5, 5, 5, 0)
