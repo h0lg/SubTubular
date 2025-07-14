@@ -9,11 +9,11 @@ open SubTubular.Extensions
 
 open type Fabulous.Avalonia.View
 
-module ConfigFile =
+module RecentCommandView =
     type Model =
         { DescriptionContains: string
           Filtered: RecentCommands.Item list
-          Recent: RecentCommands.Item list }
+          All: RecentCommands.Item list }
 
     type Msg =
         | RecentsLoaded of RecentCommands.Item list
@@ -25,15 +25,15 @@ module ConfigFile =
         | Save
         | Common of CommonMsg
 
-    let loadRecent =
+    let load =
         task {
-            let! recent = RecentCommands.ListAsync()
-            return RecentsLoaded(List.ofSeq recent)
+            let! all = RecentCommands.ListAsync()
+            return RecentsLoaded(List.ofSeq all)
         }
 
     let private save model =
         task {
-            do! RecentCommands.SaveAsync(model.Recent)
+            do! RecentCommands.SaveAsync(model.All)
             return None
         }
         |> Cmd.OfTask.msgOption
@@ -43,34 +43,34 @@ module ConfigFile =
     let initModel =
         { DescriptionContains = ""
           Filtered = []
-          Recent = [] }
+          All = [] }
 
     let update msg model =
         match msg with
-        | RecentsLoaded list -> { model with Recent = list }, filter
+        | RecentsLoaded list -> { model with All = list }, filter
         | DescriptionContainsChanged str -> { model with DescriptionContains = str }, filter
 
         | Filter ->
             let filtered =
                 if model.DescriptionContains.IsNullOrWhiteSpace() then
-                    model.Recent
+                    model.All
                 else
-                    model.Recent
+                    model.All
                     |> List.filter (fun r ->
                         r.Description.Contains(model.DescriptionContains, System.StringComparison.OrdinalIgnoreCase))
 
             { model with Filtered = filtered }, Cmd.none
 
         | CommandRun cmd ->
-            let list = List<RecentCommands.Item>(model.Recent) // convert to generic List to enable reusing AddOrUpdate
+            let list = List<RecentCommands.Item>(model.All) // convert to generic List to enable reusing AddOrUpdate
             list.AddOrUpdate(cmd) // sorts the list as well
-            let model = { model with Recent = List.ofSeq list } // update our model
+            let model = { model with All = List.ofSeq list } // update our model
             model, Cmd.batch [ filter; save model ]
 
         | Remove cfg ->
             let model =
                 { model with
-                    Recent = model.Recent |> List.except [ cfg ] }
+                    All = model.All |> List.except [ cfg ] }
 
             model, Cmd.batch [ filter; save model ]
 

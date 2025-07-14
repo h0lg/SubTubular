@@ -18,11 +18,11 @@ module App =
           IsSearchRunning: bool
           Settings: Settings.Model
           Cache: Cache.Model
-          Recent: ConfigFile.Model }
+          Recent: RecentCommandView.Model }
 
     type Msg =
         | CacheMsg of Cache.Msg
-        | RecentMsg of ConfigFile.Msg
+        | RecentMsg of RecentCommandView.Msg
         | SettingsMsg of Settings.Msg
         | SearchMsg of OutputCommands.Msg
 
@@ -32,7 +32,7 @@ module App =
     let private initModel =
         { Cache = Cache.initModel
           Settings = Settings.initModel
-          Recent = ConfigFile.initModel
+          Recent = RecentCommandView.initModel
           Search = OutputCommands.initModel
           IsSearchRunning = false }
 
@@ -45,7 +45,7 @@ module App =
         initModel,
         Cmd.batch
             [ Settings.load |> Cmd.map SettingsMsg
-              ConfigFile.loadRecent |> Cmd.OfTask.msg |> Cmd.map RecentMsg ]
+              RecentCommandView.load |> Cmd.OfTask.msg |> Cmd.map RecentMsg ]
 
     let private searchTab = ViewRef<TabItem>()
 
@@ -62,16 +62,16 @@ module App =
         | RecentMsg rmsg ->
             let loaded, cmd =
                 match rmsg with
-                | ConfigFile.Msg.Load cmd ->
+                | RecentCommandView.Msg.Load cmd ->
                     searchTab.Value.IsSelected <- true
                     let cmdClone = deepClone cmd // to avoid modifying the loaded recent command object itself
                     let updated, cmd = OutputCommands.load cmdClone model.Search
                     { model with Search = updated }, Cmd.map SearchMsg cmd
 
-                | ConfigFile.Msg.Common msg -> model, Common msg |> Cmd.ofMsg
+                | RecentCommandView.Msg.Common msg -> model, Common msg |> Cmd.ofMsg
                 | _ -> model, Cmd.none
 
-            let recent, rCmd = ConfigFile.update rmsg model.Recent
+            let recent, rCmd = RecentCommandView.update rmsg model.Recent
             { loaded with Recent = recent }, Cmd.batch [ cmd; Cmd.map RecentMsg rCmd ]
 
         | AttachedToVisualTreeChanged args ->
@@ -84,7 +84,7 @@ module App =
             let fwdCmd =
                 match smsg with
                 | OutputCommands.Msg.Common msg -> Common msg |> Cmd.ofMsg
-                | OutputCommands.Msg.CommandValidated cmd -> ConfigFile.CommandRun cmd |> RecentMsg |> Cmd.ofMsg
+                | OutputCommands.Msg.CommandValidated cmd -> RecentCommandView.CommandRun cmd |> RecentMsg |> Cmd.ofMsg
                 | OutputCommands.Msg.ResultOptionsChanged -> requestSaveSettings ()
                 | OutputCommands.Msg.FileOutputMsg fom ->
                     match fom with
@@ -160,7 +160,7 @@ module App =
         (TabControl() {
             TabItem(Image(appIconUrl).margin(10, 5, 0, 0).height (25), HWrapEmpty()).isEnabled (false)
 
-            TabItem(Icon.recent + " Recent", View.map RecentMsg (ConfigFile.view model.Recent))
+            TabItem(Icon.recent + " Recent", View.map RecentMsg (RecentCommandView.view model.Recent))
                 .isEnabled(not model.IsSearchRunning)
                 .isSelected (true)
 

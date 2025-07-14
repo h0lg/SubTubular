@@ -22,7 +22,7 @@
     <Compile Include="CmdExtensions.fs" />
     <Compile Include="Focus.fs" />
     <Compile Include="Services.fs" />
-    <Compile Include="ConfigFile.fs" />
+    <Compile Include="RecentCommandView.fs" />
     <Compile Include="ScopeViews.fs" />
     <Compile Include="ScopeNotifications.fs" />
     <Compile Include="ScopeSearch.fs" />
