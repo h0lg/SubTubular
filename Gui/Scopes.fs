@@ -9,7 +9,9 @@ open SubTubular
 open type Fabulous.Avalonia.View
 
 module Scopes =
-    type Model = { List: Scope.Model list }
+    type Model =
+        { List: Scope.Model list
+          HasVideos: bool }
 
     type Msg =
         | AddScope of Type
@@ -19,7 +21,12 @@ module Scopes =
     let private mapScopeCmd scopeModel scopeCmd =
         Cmd.map (fun scopeMsg -> ScopeMsg(scopeModel, scopeMsg)) scopeCmd
 
-    let init () = { List = [] }
+    let init () = { List = []; HasVideos = false }
+
+    let private updateList model list =
+        { model with
+            List = list
+            HasVideos = list |> List.exists Scope.isForVideos }
 
     let loadRecentCommand model (command: OutputCommand) =
         let scopes =
@@ -29,8 +36,7 @@ module Scopes =
                 to avoid triggering recreation and validation of scopes *)
             |> List.ofSeq
 
-        { model with
-            List = scopes |> List.map fst },
+        scopes |> List.map fst |> updateList model,
         scopes
         |> List.map (fun scope ->
             let model, cmd = scope
@@ -50,22 +56,18 @@ module Scopes =
 
     let update msg model =
         match msg with
-        | AddScope ofType ->
-            { model with
-                List = model.List @ [ Scope.add ofType ] },
-            Cmd.none
+        | AddScope ofType -> model.List @ [ Scope.add ofType ] |> updateList model, Cmd.none
 
         | ScopeMsg(scope, scopeMsg) ->
             let updatedScope, cmd, intent = Scope.update scopeMsg scope
 
             let updated =
                 match intent with
-                | Scope.Intent.RemoveMe ->
-                    { model with
-                        List = model.List |> List.except [ updatedScope ] }
+                | Scope.Intent.RemoveMe -> model.List |> List.except [ updatedScope ] |> updateList model
                 | Scope.Intent.DoNothing ->
-                    { model with
-                        List = model.List |> List.map (fun s -> if s = scope then updatedScope else s) }
+                    model.List
+                    |> List.map (fun s -> if s = scope then updatedScope else s)
+                    |> updateList model
 
             let mappedCmd = mapScopeCmd updatedScope cmd
 
@@ -77,16 +79,11 @@ module Scopes =
             updated, fwdCmd
         | Common _ -> model, Cmd.none
 
-    let private getAddableTypes model =
-        let multipleAllowed = [ typeof<ChannelScope>; typeof<PlaylistScope> ]
-
-        if model.List |> List.exists Scope.isForVideos then
-            multipleAllowed
-        else
-            multipleAllowed @ [ typeof<VideosScope> ]
-
     let private addScopeStack = ViewRef<Border>()
     let private container = ViewRef<Panel>()
+
+    let private addButton scopeType =
+        Button(ScopeViews.displayType scopeType true, AddScope scopeType)
 
     let view model showThumbnails =
         (Panel() {
@@ -104,7 +101,7 @@ module Scopes =
 
                 (*  Render an empty spacer the size of the add scope control stack,
                     effectively creating an empty line in the HWrap if they don't fit the current one.
-                    This prevents the absolutely positioned add controls from overlapping the last scope input. *)
+                    This prevents the absolutely positioned addScopeStack from overlapping the last scope input. *)
                 match addScopeStack.TryValue with
                 | Some stack -> Rectangle().width(stack.DesiredSize.Width).height (stack.DesiredSize.Height)
                 | None -> ()
@@ -113,9 +110,9 @@ module Scopes =
             (Border(
                 HStack(5) {
                     Label "add"
-
-                    for scopeType in getAddableTypes model do
-                        Button(ScopeViews.displayType scopeType true, AddScope scopeType)
+                    addButton typeof<ChannelScope>
+                    addButton typeof<PlaylistScope>
+                    (addButton typeof<VideosScope>).isVisible (not model.HasVideos)
                 }
             ))
                 .classes("add-scope")
