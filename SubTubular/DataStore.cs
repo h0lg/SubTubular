@@ -1,8 +1,13 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace SubTubular;
 
+/*  Naming Styles: Missing I prefix for interfaces.
+ *  Devs should be able to figure this one out. */
+#pragma warning disable IDE1006
 public interface DataStore
+#pragma warning restore IDE1006
 {
     DateTime? GetLastModified(string key);
     ValueTask<T?> GetAsync<T>(string key);
@@ -99,18 +104,21 @@ public abstract class FileDataStore<T> : FileDataStore where T : class
 }
 */
 
-public class JsonFileDataStore(string directory) : FileDataStore(directory, ".json")
+public class JsonFileDataStore(string directory) : FileDataStore(directory, FileExtension)
 {
+    public const string FileExtension = ".json";
+    private readonly JsonSerializerOptions options = new() { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault };
+
     protected override async ValueTask<T?> DeserializeFrom<T>(string key, string path) where T : default
     {
         await using FileStream stream = new(path, FileMode.Open);
-        return await JsonSerializer.DeserializeAsync<T?>(stream);
+        return await JsonSerializer.DeserializeAsync<T?>(stream, options);
     }
 
     protected override async Task SerializeToPath<T>(T value, string path)
     {
         await using FileStream stream = new(path, FileMode.Create);
-        await JsonSerializer.SerializeAsync(stream, value);
+        await JsonSerializer.SerializeAsync(stream, value, options);
     }
 }
 

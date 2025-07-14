@@ -1,0 +1,59 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFrameworks>net9.0</TargetFrameworks>
+    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
+  </PropertyGroup>
+  <PropertyGroup>
+    <AvaloniaPlatform>$([MSBuild]::GetTargetPlatformIdentifier($(TargetFramework)))</AvaloniaPlatform>
+    <!-- Normalize casing -->
+    <AvaloniaPlatform Condition="'$(AvaloniaPlatform)' == ''">Desktop</AvaloniaPlatform>
+    <ApplicationIcon>SubTubular.ico</ApplicationIcon>
+    <AssemblyName>SubTubular.Gui</AssemblyName>
+    <RootNamespace>SubTubular.Gui</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <AvaloniaResource Include="Styles.xaml" />
+    <AvaloniaResource Include="SubTubular.ico" />
+    <Compile Include="WrapPanel.fs" />
+    <Compile Include="AsyncImage.fs" />
+    <Compile Include="StyledElement.fs" />
+    <Compile Include="Styles.fs" />
+    <Compile Include="CmdExtensions.fs" />
+    <Compile Include="Focus.fs" />
+    <Compile Include="Services.fs" />
+    <Compile Include="RecentCommandView.fs" />
+    <Compile Include="ScopeViews.fs" />
+    <Compile Include="ScopeNotifications.fs" />
+    <Compile Include="ScopeSearch.fs" />
+    <Compile Include="Scope.fs" />
+    <Compile Include="Cache.fs" />
+    <Compile Include="Scopes.fs" />
+    <Compile Include="Pager.fs" />
+    <Compile Include="SearchResult.fs" />
+    <Compile Include="ResultOptions.fs" />
+    <Compile Include="FileOutput.fs" />
+    <Compile Include="Settings.fs" />
+    <Compile Include="OutputCommand.fs" />
+    <Compile Include="OutputCommandView.fs" />
+    <Compile Include="App.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Properties\**" />
+  </ItemGroup>
+  <ItemGroup Condition="$(AvaloniaPlatform) == 'Desktop'">
+    <Compile Include="$(DesktopPlatformFolder)Program.fs" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="AsyncImageLoader.Avalonia" Version="3.3.0" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.2" />
+    <PackageReference Include="Fabulous.Avalonia.Diagnostics" Version="3.0.0-pre12" />
+    <PackageReference Include="FSharp.Core" Version="9.0.300" />
+    <PackageReference Include="Fabulous" Version="3.0.0-pre22" />
+    <PackageReference Include="Fabulous.Avalonia" Version="3.0.0-pre12" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SubTubular\SubTubular.csproj" />
+  </ItemGroup>
+</Project>

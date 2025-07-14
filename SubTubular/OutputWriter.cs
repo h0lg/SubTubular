@@ -15,6 +15,8 @@ public abstract class OutputWriter(OutputCommand command)
     public abstract void Write(string text);
     public abstract void WriteHighlighted(string text);
     public abstract void WriteLine(string? text = null);
+    public abstract void WriteNotificationLine(string text);
+    public abstract void WriteErrorLine(string text);
     public abstract void WriteUrl(string url);
 
     public virtual void WriteHeader()
@@ -33,15 +35,17 @@ public abstract class OutputWriter(OutputCommand command)
             if (!validScopes.Any()) return;
             Write(label + " ");
             var indent = CreateIndent();
+            foreach (var scope in validScopes) Describe(scope, indent);
+            WriteLine();
+        }
+    }
 
-            foreach (var scope in validScopes)
-            {
-                foreach (var line in scope.Describe())
-                {
-                    Write(line);
-                    indent.StartNewLine(this);
-                }
-            }
+    private void Describe(CommandScope scope, IndentedText indent)
+    {
+        foreach (var line in scope.Describe())
+        {
+            Write(line);
+            indent.StartNewLine(this);
         }
     }
 
@@ -83,7 +87,7 @@ public abstract class OutputWriter(OutputCommand command)
         }
         #endregion
 
-        List<MatchedText.Match> indentedMatches = new();
+        List<MatchedText.Match> indentedMatches = [];
 
         foreach (var match in matched.Matches)
         {
@@ -103,7 +107,7 @@ public abstract class OutputWriter(OutputCommand command)
             indentedMatches.Add(new MatchedText.Match(start, length));
         }
 
-        var indented = new MatchedText(text, indentedMatches.ToArray());
+        var indented = new MatchedText(text, [.. indentedMatches]);
         indented.WriteHighlightingMatches(Write, WriteHighlighted, padding);
     }
 
@@ -137,7 +141,7 @@ public abstract class OutputWriter(OutputCommand command)
         if (result.KeywordMatches.HasAny())
         {
             Write("  in keywords: ");
-            var lastKeyword = result.KeywordMatches!.Last();
+            var lastKeyword = result.KeywordMatches![^1];
 
             foreach (var match in result.KeywordMatches!)
             {
@@ -179,41 +183,44 @@ public abstract class OutputWriter(OutputCommand command)
             }
         }
 
-        var tracksWithErrors = result.Video.CaptionTracks.Where(t => t.Error != null).ToArray();
-
-        if (tracksWithErrors.Length > 0)
-        {
-            foreach (var track in tracksWithErrors)
-                WriteLine($"  {track.LanguageName}: " + track.ErrorMessage);
-        }
-
         WriteLine();
         WroteResults = true;
     }
 
-    /// <summary>Displays the <paramref name="keywords"/> on the <see cref="Console"/>,
+    /// <summary>Displays the <paramref name="keywordsByScope"/> on the <see cref="Console"/>,
     /// most often occurring keyword first.</summary>
-    /// <param name="keywords">The keywords and their corresponding number of occurrences.</param>
-    public void ListKeywords(Dictionary<string, ushort> keywords)
+    /// <param name="keywordsByScope">The keywords and their corresponding number of occurrences.</param>
+    public void ListKeywords(Dictionary<CommandScope, (string keyword, int foundInVideos)[]> keywordsByScope)
     {
         const string separator = " | ";
         var width = GetWidth();
-        var line = string.Empty;
+        var indent = CreateIndent();
 
-        /*  prevent breaking line mid-keyword on Console and breaks output into multiple lines for file
-            without adding unnecessary separators at the start or end of lines */
-        foreach (var tag in keywords.OrderByDescending(pair => pair.Value).ThenBy(pair => pair.Key))
+        foreach (var scope in keywordsByScope)
         {
-            var keyword = tag.Value + "x " + tag.Key;
+            if (scope.Value.Length == 0) continue;
+            Describe(scope.Key, indent);
 
-            // does keyword still fit into the current line?
-            if ((line.Length + separator.Length + keyword.Length) < width)
-                line += separator + keyword; // add it
-            else // keyword doesn't fit
+            var line = string.Empty;
+
+            /*  prevent breaking line mid-keyword on Console and breaks output into multiple lines for file
+                without adding unnecessary separators at the start or end of lines */
+            foreach (var tag in scope.Value)
             {
-                if (line.Length > 0) WriteLine(line); // write current line
-                line = keyword; // and start a new one
+                var keyword = tag.foundInVideos + "x " + tag.keyword;
+
+                // does keyword still fit into the current line?
+                if ((line.Length + separator.Length + keyword.Length) < width)
+                    line += separator + keyword; // add it
+                else // keyword doesn't fit
+                {
+                    if (line.Length > 0) WriteLine(line); // write current line
+                    line = keyword; // and start a new one
+                }
             }
+
+            WriteLine(line); // write remaining keywords
+            WriteLine();
         }
 
         WroteResults = true;

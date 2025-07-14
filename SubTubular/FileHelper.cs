@@ -19,9 +19,12 @@ public static class FileHelper
     {
         var earliestAccess = notAccessedForDays.HasValue ? DateTime.Today.AddDays(-notAccessedForDays.Value) : null as DateTime?;
 
-        return new DirectoryInfo(directory).EnumerateFiles(searchPattern, SearchOption.TopDirectoryOnly)
+        return EnumerateFiles(directory, searchPattern, SearchOption.TopDirectoryOnly)
             .Where(file => earliestAccess == null || file.LastAccessTime < earliestAccess);
     }
+
+    public static IEnumerable<FileInfo> EnumerateFiles(string directory, string searchPattern, SearchOption searchOption)
+        => new DirectoryInfo(directory).EnumerateFiles(searchPattern, searchOption);
 
     /// <summary>Returns all file paths in <paramref name="folder"/> recursively
     /// except for paths in <paramref name="excludedFolder"/>.</summary>
@@ -60,7 +63,7 @@ public static class FileHelper
 
         foreach (var entry in archive.Entries.Where(e => e.Name.IsNonEmpty()))
         {
-            var relativePath = hasWrappingFolder ? entry.FullName.Remove(0, wrappingFolder!.Length) : entry.FullName;
+            var relativePath = hasWrappingFolder ? entry.FullName[wrappingFolder!.Length..] : entry.FullName;
             var targetFilePath = Path.Combine(targetFolder, relativePath);
             CreateFolder(targetFilePath);
             entry.ExtractToFile(targetFilePath);

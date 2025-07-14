@@ -1,12 +1,10 @@
-﻿using System.Runtime.InteropServices;
-using Lifti;
-using SubTubular.Extensions;
+﻿using SubTubular.Extensions;
 
 namespace SubTubular.Shell;
 
 internal static partial class Program
 {
-    private const string asciiHeading = @"
+    internal const string AsciiHeading = @"
    _____       __  ______      __          __
   / ___/__  __/ /_/_  __/_  __/ /_  __  __/ /___ ______
   \__ \/ / / / __ \/ / / / / / __ \/ / / / / __ `/ ___/
@@ -15,65 +13,76 @@ internal static partial class Program
 
 "; //from http://www.patorjk.com/software/taag/#p=display&f=Slant&t=SubTubular
 
-    private static async Task Main(string[] args)
+    private static async Task<int> Main(string[] args)
     {
         var originalCommand = $"> {AssemblyInfo.Name}.exe "
             // quote shell args including pipes to accurately represent the console command
             + args.Select(arg => arg.Contains('|') ? $"\"{arg.Replace("\"", "\"\"")}\"" : arg).Join(" ");
 
-        try { await CommandHandler.HandleArgs(args, originalCommand); }
+        try
+        {
+            var exitCode = await CommandInterpreter.ParseArgs(args, originalCommand);
+            return (int)exitCode;
+        }
         catch (Exception ex)
         {
-            var cause = ex.GetBaseException();
+            var causes = ex.GetRootCauses().ToArray();
 
-            if (cause is InputException || cause is LiftiException)
+            if (causes.AreAllCancelations())
             {
-                Console.Error.WriteLine(cause.Message);
-                return;
+                Console.WriteLine("The operation was canceled.");
+                return (int)ExitCode.Canceled;
             }
 
-            if (cause is HttpRequestException)
-                Console.Error.WriteLine("An unexpected error occurred loading data from YouTube."
-                    + " Try again later or with an updated version. " + cause.Message);
+            if (causes.All(c => c.IsInputError()))
+            {
+                WriteConsoleError("The command ran into input errors:");
 
-            await WriteErrorLogAsync(originalCommand, ex.ToString());
+                // summarize the errors, OnScopeNotified in OutputAsync already wrote every one of them when they occurred
+                foreach (var error in causes.Select(ex => ex.Message).Distinct())
+                    WriteConsoleError(error);
+
+                return (int)ExitCode.ValidationError;
+            }
+
+            if (causes.AreAll<HttpRequestException>())
+                WriteConsoleError(causes.Select(c => c.Message)
+                    .Prepend("Unexpected errors occurred loading data from YouTube. Try again later or with an updated version. ")
+                    .Join(Environment.NewLine));
+            else await WriteErrorLogAsync(originalCommand, ex.ToString());
+
+            return (int)ExitCode.GenericError;
         }
     }
 
+    private static void WriteConsoleError(string line)
+    {
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.Error.WriteLine(line);
+        Console.ResetColor();
+    }
+
     private static readonly string cacheFolder = Folder.GetPath(Folders.cache);
-    private static DataStore CreateDataStore() => new JsonFileDataStore(cacheFolder);
+    internal static DataStore CreateDataStore() => new JsonFileDataStore(cacheFolder);
     private static VideoIndexRepository CreateVideoIndexRepo() => new(cacheFolder);
 
     private static async Task WriteErrorLogAsync(string originalCommand, string errors, string? name = null)
     {
-        var productInfo = AssemblyInfo.Name + " " + AssemblyInfo.GetProductVersion();
+        (var path, var report) = await ErrorLog.WriteAsync(errors, header: originalCommand, fileNameDescription: name);
+        var fileWritten = path != null;
 
-        var environmentInfo = new[] { "on", Environment.OSVersion.VersionString,
-            RuntimeInformation.FrameworkDescription, productInfo }.Join(" ");
-
-        var report = (new[] { originalCommand, environmentInfo, errors }).Join(AssemblyInfo.OutputSpacing);
-        var fileWritten = false;
-
-        try
+        if (fileWritten) WriteConsoleError("Errors were logged to " + path);
+        else
         {
-            var fileSafeName = name == null ? null : (" " + name.ToFileSafe());
-            var path = Path.Combine(Folder.GetPath(Folders.errors), $"error {DateTime.Now:yyyy-MM-dd HHmmss}{fileSafeName}.txt");
-            await FileHelper.WriteTextAsync(report, path);
-            Console.WriteLine("Errors were logged to " + path);
-            fileWritten = true;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("The following errors occurred and we were unable to write a log for them.");
+            WriteConsoleError("The following errors occurred and we were unable to write a log for them.");
             Console.WriteLine();
-            Console.Error.WriteLine(report);
-            Console.WriteLine();
-            Console.Error.WriteLine("Error writing error log: " + ex);
+            WriteConsoleError(report);
         }
 
         Console.WriteLine();
 
-        Console.WriteLine($"Try 'release --list' or check {AssemblyInfo.ReleasesUrl} for a version newer than {productInfo} that may have fixed this"
+        Console.WriteLine($"Try 'release --list' or check {AssemblyInfo.ReleasesUrl} for a {AssemblyInfo.Name} version"
+            + $" newer than {AssemblyInfo.GetProductVersion()} that may have fixed this"
             + $" or {AssemblyInfo.IssuesUrl} for existing reports of this error and maybe a solution or work-around."
             + " If you can reproduce this error in the latest version, reporting it there is your best chance at getting it fixed."
             + " If you do, make sure to include the original command or parameters to reproduce it,"
@@ -81,3 +90,5 @@ internal static partial class Program
             + $" You'll find all that in the error {(fileWritten ? "log file" : "output above")}.");
     }
 }
+
+enum ExitCode { Success = 0, GenericError = 1, ValidationError = 2, Canceled = 3 }

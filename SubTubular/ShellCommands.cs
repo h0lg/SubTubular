@@ -6,7 +6,7 @@ namespace SubTubular;
 
 public static class ShellCommands
 {
-    internal static void OpenUri(string uri) // from https://stackoverflow.com/a/61035650
+    public static void OpenUri(string uri) // from https://stackoverflow.com/a/61035650
         => Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true });
 
     // from https://stackoverflow.com/a/53245993
@@ -38,8 +38,12 @@ public static class ShellCommands
         public IntPtr hProcess;
     }
 
+    /* Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
+        currently doesn't support marshalling type SHELLEXECUTEINFO */
+#pragma warning disable SYSLIB1054
     [DllImport("shell32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     static extern bool ShellExecuteEx(ref SHELLEXECUTEINFO lpExecInfo);
+#pragma warning restore SYSLIB1054
 
     private const int SW_SHOW = 5;
 
@@ -47,11 +51,14 @@ public static class ShellCommands
     {
         if (!folder.IsDirectoryPath()) folder = Path.GetDirectoryName(folder)!;
 
-        var info = new SHELLEXECUTEINFO();
-        info.cbSize = Marshal.SizeOf<SHELLEXECUTEINFO>();
-        info.lpVerb = "explore";
-        info.nShow = SW_SHOW;
-        info.lpFile = folder;
+        var info = new SHELLEXECUTEINFO
+        {
+            cbSize = Marshal.SizeOf<SHELLEXECUTEINFO>(),
+            lpVerb = "explore",
+            nShow = SW_SHOW,
+            lpFile = folder
+        };
+
         return ShellExecuteEx(ref info);
     }
     #endregion

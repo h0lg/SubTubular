@@ -1,14 +1,12 @@
 ﻿using SubTubular.Extensions;
 using YoutubeExplode.Channels;
-using YoutubeExplode.Playlists;
-using YoutubeExplode.Videos;
 
 namespace SubTubular;
 
 public sealed class ClearCache
 {
     public Scopes Scope { get; set; }
-    public IEnumerable<string>? Ids { get; set; }
+    public IEnumerable<string>? Aliases { get; set; }
     public ushort? NotAccessedForDays { get; set; }
     public Modes Mode { get; set; }
 
@@ -16,12 +14,12 @@ public sealed class ClearCache
     public enum Modes { summary, verbose, simulate }
 }
 
-public static class CacheClearer
+public static partial class CacheManager
 {
-    public static async Task<(IEnumerable<string> cachesDeleted, IEnumerable<string> indexesDeleted)> Process(
+    public static async Task<(IEnumerable<string> cachesDeleted, IEnumerable<string> indexesDeleted)> Clear(
         ClearCache command, DataStore cacheDataStore, VideoIndexRepository videoIndexRepo)
     {
-        List<string> cachesDeleted = new(), indexesDeleted = new();
+        List<string> cachesDeleted = [], indexesDeleted = [];
         var simulate = command.Mode == ClearCache.Modes.simulate;
 
         switch (command.Scope)
@@ -32,15 +30,15 @@ public static class CacheClearer
 
                 break;
             case ClearCache.Scopes.videos:
-                if (command.Ids.HasAny())
+                if (command.Aliases.HasAny())
                 {
-                    var parsed = command.Ids!.ToDictionary(id => id, id => VideoId.TryParse(id.Trim('"')));
-                    var invalid = parsed.Where(pair => pair.Value == null).Select(pair => pair.Key).ToArray();
+                    (IEnumerable<string> preValidatedIds, IEnumerable<string> invalidAliases) = VideosScope.ParseIds(command.Aliases!);
+                    string[] invalid = [.. invalidAliases];
 
                     if (invalid.Length > 0) throw new InputException(
                         "The following inputs are not valid video IDs or URLs: " + invalid.Join(" "));
 
-                    DeleteByNames(parsed.Values.Select(videoId => Video.StorageKeyPrefix + videoId!.Value));
+                    DeleteByNames(preValidatedIds.Select(videoId => Video.StorageKeyPrefix + videoId));
                 }
                 else
                 {
@@ -55,17 +53,17 @@ public static class CacheClearer
                 await ClearPlaylists(PlaylistScope.StorageKeyPrefix, cacheDataStore,
                     v =>
                     {
-                        var id = PlaylistId.TryParse(v);
-                        return id.HasValue ? [id] : [];
+                        var id = PlaylistScope.TryParseId(v);
+                        return id == null ? [] : [id];
                     });
 
                 break;
             case ClearCache.Scopes.channels:
                 Func<string, string[]?>? parseAlias = null;
 
-                if (command.Ids.HasAny())
+                if (command.Aliases.HasAny())
                 {
-                    var aliasToChannelIds = await ClearChannelAliases(command.Ids!, cacheDataStore, simulate);
+                    var aliasToChannelIds = await ClearChannelAliases(command.Aliases!, cacheDataStore, simulate);
                     parseAlias = alias => aliasToChannelIds.TryGetValue(alias, out var channelIds) ? channelIds : null;
                 }
                 else DeleteByName(ChannelAliasMap.StorageKey);
@@ -80,18 +78,21 @@ public static class CacheClearer
         void DeleteByName(string name)
         {
             cachesDeleted.AddRange(cacheDataStore.Delete(key: name, simulate: simulate));
-            indexesDeleted.AddRange(videoIndexRepo.Delete(key: name, simulate: simulate));
+            indexesDeleted.AddRange(videoIndexRepo.Delete(keyPrefix: name, simulate: simulate));
         }
 
-        void DeleteByNames(IEnumerable<string> names) { foreach (var name in names) DeleteByName(name); }
+        void DeleteByNames(IEnumerable<string> names)
+        {
+            foreach (var name in names) DeleteByName(name);
+        }
 
         async Task ClearPlaylists(string keyPrefix, DataStore playListLikeDataStore, Func<string, string[]?> parseId)
         {
             string[] deletableKeys;
 
-            if (command.Ids.HasAny())
+            if (command.Aliases.HasAny())
             {
-                var parsed = command.Ids!.ToDictionary(id => id, id => parseId(id));
+                var parsed = command.Aliases!.ToDictionary(id => id, id => parseId(id));
 
                 var invalid = parsed.Where(pair => !pair.Value.HasAny() || pair.Value!.All(id => id == null))
                     .Select(pair => pair.Key).ToArray();
@@ -99,15 +100,15 @@ public static class CacheClearer
                 if (invalid.Length > 0) throw new InputException(
                     $"The following inputs are not valid {keyPrefix}IDs or URLs: " + invalid.Join(" "));
 
-                deletableKeys = parsed.Values.SelectMany(ids => ids!).Where(id => id != null)
-                    .Distinct().Select(id => keyPrefix + id).ToArray();
+                deletableKeys = [.. parsed.Values.SelectMany(ids => ids!).Where(id => id != null)
+                    .Distinct().Select(id => keyPrefix + id)];
             }
-            else deletableKeys = playListLikeDataStore.GetKeysByPrefix(keyPrefix, command.NotAccessedForDays).ToArray();
+            else deletableKeys = [.. playListLikeDataStore.GetKeysByPrefix(keyPrefix, command.NotAccessedForDays)];
 
             foreach (var key in deletableKeys)
             {
                 var playlist = await playListLikeDataStore.GetAsync<Playlist>(key);
-                if (playlist != null) DeleteByNames(playlist.Videos.Keys.Select(videoId => Video.StorageKeyPrefix + videoId));
+                if (playlist != null) DeleteByNames(playlist.GetVideoIds().Select(videoId => Video.StorageKeyPrefix + videoId));
                 DeleteByName(key);
             }
         }
@@ -116,12 +117,12 @@ public static class CacheClearer
     private static async Task<Dictionary<string, string[]>> ClearChannelAliases(
         IEnumerable<string> aliases, DataStore dataStore, bool simulate)
     {
-        var cachedMaps = await ChannelAliasMap.LoadList(dataStore);
+        var cachedMaps = await ChannelAliasMap.LoadListAsync(dataStore);
         var matchedMaps = new List<ChannelAliasMap>();
 
         var aliasToChannelIds = aliases.ToDictionary(alias => alias, alias =>
         {
-            var valid = CommandValidator.PrevalidateChannelAlias(alias);
+            var valid = Prevalidate.ChannelAlias(alias);
             var matching = valid.Select(alias => cachedMaps.ForAlias(alias)).WithValue().ToArray();
 
             matchedMaps.AddRange(matching);
@@ -137,14 +138,25 @@ public static class CacheClearer
             var channelIds = aliasToChannelIds.SelectMany(pair => pair.Value).Distinct().ToArray();
             var siblings = cachedMaps.Where(map => channelIds.Contains(map.ChannelId));
             var removable = matchedMaps.Union(siblings).ToArray();
-
-            if (removable.Length > 0)
-            {
-                foreach (var map in removable) cachedMaps.Remove(map);
-                await ChannelAliasMap.SaveList(cachedMaps, dataStore);
-            }
+            if (removable.Length > 0) await ChannelAliasMap.RemoveEntriesAsync(removable, dataStore);
         }
 
         return aliasToChannelIds;
     }
+
+    private static ScopeSearches GetSearches(this FileInfo[] files) => new(
+        channels: files.GetSearches(ChannelScope.StorageKeyPrefix),
+        playlists: files.GetSearches(PlaylistScope.StorageKeyPrefix),
+        videos: files.GetSearches(Video.StorageKeyPrefix));
+
+    private static FileInfo[] GetSearches(this FileInfo[] files, string storageKeyPrefix)
+        => [.. files.WithPrefix(storageKeyPrefix + Youtube.SearchAffix)];
+
+    private static bool HasPrefix(this FileInfo file, string prefix) => file.Name.StartsWith(prefix);
+
+    private static IEnumerable<FileInfo> WithPrefix(this IEnumerable<FileInfo> files, string prefix)
+        => files.Where(f => f.HasPrefix(prefix));
+
+    private static IEnumerable<FileInfo> WithExtension(this IEnumerable<FileInfo> files, string extension)
+        => files.Where(f => f.Extension == extension);
 }

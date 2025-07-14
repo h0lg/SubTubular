@@ -540,11 +540,11 @@ If you can't seem to find what you're looking for, here are some things to keep 
 - Make sure the videos you search have subtitles. Not all do. Or at least not immediately. Allow for some time before the auto-generated subtitles of newly-uploaded videos are available.
 - Try fuzzy matching for names and words with different or uncommon spellings.
 - Keep your multi-word phrases short or use [nearness expressions](https://mikegoatly.github.io/lifti/docs/searching/lifti-query-syntax/#near-following--and-n). Make use of wild cards and fuzzy matching. Otherwise, only exact matches are returned - so the longer your phrase, the less likely it is to match anything.
-- Omit punctuation (dots and commas). As of writing this, the auto-generated subtitles are not structured into sentences.
-- Don't overestimate the capabilities of YouTube's speech recognition algorithm (yet). Auto-generated subtitles don't always make sense, semantically speaking. Similar sounding words may be misunderstood, especially for speakers with poor pronunciation, high throughput, an accent or simply due to background noise. A statement about *defense* could for example easily be misinterpreted as being about *the fence*.
+- Omit punctuation in the original text (dots, commas, question marks and double quotes around citations). Those will be regarded as punctuation, not searchable content.
+- Note that auto-generated subtitles may not always make sense, semantically speaking. Similar sounding words may be misunderstood, especially for speakers with poor pronunciation, high throughput, an accent or simply due to background noise. A statement about *defense* could for example easily be misinterpreted as being about *the fence*.
 - You'll find that the speech recognition algorithm will replace
-  - inaudible words with *?* and
-  - swear words with *[ __ ]* .
+  - `[Music]` `[Laughter]` and `[Applause]` with those placeholders, see https://research.google/blog/adding-sound-effect-information-to-youtube-captions/
+  - words YouTube considers inappropriate with `[ __ ]` depending on the channel setting https://support.google.com/youtube/answer/6373554?hl=en#zippy=%2Cpotentially-inappropriate-words-in-automatic-captions.
 
 Feel free to contribute your own best practices in the [issues](https://github.com/h0lg/SubTubular/issues).
 

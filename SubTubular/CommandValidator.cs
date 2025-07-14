@@ -1,18 +1,19 @@
 ﻿using SubTubular.Extensions;
 using YoutubeExplode.Channels;
-using YoutubeExplode.Playlists;
-using YoutubeExplode.Videos;
+using YoutubeExplode.Exceptions;
 
 namespace SubTubular;
 
-public static class CommandValidator
+/// <summary>Pre-validates <see cref="CommandScope"/>s and <see cref="OutputCommand"/>s,
+/// i.e. checks locally for valid syntax.</summary>
+public static class Prevalidate
 {
     // see Lifti.Querying.QueryTokenizer.ParseQueryTokens()
     private static readonly char[] controlChars = ['*', '%', '|', '&', '"', '~', '>', '?', '(', ')', '=', ','];
 
-    public static void PrevalidateSearchCommand(SearchCommand command)
+    public static void Search(SearchCommand command)
     {
-        PrevalidateScopes(command);
+        Scopes(command);
 
         if (command.Query.IsNullOrWhiteSpace()) throw new InputException(
             $"The {nameof(SearchCommand.Query).ToLower()} is empty.");
@@ -26,26 +27,17 @@ public static class CommandValidator
             $"You may order by either '{nameof(SearchCommand.OrderOptions.score)}' or '{nameof(SearchCommand.OrderOptions.uploaded)}' (date), but not both.");
     }
 
-    public static void PrevalidateScopes(OutputCommand command)
+    public static void Scopes(OutputCommand command)
     {
         var errors = (new[]
         {
-            TryGetScopeError(command.Playlists?.Select(Prevalidate), "{0} are not valid playlist IDs or URLs."),
-            TryGetScopeError(command.Channels?.Select(Prevalidate), "{0} are not valid channel handles, slugs, user names or IDs."),
-            TryGetScopeError(Prevalidate(command.Videos), "{0} are not valid video IDs or URLs.")
+            TryGetScopeError(command.Playlists?.Select(Playlist), "{0} are not valid playlist IDs or URLs."),
+            TryGetScopeError(command.Channels?.Select(Channel), "{0} are not valid channel handles, slugs, user names or IDs."),
+            Videos(command.Videos)
         }).WithValue().ToArray();
 
         if (errors.Length != 0) throw new InputException(errors.Join(Environment.NewLine));
         if (!command.HasPreValidatedScopes()) throw new InputException("No valid scope.");
-    }
-
-    internal static object[] PrevalidateChannelAlias(string alias)
-    {
-        var handle = ChannelHandle.TryParse(alias);
-        var slug = ChannelSlug.TryParse(alias);
-        var user = UserName.TryParse(alias);
-        var id = ChannelId.TryParse(alias);
-        return new object?[] { handle, slug, user, id }.WithValue().ToArray();
     }
 
     private static string? TryGetScopeError(IEnumerable<string?>? invalidIdentifiers, string format)
@@ -55,112 +47,192 @@ public static class CommandValidator
         return withValue.Length == 0 ? null : string.Format(format, withValue.Join(", "));
     }
 
-    private static string? Prevalidate(ChannelScope scope)
+    /// <summary>Prevalidates the <paramref name="scope"/> returning validation errors.</summary>
+    public static string? Scope(CommandScope scope)
     {
+        if (scope is ChannelScope channel)
+        {
+            string? invalid = Channel(channel);
+            if (invalid != null) return $"{invalid} is not a valid channel handle, slug, user name or ID.";
+        }
+        else if (scope is PlaylistScope playlist)
+        {
+            string? invalid = Playlist(playlist);
+            if (invalid != null) return $"{invalid} is not a valid playlist ID or URL.";
+        }
+        else if (scope is VideosScope videos) return Videos(videos);
+
+        return null;
+    }
+
+    internal static object[] ChannelAlias(string alias)
+    {
+        var handle = ChannelHandle.TryParse(alias);
+        var slug = ChannelSlug.TryParse(alias);
+        var user = UserName.TryParse(alias);
+        var id = ChannelId.TryParse(alias);
+        return [.. new object?[] { handle, slug, user, id }.WithValue()];
+    }
+
+    private static string? Channel(ChannelScope scope)
+    {
+        if (scope.IsPrevalidated) return null;
+
         /*  validate Alias locally to throw eventual InputException,
             but store result for RemoteValidateChannelAsync */
-        object[] wellStructuredAliases = PrevalidateChannelAlias(scope.Alias);
+        object[] wellStructuredAliases = ChannelAlias(scope.Alias);
         if (!wellStructuredAliases.HasAny()) return scope.Alias; // return invalid
 
-        scope.AddPrevalidated(scope.Alias, wellStructuredAliases);
+        scope.Validated.Add(new CommandScope.ValidationResult { Id = scope.Alias, WellStructuredAliases = wellStructuredAliases });
+        scope.Report(VideoList.Status.preValidated);
         return null;
     }
 
-    private static string? Prevalidate(PlaylistScope scope)
+    private static string? Playlist(PlaylistScope scope)
     {
-        var id = PlaylistId.TryParse(scope.Alias);
+        var id = PlaylistScope.TryParseId(scope.Alias);
         if (id == null) return scope.Alias; // return invalid
 
-        scope.AddPrevalidated(id, "https://www.youtube.com/playlist?list=" + id);
+        if (scope.IsPrevalidated)
+        {
+            if (scope.SingleValidated.Id == id) return null; // already pre-validated
+            scope.Validated.Clear(); // SingleValidated is out of date, remove it
+        }
+
+        scope.AddPrevalidated(id, Youtube.GetPlaylistUrl(id));
+        scope.Report(VideoList.Status.preValidated);
         return null;
     }
 
-    private static IEnumerable<string> Prevalidate(VideosScope? scope)
+    private static string? Videos(VideosScope? videos)
+        => TryGetScopeError(VideosSeperately(videos), "{0} are not valid video IDs or URLs.");
+
+    private static string[] VideosSeperately(VideosScope? scope)
     {
         if (scope == null) return [];
-        var idsToValid = scope.Videos.ToDictionary(id => id, id => VideoId.TryParse(id.Trim('"'))?.ToString());
-        var validIds = idsToValid.Select(pair => pair.Value).WithValue().ToArray();
-        foreach (var id in validIds) scope.AddPrevalidated(id, Youtube.GetVideoUrl(id));
-        return scope.Videos.Except(validIds); // return invalid
-    }
+        (IEnumerable<string> preValidatedIds, IEnumerable<string> invalidAliases) = VideosScope.ParseIds(scope.Videos);
+        string[] preValidated = [.. preValidatedIds];
+        scope.QueueVideos(preValidated); // ignores already queued
+        var alreadyValidated = scope.Validated.Ids(); // pre/validated
 
-    public static async Task ValidateScopesAsync(OutputCommand command, Youtube youtube, DataStore dataStore, CancellationToken cancellation)
+        foreach (var id in preValidated.Except(alreadyValidated))
+        {
+            scope.AddPrevalidated(id, Youtube.GetVideoUrl(id));
+            scope.Report(id, VideoList.Status.preValidated);
+        }
+
+        string[] invalid = [.. invalidAliases];
+        if (invalid.Length == 0) scope.Report(VideoList.Status.preValidated);
+        return invalid; // aliases
+    }
+}
+
+/// <summary>Remotely validates <see cref="CommandScope"/>s and <see cref="OutputCommand"/>s,
+/// i.e. checking for their existence and uniqueness.</summary>
+public static class RemoteValidate
+{
+    public static async Task ScopesAsync(OutputCommand command, Youtube youtube, DataStore dataStore, CancellationToken token)
     {
         List<Task> validations = [];
 
         if (command.Channels.HasAny())
-        {
-            // load cached info about which channel aliases map to which channel IDs and which channel IDs are accessible
-            var knownAliasMaps = await ChannelAliasMap.LoadList(dataStore) ?? [];
-
-            var channelValidations = command.Channels!.Select(async channel =>
-            {
-                var matchingChannels = await RemoteValidateAsync(channel, knownAliasMaps, youtube,
-                    command.ProgressReporter?.CreateVideoListProgress(channel), cancellation);
-
-                string? error = null;
-
-                if (matchingChannels.Length > 1) error =
-                    matchingChannels.Select(map =>
-                    {
-                        var validUrl = Youtube.GetChannelUrl(channel.SingleValidated.WellStructuredAliases!.Single(id => id.GetType().Name == map.Type));
-                        var channelUrl = Youtube.GetChannelUrl((ChannelId)map.ChannelId!);
-                        return $"{validUrl} points to channel {channelUrl}";
-                    })
-                    .Prepend($"Channel alias '{channel.Alias}' is ambiguous:")
-                    .Append("Specify the unique channel ID or full handle URL, custom/slug URL or user URL to disambiguate the channel.")
-                    .Join(Environment.NewLine);
-
-                return (matchingChannels, error);
-            });
-
-            var channelsValidated = Task.WhenAll(channelValidations).ContinueWith(async task =>
-            {
-                var matchingChannels = task.Result.SelectMany(pair => pair.matchingChannels).Distinct();
-
-                // save the knownAliasMaps HashSet if adding any matching channel returns true indicating that it was new
-                if (matchingChannels.Any() && matchingChannels.Select(knownAliasMaps.Add).Any(isNew => isNew))
-                    await ChannelAliasMap.SaveList(knownAliasMaps, dataStore);
-
-                var errors = task.Result.Select(pair => pair.error).WithValue();
-                if (errors.Any()) throw new InputException(errors.Join(Environment.NewLine));
-            }).WithAggregateException();
-
-            validations.Add(channelsValidated);
-        }
+            validations.Add(ChannelsAsync(command.Channels!, youtube, dataStore, token));
 
         if (command.Playlists.HasAny()) validations.AddRange(
-            command.Playlists!.Select(playlist => RemoteValidateAsync(playlist, youtube,
-                command.ProgressReporter?.CreateVideoListProgress(playlist), cancellation)));
+            command.Playlists!.Select(playlist => PlaylistAsync(playlist, youtube, token)));
 
-        if (command.Videos?.IsPrevalidated == true) validations.AddRange(
-            command.Videos!.Validated.Select(validationResult => RemoteValidateVideoAsync(validationResult, youtube, dataStore,
-                command.ProgressReporter?.CreateVideoListProgress(command.Videos!), cancellation)));
+        if (command.Videos?.IsPrevalidated == true)
+            validations.AddRange(Videos(command.Videos!, youtube, token));
 
         await Task.WhenAll(validations).WithAggregateException();
+        if (command.HasValidVideos) command.Videos!.Report(VideoList.Status.validated);
     }
 
-    private static async Task RemoteValidateVideoAsync(CommandScope.ValidationResult validationResult, Youtube youtube, DataStore dataStore,
-        BatchProgressReporter.VideoListProgress? progress, CancellationToken cancellation)
+    public static async Task AllVideosAsync(VideosScope videosScope, Youtube youtube, CancellationToken token)
     {
-        progress?.Report(validationResult.Id, BatchProgress.Status.downloading);
-        // video is not saved here without captiontracks so none in the cache means there probably are none - otherwise cached info is indeterminate
-        validationResult.Video = await youtube.GetVideoAsync(validationResult.Id, cancellation, downloadCaptionTracksAndSave: false);
-        progress?.Report(validationResult.Id, BatchProgress.Status.validated);
+        await Task.WhenAll(Videos(videosScope, youtube, token)).WithAggregateException();
+        if (videosScope.IsValid) videosScope.Report(VideoList.Status.validated);
     }
 
-    private static async Task RemoteValidateAsync(PlaylistScope scope, Youtube youtube,
-        BatchProgressReporter.VideoListProgress? progress, CancellationToken cancellation)
+    private static IEnumerable<Task> Videos(VideosScope videosScope, Youtube youtube, CancellationToken token)
+        // rely on pre-validation to have added an entry in Validated, skipping previously remote-validated
+        => videosScope.GetRemoteValidated(isRemoteValidated: false).Select(async validationResult =>
+        {
+            string id = validationResult.Id;
+
+            try
+            {
+                // video is not saved here without captiontracks so none in the cache means there probably are none - otherwise cached info is indeterminate
+                validationResult.Video = await youtube.GetVideoAsync(id, token, videosScope, downloadCaptionTracksAndSave: false);
+                videosScope.Report(id, VideoList.Status.validated);
+            }
+            catch (VideoUnavailableException)
+            {
+                videosScope.Invalidate(id);
+                throw; // to propagate reason
+            }
+        });
+
+    public static async Task PlaylistAsync(PlaylistScope scope, Youtube youtube, CancellationToken token)
     {
-        progress?.Report(BatchProgress.Status.loading);
-        scope.SingleValidated.Playlist = await youtube.GetPlaylistAsync(scope, cancellation, progress);
-        progress?.Report(BatchProgress.Status.validated);
+        scope.SingleValidated.Playlist = await youtube.GetPlaylistAsync(scope, token);
+        scope.Report(VideoList.Status.validated);
     }
 
-    private static async Task<ChannelAliasMap[]> RemoteValidateAsync(ChannelScope channel, HashSet<ChannelAliasMap> knownAliasMaps, Youtube youtube,
-        BatchProgressReporter.VideoListProgress? progress, CancellationToken cancellation)
+    public static async Task ChannelsAsync(ChannelScope[] channelScopes, Youtube youtube, DataStore dataStore, CancellationToken token)
     {
-        cancellation.ThrowIfCancellationRequested();
+        token.ThrowIfCancellationRequested();
+
+        // load cached info about which channel aliases map to which channel IDs and which channel IDs are accessible
+        var knownAliasMaps = await ChannelAliasMap.LoadListAsync(dataStore);
+
+        var channelValidations = channelScopes.Select(async channel =>
+        {
+            string? error = null;
+            ChannelAliasMap[] matchingChannels = [];
+
+            try { matchingChannels = await ChannelAsync(channel, knownAliasMaps, youtube, token); }
+            catch (InputException ex) { error = ex.Message; } // record input exceptions separately
+
+            if (matchingChannels.Length > 1)
+            {
+                var lines = matchingChannels.Select(map =>
+                {
+                    var validUrl = Youtube.GetChannelUrl(channel.SingleValidated.WellStructuredAliases!.Single(id => id.GetType().Name == map.Type));
+                    var channelUrl = Youtube.GetChannelUrl((ChannelId)map.ChannelId!);
+                    return $"{validUrl} points to channel {channelUrl}";
+                })
+                .Prepend($"Channel alias '{channel.Alias}' is ambiguous:")
+                .Append("Specify the unique channel ID or full handle URL, custom/slug URL or user URL to disambiguate the channel.");
+
+                if (error != null) lines = lines.Prepend(error);
+                error = lines.Join(Environment.NewLine);
+            }
+
+            return (matchingChannels, error);
+        }).ToArray();
+
+        List<Exception> errors = [];
+
+        try { await Task.WhenAll(channelValidations).WithAggregateException(); }
+        catch (Exception ex) { errors.AddRange(ex.GetRootCauses()); }
+
+        var results = channelValidations.Where(t => t.IsCompletedSuccessfully).Select(t => t.Result).ToArray();
+        var matchingChannels = results.SelectMany(r => r.matchingChannels).Distinct();
+
+        // save the knownAliasMaps HashSet if adding any matching channel returns true indicating that it was new
+        if (matchingChannels.Any()) await ChannelAliasMap.AddEntriesAsync(matchingChannels, dataStore);
+
+        // merge input errors
+        errors.AddRange(results.Select(r => r.error).WithValue().Select(error => new InputException(error)));
+        if (errors.Count == 1) throw errors.Single();
+        if (errors.Count > 1) throw new AggregateException(errors);
+    }
+
+    private static async Task<ChannelAliasMap[]> ChannelAsync(ChannelScope channel,
+        HashSet<ChannelAliasMap> knownAliasMaps, Youtube youtube, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
 
         /*  generate tasks checking which of the validAliases are accessible
             (via knownAliasMaps cache or HTTP request) and execute them in parrallel */
@@ -183,9 +255,9 @@ public static class CommandValidator
 
         string id = distinctChannels.Single().ChannelId!;
         channel.SingleValidated.Id = id;
-        channel.SingleValidated.Playlist = await youtube.GetPlaylistAsync(channel, cancellation, progress);
+        channel.SingleValidated.Playlist = await youtube.GetPlaylistAsync(channel, token);
         channel.SingleValidated.Url = Youtube.GetChannelUrl((ChannelId)id);
-        progress?.Report(BatchProgress.Status.validated);
+        channel.Report(VideoList.Status.validated);
         return distinctChannels;
 
         async ValueTask<ChannelAliasMap> GetChannelAliasMap(object alias)
@@ -193,15 +265,14 @@ public static class CommandValidator
             var map = knownAliasMaps.ForAlias(alias);
             if (map != null) return map; // use cached info
 
-            var loadChannel = alias is ChannelId id ? youtube.Client.Channels.GetAsync(id, cancellation)
-                : alias is ChannelHandle handle ? youtube.Client.Channels.GetByHandleAsync(handle, cancellation)
-                : alias is UserName user ? youtube.Client.Channels.GetByUserAsync(user, cancellation)
-                : alias is ChannelSlug slug ? youtube.Client.Channels.GetBySlugAsync(slug, cancellation)
+            var loadChannel = alias is ChannelId id ? youtube.Client.Channels.GetAsync(id, token)
+                : alias is ChannelHandle handle ? youtube.Client.Channels.GetByHandleAsync(handle, token)
+                : alias is UserName user ? youtube.Client.Channels.GetByUserAsync(user, token)
+                : alias is ChannelSlug slug ? youtube.Client.Channels.GetBySlugAsync(slug, token)
                 : throw new NotImplementedException($"Getting channel for alias {alias.GetType()} is not implemented.");
 
             var (type, value) = ChannelAliasMap.GetTypeAndValue(alias);
             map = new ChannelAliasMap { Type = type, Value = value };
-            progress?.Report(BatchProgress.Status.downloading);
 
             try
             {
@@ -216,9 +287,9 @@ public static class CommandValidator
     }
 }
 
-[Serializable]
 public class InputException : Exception
 {
+    public InputException() : base() { } // for RCS1194
     public InputException(string message) : base(message) { }
     public InputException(string message, Exception innerException) : base(message, innerException) { }
 }

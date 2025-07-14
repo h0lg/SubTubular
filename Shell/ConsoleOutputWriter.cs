@@ -4,6 +4,8 @@ namespace SubTubular.Shell;
 internal sealed class ConsoleOutputWriter : OutputWriter, IDisposable
 {
     private const ConsoleColor highlightColor = ConsoleColor.Yellow;
+    private const ConsoleColor notificationColor = ConsoleColor.DarkYellow;
+    private const ConsoleColor errorColor = ConsoleColor.Red;
     private readonly ConsoleColor regularForeGround;
 
     internal ConsoleOutputWriter(OutputCommand command) : base(command)
@@ -29,6 +31,20 @@ internal sealed class ConsoleOutputWriter : OutputWriter, IDisposable
     {
         if (text != null) Write(text);
         Console.WriteLine();
+    }
+
+    public override void WriteNotificationLine(string text)
+    {
+        Console.ForegroundColor = notificationColor;
+        Console.WriteLine(text);
+        ResetConsoleColor();
+    }
+
+    public override void WriteErrorLine(string text)
+    {
+        Console.ForegroundColor = errorColor;
+        Console.Error.WriteLine(text);
+        ResetConsoleColor();
     }
 
     public void Dispose() => ResetConsoleColor();

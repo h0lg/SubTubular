@@ -1,6 +1,6 @@
-using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
-using System.Threading.Channels;
+using Lifti;
+using YoutubeExplode.Exceptions;
 
 /*  Namespace does not match folder structure.
  *  It was deliberately chosen to avoid including maybe conflicting extensions accidentally
@@ -19,24 +19,26 @@ public static class TimeSpanExtensions
 }
 
 /// <summary>Extension methods for <see cref="string"/>s.</summary>
-public static class StringExtensions
+public static partial class StringExtensions
 {
     /// <summary>Determines whether <paramref name="input"/> <see cref="string.IsNullOrEmpty(string?)"/>.</summary>
     internal static bool IsNullOrEmpty(this string? input) => string.IsNullOrEmpty(input);
 
     /// <summary>Determines whether <paramref name="input"/> NOT <see cref="string.IsNullOrEmpty(string?)"/>.</summary>
-    internal static bool IsNonEmpty(this string? input) => !string.IsNullOrEmpty(input);
+    public static bool IsNonEmpty(this string? input) => !string.IsNullOrEmpty(input);
 
     /// <summary>Determines whether <paramref name="input"/> <see cref="string.IsNullOrWhiteSpace(string?)"/>.</summary>
-    internal static bool IsNullOrWhiteSpace(this string? input) => string.IsNullOrWhiteSpace(input);
+    public static bool IsNullOrWhiteSpace(this string? input) => string.IsNullOrWhiteSpace(input);
 
     /// <summary>Determines whether <paramref name="input"/> NOT <see cref="string.IsNullOrWhiteSpace(string?)"/>.</summary>
-    internal static bool IsNonWhiteSpace(this string? input) => !string.IsNullOrWhiteSpace(input);
+    public static bool IsNonWhiteSpace(this string? input) => !string.IsNullOrWhiteSpace(input);
 
-    /// <summary>Replaces all consecutive white space characters in
+    /// <summary>Replaces all <see cref="ConsecutiveWhitespace"/> characters in
     /// <paramref name="input"/> with <paramref name="normalizeTo"/>.</summary>
     internal static string NormalizeWhiteSpace(this string input, string normalizeTo = " ")
-        => Regex.Replace(input, @"\s+", normalizeTo);
+        => ConsecutiveWhitespace().Replace(input, normalizeTo);
+
+    [GeneratedRegex(@"\s+")] private static partial Regex ConsecutiveWhitespace();
 
     /// <summary>Concatenates the <paramref name="pieces"/> into a single string
     /// putting <paramref name="glue"/> in between them.</summary>
@@ -46,7 +48,7 @@ public static class StringExtensions
     /// From https://stackoverflow.com/a/19596821 .</summary>
     internal static bool IsDirectoryPath(this string path)
     {
-        if (path == null) throw new ArgumentNullException(nameof(path));
+        ArgumentNullException.ThrowIfNull(path);
         path = path.Trim();
 
         if (Directory.Exists(path)) return true;
@@ -67,6 +69,13 @@ public static class StringExtensions
     public static string ToFileSafe(this string value, string replacement = "_")
         => Regex.Replace(value, "[" + Regex.Escape(new string(Path.GetInvalidFileNameChars())) + "]", replacement);
 
+    public static string StripAffixes(this string value, string prefix, string suffix)
+    {
+        int afterPrefix = prefix.Length;
+        int beforeSuffix = value.Length - suffix.Length;
+        return value[afterPrefix..beforeSuffix];
+    }
+
     internal static IEnumerable<string> Wrap(this string input, int columnWidth)
     {
         ArgumentNullException.ThrowIfNull(input);
@@ -83,8 +92,8 @@ public static class StringExtensions
         return phrases.Skip(1).Aggregate(seed: phrases.Take(1).ToList(), (lines, phrase) =>
         {
             // if length of last line gets up to or over columnWidth, add the phrase on a new line
-            if (lines.Last().Length + phrase.Length >= columnWidth) lines.Add(phrase);
-            else lines[lines.Count - 1] += " " + phrase; // otherwise add phrase to last line
+            if (lines[^1].Length + phrase.Length >= columnWidth) lines.Add(phrase);
+            else lines[^1] += " " + phrase; // otherwise add phrase to last line
 
             return lines;
         });
@@ -112,32 +121,23 @@ public static class EnumerableExtensions
 
     public static IEnumerable<T> WithValue<T>(this IEnumerable<T?> nullables)
         => nullables.Where(v => v != null).Select(v => v!);
+
+    public static IEnumerable<T> WithValue<T>(this IEnumerable<T?> nullables) where T : struct
+        => nullables.Where(v => v.HasValue).Select(v => v!.Value);
 }
 
-public static class AsyncEnumerableExtensions
+internal static class HashCodeExtensions
 {
-    public static async IAsyncEnumerable<T> Parallelize<T>(this IEnumerable<IAsyncEnumerable<T>> asyncProducers,
-        [EnumeratorCancellation] CancellationToken cancellation)
+    // Convert a collection to a HashSet of hash codes
+    internal static HashSet<int> AsHashCodeSet<T>(this IEnumerable<T>? collection)
+        => collection == null ? [] : [.. collection.Select(item => item?.GetHashCode() ?? 0)];
+
+    // Adds the elements of a collection to the HashCode in a combined and ordered way
+    internal static HashCode AddOrdered<T>(this HashCode hashCode, IEnumerable<T> collection)
     {
-        var products = Channel.CreateUnbounded<T>(new UnboundedChannelOptions() { SingleReader = true });
-
-        var productionLines = asyncProducers.Select(async asyncProducer =>
-        {
-            try
-            {
-                await foreach (var product in asyncProducer.WithCancellation(cancellation))
-                    await products.Writer.WriteAsync(product, cancellation);
-            }
-            catch (OperationCanceledException) { } // Catch cancellation from outer loop
-        }).ToList();
-
-        // hook up writer completion before starting to read to ensure the reader knows when it's done
-        var completion = Task.WhenAll(productionLines).ContinueWith(_ => products.Writer.Complete()).WithAggregateException();
-
-        // Read from product channel and yield each product
-        await foreach (var product in products.Reader.ReadAllAsync(cancellation)) yield return product;
-
-        await completion; // to ensure any exceptions are propagated
+        // Sort the hash codes before combining them to ensure order-independence
+        foreach (var item in collection.Order()) hashCode.Add(item);
+        return hashCode;
     }
 }
 
@@ -174,19 +174,27 @@ internal static class TaskExtensions
     }
 }
 
-internal static class HttpRequestExceptionExtensions
+public static class ExceptionExtensions
 {
+    public static IEnumerable<Exception> GetRootCauses(this IEnumerable<Exception> exns)
+        => exns.SelectMany(ex => ex.GetRootCauses());
+
+    public static IEnumerable<Exception> GetRootCauses(this Exception ex) => ex switch
+    {
+        AggregateException aggex => aggex.Flatten().InnerExceptions.SelectMany(inner => inner.GetRootCauses()),
+        _ => [ex]
+    };
+
+    public static bool IsInputError(this Exception ex) => ex is InputException || ex is LiftiException
+        || ex is VideoUnavailableException || ex is PlaylistUnavailableException;
+
+    public static bool AnyNeedReporting(this IEnumerable<Exception> exns)
+        => exns.Any(e => e is not OperationCanceledException && !e.IsInputError());
+
+    public static bool HaveInputError(this IEnumerable<Exception> exns) => exns.Any(IsInputError);
+    public static bool AreAll<T>(this IEnumerable<Exception> exns) => exns.All(e => e is T);
+    public static bool AreAllCancelations(this IEnumerable<Exception> exns) => exns.AreAll<OperationCanceledException>();
+
     internal static bool IsNotFound(this HttpRequestException exception)
         => exception.StatusCode == System.Net.HttpStatusCode.NotFound || exception.Message.Contains("404 (NotFound)");
-}
-
-internal static class ChannelAliasMapExtensions
-{
-    internal static ChannelAliasMap? ForAlias(this ISet<ChannelAliasMap> maps, object alias)
-    {
-        var (type, value) = ChannelAliasMap.GetTypeAndValue(alias);
-
-        return maps.SingleOrDefault(known => known.Type == type
-            && known.Value.Equals(value, StringComparison.OrdinalIgnoreCase));
-    }
 }

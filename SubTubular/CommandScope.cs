@@ -1,112 +1,118 @@
-﻿using SubTubular.Extensions;
+﻿using System.Text.Json.Serialization;
+using SubTubular.Extensions;
+using YoutubeExplode.Playlists;
+using YoutubeExplode.Videos;
 
 namespace SubTubular;
 
-public abstract class CommandScope
+public abstract partial class CommandScope
 {
     /// <summary>Provides a description of the scope for <see cref="OutputCommand.Describe"/>.
     /// May yield multiple lines.</summary>
-    internal abstract IEnumerable<string> Describe();
+    public abstract IEnumerable<string> Describe(bool inDetail = true);
 
-    /// <summary>A collection of validated URLs for the entities included in the scope.
-    /// It translates non-URI identifiers in the scope of YouTube into URIs for <see cref="OutputCommand"/>s.</summary>
-    internal readonly List<ValidationResult> Validated = new();
-
-    internal bool IsValid => Validated.All(v => v.IsRemoteValidated);
-    internal bool IsPrevalidated => Validated.Count > 0;
-    internal ValidationResult SingleValidated => Validated.Single();
-
-    internal void AddPrevalidated(string id, string url) =>
-        Validated.Add(new ValidationResult { Id = id, Url = url });
-
-    internal void AddPrevalidated(string alias, object[] wellStructuredAliases) =>
-        Validated.Add(new ValidationResult { Id = alias, WellStructuredAliases = wellStructuredAliases });
-
-    /// <summary>Returns all pre-validated or validated <see cref="ValidationResult.Id"/> depending on <see cref="IsValid"/>.</summary>
-    internal string[] GetValidatedIds() => Validated.Select(v => v.Id).ToArray();
-
-    internal string GetValidatedId() => GetValidatedIds().Single();
-
-    internal sealed class ValidationResult
-    {
-        // pre-validation, checking input syntax
-        /// <summary>The validated identifier of the <see cref="CommandScope"/>.</summary>
-        internal required string Id { get; set; }
-
-        internal string? Url { get; set; }
-
-        /// <summary>Syntactically correct interpretations of <see cref="ChannelScope.Alias"/>
-        /// returned by <see cref="CommandValidator.PrevalidateChannelAlias(string)"/>.
-        /// For <see cref="ChannelScope"/>s only.</summary>
-        internal object[]? WellStructuredAliases { get; set; }
-
-        // proper validation, including loading from YouTube if required.
-        internal string? Title => Playlist?.Title ?? Video?.Title;
-        internal bool IsRemoteValidated => Playlist != null || Video != null;
-
-        /// <summary>For <see cref="VideosScope"/>s only.</summary>
-        internal Video? Video { get; set; }
-
-        /// <summary>For <see cref="PlaylistLikeScope"/>s only.</summary>
-        internal Playlist? Playlist { get; set; }
-    }
+    // used for debugging
+    public override string ToString() => Describe().Join(" ");
 }
 
-internal static class ScopeExtensions
-{
-    internal static IEnumerable<T> GetValid<T>(this IEnumerable<T> scopes) where T : CommandScope
-        => scopes.Where(s => s.IsValid);
-}
-
-public class VideosScope(IEnumerable<string> videos) : CommandScope
+[method: JsonConstructor]
+public class VideosScope(List<string> videos) : CommandScope
 {
     /// <summary>Input video IDs or URLs.</summary>
-    public IEnumerable<string> Videos { get; } = videos;
+    public List<string> Videos { get; } = [.. videos.Select(id => id.Trim())];
 
-    internal override IEnumerable<string> Describe()
+    public static string? TryParseId(string id) => VideoId.TryParse(id.Trim('"'))?.ToString();
+    public override bool RequiresValidation() => Videos.Except(GetRemoteValidated().Ids()).Any();
+
+    /// <summary>Converts the <paramref name="videoIdsOrUrls"/> into a dictionary
+    /// with the input as key and a pre-validated video ID or null as value.</summary>
+    public static (IEnumerable<string> preValidatedIds, IEnumerable<string> invalidAliases) ParseIds(IEnumerable<string> videoIdsOrUrls)
+    {
+        Dictionary<string, string?> aliasToPrevalidatedId = videoIdsOrUrls.ToDictionary(alias => alias, TryParseId);
+
+        return (preValidatedIds: aliasToPrevalidatedId.Values.WithValue().Distinct(),
+            invalidAliases: aliasToPrevalidatedId.Where(pair => pair.Value == null).Select(pair => pair.Key));
+    }
+
+    /// <summary>Returns inputs that pre-validate as video ID or URL but don't remote-validate.</summary>
+    public IEnumerable<string> GetRemoteInvalidatedIds()
+        => Progress.Videos?.Where(pair => pair.Value == VideoList.Status.invalid).Select(pair => pair.Key) ?? [];
+
+    public void Remove(string video)
+    {
+        RemoveInput(video);
+        Progress.Videos?.Remove(video);
+    }
+
+    internal void Invalidate(string video)
+    {
+        RemoveInput(video);
+        Report(video, VideoList.Status.invalid);
+    }
+
+    private void RemoveInput(string video)
+    {
+        Videos.Remove(video); // don't try to re-validate them
+        Validated.RemoveAll(v => v.Id == video); // clear maybe failed validation
+    }
+
+    public override IEnumerable<string> Describe(bool inDetail = true)
     {
         if (IsValid) // if validated, use titles - one per line
             foreach (var validated in Validated)
                 yield return validated.Title!;
         else // otherwise fall back to
         {
-            IEnumerable<string> ids = GetValidatedIds(); // pre-validated IDs
+            IEnumerable<string> ids = [.. Validated.Ids()]; // pre/validated IDs
             if (!ids.Any()) ids = Videos; // or the unvalidated inputs
             yield return "videos " + ids.Join(" "); // and join them
         }
     }
+
+    /*void ISerializable.GetObjectData(SerializationInfo info, StreamingContext context)
+        => info.AddValue(nameof(Videos), Videos);*/
 }
 
-public abstract class PlaylistLikeScope(string alias, ushort top, float cacheHours) : CommandScope
+public abstract class PlaylistLikeScope(string alias, ushort skip, ushort take, float cacheHours) : CommandScope
 {
     #region internal API
     /// <summary>The prefix for the <see cref="StorageKey"/>.</summary>
     protected abstract string KeyPrefix { get; }
 
     /// <summary>A unique identifier for the storing this <see cref="PlaylistLikeScope"/>,
-    /// capturing its type and <see cref="CommandScope.GetValidatedIds"/>.</summary>
-    internal string StorageKey => KeyPrefix + GetValidatedId();
+    /// capturing its type and <see cref="CommandScope.ValidationResult.Id"/>.</summary>
+    internal string StorageKey => KeyPrefix + SingleValidated.Id;
     #endregion
 
     // public options
-    public ushort Top { get; } = top;
-    public string Alias { get; set; } = alias;
-    public float CacheHours { get; } = cacheHours;
+    public string Alias { get; set; } = alias.Trim();
+    public ushort Skip { get; set; } = skip;
+    public ushort Take { get; set; } = take;
+    public float CacheHours { get; set; } = cacheHours;
 
-    internal override IEnumerable<string> Describe()
+    public override IEnumerable<string> Describe(bool inDetail = true)
     {
-        yield return IsValid ? SingleValidated.Playlist!.Title : Alias;
+        var identifier = IsValid ? SingleValidated.Playlist!.Title : Alias;
+
+        if (!inDetail) yield return identifier;
+        else yield return $"{identifier} ({Skip + 1} - {Skip + Take + 1})";
     }
+
+    public override bool RequiresValidation() => Alias.IsNonWhiteSpace() && !IsValid;
+
+    // for equality comparison of recent commands
+    public override int GetHashCode() => Alias.GetHashCode();
 }
 
-public class PlaylistScope(string alias, ushort top, float cacheHours) : PlaylistLikeScope(alias, top, cacheHours)
+public class PlaylistScope(string alias, ushort skip, ushort take, float cacheHours) : PlaylistLikeScope(alias, skip, take, cacheHours)
 {
-    internal const string StorageKeyPrefix = "playlist ";
+    public const string StorageKeyPrefix = "playlist ";
     protected override string KeyPrefix => StorageKeyPrefix;
+    public static string? TryParseId(string alias) => PlaylistId.TryParse(alias);
 }
 
-public class ChannelScope(string alias, ushort top, float cacheHours) : PlaylistLikeScope(alias, top, cacheHours)
+public class ChannelScope(string alias, ushort skip, ushort take, float cacheHours) : PlaylistLikeScope(alias, skip, take, cacheHours)
 {
-    internal const string StorageKeyPrefix = "channel ";
+    public const string StorageKeyPrefix = "channel ";
     protected override string KeyPrefix => StorageKeyPrefix;
 }

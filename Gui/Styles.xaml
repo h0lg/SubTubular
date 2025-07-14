@@ -1,0 +1,138 @@
+<Styles
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key='Default'>
+          <Color x:Key="WindowBackground">BlanchedAlmond</Color>
+          <Color x:Key="DemotedForeground">Gray</Color>
+          <Color x:Key="ErrorForeground">Red</Color>
+          <Color x:Key="ScopeBackground">Khaki</Color>
+          <Color x:Key="AddScopeBackground">Wheat</Color>
+          <Color x:Key="ActiveToggleBackground">RoyalBlue</Color>
+          <Color x:Key="InactiveToggleBackground">Transparent</Color>
+          <Color x:Key="InactiveToggleForeground">Gray</Color>
+          <Color x:Key="ExternalLinkBackground">SkyBlue</Color>
+          <Color x:Key="MatchedText">Navy</Color>
+          <Color x:Key="KeywordBackground">Thistle</Color>
+          <Color x:Key="Glass">#55dddddd</Color>
+          <Color x:Key="ThickGlass">#77dddddd</Color>
+
+          <!-- overriding https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Themes.Fluent/Accents/FluentControlResources.xaml -->
+          <StaticResource x:Key="ExpanderHeaderBackground" ResourceKey="ThickGlass" />
+          <StaticResource x:Key="ExpanderHeaderBackgroundPointerOver" ResourceKey="ThickGlass" />
+          <StaticResource x:Key="ExpanderHeaderBackgroundPressed" ResourceKey="ThickGlass" />
+          <StaticResource x:Key="ExpanderHeaderBackgroundDisabled" ResourceKey="ThickGlass" />
+          <StaticResource x:Key="ExpanderContentBackground" ResourceKey="Glass" />
+
+          <!--<StaticResource x:Key="FlyoutPresenterBackground" ResourceKey="ThickGlass" />
+          <StaticResource x:Key="FlyoutBorderThemeBrush" ResourceKey="Glass" />-->
+        </ResourceDictionary>
+        <ResourceDictionary x:Key='Dark'>
+          <Color x:Key="WindowBackground">MidnightBlue</Color>
+          <Color x:Key="ScopeBackground">Indigo</Color>
+          <Color x:Key="AddScopeBackground">DarkBlue</Color>
+          <Color x:Key="ExternalLinkBackground">Purple</Color>
+          <Color x:Key="MatchedText">Orange</Color>
+          <Color x:Key="KeywordBackground">Purple</Color>
+          <Color x:Key="Glass">#55222222</Color>
+          <Color x:Key="ThickGlass">#77222222</Color>
+
+          <!-- overriding https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Themes.Fluent/Accents/FluentControlResources.xaml -->
+          <StaticResource x:Key="ExpanderHeaderBackground" ResourceKey="ThickGlass" />
+          <StaticResource x:Key="ExpanderHeaderBackgroundPointerOver" ResourceKey="ThickGlass" />
+          <StaticResource x:Key="ExpanderHeaderBackgroundPressed" ResourceKey="ThickGlass" />
+          <StaticResource x:Key="ExpanderHeaderBackgroundDisabled" ResourceKey="ThickGlass" />
+          <StaticResource x:Key="ExpanderContentBackground" ResourceKey="Glass" />
+
+          <!--<StaticResource x:Key="FlyoutPresenterBackground" ResourceKey="Glass" />
+          <StaticResource x:Key="FlyoutBorderThemeBrush" ResourceKey="ThickGlass" />-->
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
+
+    <!-- overriding https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Themes.Fluent/Controls/Expander.xaml -->
+    <Thickness x:Key="ExpanderHeaderBorderThickness">0</Thickness>
+    <Thickness x:Key="ExpanderContentDownBorderThickness">0</Thickness>
+    <CornerRadius x:Key="ControlCornerRadius">10</CornerRadius>
+  </Styles.Resources>
+
+  <FluentTheme />
+
+  <!-- overriding https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Themes.Fluent/Controls/Window.xaml -->
+  <Style Selector="Window">
+    <Setter Property="Background" Value="{DynamicResource WindowBackground}" />
+    <Setter Property="CornerRadius" Value="10" />
+  </Style>
+
+  <!-- overriding https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Themes.Fluent/Controls/ListBox.xaml -->
+  <Style Selector="ListBox">
+    <Setter Property="Background" Value="{DynamicResource Glass}" />
+    <Setter Property="CornerRadius" Value="10" />
+  </Style>
+
+  <!-- overriding https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Themes.Fluent/Controls/FlyoutPresenter.xaml -->
+  <Style Selector="FlyoutPresenter">
+    <Setter Property="Cursor" Value="Arrow" />
+  </Style>
+
+  <Style Selector="Border.card">
+    <Setter Property="Padding" Value="5" />
+    <Setter Property="Margin" Value="0,0,0,10" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="Background" Value="{DynamicResource Glass}" />
+  </Style>
+
+  <Style Selector="Border.keyword">
+    <Setter Property="Background" Value="{DynamicResource KeywordBackground}" />
+    <Setter Property="CornerRadius" Value="2" />
+    <Setter Property="Padding" Value="3,0,3,0" />
+    <Setter Property="Margin" Value="3" />
+  </Style>
+
+  <Style Selector="Border.scope">
+    <Setter Property="Background" Value="{DynamicResource ScopeBackground}" />
+    <Setter Property="CornerRadius" Value="2" />
+    <Setter Property="Padding" Value="2" />
+    <Setter Property="Margin" Value="0,0,5,5" />
+    <Setter Property="VerticalAlignment" Value="Top" />
+  </Style>
+
+  <Style Selector="Border.add-scope">
+    <Setter Property="Background" Value="{DynamicResource AddScopeBackground}" />
+    <Setter Property="VerticalAlignment" Value="Bottom" />
+    <Setter Property="HorizontalAlignment" Value="Right" />
+    <Setter Property="Padding" Value="2" />
+    <Setter Property="CornerRadius" Value="2" />
+  </Style>
+
+  <Style Selector="SelectableTextBlock.MatchedText > Run.match">
+    <Setter Property="Foreground" Value="{DynamicResource MatchedText}" />
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
+
+  <Style Selector="TextBlock.demoted">
+    <Setter Property="Foreground" Value="{DynamicResource DemotedForeground}" />
+  </Style>
+
+  <Style Selector="TextBlock.external-link">
+    <Setter Property="Background" Value="{DynamicResource ExternalLinkBackground}" />
+    <Setter Property="HorizontalAlignment" Value="Right" />
+    <Setter Property="Margin" Value="0,10,0,0" />
+  </Style>
+
+  <Style Selector="TextBlock.error">
+    <Setter Property="Foreground" Value="{DynamicResource ErrorForeground}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+
+  <Style Selector="MenuItem.active-toggle">
+    <Setter Property="Background" Value="{DynamicResource ActiveToggleBackground}" />
+  </Style>
+  
+  <Style Selector="MenuItem.inactive-toggle">
+    <Setter Property="Background" Value="{DynamicResource InactiveToggleBackground}" />
+    <Setter Property="Foreground" Value="{DynamicResource InactiveToggleForeground}" />
+  </Style>
+</Styles>

@@ -43,23 +43,22 @@ public abstract class FileOutputWriter : OutputWriter
         if (hasOutputPath && !fileOutputPath!.IsDirectoryPath()) return fileOutputPath!; // treat as full file path
 
         // generate default file path
-        var fileName = command.Describe().ToFileSafe() + extension;
+        var fileName = command.Describe().ToFileSafe(replacement: "").NormalizeWhiteSpace() + extension;
         var folder = hasOutputPath ? fileOutputPath! : Folder.GetPath(Folders.output);
         return Path.Combine(folder, fileName);
     }
 }
 
-public class TextOutputWriter : FileOutputWriter, IDisposable
+public class TextOutputWriter(OutputCommand command) : FileOutputWriter(command, ".txt"), IDisposable
 {
-    private readonly StringWriter textOut;
-
-    public TextOutputWriter(OutputCommand command) : base(command, ".txt")
-        => textOut = new StringWriter();
+    private readonly StringWriter textOut = new();
 
     public override void WriteCounted(string text) => textOut.Write(text);
     public override void WriteHighlighted(string text) => Write($"*{text}*");
     public override void WriteUrl(string url) => Write(url);
     public override void WriteLineBreak() => textOut.WriteLine();
+    public override void WriteNotificationLine(string text) => WriteLine("⚠ " + text);
+    public override void WriteErrorLine(string text) => WriteLine("🛑 " + text);
     public override string Flush() => textOut.ToString();
     public void Dispose() => textOut.Dispose();
 }

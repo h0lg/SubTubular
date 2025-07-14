@@ -1,15 +1,57 @@
-﻿using SubTubular.Extensions;
+﻿using System.Text.Json.Serialization;
+using SubTubular.Extensions;
 
 namespace SubTubular;
 
+[method: JsonConstructor]
+public sealed class YoutubeSearchResult(string id, string title, string url, string thumbnail, string? channel = null)
+{
+    public string Id { get; } = id;
+    public string Title { get; } = title;
+    public string Url { get; } = url;
+    public string Thumbnail { get; } = thumbnail.StartsWith("http") ? thumbnail : "https:" + thumbnail;
+    public string? Channel { get; } = channel;
+
+    // for debugging
+    public override string ToString() => Title;
+
+    [method: JsonConstructor]
+    public sealed class Cache(string search, YoutubeSearchResult[] results, DateTime created)
+    {
+        public string Search { get; set; } = search;
+        public DateTime Created { get; set; } = created;
+        public YoutubeSearchResult[] Results { get; set; } = results;
+    }
+}
+
 public sealed class VideoSearchResult
 {
+    public PlaylistLikeScope? Scope { get; internal set; }
     public required Video Video { get; set; }
     public MatchedText? TitleMatches { get; set; }
     public MatchedText? DescriptionMatches { get; set; }
     public MatchedText[]? KeywordMatches { get; set; }
     public CaptionTrackResult[]? MatchingCaptionTracks { get; set; }
+
     public double Score { get; internal set; }
+    private bool wasRescored;
+
+    /// <summary>Re-calculates <see cref="Score"/> for searches spanning multiple <see cref="VideoIndex"/>es.
+    /// This is required because <see cref="Lifti.SearchResult{TKey}.Score"/> is currently calculated
+    /// on the metadata of a single index - so scores from different indexes can't be compared.
+    /// See https://github.com/mikegoatly/lifti/issues/32#issuecomment-2307362056 .
+    /// This is a work-around until a better scoring algorithm for searching multiple indexes is available.</summary>
+    internal void Rescore()
+    {
+        if (wasRescored) return; // to avoid unnecessary re-calculating
+
+        Score = TitleMatches?.Matches.Length ?? 0
+            + DescriptionMatches?.Matches.Length ?? 0
+            + KeywordMatches?.Sum(m => m.Matches.Length) ?? 0
+            + MatchingCaptionTracks?.Sum(t => t.Matches.Matches.Length) ?? 0;
+
+        wasRescored = true; // mark recalculated
+    }
 
     public sealed class CaptionTrackResult
     {
@@ -21,7 +63,7 @@ public sealed class VideoSearchResult
             // get (included) padded start and end index of matched Text
             var start = Math.Max(0, matched.Matches.Min(m => m.Start) - (int)matchPadding);
             var end = Math.Min(matched.Text.Length - 1, matched.Matches.Max(m => m.IncludedEnd) + (int)matchPadding);
-            var captionAtFullTextIndex = Track.GetCaptionAtFullTextIndex();
+            var captionAtFullTextIndex = Track.GetCaptionAtFullTextIndex()!;
 
             // find first and last captions containing parts of the padded match
             var first = captionAtFullTextIndex.Last(x => x.Key <= start);
@@ -35,8 +77,8 @@ public sealed class VideoSearchResult
                 .Select(text => text.NormalizeWhiteSpace(CaptionTrack.FullTextSeperator)) // replace included line breaks
                 .Join(CaptionTrack.FullTextSeperator);
 
-            MatchedText synced = new(text, matched.Matches.Select(m =>
-                new MatchedText.Match(m.Start - first.Key, m.Length)).ToArray());
+            MatchedText synced = new(text, [.. matched.Matches.Select(m =>
+                new MatchedText.Match(m.Start - first.Key, m.Length))]);
 
             return (synced, first.Value.At);
         }
@@ -45,6 +87,7 @@ public sealed class VideoSearchResult
         {
             var fulltextStart = Math.Max(0, Matches.Matches.Max(m => m.Start) - matchPadding);
             var captionAtFullTextIndex = Track.GetCaptionAtFullTextIndex();
+            if (captionAtFullTextIndex == null) return false;
             var lastCaptionStart = captionAtFullTextIndex.Last(x => x.Key <= fulltextStart).Value;
             return lastCaptionStart.At > 3600; // sec per hour
         }

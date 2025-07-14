@@ -3,38 +3,30 @@ using SubTubular.Extensions;
 
 namespace SubTubular;
 
-[Serializable]
-public sealed class Playlist
-{
-    public required string Title { get; set; }
-    public DateTime Loaded { get; set; }
-
-    /// <summary>The <see cref="Video.Id"/>s and (optional) upload dates
-    /// of the videos included in the <see cref="Playlist" />.</summary>
-    public IDictionary<string, DateTime?> Videos { get; set; } = new Dictionary<string, DateTime?>();
-}
-
-[Serializable]
 public sealed class Video
 {
-    internal const string StorageKeyPrefix = "video ";
+    public const string StorageKeyPrefix = "video ";
 
     public required string Id { get; set; }
     public required string Title { get; set; }
     public required string Description { get; set; }
+    public required string Channel { get; set; }
+    public required string Thumbnail { get; set; }
     public required string[] Keywords { get; set; }
 
     /// <summary>Upload time in UTC.</summary>
     public DateTime Uploaded { get; set; }
 
     /// <summary>Set internally and temporarily when a video was re-loaded from YouTube and needs re-indexing.
-    /// This is a work-around for <see cref="CacheClearer"/> not cleaning up playlist indexes when singular videos are cleared.</summary>
+    /// This is a work-around for <see cref="CacheManager"/> not cleaning up playlist indexes when singular videos are cleared.</summary>
     internal bool UnIndexed { get; set; }
 
-    public IList<CaptionTrack> CaptionTracks { get; set; } = new List<CaptionTrack>();
+    /// <summary>Null if tracks have not been downloaded.</summary>
+    public IList<CaptionTrack>? CaptionTracks { get; set; }
+
+    internal static string GuessThumbnailUrl(string videoId) => $"https://img.youtube.com/vi/{videoId}/default.jpg";
 }
 
-[Serializable]
 public sealed class CaptionTrack
 {
     public required string LanguageName { get; set; }
@@ -47,18 +39,28 @@ public sealed class CaptionTrack
     internal const string FullTextSeperator = " ";
     private string? fullText;
     private Dictionary<int, Caption>? captionAtFullTextIndex;
+    private readonly Lock accessToken = new(); // for thread-safe access
+    private Timer? dropCacheTimer;
 
     // aggregates captions into fullText to enable matching phrases across caption boundaries
-    internal string GetFullText()
+    internal string? GetFullText()
     {
-        if (fullText == null) CacheFullText();
-        return fullText!;
+        lock (accessToken)
+        {
+            if (fullText == null && Captions != null) CacheFullText();
+            RescheduleCacheDrop();
+            return fullText;
+        }
     }
 
-    internal Dictionary<int, Caption> GetCaptionAtFullTextIndex()
+    internal Dictionary<int, Caption>? GetCaptionAtFullTextIndex()
     {
-        if (captionAtFullTextIndex == null) CacheFullText();
-        return captionAtFullTextIndex!;
+        lock (accessToken)
+        {
+            if (captionAtFullTextIndex == null && Captions != null) CacheFullText();
+            RescheduleCacheDrop();
+            return captionAtFullTextIndex;
+        }
     }
 
     private void CacheFullText()
@@ -81,10 +83,28 @@ public sealed class CaptionTrack
         captionAtFullTextIndex = captionsAtFullTextIndex;
         fullText = writer.ToString();
     }
+
+    private void RescheduleCacheDrop()
+    {
+        dropCacheTimer?.Dispose(); // Dispose of any existing timer
+        dropCacheTimer = new Timer(DropCache, null, 1000, Timeout.Infinite);
+    }
+
+    private void DropCache(object? state)
+    {
+        lock (accessToken)
+        {
+            fullText = null;
+            captionAtFullTextIndex = null;
+
+            // Dispose of the timer and set it to null
+            dropCacheTimer?.Dispose();
+            dropCacheTimer = null;
+        }
+    }
     #endregion
 }
 
-[Serializable]
 public sealed class Caption
 {
     /// <summary>The offset from the start of the video in seconds.</summary>
@@ -94,24 +114,4 @@ public sealed class Caption
 
     // for comparing captions when finding them in a caption track
     public override int GetHashCode() => HashCode.Combine(At, Text);
-}
-
-/// <summary>Maps valid channel aliases by <see cref="Type"/> and <see cref="Value"/>
-/// to an accessible <see cref="ChannelId"/> or null if none was found.</summary>
-[Serializable]
-public sealed class ChannelAliasMap
-{
-    internal const string StorageKey = "known channel alias maps";
-
-    public required string Type { get; set; }
-    public required string Value { get; set; }
-    public string? ChannelId { get; set; }
-
-    internal static (string, string) GetTypeAndValue(object alias) => (alias.GetType().Name, alias.ToString()!);
-
-    internal static async Task<HashSet<ChannelAliasMap>> LoadList(DataStore dataStore)
-        => await dataStore.GetAsync<HashSet<ChannelAliasMap>>(StorageKey) ?? [];
-
-    internal static async Task SaveList(HashSet<ChannelAliasMap> maps, DataStore dataStore)
-        => await dataStore.SetAsync(StorageKey, maps);
 }

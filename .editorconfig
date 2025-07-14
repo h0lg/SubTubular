@@ -1,0 +1,4 @@
+﻿[*.cs]
+
+# IDE0061: Prefer expression bodies for local functions
+csharp_style_expression_bodied_local_functions = true
