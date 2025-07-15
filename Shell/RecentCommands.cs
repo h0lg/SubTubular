@@ -7,19 +7,19 @@ static partial class CommandInterpreter
     private static Command ConfigureRecent(Func<SearchCommand, Task> search, Func<ListKeywords, Task> listKeywords)
     {
         Command recent = new("recent", "List, run or remove recently run commands.");
-        recent.AddAlias("rc");
-        recent.AddCommand(ConfigureListRecent());
-        recent.AddCommand(ConfigureRunRecent(search, listKeywords));
-        recent.AddCommand(ConfigureRemoveRecent());
+        recent.Aliases.Add("rc");
+        recent.Subcommands.Add(ConfigureListRecent());
+        recent.Subcommands.Add(ConfigureRunRecent(search, listKeywords));
+        recent.Subcommands.Add(ConfigureRemoveRecent());
         return recent;
     }
 
     private static Command ConfigureListRecent()
     {
         Command list = new("list", "List recently run commands.");
-        list.AddAlias("l");
+        list.Aliases.Add("l");
 
-        list.SetHandler(async () =>
+        list.SetAction(async _ =>
         {
             var saved = await RecentCommands.ListAsync();
 
@@ -44,15 +44,15 @@ static partial class CommandInterpreter
     private static Command ConfigureRunRecent(Func<SearchCommand, Task> search, Func<ListKeywords, Task> listKeywords)
     {
         Command run = new("run", "Run a recently run command by its number.");
-        run.AddAlias("r");
+        run.Aliases.Add("r");
 
-        Argument<ushort> number = new("command number", "The number of the command from the recent list to run.");
-        run.AddArgument(number);
+        Argument<ushort> number = new("command number") { Description = "The number of the command from the recent list to run." };
+        run.Arguments.Add(number);
 
-        run.SetHandler(async (ctx) =>
+        run.SetAction(async parsed =>
         {
             var commands = await RecentCommands.ListAsync();
-            var command = commands.GetByNumber(ctx.Parsed(number));
+            var command = commands.GetByNumber(parsed.Parsed(number));
 
             if (command == null) Console.WriteLine($"Command {number} couldn't be found.");
             else
@@ -72,15 +72,15 @@ static partial class CommandInterpreter
     private static Command ConfigureRemoveRecent()
     {
         Command remove = new("remove", "Remove a command by its number from the recent list.");
-        remove.AddAlias("x");
+        remove.Aliases.Add("x");
 
-        Argument<ushort> number = new("command number", "The number of the command from the recent list to remove.");
-        remove.AddArgument(number);
+        Argument<ushort> number = new("command number") { Description = "The number of the command from the recent list to remove." };
+        remove.Arguments.Add(number);
 
-        remove.SetHandler(async (ctx) =>
+        remove.SetAction(async parsed =>
         {
             var commands = await RecentCommands.ListAsync();
-            var command = commands.GetByNumber(ctx.Parsed(number));
+            var command = commands.GetByNumber(parsed.Parsed(number));
 
             if (command == null) Console.WriteLine($"Command {number} couldn't be found.");
             else

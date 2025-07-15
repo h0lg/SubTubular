@@ -30,17 +30,17 @@ static partial class CommandInterpreter
     private static Command ConfigureListKeywords(Func<ListKeywords, Task> listKeywords)
     {
         Command command = new(Actions.listKeywords, ListKeywords.Description);
-        command.AddAlias(Actions.listKeywords[..1]); // first character
+        command.Aliases.Add(Actions.listKeywords[..1]); // first character
 
         var (channels, playlists, videos) = AddScopes(command);
         (Option<IEnumerable<ushort>?> skip, Option<IEnumerable<ushort>?> take, Option<IEnumerable<float>?> cacheHours) = AddPlaylistLikeCommandOptions(command);
         (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(command);
         Option<bool> saveAsRecent = AddSaveAsRecent(command);
 
-        command.SetHandler(async (ctx) => await listKeywords(new ListKeywords()
-            .BindScopes(ctx, videos, channels, playlists, skip, take, cacheHours)
-            .BindOuputOptions(ctx, html, fileOutputPath, show)
-            .BindSaveAsRecent(ctx, saveAsRecent)));
+        command.SetAction(async result => await listKeywords(new ListKeywords()
+            .BindScopes(result, videos, channels, playlists, skip, take, cacheHours)
+            .BindOuputOptions(result, html, fileOutputPath, show)
+            .BindSaveAsRecent(result, saveAsRecent)));
 
         return command;
     }

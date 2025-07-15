@@ -1,9 +1,6 @@
 ﻿using System.Collections;
 using System.CommandLine;
-using System.CommandLine.Builder;
-using System.CommandLine.Help;
 using System.CommandLine.Invocation;
-using System.CommandLine.Parsing;
 
 namespace SubTubular.Shell;
 
@@ -19,73 +16,49 @@ static partial class CommandInterpreter
         Task listKeywords(ListKeywords cmd) => Program.ListKeywordsAsync(cmd, originalCommand);
 
         RootCommand root = new(AssemblyInfo.Title);
+        // see https://learn.microsoft.com/en-us/dotnet/standard/commandline/syntax#directives
+        // and https://learn.microsoft.com/en-us/dotnet/standard/commandline/syntax#the-diagram-directive
+        root.Directives.Add(new DiagramDirective());
 
-        // see https://learn.microsoft.com/en-us/dotnet/standard/commandline/define-commands#define-subcommands
-        root.AddCommand(ConfigureSearch(search));
-        root.AddCommand(ConfigureListKeywords(listKeywords));
-        root.AddCommand(ConfigureClearCache(Program.ApplyClearCacheAsync));
-        root.AddCommand(ConfigureRelease());
-        root.AddCommand(ConfigureOpen());
-        root.AddCommand(ConfigureRecent(search, listKeywords));
+        // see https://learn.microsoft.com/en-us/dotnet/standard/commandline/syntax#subcommands
+        root.Subcommands.Add(ConfigureSearch(search));
+        root.Subcommands.Add(ConfigureListKeywords(listKeywords));
+        root.Subcommands.Add(ConfigureClearCache(Program.ApplyClearCacheAsync));
+        root.Subcommands.Add(ConfigureRelease());
+        root.Subcommands.Add(ConfigureOpen());
+        root.Subcommands.Add(ConfigureRecent(search, listKeywords));
 
-        Parser parser = new CommandLineBuilder(root)
-            .UseVersionOption()
-            .UseEnvironmentVariableDirective()
-            .UseParseDirective()
-            .UseSuggestDirective()
-            .RegisterWithDotnetSuggest()
-            .UseTypoCorrections()
-            .UseParseErrorReporting(errorExitCode: (int)ExitCode.ValidationError)
-            .CancelOnProcessTermination()
+        ParseResult parsed = root.Parse(args);
+        var exit = await parsed.InvokeAsync();
 
-            // see https://learn.microsoft.com/en-us/dotnet/standard/commandline/customize-help
-            .UseHelp(ctx => ctx.HelpBuilder.CustomizeLayout(context =>
-            {
-                var layout = HelpBuilder.Default.GetLayout();
+        /*  parser errors are printed by invocation above and return a non-zero exit code - no need to check it
+         *  see https://learn.microsoft.com/en-us/dotnet/standard/commandline/how-to-parse-and-invoke#parse-errors */
+        if (parsed.Action is ParseErrorAction) return ExitCode.ValidationError;
 
-                if (context.Command == root)
-                {
-                    layout = layout
-                        .Skip(1) // Skip the default command description section.
-                        .Prepend(_ =>
-                        {
-                            // enhance heading for branding
-                            Console.WriteLine(Program.AsciiHeading + root.Description + " " + AssemblyInfo.InformationalVersion);
-                            Console.WriteLine(AssemblyInfo.Copyright);
-                        });
-                }
-
-                return layout.Append(_ => Console.WriteLine(Environment.NewLine + $"See {AssemblyInfo.RepoUrl} for more info."));
-            }))
-            .Build();
-
-        var exit = await parser.InvokeAsync(args);
-
-        if (Enum.IsDefined(typeof(ExitCode), exit)) return (ExitCode)exit;
-        else return ExitCode.GenericError;
+        if (Enum.IsDefined(typeof(ExitCode), exit)) return (ExitCode)exit; // translate known exit code
+        else return ExitCode.GenericError; // unify unknown exit codes
     }
 
     private static Command ConfigureOpen()
     {
         Command open = new("open", "Opens app-related folders in a file browser.");
-        open.AddAlias("o");
+        open.Aliases.Add("o");
 
-        Argument<Folders> folder = new("folder", "The folder to open.");
-        open.AddArgument(folder);
+        Argument<Folders> folder = new("folder") { Description = "The folder to open." };
+        open.Arguments.Add(folder);
 
-        open.SetHandler(folder => ShellCommands.ExploreFolder(Folder.GetPath(folder)), folder);
+        open.SetAction(parsed => ShellCommands.ExploreFolder(Folder.GetPath(parsed.Parsed(folder))));
         return open;
     }
 }
 
 internal static partial class BindingExtensions
 {
-    internal static T Parsed<T>(this InvocationContext context, Argument<T> arg)
-        => context.ParseResult.GetValueForArgument(arg);
+    internal static T Parsed<T>(this ParseResult parsed, Argument<T> arg) => parsed.GetValue(arg)!;
 
-    internal static T? Parsed<T>(this InvocationContext context, Option<T> option)
+    internal static T? Parsed<T>(this ParseResult parsed, Option<T> option)
     {
-        var value = context.ParseResult.GetValueForOption(option);
+        var value = parsed.GetValue(option);
 
         // return null instead of an empty collection for enumerable options to make value checks easier
         if (option.AllowMultipleArgumentsPerToken
