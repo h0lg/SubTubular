@@ -46,24 +46,7 @@ static partial class CommandInterpreter
         Argument<Folders> folder = new("folder") { Description = "The folder to open." };
         open.Arguments.Add(folder);
 
-        open.SetAction(parsed => ShellCommands.ExploreFolder(Folder.GetPath(parsed.Parsed(folder))));
+        open.SetAction(parsed => ShellCommands.ExploreFolder(Folder.GetPath(parsed.GetValue(folder))));
         return open;
-    }
-}
-
-internal static partial class BindingExtensions
-{
-    internal static T Parsed<T>(this ParseResult parsed, Argument<T> arg) => parsed.GetValue(arg)!;
-
-    internal static T? Parsed<T>(this ParseResult parsed, Option<T> option)
-    {
-        var value = parsed.GetValue(option);
-
-        // return null instead of an empty collection for enumerable options to make value checks easier
-        if (option.AllowMultipleArgumentsPerToken
-            && value is T[] { Length: 0 }) // is empty
-            return default;
-
-        return value;
     }
 }

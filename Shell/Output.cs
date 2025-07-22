@@ -180,16 +180,16 @@ internal static partial class BindingExtensions
 {
     internal static T BindSaveAsRecent<T>(this T command, ParseResult parsed, Option<bool> saveAsRecent) where T : OutputCommand
     {
-        command.SaveAsRecent = parsed.Parsed(saveAsRecent);
+        command.SaveAsRecent = parsed.GetValue(saveAsRecent);
         return command;
     }
 
     internal static T BindOuputOptions<T>(this T command, ParseResult parsed,
         Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) where T : OutputCommand
     {
-        command.OutputHtml = parsed.Parsed(html);
-        command.FileOutputPath = parsed.Parsed(fileOutputPath);
-        command.Show = parsed.Parsed(show);
+        command.OutputHtml = parsed.GetValue(html);
+        command.FileOutputPath = parsed.GetValue(fileOutputPath);
+        command.Show = parsed.GetValue(show);
         return command;
     }
 }

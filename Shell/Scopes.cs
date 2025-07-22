@@ -80,23 +80,25 @@ static partial class CommandInterpreter
 internal static partial class BindingExtensions
 {
     internal static T ValueAtIndexOrLastOrDefault<T>(this T[]? values, int index, T defaultValue)
-        => values == null ? defaultValue : index < values.Length ? values[index] : values[^1];
+        => values == null || values.Length == 0 ? defaultValue // use default if there are no items
+            : index < values.Length ? values[index] // the value at the given index if it exists
+            : values[^1]; // or the last value by default
 
     internal static T BindScopes<T>(this T command, ParseResult parsed,
         StringListOption videos, StringListOption channels, StringListOption playlists,
         UshortListOption skip, UshortListOption take, FloatListOption cacheHours) where T : OutputCommand
     {
-        var videoIds = parsed.Parsed(videos);
+        var videoIds = parsed.GetValue(videos);
         command.Videos = videoIds == null ? null : new VideosScope([.. videoIds]);
 
-        var channelScopes = parsed.Parsed(channels);
-        var playlistScopes = parsed.Parsed(playlists);
+        var channelScopes = parsed.GetValue(channels);
+        var playlistScopes = parsed.GetValue(playlists);
         int channelCount = channelScopes?.Count() ?? 0;
         var playlistLikes = channelCount + (playlistScopes?.Count() ?? 0);
 
-        var skips = parsed.Parsed(skip)?.ToArray();
-        var takes = parsed.Parsed(take)?.ToArray();
-        var cacheHour = parsed.Parsed(cacheHours)?.ToArray();
+        var skips = parsed.GetValue(skip)?.ToArray();
+        var takes = parsed.GetValue(take)?.ToArray();
+        var cacheHour = parsed.GetValue(cacheHours)?.ToArray();
 
         if (channelScopes.HasAny()) command.Channels = [.. channelScopes!.Select((alias, i) =>
         {

@@ -78,10 +78,10 @@ static partial class CommandInterpreter
 
         clearCache.SetAction(async parsed => await handle(new ClearCache
         {
-            Scope = parsed.Parsed(scope),
-            Aliases = parsed.Parsed(aliases),
-            NotAccessedForDays = parsed.Parsed(notAccessedForDays),
-            Mode = parsed.Parsed(mode)
+            Scope = parsed.GetValue(scope),
+            Aliases = parsed.GetValue(aliases),
+            NotAccessedForDays = parsed.GetValue(notAccessedForDays),
+            Mode = parsed.GetValue(mode)
         }));
 
         return clearCache;

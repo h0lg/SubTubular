@@ -84,9 +84,9 @@ internal static partial class BindingExtensions
     internal static SearchCommand BindSearchOptions(this SearchCommand search, ParseResult parsed,
         Option<IEnumerable<string>> queryWords, Option<ushort> padding, Option<IEnumerable<SearchCommand.OrderOptions>> orderBy)
     {
-        search.Query = parsed.Parsed(queryWords)?.Join(" ");
-        search.Padding = parsed.Parsed(padding);
-        IEnumerable<SearchCommand.OrderOptions>? orders = parsed.Parsed(orderBy);
+        search.Query = parsed.GetValue(queryWords)?.Join(" ");
+        search.Padding = parsed.GetValue(padding);
+        IEnumerable<SearchCommand.OrderOptions>? orders = parsed.GetValue(orderBy);
         if (orders != null) search.OrderBy = orders; // only override default if supplied
         return search;
     }

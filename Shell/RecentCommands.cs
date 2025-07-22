@@ -52,7 +52,7 @@ static partial class CommandInterpreter
         run.SetAction(async parsed =>
         {
             var commands = await RecentCommands.ListAsync();
-            var command = commands.GetByNumber(parsed.Parsed(number));
+            var command = commands.GetByNumber(parsed.GetValue(number));
 
             if (command == null) Console.WriteLine($"Command {number} couldn't be found.");
             else
@@ -80,7 +80,7 @@ static partial class CommandInterpreter
         remove.SetAction(async parsed =>
         {
             var commands = await RecentCommands.ListAsync();
-            var command = commands.GetByNumber(parsed.Parsed(number));
+            var command = commands.GetByNumber(parsed.GetValue(number));
 
             if (command == null) Console.WriteLine($"Command {number} couldn't be found.");
             else
