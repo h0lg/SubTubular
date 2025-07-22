@@ -1,5 +1,4 @@
-﻿using System.Collections;
-using System.CommandLine;
+﻿using System.CommandLine;
 using System.CommandLine.Invocation;
 
 namespace SubTubular.Shell;
@@ -62,8 +61,7 @@ internal static partial class BindingExtensions
 
         // return null instead of an empty collection for enumerable options to make value checks easier
         if (option.AllowMultipleArgumentsPerToken
-            && value is IEnumerable enumerable
-            && !enumerable.GetEnumerator().MoveNext()) // is empty
+            && value is T[] { Length: 0 }) // is empty
             return default;
 
         return value;
