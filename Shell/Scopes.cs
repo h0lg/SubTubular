@@ -35,14 +35,16 @@ static partial class CommandInterpreter
         return (channels, playlists, videos);
     }
 
+    internal const ushort SkipDefault = 0, TakeDefault = 50;
+    internal const float CacheHoursDefault = 24f;
+
     private static (UshortListOption skip, UshortListOption take, FloatListOption cacheHours) AddPlaylistLikeCommandOptions(Command command)
     {
         UshortListOption skip = new(Args.skip, "-sk")
         {
             Description = "The number of videos to skip from the top in the searched channels (Uploads playlist) and playlists;"
                 + " effectively limiting the search scope to the videos after it."
-                + " Specify values for searched channels before those for searched playlists, each group in the order they're passed."
-                + " If left empty, 0 is used for all channels and playlists.",
+                + DescribePlaylistLikeOptionValues(SkipDefault),
             AllowMultipleArgumentsPerToken = true
         };
 
@@ -50,8 +52,7 @@ static partial class CommandInterpreter
         {
             Description = $"The number of videos to search from the top (or '{Args.skip}'-ed to part) of the searched channels (Uploads playlist) and playlists;"
                 + " effectively limiting the search range."
-                + " Specify values for searched channels before those for searched playlists, each group in the order they're passed."
-                + " If left empty, 50 is used for all channels and playlists."
+                + DescribePlaylistLikeOptionValues(TakeDefault)
                 + " You may want to gradually increase this to include all videos in the list while you're refining your query."
                 + $" Note that the special Uploads playlist of a channel is sorted latest '{nameof(SearchCommand.OrderOptions.uploaded)}' first,"
                 + " but custom playlists may be sorted differently. Keep that in mind if you don't find what you're looking for"
@@ -63,8 +64,7 @@ static partial class CommandInterpreter
         {
             Description = "The maximum ages of the searched channel (Uploads playlist) and playlist caches in hours"
                 + " before they're considered stale and the list of videos in them are refreshed."
-                + " Specify values for searched channels before those for searched playlists, each group in the order they're passed."
-                + " If left empty, 24 is used for all channels and playlists."
+                + DescribePlaylistLikeOptionValues(CacheHoursDefault)
                 + " Note this doesn't apply to the videos themselves because their contents rarely change after upload."
                 + $" Use '--{clearCacheCommand}' to clear videos associated with a playlist or channel if that's what you're after.",
             AllowMultipleArgumentsPerToken = true
@@ -75,6 +75,11 @@ static partial class CommandInterpreter
         command.Options.Add(cacheHours);
         return (skip, take, cacheHours);
     }
+
+    private static string DescribePlaylistLikeOptionValues(object defaultValue)
+        => $" You can specify a value for each included scope, '{Scopes.channels}' before '{Scopes.playlists}', in the order they're passed."
+            + " If you specify less values than scopes, the last value is used for remaining scopes."
+            + $" If left empty, {defaultValue} is used for all scopes.";
 }
 
 internal static partial class BindingExtensions
@@ -116,8 +121,8 @@ internal static partial class BindingExtensions
         return command;
 
         (ushort skip, ushort take, float cacheHrs) GetOptions(int index)
-            => (skips.ValueAtIndexOrLastOrDefault(index, (ushort)0),
-                takes.ValueAtIndexOrLastOrDefault(index, (ushort)50),
-                cacheHour.ValueAtIndexOrLastOrDefault(index, 24f));
+            => (skips.ValueAtIndexOrLastOrDefault(index, CommandInterpreter.SkipDefault),
+                takes.ValueAtIndexOrLastOrDefault(index, CommandInterpreter.TakeDefault),
+                cacheHour.ValueAtIndexOrLastOrDefault(index, CommandInterpreter.CacheHoursDefault));
     }
 }
