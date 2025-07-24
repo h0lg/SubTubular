@@ -13,13 +13,15 @@ static partial class CommandInterpreter
     {
         StringListOption channels = new(Scopes.channels)
         {
-            Description = "The space-separated channel IDs, handles, slugs, user names and/or URLs for either of those.",
+            Description = "The space-separated channel IDs, handles, slugs, user names and/or URLs for either of those."
+                + $" Effectively searches the special 'Uploads' playlist of the given channels, which are {sortedByLatestUploaded}.",
             AllowMultipleArgumentsPerToken = true
         };
 
         StringListOption playlists = new(Scopes.playlists)
         {
-            Description = "The space-separated playlist IDs and/or URLs.",
+            Description = "The space-separated playlist IDs and/or URLs."
+                + " Note that playlists have custom sorting - i.e. new videos may appear at the top, bottom or anywhere in between.",
             AllowMultipleArgumentsPerToken = true
         };
 
@@ -38,23 +40,26 @@ static partial class CommandInterpreter
     internal const ushort SkipDefault = 0, TakeDefault = 50;
     internal const float CacheHoursDefault = 24f;
 
+    private const string sortedByLatestUploaded = $"sorted latest '{nameof(SearchCommand.OrderOptions.uploaded)}' first",
+        ofTheIncludedPlaylistLikeScopes = $"of the included '{Scopes.channels}' and '{Scopes.playlists}'";
+
     private static (UshortListOption skip, UshortListOption take, FloatListOption cacheHours) AddPlaylistLikeCommandOptions(Command command)
     {
         UshortListOption skip = new(Args.skip, "-sk")
         {
-            Description = "The number of videos to skip from the top in the searched channels (Uploads playlist) and playlists;"
-                + " effectively limiting the search scope to the videos after it."
+            Description = $"The number of videos to skip from the top {ofTheIncludedPlaylistLikeScopes};"
+                + " effectively limiting the scope to the videos after it."
                 + DescribePlaylistLikeOptionValues(SkipDefault),
             AllowMultipleArgumentsPerToken = true
         };
 
         UshortListOption take = new(Args.take, "-t")
         {
-            Description = $"The number of videos to search from the top (or '{Args.skip}'-ed to part) of the searched channels (Uploads playlist) and playlists;"
-                + " effectively limiting the search range."
+            Description = $"The number of videos to process from the top (or '{Args.skip}'-ed to part) {ofTheIncludedPlaylistLikeScopes};"
+                + " effectively limiting the range."
                 + DescribePlaylistLikeOptionValues(TakeDefault)
                 + " You may want to gradually increase this to include all videos in the list while you're refining your query."
-                + $" Note that the special Uploads playlist of a channel is sorted latest '{nameof(SearchCommand.OrderOptions.uploaded)}' first,"
+                + $" Note that the special Uploads playlist of a channel is {sortedByLatestUploaded},"
                 + " but custom playlists may be sorted differently. Keep that in mind if you don't find what you're looking for"
                 + $" and when using '{Args.orderBy}' (which is only applied to the results) with '{nameof(SearchCommand.OrderOptions.uploaded)}' on custom playlists.",
             AllowMultipleArgumentsPerToken = true
@@ -62,8 +67,8 @@ static partial class CommandInterpreter
 
         FloatListOption cacheHours = new(Args.cacheHours, "-ch")
         {
-            Description = "The maximum ages of the searched channel (Uploads playlist) and playlist caches in hours"
-                + " before they're considered stale and the list of videos in them are refreshed."
+            Description = $"The maximum ages {ofTheIncludedPlaylistLikeScopes} caches in hours"
+                + " before they're considered stale and the list of contained videos is refreshed."
                 + DescribePlaylistLikeOptionValues(CacheHoursDefault)
                 + " Note this doesn't apply to the videos themselves because their contents rarely change after upload."
                 + $" Use '--{clearCacheCommand}' to clear videos associated with a playlist or channel if that's what you're after.",
