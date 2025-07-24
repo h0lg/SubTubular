@@ -46,10 +46,10 @@ static partial class CommandInterpreter
         //TODO update to require e.g. an explicit "all videos" as scopes for deleting all videos.
         Argument<IEnumerable<string>> aliases = new(aliasesName)
         {
-            Description = $"The space-separated IDs, URLs or aliases of elements in the '{scope}' to delete caches for."
-                + $" Can be used with every '{scope}' but '{nameof(ClearCache.Scopes.all)}'"
+            Description = $"The space-separated IDs, URLs or aliases of elements in the '{scopeName}' to delete caches for."
+                + $" Can be used with every '{scopeName}' but '{nameof(ClearCache.Scopes.all)}'"
                 + $" while supporting user names, channel handles and slugs besides IDs for '{nameof(ClearCache.Scopes.channels)}'."
-                + $" If not set, all elements in the specified '{scope}' are considered for deletion."
+                + $" If not set, all elements in the specified '{scopeName}' are considered for deletion."
                 + quoteIdsStartingWithDash
         };
 
