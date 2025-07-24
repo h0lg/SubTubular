@@ -30,15 +30,15 @@ static partial class CommandInterpreter
         const string scopeName = "scope", aliasesName = "aliases";
 
         Command clearCache = new(clearCacheCommand, "Deletes cached metadata and full-text indexes for "
-            + $"{nameof(ClearCache.Scopes.channels)}, {nameof(ClearCache.Scopes.playlists)} and {nameof(ClearCache.Scopes.videos)}.");
+            + $"'{nameof(ClearCache.Scopes.channels)}', '{nameof(ClearCache.Scopes.playlists)}' and '{nameof(ClearCache.Scopes.videos)}'.");
 
         clearCache.Aliases.Add("clear");
 
         Argument<ClearCache.Scopes> scope = new(scopeName)
         {
             Description = "The type of caches to delete."
-                + $" For {nameof(ClearCache.Scopes.playlists)} and {nameof(ClearCache.Scopes.channels)}"
-                + $" this will include the associated {nameof(ClearCache.Scopes.videos)}."
+                + $" For '{nameof(ClearCache.Scopes.playlists)}' and '{nameof(ClearCache.Scopes.channels)}'"
+                + $" this will include the associated '{nameof(ClearCache.Scopes.videos)}'."
         };
 
         clearCache.Arguments.Add(scope);
