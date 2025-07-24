@@ -4,29 +4,33 @@ using SubTubular.Extensions;
 
 namespace SubTubular.Shell;
 
+using FloatListOption = Option<IEnumerable<float>?>;
+using StringListOption = Option<IEnumerable<string>>;
+using UshortListOption = Option<IEnumerable<ushort>?>;
+
 static partial class CommandInterpreter
 {
-    private static (Option<IEnumerable<string>> channels, Option<IEnumerable<string>> playlists, Option<IEnumerable<string>> videos) AddScopes(Command outputCommand)
+    private static (StringListOption channels, StringListOption playlists, StringListOption videos) AddScopes(Command outputCommand)
     {
-        Option<IEnumerable<string>> channels = new(Scopes.channels, "The channel IDs, handles, slugs, user names or URLs for either of those.") { AllowMultipleArgumentsPerToken = true };
-        Option<IEnumerable<string>> playlists = new(Scopes.playlists, "The playlist IDs or URLs.") { AllowMultipleArgumentsPerToken = true };
-        Option<IEnumerable<string>> videos = new(Scopes.videos, "The space-separated YouTube video IDs and/or URLs." + quoteIdsStartingWithDash) { AllowMultipleArgumentsPerToken = true };
+        StringListOption channels = new(Scopes.channels, "The channel IDs, handles, slugs, user names or URLs for either of those.") { AllowMultipleArgumentsPerToken = true };
+        StringListOption playlists = new(Scopes.playlists, "The playlist IDs or URLs.") { AllowMultipleArgumentsPerToken = true };
+        StringListOption videos = new(Scopes.videos, "The space-separated YouTube video IDs and/or URLs." + quoteIdsStartingWithDash) { AllowMultipleArgumentsPerToken = true };
         outputCommand.AddOption(channels);
         outputCommand.AddOption(playlists);
         outputCommand.AddOption(videos);
         return (channels, playlists, videos);
     }
 
-    private static (Option<IEnumerable<ushort>?> skip, Option<IEnumerable<ushort>?> take, Option<IEnumerable<float>?> cacheHours) AddPlaylistLikeCommandOptions(Command command)
+    private static (UshortListOption skip, UshortListOption take, FloatListOption cacheHours) AddPlaylistLikeCommandOptions(Command command)
     {
-        Option<IEnumerable<ushort>?> skip = new([Args.skip, "-sk"], () => [],
+        UshortListOption skip = new([Args.skip, "-sk"], () => [],
             "The number of videos to skip from the top in the searched channels (Uploads playlist) and playlists;"
             + " effectively limiting the search scope to the videos after it."
             + " Specify values for searched channels before those for searched playlists, each group in the order they're passed."
             + " If left empty, 0 is used for all channels and playlists.")
         { AllowMultipleArgumentsPerToken = true };
 
-        Option<IEnumerable<ushort>?> take = new([Args.take, "-t"], () => [],
+        UshortListOption take = new([Args.take, "-t"], () => [],
             $"The number of videos to search from the top (or '{Args.skip}'-ed to part) of the searched channels (Uploads playlist) and playlists;"
             + " effectively limiting the search range."
             + " Specify values for searched channels before those for searched playlists, each group in the order they're passed."
@@ -37,7 +41,7 @@ static partial class CommandInterpreter
             + $" and when using '{Args.orderBy}' (which is only applied to the results) with '{nameof(SearchCommand.OrderOptions.uploaded)}' on custom playlists.")
         { AllowMultipleArgumentsPerToken = true };
 
-        Option<IEnumerable<float>?> cacheHours = new([Args.cacheHours, "-ch"], () => [],
+        FloatListOption cacheHours = new([Args.cacheHours, "-ch"], () => [],
             "The maximum ages of the searched channel (Uploads playlist) and playlist caches in hours"
             + " before they're considered stale and the list of videos in them are refreshed."
             + " Specify values for searched channels before those for searched playlists, each group in the order they're passed."
@@ -59,8 +63,8 @@ internal static partial class BindingExtensions
         => values == null ? defaultValue : index < values.Length ? values[index] : values[^1];
 
     internal static T BindScopes<T>(this T command, InvocationContext ctx,
-        Option<IEnumerable<string>> videos, Option<IEnumerable<string>> channels, Option<IEnumerable<string>> playlists,
-        Option<IEnumerable<ushort>?> skip, Option<IEnumerable<ushort>?> take, Option<IEnumerable<float>?> cacheHours) where T : OutputCommand
+        StringListOption videos, StringListOption channels, StringListOption playlists,
+        UshortListOption skip, UshortListOption take, FloatListOption cacheHours) where T : OutputCommand
     {
         var videoIds = ctx.Parsed(videos);
         command.Videos = videoIds == null ? null : new VideosScope([.. videoIds]);
