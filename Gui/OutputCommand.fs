@@ -190,29 +190,35 @@ module OutputCommands =
         |> Cmd.ofEffect
 
     let private saveOutput model =
-        async {
-            let command = mapToCommand model
+        fun dispatch ->
+            async {
+                match mapToCommand model with
+                | :? SearchCommand as search ->
+                    Prevalidate.Search search
 
-            match command with
-            | :? SearchCommand as search ->
-                Prevalidate.Search search
+                    let! path =
+                        FileOutput.saveAsync search (fun writer ->
+                            for result in model.SearchResults do
+                                writer.WriteVideoResult(fst result, snd result))
 
-                let! path =
-                    FileOutput.saveAsync search (fun writer ->
-                        for result in model.SearchResults do
-                            writer.WriteVideoResult(fst result, snd result))
+                    SavedOutput path |> dispatch
 
-                return SavedOutput path |> Some
+                    if search.SaveAsRecent then
+                        SaveRecent search |> dispatch
 
-            | :? ListKeywords as listKeywords ->
-                Prevalidate.Scopes listKeywords
-                let counted = Youtube.CountKeywordVideos model.KeywordResults
-                let! path = FileOutput.saveAsync listKeywords _.ListKeywords(counted)
-                return SavedOutput path |> Some
+                | :? ListKeywords as listKeywords ->
+                    Prevalidate.Scopes listKeywords
+                    let counted = Youtube.CountKeywordVideos model.KeywordResults
+                    let! path = FileOutput.saveAsync listKeywords _.ListKeywords(counted)
+                    SavedOutput path |> dispatch
 
-            | _ -> return None
-        }
-        |> Cmd.OfAsync.msgOption
+                    if listKeywords.SaveAsRecent then
+                        SaveRecent listKeywords |> dispatch
+
+                | _ -> ()
+            }
+            |> Async.Start
+        |> Cmd.ofEffect
 
     let initModel =
         { Command = Commands.Search
