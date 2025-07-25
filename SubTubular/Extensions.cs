@@ -69,6 +69,8 @@ public static partial class StringExtensions
     public static string ToFileSafe(this string value, string replacement = "_")
         => Regex.Replace(value, "[" + Regex.Escape(new string(Path.GetInvalidFileNameChars())) + "]", replacement);
 
+    /// <summary>Removes the <paramref name="prefix"/> from the start and the <paramref name="suffix"/>
+    /// from the end of the <paramref name="value"/> and returns the rest.</summary>
     public static string StripAffixes(this string value, string prefix, string suffix)
     {
         int afterPrefix = prefix.Length;

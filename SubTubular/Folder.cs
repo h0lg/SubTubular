@@ -62,7 +62,7 @@ public enum Folders
     /// as well as full-text indexes to search them.</summary>
     cache,
 
-    /// <summary>The directory used for caching channel, playlist and video thumbnails.</summary>
+    /// <summary>The directory used for caching channel, playlist and video thumbnails downloaded by the UI.</summary>
     thumbnails,
 
     /// <summary>The directory error logs are written to.</summary>
