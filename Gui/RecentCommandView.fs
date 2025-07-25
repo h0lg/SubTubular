@@ -22,7 +22,6 @@ module RecentCommandView =
         | CommandRun of OutputCommand
         | Load of OutputCommand
         | Remove of RecentCommands.Item
-        | Save
         | Common of CommonMsg
 
     let load =
@@ -72,7 +71,6 @@ module RecentCommandView =
 
             model, filterAndSave model
 
-        | Save -> model, Cmd.none
         | Load _ -> model, Cmd.none
         | Common _ -> model, Cmd.none
 
