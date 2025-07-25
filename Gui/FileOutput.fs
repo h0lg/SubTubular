@@ -3,9 +3,12 @@
 open System
 open System.Threading
 open Avalonia.Controls
+open Avalonia.Platform.Storage
+open Fabulous
 open Fabulous.Avalonia
 open FSharp.Control
 open SubTubular
+open SubTubular.Extensions
 open type Fabulous.Avalonia.View
 
 module FileOutput =
@@ -22,12 +25,15 @@ module FileOutput =
     type Msg =
         | HtmlChanged of bool
         | ToChanged of string
+        | PickTo
         | OpenChanged of SelectionChangedEventArgs
         | SaveOutput
 
+    let private defaultOutputFolder = Folder.GetPath Folders.output
+
     let init () =
         { Html = true
-          To = Folder.GetPath Folders.output
+          To = defaultOutputFolder
           Opening = Open.nothing }
 
     let saveAsync command writeResults =
@@ -63,14 +69,40 @@ module FileOutput =
         }
         |> Async.AwaitTask
 
+    let private pickTo (lastOpenedFolder: string) =
+        task {
+            let options = FolderPickerOpenOptions()
+            options.Title <- "Select an output folder"
+
+            let startIn =
+                if lastOpenedFolder.IsNonWhiteSpace() && lastOpenedFolder.IsDirectoryPath() then
+                    lastOpenedFolder
+                else
+                    defaultOutputFolder
+
+            let! dir = Services.Storage.TryGetFolderFromPathAsync(startIn)
+            options.SuggestedStartLocation <- dir
+
+            let! folders = Services.Storage.OpenFolderPickerAsync(options)
+
+            let path =
+                match Seq.tryExactlyOne folders with
+                | Some folder -> folder.TryGetLocalPath()
+                | None -> null // effectively defaultOutputFolder
+
+            return ToChanged path
+        }
+
     let update msg model =
         match msg with
-        | HtmlChanged value -> { model with Html = value }
-        | ToChanged path -> { model with To = path }
+        | HtmlChanged value -> { model with Html = value }, Cmd.none
+        | ToChanged path -> { model with To = path }, Cmd.none
+        | PickTo -> model, Cmd.OfTask.msg (pickTo model.To)
         | OpenChanged args ->
             { model with
-                Opening = args.AddedItems.Item 0 :?> Open }
-        | SaveOutput -> model
+                Opening = args.AddedItems.Item 0 :?> Open },
+            Cmd.none
+        | SaveOutput -> model, Cmd.none
 
     let private displayOpen =
         function
@@ -80,11 +112,9 @@ module FileOutput =
         | _ -> failwith "unknown Open Option"
 
     let view model =
-        Grid(coldefs = [ Auto; Auto; Auto; Star; Auto; Auto; Auto ], rowdefs = [ Auto ]) {
+        Grid(coldefs = [ Auto; Auto; Auto; Star; Auto; Auto; Auto; Auto ], rowdefs = [ Auto ]) {
             Label("ouput")
-
             ToggleButton((if model.Html then "🖺 html" else "🖹 text"), model.Html, HtmlChanged).gridColumn (1)
-
             Label("to").gridColumn (2)
 
             TextBox(model.To, ToChanged)
@@ -92,12 +122,13 @@ module FileOutput =
                 .tooltip(OutputCommand.FileOutputPathHint + OutputCommand.ExistingFilesAreOverWritten)
                 .gridColumn (3)
 
-            Label("and open").gridColumn (4)
+            Button("📂", PickTo).tooltip("Pick output folder").gridColumn (4)
+            Label("and open").gridColumn (5)
 
             ComboBox(Enum.GetValues<Open>(), (fun show -> ComboBoxItem(displayOpen show)))
                 .selectedItem(model.Opening)
                 .onSelectionChanged(OpenChanged)
-                .gridColumn (5)
+                .gridColumn (6)
 
-            Button("💾 Save", SaveOutput).gridColumn (6)
+            Button("💾 Save", SaveOutput).gridColumn (7)
         }

@@ -264,6 +264,9 @@ module OutputCommands =
             SearchResults = []
             KeywordResults = null
             DisplayOutputOptions = false
+
+            (*  override file output settings with persisted values
+                to prevent current values from bleeding into the loaded command *)
             FileOutput =
                 { updated.FileOutput with
                     To = cmd.FileOutputPath
@@ -321,16 +324,15 @@ module OutputCommands =
             Cmd.none
 
         | FileOutputMsg fom ->
-            let updated =
-                { model with
-                    FileOutput = FileOutput.update fom model.FileOutput }
+            let fileOutput, fwdCmd = FileOutput.update fom model.FileOutput
+            let model = { model with FileOutput = fileOutput }
 
-            let cmd =
+            let saving =
                 match fom with
-                | FileOutput.Msg.SaveOutput -> saveOutput updated
+                | FileOutput.Msg.SaveOutput -> saveOutput model
                 | _ -> Cmd.none
 
-            updated, cmd
+            model, Cmd.batch [ saving; Cmd.map FileOutputMsg fwdCmd ]
 
         | SavedOutput path -> model, Notify("Saved results to " + path) |> Common |> Cmd.ofMsg
 

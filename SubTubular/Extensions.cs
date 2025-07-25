@@ -46,7 +46,7 @@ public static partial class StringExtensions
 
     /// <summary>Indicates whether <paramref name="path"/> points to a directory rather than a file.
     /// Inspired by https://stackoverflow.com/a/19596821 .</summary>
-    internal static bool IsDirectoryPath(this string path)
+    public static bool IsDirectoryPath(this string path)
     {
         ArgumentNullException.ThrowIfNull(path);
         path = path.Trim();

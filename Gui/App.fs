@@ -78,6 +78,7 @@ module App =
             let notifier = FabApplication.Current.WindowNotificationManager
             notifier.Position <- NotificationPosition.BottomRight
             Notify.via <- notifier
+            Services.Storage <- FabApplication.Current.StorageProvider
             model, Cmd.none
 
         | SearchMsg smsg ->
