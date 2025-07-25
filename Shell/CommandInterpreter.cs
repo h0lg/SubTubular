@@ -38,6 +38,27 @@ static partial class CommandInterpreter
         else return ExitCode.GenericError; // unify unknown exit codes
     }
 
+    private static void SetValidatingAction(this Command command, Func<ParseResult, CancellationToken, Task> action)
+        => command.SetAction(async (parsed, token) =>
+        {
+            try
+            {
+                await action(parsed, token);
+                return (int)ExitCode.Success;
+            }
+            catch (Exception ex)
+            {
+                var causes = ex.GetRootCauses().ToArray();
+
+                foreach (var cause in causes)
+                    ColorShell.WriteErrorLine(cause.Message);
+
+                if (causes.HaveInputError()) return (int)ExitCode.ValidationError;
+                if (causes.AreAllCancelations()) return (int)ExitCode.Canceled;
+                return (int)ExitCode.GenericError; //or better throw?
+            }
+        });
+
     private static Command ConfigureOpen()
     {
         Command open = new("open", "Opens app-related folders in a file browser.");

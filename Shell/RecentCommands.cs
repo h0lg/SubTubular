@@ -51,7 +51,7 @@ static partial class CommandInterpreter
         Argument<ushort> number = new("command number") { Description = "The number of the command from the recent list to run." };
         run.Arguments.Add(number);
 
-        run.SetAction(async (parsed, token) =>
+        run.SetValidatingAction(async (parsed, token) =>
         {
             var commands = await RecentCommands.ListAsync();
             var command = commands.GetByNumber(parsed.GetValue(number));
