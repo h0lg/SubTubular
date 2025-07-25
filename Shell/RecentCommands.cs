@@ -4,7 +4,8 @@ namespace SubTubular.Shell;
 
 static partial class CommandInterpreter
 {
-    private static Command ConfigureRecent(Func<SearchCommand, Task> search, Func<ListKeywords, Task> listKeywords)
+    private static Command ConfigureRecent(Func<SearchCommand, CancellationToken, Task> search,
+        Func<ListKeywords, CancellationToken, Task> listKeywords)
     {
         Command recent = new("recent", "List, run or remove recently run commands.");
         recent.Aliases.Add("rc");
@@ -41,7 +42,8 @@ static partial class CommandInterpreter
         return list;
     }
 
-    private static Command ConfigureRunRecent(Func<SearchCommand, Task> search, Func<ListKeywords, Task> listKeywords)
+    private static Command ConfigureRunRecent(Func<SearchCommand, CancellationToken, Task> search,
+        Func<ListKeywords, CancellationToken, Task> listKeywords)
     {
         Command run = new("run", "Run a recently run command by its number.");
         run.Aliases.Add("r");
@@ -49,7 +51,7 @@ static partial class CommandInterpreter
         Argument<ushort> number = new("command number") { Description = "The number of the command from the recent list to run." };
         run.Arguments.Add(number);
 
-        run.SetAction(async parsed =>
+        run.SetAction(async (parsed, token) =>
         {
             var commands = await RecentCommands.ListAsync();
             var command = commands.GetByNumber(parsed.GetValue(number));
@@ -57,8 +59,8 @@ static partial class CommandInterpreter
             if (command == null) Console.WriteLine($"Command {number} couldn't be found.");
             else
             {
-                if (command.Command is SearchCommand searchCmd) await search(searchCmd);
-                else if (command.Command is ListKeywords listCmd) await listKeywords(listCmd);
+                if (command.Command is SearchCommand searchCmd) await search(searchCmd, token);
+                else if (command.Command is ListKeywords listCmd) await listKeywords(listCmd, token);
                 else throw new NotSupportedException("Unsupported command type " + command.Command?.GetType());
 
                 command.LastRun = DateTime.Now;

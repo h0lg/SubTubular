@@ -11,8 +11,8 @@ static partial class CommandInterpreter
 
     internal static async Task<ExitCode> ParseArgs(string[] args, string originalCommand)
     {
-        Task search(SearchCommand cmd) => Program.SearchAsync(cmd, originalCommand);
-        Task listKeywords(ListKeywords cmd) => Program.ListKeywordsAsync(cmd, originalCommand);
+        Task search(SearchCommand cmd, CancellationToken token) => Program.SearchAsync(cmd, originalCommand, token);
+        Task listKeywords(ListKeywords cmd, CancellationToken token) => Program.ListKeywordsAsync(cmd, originalCommand, token);
 
         RootCommand root = new(AssemblyInfo.Title);
         // see https://learn.microsoft.com/en-us/dotnet/standard/commandline/syntax#directives

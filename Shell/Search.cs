@@ -5,7 +5,7 @@ namespace SubTubular.Shell;
 
 static partial class Program
 {
-    internal static async Task SearchAsync(SearchCommand command, string originalCommand)
+    internal static async Task SearchAsync(SearchCommand command, string originalCommand, CancellationToken token)
     {
         Prevalidate.Search(command);
 
@@ -13,13 +13,13 @@ static partial class Program
         {
             await foreach (var result in youtube.SearchAsync(command, token: token))
                 outputs.ForEach(o => o.WriteVideoResult(result, command.Padding));
-        });
+        }, token);
     }
 }
 
 static partial class CommandInterpreter
 {
-    private static Command ConfigureSearch(Func<SearchCommand, Task> search)
+    private static Command ConfigureSearch(Func<SearchCommand, CancellationToken, Task> search)
     {
         Command command = new(Actions.search, SearchCommand.Description);
         command.Aliases.Add(Actions.search[..1]); // first character
@@ -30,11 +30,12 @@ static partial class CommandInterpreter
         (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(command);
         Option<bool> saveAsRecent = AddSaveAsRecent(command);
 
-        command.SetAction(async parsed => await search(new SearchCommand()
+        // forward cancellation token, see https://learn.microsoft.com/en-us/dotnet/standard/commandline/how-to-parse-and-invoke#asynchronous-actions
+        command.SetAction(async (parsed, token) => await search(new SearchCommand()
             .BindScopes(parsed, videos, channels, playlists, skip, take, cacheHours)
             .BindSearchOptions(parsed, query, padding, orderBy)
             .BindOuputOptions(parsed, html, fileOutputPath, show)
-            .BindSaveAsRecent(parsed, saveAsRecent)));
+            .BindSaveAsRecent(parsed, saveAsRecent), token));
 
         return command;
     }

@@ -7,12 +7,14 @@ namespace SubTubular.Shell;
 static partial class Program
 {
     private static async Task OutputAsync(OutputCommand command, string originalCommand,
-        Func<Youtube, List<OutputWriter>, CancellationToken, Task> runCommand)
+        Func<Youtube, List<OutputWriter>, CancellationToken, Task> runCommand,
+        CancellationToken token)
     {
-        //inspired by https://johnthiriet.com/cancel-asynchronous-operation-in-csharp/
-        using var cancellation = new CancellationTokenSource();
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
+
         var running = true;
 
+        //inspired by https://johnthiriet.com/cancel-asynchronous-operation-in-csharp/
         var cancel = Task.Run(async () => //start in background, don't wait for completion
         {
             Console.WriteLine("Press any key to cancel");

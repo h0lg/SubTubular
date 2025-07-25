@@ -4,7 +4,7 @@ namespace SubTubular.Shell;
 
 static partial class Program
 {
-    internal static async Task ListKeywordsAsync(ListKeywords command, string originalCommand)
+    internal static async Task ListKeywordsAsync(ListKeywords command, string originalCommand, CancellationToken token)
     {
         Prevalidate.Scopes(command);
 
@@ -21,13 +21,13 @@ static partial class Program
                 outputs.ForEach(o => o.ListKeywords(countedKeywords));
             }
             else Console.WriteLine("Found no keywords."); // any file output wouldn't be saved without results anyway
-        });
+        }, token);
     }
 }
 
 static partial class CommandInterpreter
 {
-    private static Command ConfigureListKeywords(Func<ListKeywords, Task> listKeywords)
+    private static Command ConfigureListKeywords(Func<ListKeywords, CancellationToken, Task> listKeywords)
     {
         Command command = new(Actions.listKeywords, ListKeywords.Description);
         command.Aliases.Add(Actions.listKeywords[..1]); // first character
@@ -37,10 +37,10 @@ static partial class CommandInterpreter
         (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(command);
         Option<bool> saveAsRecent = AddSaveAsRecent(command);
 
-        command.SetAction(async result => await listKeywords(new ListKeywords()
+        command.SetAction(async (result, token) => await listKeywords(new ListKeywords()
             .BindScopes(result, videos, channels, playlists, skip, take, cacheHours)
             .BindOuputOptions(result, html, fileOutputPath, show)
-            .BindSaveAsRecent(result, saveAsRecent)));
+            .BindSaveAsRecent(result, saveAsRecent), token));
 
         return command;
     }
