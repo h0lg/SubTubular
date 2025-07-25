@@ -84,7 +84,7 @@ module App =
             let fwdCmd =
                 match smsg with
                 | OutputCommands.Msg.Common msg -> Common msg |> Cmd.ofMsg
-                | OutputCommands.Msg.CommandValidated cmd -> RecentCommandView.CommandRun cmd |> RecentMsg |> Cmd.ofMsg
+                | OutputCommands.Msg.SaveRecent cmd -> RecentCommandView.Save cmd |> RecentMsg |> Cmd.ofMsg
                 | OutputCommands.Msg.ResultOptionsChanged -> requestSaveSettings ()
                 | OutputCommands.Msg.FileOutputMsg fom ->
                     match fom with

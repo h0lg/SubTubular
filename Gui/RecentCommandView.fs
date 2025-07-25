@@ -19,7 +19,7 @@ module RecentCommandView =
         | RecentsLoaded of RecentCommands.Item list
         | QueryChanged of string
         | Filter
-        | CommandRun of OutputCommand
+        | Save of OutputCommand
         | Load of OutputCommand
         | Remove of RecentCommands.Item
         | Common of CommonMsg
@@ -58,7 +58,7 @@ module RecentCommandView =
 
             { model with Filtered = filtered }, Cmd.none
 
-        | CommandRun cmd ->
+        | Save cmd ->
             let list = List<RecentCommands.Item>(model.All) // convert to generic List to enable reusing AddOrUpdate
             list.AddOrUpdate(cmd) // sorts the list as well
             let model = { model with All = List.ofSeq list } // update our model

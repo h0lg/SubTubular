@@ -56,7 +56,7 @@ module OutputCommands =
         | SavedOutput of string
 
         | Run of bool
-        | CommandValidated of OutputCommand
+        | SaveRecent of OutputCommand
         | SearchResults of VideoSearchResult list
         | GoToSearchResultPage of uint16
         | KeywordResults of (string array * string * CommandScope) list
@@ -123,7 +123,7 @@ module OutputCommands =
                             do! RemoteValidate.ScopesAsync(search, Services.Youtube, Services.DataStore, token)
 
                         if command.SaveAsRecent then
-                            CommandValidated command |> dispatch
+                            SaveRecent command |> dispatch
 
                         do!
                             Services.Youtube
@@ -137,7 +137,7 @@ module OutputCommands =
                             do! RemoteValidate.ScopesAsync(listKeywords, Services.Youtube, Services.DataStore, token)
 
                         if command.SaveAsRecent then
-                            CommandValidated command |> dispatch
+                            SaveRecent command |> dispatch
 
                         do!
                             Services.Youtube
@@ -352,7 +352,7 @@ module OutputCommands =
 
             updated, (if on then runCmd updated else Cmd.none)
 
-        | CommandValidated _ -> model, Cmd.none
+        | SaveRecent _ -> model, Cmd.none
         | Common _ -> model, Cmd.none
 
         | SearchResults list ->
