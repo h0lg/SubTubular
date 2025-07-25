@@ -65,7 +65,7 @@ module OutputCommands =
         | SearchResultMsg of SearchResult.Msg
         | Common of CommonMsg
 
-    let private mapToCommand model =
+    let private mapToCommand model includeOutputOptions =
         let order = ResultOptions.getSearchCommandOrderOptions model.ResultOptions
 
         let command =
@@ -83,13 +83,14 @@ module OutputCommands =
             search.OrderBy <- order
         | _ -> ()
 
-        command.OutputHtml <- model.FileOutput.Html
-        command.FileOutputPath <- model.FileOutput.To
+        if includeOutputOptions then
+            command.OutputHtml <- model.FileOutput.Html
+            command.FileOutputPath <- model.FileOutput.To
 
-        if model.FileOutput.Opening = FileOutput.Open.file then
-            command.Show <- OutputCommand.Shows.file
-        elif model.FileOutput.Opening = FileOutput.Open.folder then
-            command.Show <- OutputCommand.Shows.folder
+            if model.FileOutput.Opening = FileOutput.Open.file then
+                command.Show <- OutputCommand.Shows.file
+            elif model.FileOutput.Opening = FileOutput.Open.folder then
+                command.Show <- OutputCommand.Shows.folder
 
         command
 
@@ -98,7 +99,7 @@ module OutputCommands =
             task {
                 let dispatchCommon msg = Common msg |> dispatch
                 let loggedErrors = ConcurrentBag<string>()
-                let command = mapToCommand model
+                let command = mapToCommand model false
                 let token = model.Running.Token
 
                 command.OnScopeNotification(fun scope ntf ->
@@ -192,7 +193,7 @@ module OutputCommands =
     let private saveOutput model =
         fun dispatch ->
             async {
-                match mapToCommand model with
+                match mapToCommand model true with
                 | :? SearchCommand as search ->
                     Prevalidate.Search search
 
@@ -299,7 +300,7 @@ module OutputCommands =
             { model with Scopes = scopes }, Cmd.batch [ fwdCmd; Cmd.map ScopesMsg cmd ]
 
         | ShowScopesChanged show -> { model with ShowScopes = show }, Cmd.none
-        | CopyAsShellCmd -> model, mapToCommand model |> CopyShellCmd |> Common |> Cmd.ofMsg
+        | CopyAsShellCmd -> model, mapToCommand model true |> CopyShellCmd |> Common |> Cmd.ofMsg
 
         // udpate ResultOptions and debounce applying them to SearchResults
         | ResultOptionsMsg ext ->
