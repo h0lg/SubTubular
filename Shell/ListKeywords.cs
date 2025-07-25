@@ -37,7 +37,7 @@ static partial class CommandInterpreter
         (Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) = AddOutputOptions(command);
         Option<bool> saveAsRecent = AddSaveAsRecent(command);
 
-        command.SetValidatingAction(async (result, token) => await listKeywords(new ListKeywords()
+        command.SetAction(async (result, token) => await listKeywords(new ListKeywords()
             .BindScopes(result, videos, channels, playlists, skip, take, cacheHours)
             .BindOuputOptions(result, html, fileOutputPath, show)
             .BindSaveAsRecent(result, saveAsRecent), token));

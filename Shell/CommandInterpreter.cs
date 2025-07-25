@@ -1,5 +1,6 @@
 ﻿using System.CommandLine;
 using System.CommandLine.Invocation;
+using SubTubular.Extensions;
 
 namespace SubTubular.Shell;
 
@@ -27,37 +28,36 @@ static partial class CommandInterpreter
         root.Subcommands.Add(ConfigureOpen());
         root.Subcommands.Add(ConfigureRecent(search, listKeywords));
 
-        ParseResult parsed = root.Parse(args);
-        var exit = await parsed.InvokeAsync();
-
-        /*  parser errors are printed by invocation above and return a non-zero exit code - no need to check it
-         *  see https://learn.microsoft.com/en-us/dotnet/standard/commandline/how-to-parse-and-invoke#parse-errors */
-        if (parsed.Action is ParseErrorAction) return ExitCode.ValidationError;
-
-        if (Enum.IsDefined(typeof(ExitCode), exit)) return (ExitCode)exit; // translate known exit code
-        else return ExitCode.GenericError; // unify unknown exit codes
-    }
-
-    private static void SetValidatingAction(this Command command, Func<ParseResult, CancellationToken, Task> action)
-        => command.SetAction(async (parsed, token) =>
+        CommandLineConfiguration config = new(root)
         {
-            try
-            {
-                await action(parsed, token);
-                return (int)ExitCode.Success;
-            }
-            catch (Exception ex)
-            {
-                var causes = ex.GetRootCauses().ToArray();
+            EnableDefaultExceptionHandler = false // to throw exceptions instead of garbling them into an exit code
+        };
 
-                foreach (var cause in causes)
-                    ColorShell.WriteErrorLine(cause.Message);
+        ParseResult parsed = config.Parse(args);
 
-                if (causes.HaveInputError()) return (int)ExitCode.ValidationError;
-                if (causes.AreAllCancelations()) return (int)ExitCode.Canceled;
-                return (int)ExitCode.GenericError; //or better throw?
-            }
-        });
+        try
+        {
+            var exit = await parsed.InvokeAsync();
+
+            /*  parser errors are printed by invocation above and return a non-zero exit code - no need to check it
+             *  see https://learn.microsoft.com/en-us/dotnet/standard/commandline/how-to-parse-and-invoke#parse-errors */
+            if (parsed.Action is ParseErrorAction) return ExitCode.ValidationError;
+
+            if (Enum.IsDefined(typeof(ExitCode), exit)) return (ExitCode)exit; // translate known exit code
+            else return ExitCode.GenericError; // unify unknown exit codes
+        }
+        catch (Exception ex)
+        {
+            var causes = ex.GetRootCauses().ToArray();
+
+            foreach (var cause in causes)
+                ColorShell.WriteErrorLine(cause.Message);
+
+            if (causes.HaveInputError()) return ExitCode.ValidationError;
+            if (causes.AreAllCancelations()) return ExitCode.Canceled;
+            return ExitCode.GenericError; //or better throw?
+        }
+    }
 
     private static Command ConfigureOpen()
     {
