@@ -45,23 +45,21 @@ public static partial class StringExtensions
     public static string Join(this IEnumerable<string> pieces, string glue) => string.Join(glue, pieces);
 
     /// <summary>Indicates whether <paramref name="path"/> points to a directory rather than a file.
-    /// From https://stackoverflow.com/a/19596821 .</summary>
+    /// Inspired by https://stackoverflow.com/a/19596821 .</summary>
     internal static bool IsDirectoryPath(this string path)
     {
         ArgumentNullException.ThrowIfNull(path);
         path = path.Trim();
 
-        if (Directory.Exists(path)) return true;
-        if (File.Exists(path)) return false;
-
         // neither file nor directory exists. guess intention
 
         // if has trailing slash then it's a directory
-        if (new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }.Any(x => path.EndsWith(x)))
+        char lastChar = path[^1];
+        if (lastChar == Path.DirectorySeparatorChar || lastChar == Path.AltDirectorySeparatorChar)
             return true;
 
         // if has extension then its a file; directory otherwise
-        return Path.GetExtension(path).IsNullOrWhiteSpace();
+        return !Path.HasExtension(path);
     }
 
     /// <summary>Replaces all characters unsafe for file or directory names in <paramref name="value"/>
