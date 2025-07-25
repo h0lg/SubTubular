@@ -39,6 +39,7 @@ module RecentCommandView =
         |> Cmd.OfTask.msgOption
 
     let private filter = Cmd.ofMsg Filter
+    let private filterAndSave model = Cmd.batch [ filter; save model ]
 
     let initModel = { Query = ""; Filtered = []; All = [] }
 
@@ -62,14 +63,14 @@ module RecentCommandView =
             let list = List<RecentCommands.Item>(model.All) // convert to generic List to enable reusing AddOrUpdate
             list.AddOrUpdate(cmd) // sorts the list as well
             let model = { model with All = List.ofSeq list } // update our model
-            model, Cmd.batch [ filter; save model ]
+            model, filterAndSave model
 
         | Remove cfg ->
             let model =
                 { model with
                     All = model.All |> List.except [ cfg ] }
 
-            model, Cmd.batch [ filter; save model ]
+            model, filterAndSave model
 
         | Save -> model, Cmd.none
         | Load _ -> model, Cmd.none
