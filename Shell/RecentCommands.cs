@@ -20,9 +20,9 @@ static partial class CommandInterpreter
         Command list = new("list", "List recently run commands.");
         list.Aliases.Add("l");
 
-        list.SetAction(async _ =>
+        list.SetCancelableAction(async (_, token) =>
         {
-            var saved = await RecentCommands.ListAsync();
+            var saved = await RecentCommands.ListAsync(token);
 
             if (saved.Count == 0)
             {
@@ -53,7 +53,7 @@ static partial class CommandInterpreter
 
         run.SetCancelableAction(async (parsed, token) =>
         {
-            var commands = await RecentCommands.ListAsync();
+            var commands = await RecentCommands.ListAsync(token);
             var command = commands.GetByNumber(parsed.GetValue(number));
 
             if (command == null) Console.WriteLine($"Command {number} couldn't be found.");
@@ -64,7 +64,7 @@ static partial class CommandInterpreter
                 else throw new NotSupportedException("Unsupported command type " + command.Command?.GetType());
 
                 command.LastRun = DateTime.Now;
-                await RecentCommands.SaveAsync(commands);
+                await RecentCommands.SaveAsync(commands, token);
             }
         });
 
@@ -79,16 +79,16 @@ static partial class CommandInterpreter
         Argument<ushort> number = new("command number") { Description = "The number of the command from the recent list to remove." };
         remove.Arguments.Add(number);
 
-        remove.SetAction(async parsed =>
+        remove.SetCancelableAction(async (parsed, token) =>
         {
-            var commands = await RecentCommands.ListAsync();
+            var commands = await RecentCommands.ListAsync(token);
             var command = commands.GetByNumber(parsed.GetValue(number));
 
             if (command == null) Console.WriteLine($"Command {number} couldn't be found.");
             else
             {
                 commands.Remove(command);
-                await RecentCommands.SaveAsync(commands);
+                await RecentCommands.SaveAsync(commands, token);
             }
         });
 

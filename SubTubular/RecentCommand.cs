@@ -7,13 +7,13 @@ public static class RecentCommands
     private static readonly string recentPath = Path.Combine(Folder.GetPath(Folders.storage), "recent.json");
     private static readonly Comparison<Item> byLastRunDesc = new((fst, snd) => snd.LastRun.CompareTo(fst.LastRun));
 
-    public static async Task<List<Item>> ListAsync()
+    public static async Task<List<Item>> ListAsync(CancellationToken token = default)
     {
         if (!File.Exists(recentPath)) return [];
 
         try
         {
-            string json = await File.ReadAllTextAsync(recentPath);
+            string json = await File.ReadAllTextAsync(recentPath, token);
             return JsonSerializer.Deserialize<List<Item>>(json) ?? [];
         }
         catch (Exception ex)
@@ -29,10 +29,10 @@ public static class RecentCommands
         }
     }
 
-    public static async Task SaveAsync(IEnumerable<Item> commands)
+    public static async Task SaveAsync(IEnumerable<Item> commands, CancellationToken token = default)
     {
         string json = JsonSerializer.Serialize(commands);
-        await File.WriteAllTextAsync(recentPath, json);
+        await File.WriteAllTextAsync(recentPath, json, token);
     }
 
     public static void AddOrUpdate(this List<Item> list, OutputCommand command)

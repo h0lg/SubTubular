@@ -34,9 +34,9 @@ static partial class Program
 
         if (command.SaveAsRecent)
         {
-            var commands = await RecentCommands.ListAsync();
+            var commands = await RecentCommands.ListAsync(token);
             commands.AddOrUpdate(command);
-            await RecentCommands.SaveAsync(commands);
+            await RecentCommands.SaveAsync(commands, token);
         }
 
         List<OutputWriter> outputs = [new ConsoleOutputWriter(command)];
