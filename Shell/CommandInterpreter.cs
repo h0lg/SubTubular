@@ -14,7 +14,7 @@ static partial class CommandInterpreter
         Task search(SearchCommand cmd, CancellationToken token) => Program.SearchAsync(cmd, originalCommand, token);
         Task listKeywords(ListKeywords cmd, CancellationToken token) => Program.ListKeywordsAsync(cmd, originalCommand, token);
 
-        RootCommand root = new(AssemblyInfo.Title);
+        RootCommand root = new(AssemblyInfo.Description);
         // see https://learn.microsoft.com/en-us/dotnet/standard/commandline/syntax#directives
         // and https://learn.microsoft.com/en-us/dotnet/standard/commandline/syntax#the-diagram-directive
         root.Directives.Add(new DiagramDirective());

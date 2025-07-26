@@ -13,15 +13,16 @@ public static class AssemblyInfo
     internal const string RepoOwner = "h0lg", RepoName = Name,
         ShellExe = Name + ".Shell.exe";
 
-    public static readonly string Title, Copyright, InformationalVersion;
+    public static readonly string Title, Description, Copyright, InformationalVersion;
 
     internal static readonly string Location, Version;
 
     static AssemblyInfo()
     {
-        var assembly = Assembly.GetExecutingAssembly();
+        var assembly = Assembly.GetEntryAssembly()!;
         Location = assembly.Location;
         Title = assembly.GetCustomAttribute<AssemblyTitleAttribute>()?.Title ?? string.Empty;
+        Description = assembly.GetCustomAttribute<AssemblyDescriptionAttribute>()?.Description ?? string.Empty;
         Copyright = assembly.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright ?? string.Empty;
         InformationalVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? string.Empty;
         var version = assembly.GetName().Version?.ToString();
