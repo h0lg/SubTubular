@@ -50,7 +50,7 @@ static partial class Program
             output.WriteHeader();
         });
 
-        ConcurrentBag<string> allErrors = [];
+        ConcurrentBag<string> reportableErrors = [];
 
         foreach (var (scope, captionTrackDlStates) in command.GetCaptionTrackDownloadStatus())
         {
@@ -72,7 +72,7 @@ static partial class Program
         // record unexpected error here to have it in the same log file as the scope errors
         catch (Exception ex) when (ex.GetRootCauses().AnyNeedReporting())
         {
-            allErrors.Add($"{DateTime.Now:O} {ex}");
+            reportableErrors.Add($"{DateTime.Now:O} {ex}");
             throw new OperationCanceledException(); // throw an error ignored upstream to signal execution error without triggering duplicate logging
         }
         finally // write output file even if exception occurs
@@ -93,7 +93,7 @@ static partial class Program
                 }
             }
 
-            if (!allErrors.IsEmpty) await WriteErrorLogAsync(originalCommand, allErrors.Join(ErrorLog.OutputSpacing), command.Describe());
+            if (!reportableErrors.IsEmpty) await WriteErrorLogAsync(originalCommand, reportableErrors.Join(ErrorLog.OutputSpacing), command.Describe());
 
             foreach (var output in outputs.OfType<IDisposable>()) output.Dispose();
             running = false; // to let the cancel task complete if operation did before it
@@ -123,7 +123,7 @@ static partial class Program
                         .Prepend($"{DateTime.Now:O} {titleAndScope}")
                         .WithValue().Join(ErrorLog.OutputSpacing);
 
-                    allErrors.Add(errorDetails);
+                    reportableErrors.Add(errorDetails);
                 }
 
                 // output messages immediately
