@@ -49,7 +49,7 @@ internal static partial class Program
                 WriteConsoleError(causes.Select(c => c.Message)
                     .Prepend("Unexpected errors occurred loading data from YouTube. Try again later or with an updated version. ")
                     .Join(Environment.NewLine));
-            else await WriteErrorLogAsync(originalCommand, ex.ToString());
+            else await WriteErrorLogAsync(originalCommand, ex is ErrorLogException ? ex.Message : ex.ToString());
 
             return (int)ExitCode.GenericError;
         }
@@ -61,9 +61,9 @@ internal static partial class Program
     internal static DataStore CreateDataStore() => new JsonFileDataStore(cacheFolder);
     private static VideoIndexRepository CreateVideoIndexRepo() => new(cacheFolder);
 
-    private static async Task WriteErrorLogAsync(string originalCommand, string errors, string? name = null)
+    private static async Task WriteErrorLogAsync(string originalCommand, string errors)
     {
-        (var path, var report) = await ErrorLog.WriteAsync(errors, header: originalCommand, fileNameDescription: name);
+        (var path, var report) = await ErrorLog.WriteAsync(errors, header: originalCommand);
         var fileWritten = path != null;
 
         if (fileWritten) WriteConsoleError("Errors were logged to " + path);
@@ -83,6 +83,16 @@ internal static partial class Program
             + " If you do, make sure to include the original command or parameters to reproduce it,"
             + $" any exception details that have not already been shared and the OS/.NET/{AssemblyInfo.Name} version you're on."
             + $" You'll find all that in the error {(fileWritten ? "log file" : "output above")}.");
+    }
+
+    /// <summary>A special exception containing combined error details (including stack traces)
+    /// in its <see cref="Exception.Message"/>.
+    /// Its stack trace can be ignored because it is thrown intentionally to log the details globally.</summary>
+    internal class ErrorLogException : Exception
+    {
+        public ErrorLogException() { }
+        public ErrorLogException(string? message) : base(message) { }
+        public ErrorLogException(string? message, Exception? innerException) : base(message, innerException) { }
     }
 }
 

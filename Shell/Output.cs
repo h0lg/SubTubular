@@ -73,31 +73,39 @@ static partial class Program
         catch (Exception ex) when (ex.GetRootCauses().AnyNeedReporting())
         {
             reportableErrors.Add($"{DateTime.Now:O} {ex}");
-            throw new OperationCanceledException(); // throw an error ignored upstream to signal execution error without triggering duplicate logging
         }
         finally // write output file even if exception occurs
         {
-            if (outputs.Any(o => o.WroteResults)) // if we displayed a result before running into an error
+            try
             {
-                // only writes an output file if command requires it
-                var fileOutput = outputs.OfType<FileOutputWriter>().SingleOrDefault();
-                var outputPath = fileOutput == null ? null : await fileOutput.SaveFile();
-
-                if (outputPath != null)
+                if (outputs.Any(o => o.WroteResults)) // if we displayed a result before running into an error
                 {
-                    Console.WriteLine("Results were written to " + outputPath);
+                    // only writes an output file if command requires it
+                    var fileOutput = outputs.OfType<FileOutputWriter>().SingleOrDefault();
+                    var outputPath = fileOutput == null ? null : await fileOutput.SaveFile();
 
-                    // spare the user some file browsing
-                    if (command.Show == OutputCommand.Shows.file) ShellCommands.OpenFile(outputPath);
-                    if (command.Show == OutputCommand.Shows.folder) ShellCommands.ExploreFolder(outputPath);
+                    if (outputPath != null)
+                    {
+                        Console.WriteLine("Results were written to " + outputPath);
+
+                        // spare the user some file browsing
+                        if (command.Show == OutputCommand.Shows.file) ShellCommands.OpenFile(outputPath);
+                        if (command.Show == OutputCommand.Shows.folder) ShellCommands.ExploreFolder(outputPath);
+                    }
                 }
+
+                foreach (var output in outputs.OfType<IDisposable>()) output.Dispose();
+                running = false; // to let the cancel task complete if operation did before it
+                await cancel; // just to rethrow possible exceptions
+            }
+            catch (Exception ex) when (ex.GetRootCauses().AnyNeedReporting())
+            {
+                reportableErrors.Add($"{DateTime.Now:O} {ex}");
             }
 
-            if (!reportableErrors.IsEmpty) await WriteErrorLogAsync(originalCommand, reportableErrors.Join(ErrorLog.OutputSpacing), command.Describe());
-
-            foreach (var output in outputs.OfType<IDisposable>()) output.Dispose();
-            running = false; // to let the cancel task complete if operation did before it
-            await cancel; // just to rethrow possible exceptions
+            // throw to enable setting correct exit code; include errors with time-stamped details to be logged globally
+            if (!reportableErrors.IsEmpty) throw new ErrorLogException(
+                reportableErrors.Prepend(command.Describe(withScopes: true)).Join(ErrorLog.OutputSpacing));
         }
 
         void OnScopeNotified(CommandScope scope, CommandScope.Notification notification) => outputs.ForEach(output =>
