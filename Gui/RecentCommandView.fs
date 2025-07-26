@@ -11,18 +11,17 @@ open type Fabulous.Avalonia.View
 
 module RecentCommandView =
     type Model =
-        { DescriptionContains: string
+        { Query: string
           Filtered: RecentCommands.Item list
           All: RecentCommands.Item list }
 
     type Msg =
         | RecentsLoaded of RecentCommands.Item list
-        | DescriptionContainsChanged of string
+        | QueryChanged of string
         | Filter
-        | CommandRun of OutputCommand
+        | Save of OutputCommand
         | Load of OutputCommand
         | Remove of RecentCommands.Item
-        | Save
         | Common of CommonMsg
 
     let load =
@@ -39,50 +38,45 @@ module RecentCommandView =
         |> Cmd.OfTask.msgOption
 
     let private filter = Cmd.ofMsg Filter
+    let private filterAndSave model = Cmd.batch [ filter; save model ]
 
-    let initModel =
-        { DescriptionContains = ""
-          Filtered = []
-          All = [] }
+    let initModel = { Query = ""; Filtered = []; All = [] }
 
     let update msg model =
         match msg with
         | RecentsLoaded list -> { model with All = list }, filter
-        | DescriptionContainsChanged str -> { model with DescriptionContains = str }, filter
+        | QueryChanged str -> { model with Query = str }, filter
 
         | Filter ->
             let filtered =
-                if model.DescriptionContains.IsNullOrWhiteSpace() then
+                if model.Query.IsNullOrWhiteSpace() then
                     model.All
                 else
                     model.All
                     |> List.filter (fun r ->
-                        r.Description.Contains(model.DescriptionContains, System.StringComparison.OrdinalIgnoreCase))
+                        r.Description.Contains(model.Query, System.StringComparison.OrdinalIgnoreCase))
 
             { model with Filtered = filtered }, Cmd.none
 
-        | CommandRun cmd ->
+        | Save cmd ->
             let list = List<RecentCommands.Item>(model.All) // convert to generic List to enable reusing AddOrUpdate
             list.AddOrUpdate(cmd) // sorts the list as well
             let model = { model with All = List.ofSeq list } // update our model
-            model, Cmd.batch [ filter; save model ]
+            model, filterAndSave model
 
         | Remove cfg ->
             let model =
                 { model with
                     All = model.All |> List.except [ cfg ] }
 
-            model, Cmd.batch [ filter; save model ]
+            model, filterAndSave model
 
-        | Save -> model, Cmd.none
         | Load _ -> model, Cmd.none
         | Common _ -> model, Cmd.none
 
     let view model =
         Grid(coldefs = [ Star ], rowdefs = [ Auto; Star ]) {
-            TextBox(model.DescriptionContains, DescriptionContainsChanged)
-                .watermark("Filter this list")
-                .trailingMargin ()
+            TextBox(model.Query, QueryChanged).watermark("Filter this list").trailingMargin ()
 
             ListBox(
                 model.Filtered,

@@ -4,6 +4,7 @@ open System
 open System.Text.Json
 open Avalonia.Controls.Notifications
 open Avalonia.Interactivity
+open Avalonia.Platform.Storage
 open Fabulous
 open Fabulous.Avalonia
 open SubTubular
@@ -35,6 +36,7 @@ module Services =
     let CacheFolder = Folder.GetPath Folders.cache
     let DataStore = JsonFileDataStore CacheFolder
     let Youtube = Youtube(DataStore, VideoIndexRepository CacheFolder)
+    let mutable Storage: IStorageProvider = null
 
 module Notify =
     let mutable via: WindowNotificationManager = null

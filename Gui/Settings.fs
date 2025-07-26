@@ -42,9 +42,13 @@ module Settings =
     let private loadFrom path =
         task {
             if File.Exists path then
-                let! json = File.ReadAllTextAsync(path)
-                let settings = JsonSerializer.Deserialize json
-                return Loaded settings |> Some
+                try
+                    let! json = File.ReadAllTextAsync(path)
+                    let settings = JsonSerializer.Deserialize json
+                    return Loaded settings |> Some
+                with exn ->
+                    let! _ = ErrorLog.WriteAsync(exn.ToString(), ?fileNameDescription = Some "loading UI settings")
+                    return None
             else
                 return None
         }

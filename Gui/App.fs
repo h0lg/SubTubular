@@ -78,13 +78,14 @@ module App =
             let notifier = FabApplication.Current.WindowNotificationManager
             notifier.Position <- NotificationPosition.BottomRight
             Notify.via <- notifier
+            Services.Storage <- FabApplication.Current.StorageProvider
             model, Cmd.none
 
         | SearchMsg smsg ->
             let fwdCmd =
                 match smsg with
                 | OutputCommands.Msg.Common msg -> Common msg |> Cmd.ofMsg
-                | OutputCommands.Msg.CommandValidated cmd -> RecentCommandView.CommandRun cmd |> RecentMsg |> Cmd.ofMsg
+                | OutputCommands.Msg.SaveRecent cmd -> RecentCommandView.Save cmd |> RecentMsg |> Cmd.ofMsg
                 | OutputCommands.Msg.ResultOptionsChanged -> requestSaveSettings ()
                 | OutputCommands.Msg.FileOutputMsg fom ->
                     match fom with

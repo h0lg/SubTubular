@@ -56,7 +56,7 @@ module OutputCommands =
         | SavedOutput of string
 
         | Run of bool
-        | CommandValidated of OutputCommand
+        | SaveRecent of OutputCommand
         | SearchResults of VideoSearchResult list
         | GoToSearchResultPage of uint16
         | KeywordResults of (string array * string * CommandScope) list
@@ -65,7 +65,7 @@ module OutputCommands =
         | SearchResultMsg of SearchResult.Msg
         | Common of CommonMsg
 
-    let private mapToCommand model =
+    let private mapToCommand model includeOutputOptions =
         let order = ResultOptions.getSearchCommandOrderOptions model.ResultOptions
 
         let command =
@@ -83,13 +83,14 @@ module OutputCommands =
             search.OrderBy <- order
         | _ -> ()
 
-        command.OutputHtml <- model.FileOutput.Html
-        command.FileOutputPath <- model.FileOutput.To
+        if includeOutputOptions then
+            command.OutputHtml <- model.FileOutput.Html
+            command.FileOutputPath <- model.FileOutput.To
 
-        if model.FileOutput.Opening = FileOutput.Open.file then
-            command.Show <- OutputCommand.Shows.file
-        elif model.FileOutput.Opening = FileOutput.Open.folder then
-            command.Show <- OutputCommand.Shows.folder
+            if model.FileOutput.Opening = FileOutput.Open.file then
+                command.Show <- OutputCommand.Shows.file
+            elif model.FileOutput.Opening = FileOutput.Open.folder then
+                command.Show <- OutputCommand.Shows.folder
 
         command
 
@@ -98,7 +99,7 @@ module OutputCommands =
             task {
                 let dispatchCommon msg = Common msg |> dispatch
                 let loggedErrors = ConcurrentBag<string>()
-                let command = mapToCommand model
+                let command = mapToCommand model false
                 let token = model.Running.Token
 
                 command.OnScopeNotification(fun scope ntf ->
@@ -123,7 +124,7 @@ module OutputCommands =
                             do! RemoteValidate.ScopesAsync(search, Services.Youtube, Services.DataStore, token)
 
                         if command.SaveAsRecent then
-                            CommandValidated command |> dispatch
+                            SaveRecent command |> dispatch
 
                         do!
                             Services.Youtube
@@ -137,7 +138,7 @@ module OutputCommands =
                             do! RemoteValidate.ScopesAsync(listKeywords, Services.Youtube, Services.DataStore, token)
 
                         if command.SaveAsRecent then
-                            CommandValidated command |> dispatch
+                            SaveRecent command |> dispatch
 
                         do!
                             Services.Youtube
@@ -190,29 +191,35 @@ module OutputCommands =
         |> Cmd.ofEffect
 
     let private saveOutput model =
-        async {
-            let command = mapToCommand model
+        fun dispatch ->
+            async {
+                match mapToCommand model true with
+                | :? SearchCommand as search ->
+                    Prevalidate.Search search
 
-            match command with
-            | :? SearchCommand as search ->
-                Prevalidate.Search search
+                    let! path =
+                        FileOutput.saveAsync search (fun writer ->
+                            for result in model.SearchResults do
+                                writer.WriteVideoResult(fst result, snd result))
 
-                let! path =
-                    FileOutput.saveAsync search (fun writer ->
-                        for result in model.SearchResults do
-                            writer.WriteVideoResult(fst result, snd result))
+                    SavedOutput path |> dispatch
 
-                return SavedOutput path |> Some
+                    if search.SaveAsRecent then
+                        SaveRecent search |> dispatch
 
-            | :? ListKeywords as listKeywords ->
-                Prevalidate.Scopes listKeywords
-                let counted = Youtube.CountKeywordVideos model.KeywordResults
-                let! path = FileOutput.saveAsync listKeywords _.ListKeywords(counted)
-                return SavedOutput path |> Some
+                | :? ListKeywords as listKeywords ->
+                    Prevalidate.Scopes listKeywords
+                    let counted = Youtube.CountKeywordVideos model.KeywordResults
+                    let! path = FileOutput.saveAsync listKeywords _.ListKeywords(counted)
+                    SavedOutput path |> dispatch
 
-            | _ -> return None
-        }
-        |> Cmd.OfAsync.msgOption
+                    if listKeywords.SaveAsRecent then
+                        SaveRecent listKeywords |> dispatch
+
+                | _ -> ()
+            }
+            |> Async.Start
+        |> Cmd.ofEffect
 
     let initModel =
         { Command = Commands.Search
@@ -257,6 +264,9 @@ module OutputCommands =
             SearchResults = []
             KeywordResults = null
             DisplayOutputOptions = false
+
+            (*  override file output settings with persisted values
+                to prevent current values from bleeding into the loaded command *)
             FileOutput =
                 { updated.FileOutput with
                     To = cmd.FileOutputPath
@@ -293,7 +303,7 @@ module OutputCommands =
             { model with Scopes = scopes }, Cmd.batch [ fwdCmd; Cmd.map ScopesMsg cmd ]
 
         | ShowScopesChanged show -> { model with ShowScopes = show }, Cmd.none
-        | CopyAsShellCmd -> model, mapToCommand model |> CopyShellCmd |> Common |> Cmd.ofMsg
+        | CopyAsShellCmd -> model, mapToCommand model true |> CopyShellCmd |> Common |> Cmd.ofMsg
 
         // udpate ResultOptions and debounce applying them to SearchResults
         | ResultOptionsMsg ext ->
@@ -314,16 +324,15 @@ module OutputCommands =
             Cmd.none
 
         | FileOutputMsg fom ->
-            let updated =
-                { model with
-                    FileOutput = FileOutput.update fom model.FileOutput }
+            let fileOutput, fwdCmd = FileOutput.update fom model.FileOutput
+            let model = { model with FileOutput = fileOutput }
 
-            let cmd =
+            let saving =
                 match fom with
-                | FileOutput.Msg.SaveOutput -> saveOutput updated
+                | FileOutput.Msg.SaveOutput -> saveOutput model
                 | _ -> Cmd.none
 
-            updated, cmd
+            model, Cmd.batch [ saving; Cmd.map FileOutputMsg fwdCmd ]
 
         | SavedOutput path -> model, Notify("Saved results to " + path) |> Common |> Cmd.ofMsg
 
@@ -352,7 +361,7 @@ module OutputCommands =
 
             updated, (if on then runCmd updated else Cmd.none)
 
-        | CommandValidated _ -> model, Cmd.none
+        | SaveRecent _ -> model, Cmd.none
         | Common _ -> model, Cmd.none
 
         | SearchResults list ->
