@@ -10,27 +10,9 @@ static partial class Program
         Func<Youtube, List<OutputWriter>, CancellationToken, Task> runCommand,
         CancellationToken token)
     {
-        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
-
-        var running = true;
-
-        //inspired by https://johnthiriet.com/cancel-asynchronous-operation-in-csharp/
-        var cancel = Task.Run(async () => //start in background, don't wait for completion
-        {
-            Console.WriteLine("Press any key to cancel");
-            Console.WriteLine();
-
-            /* wait for key or operation to finish, non-blockingly; but only as long as to not cause perceivable lag
-                inspired by https://stackoverflow.com/a/5620647 and https://stackoverflow.com/a/23628232 */
-            while (running && !Console.KeyAvailable) await Task.Delay(200, cancellation.Token);
-
-            if (Console.KeyAvailable) Console.ReadKey(true); //consume cancel key without displaying it
-            if (running) cancellation.Cancel();
-        });
-
         DataStore dataStore = CreateDataStore();
         using var youtube = new Youtube(dataStore, CreateVideoIndexRepo());
-        await RemoteValidate.ScopesAsync(command, youtube, dataStore, cancellation.Token).ContinueAnywhere();
+        await RemoteValidate.ScopesAsync(command, youtube, dataStore, token).ContinueAnywhere();
 
         if (command.SaveAsRecent)
         {
@@ -50,6 +32,7 @@ static partial class Program
             output.WriteHeader();
         });
 
+        Console.WriteLine("Cancel via Ctrl+C or Ctrl+Break...");
         ConcurrentBag<string> reportableErrors = [];
 
         await foreach (var (scope, captionTrackDlStates) in command.GetCaptionTrackDownloadStatus().InCompletionOrder().ContinueAnywhere())
@@ -64,7 +47,7 @@ static partial class Program
         {
             /*  passing token into command for it to react to cancellation,
                 see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables */
-            await runCommand(youtube, outputs, cancellation.Token).ContinueAnywhere();
+            await runCommand(youtube, outputs, token).ContinueAnywhere();
         }
         // record unexpected error here to have it in the same log file as the scope errors
         catch (Exception ex) when (ex.GetRootCauses().AnyNeedReporting())
@@ -99,8 +82,6 @@ static partial class Program
             }
 
             foreach (var output in outputs.OfType<IDisposable>()) output.Dispose();
-            running = false; // to let the cancel task complete if operation did before it
-            await cancel; // just to rethrow possible exceptions
         }
         catch (Exception ex) when (ex.GetRootCauses().AnyNeedReporting())
         {
@@ -110,8 +91,6 @@ static partial class Program
         // throw to enable setting correct exit code; include errors with time-stamped details to be logged globally
         if (!reportableErrors.IsEmpty) throw new ErrorLogException(
             reportableErrors.Prepend(command.Describe(withScopes: true)).Join(ErrorLog.OutputSpacing));
-
-        if (cancellation.IsCancellationRequested) throw new OperationCanceledException(); // to enable setting correct exit code
 
         void OnScopeNotified(CommandScope scope, CommandScope.Notification notification)
             => WriteNotification(notification, title: $"{notification.Title} in {scope.Describe(inDetail: false).Join(" ")}");

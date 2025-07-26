@@ -15,6 +15,8 @@ internal static partial class Program
 
     private static async Task<int> Main(string[] args)
     {
+        Console.TreatControlCAsInput = false; // makes cancelation via Ctrl+C work, see https://learn.microsoft.com/en-us/dotnet/api/system.console.cancelkeypress
+
         var originalCommand = $"> {AssemblyInfo.Name}.exe "
             // quote shell args including pipes to accurately represent the console command
             + args.Select(arg => arg.Contains('|') ? $"\"{arg.Replace("\"", "\"\"")}\"" : arg).Join(" ");
