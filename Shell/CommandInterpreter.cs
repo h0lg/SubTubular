@@ -1,4 +1,5 @@
 ﻿using System.CommandLine;
+using System.CommandLine.Help;
 using System.CommandLine.Invocation;
 
 namespace SubTubular.Shell;
@@ -26,6 +27,10 @@ static partial class CommandInterpreter
         root.Subcommands.Add(ConfigureRelease());
         root.Subcommands.Add(ConfigureOpen());
         root.Subcommands.Add(ConfigureRecent(search, listKeywords));
+
+        // see https://learn.microsoft.com/en-us/dotnet/standard/commandline/how-to-customize-help#add-sections-to-help-output
+        var helpOption = root.Options.OfType<HelpOption>().Single();
+        helpOption.Action = new CustomHelpAction((HelpAction)helpOption.Action!);
 
         CommandLineConfiguration config = new(root)
         {
@@ -61,5 +66,19 @@ static partial class CommandInterpreter
 
         open.SetAction(parsed => ShellCommands.ExploreFolder(Folder.GetPath(parsed.GetValue(folder))));
         return open;
+    }
+
+    internal class CustomHelpAction(HelpAction action) : SynchronousCommandLineAction
+    {
+        public override int Invoke(ParseResult parseResult)
+        {
+            Console.WriteLine(Program.AsciiHeading + AssemblyInfo.Title + " " + AssemblyInfo.InformationalVersion);
+            Console.WriteLine(AssemblyInfo.Copyright);
+            Console.WriteLine();
+
+            int result = action.Invoke(parseResult);
+            Console.WriteLine(Environment.NewLine + $"See {AssemblyInfo.RepoUrl} for more info.");
+            return result;
+        }
     }
 }
