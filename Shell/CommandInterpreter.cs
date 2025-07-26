@@ -1,6 +1,5 @@
 ﻿using System.CommandLine;
 using System.CommandLine.Invocation;
-using SubTubular.Extensions;
 
 namespace SubTubular.Shell;
 
@@ -35,28 +34,14 @@ static partial class CommandInterpreter
 
         ParseResult parsed = config.Parse(args);
 
-        try
-        {
-            var exit = await parsed.InvokeAsync();
+        var exit = await parsed.InvokeAsync();
 
-            /*  parser errors are printed by invocation above and return a non-zero exit code - no need to check it
-             *  see https://learn.microsoft.com/en-us/dotnet/standard/commandline/how-to-parse-and-invoke#parse-errors */
-            if (parsed.Action is ParseErrorAction) return ExitCode.ValidationError;
+        /*  parser errors are printed by invocation above and return a non-zero exit code - no need to check it
+         *  see https://learn.microsoft.com/en-us/dotnet/standard/commandline/how-to-parse-and-invoke#parse-errors */
+        if (parsed.Action is ParseErrorAction) return ExitCode.ValidationError;
 
-            if (Enum.IsDefined(typeof(ExitCode), exit)) return (ExitCode)exit; // translate known exit code
-            else return ExitCode.GenericError; // unify unknown exit codes
-        }
-        catch (Exception ex)
-        {
-            var causes = ex.GetRootCauses().ToArray();
-
-            foreach (var cause in causes)
-                ColorShell.WriteErrorLine(cause.Message);
-
-            if (causes.HaveInputError()) return ExitCode.ValidationError;
-            if (causes.AreAllCancelations()) return ExitCode.Canceled;
-            return ExitCode.GenericError; //or better throw?
-        }
+        if (Enum.IsDefined(typeof(ExitCode), exit)) return (ExitCode)exit; // translate known exit code
+        else return ExitCode.GenericError; // unify unknown exit codes
     }
 
     private static Command ConfigureOpen()
