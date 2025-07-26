@@ -7,35 +7,35 @@ static partial class CommandInterpreter
     private static Command ConfigureRelease()
     {
         Command release = new("release", $"List, browse and install other {AssemblyInfo.Name} releases.");
-        release.AddAlias("rls");
+        release.Aliases.Add("rls");
 
         Command list = new("list", $"Lists available releases from {AssemblyInfo.ReleasesUrl} .");
-        list.AddAlias("l");
-        list.SetHandler(async () => Console.WriteLine(await ReleaseManager.ListAsync(Program.CreateDataStore())));
+        list.Aliases.Add("l");
+        list.SetAction(async _ => Console.WriteLine(await ReleaseManager.ListAsync(Program.CreateDataStore())));
 
-        Argument<string> version = new("version", "The version number of a release or 'latest'.");
+        Argument<string> version = new("version") { Description = "The version number of a release or 'latest'." };
 
         Command notes = new("notes", "Opens the github release notes for a single release.");
-        notes.AddAlias("n");
-        notes.AddArgument(version);
-        notes.SetHandler(async (version) => await ReleaseManager.OpenNotesAsync(version, Program.CreateDataStore()), version);
+        notes.Aliases.Add("n");
+        notes.Arguments.Add(version);
+        notes.SetAction(async parsed => await ReleaseManager.OpenNotesAsync(parsed.GetValue(version)!, Program.CreateDataStore()));
 
         Command install = new(ReleaseManager.InstallVersionConsoleCommand, "Downloads a release from github"
             + " and unzips it to the current installation folder while backing up the running version.");
 
-        Option<string> installInto = new(ReleaseManager.InstallFolderConsoleParameter) { IsHidden = true };
-        installInto.AddAlias("-t");
+        Option<string> installInto = new(ReleaseManager.InstallFolderConsoleParameter) { Hidden = true };
+        installInto.Aliases.Add("-t");
 
-        install.AddAlias("i");
-        install.AddArgument(version);
-        install.AddOption(installInto);
+        install.Aliases.Add("i");
+        install.Arguments.Add(version);
+        install.Options.Add(installInto);
 
-        install.SetHandler(async (version, installInto) => await ReleaseManager.InstallByTagAsync(
-            version, installInto, Console.Write, Program.CreateDataStore()), version, installInto);
+        install.SetAction(async parsed => await ReleaseManager.InstallByTagAsync(
+            parsed.GetValue(version)!, parsed.GetValue(installInto)!, Console.Write, Program.CreateDataStore()));
 
-        release.AddCommand(list);
-        release.AddCommand(notes);
-        release.AddCommand(install);
+        release.Subcommands.Add(list);
+        release.Subcommands.Add(notes);
+        release.Subcommands.Add(install);
         return release;
     }
 }

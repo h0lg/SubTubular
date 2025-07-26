@@ -1,9 +1,6 @@
-﻿using System.Collections;
-using System.CommandLine;
-using System.CommandLine.Builder;
+﻿using System.CommandLine;
 using System.CommandLine.Help;
 using System.CommandLine.Invocation;
-using System.CommandLine.Parsing;
 
 namespace SubTubular.Shell;
 
@@ -15,84 +12,73 @@ static partial class CommandInterpreter
 
     internal static async Task<ExitCode> ParseArgs(string[] args, string originalCommand)
     {
-        Task search(SearchCommand cmd) => Program.SearchAsync(cmd, originalCommand);
-        Task listKeywords(ListKeywords cmd) => Program.ListKeywordsAsync(cmd, originalCommand);
+        Task search(SearchCommand cmd, CancellationToken token) => Program.SearchAsync(cmd, originalCommand, token);
+        Task listKeywords(ListKeywords cmd, CancellationToken token) => Program.ListKeywordsAsync(cmd, originalCommand, token);
 
-        RootCommand root = new(AssemblyInfo.Title);
+        RootCommand root = new(AssemblyInfo.Description);
+        // see https://learn.microsoft.com/en-us/dotnet/standard/commandline/syntax#directives
+        // and https://learn.microsoft.com/en-us/dotnet/standard/commandline/syntax#the-diagram-directive
+        root.Directives.Add(new DiagramDirective());
 
-        // see https://learn.microsoft.com/en-us/dotnet/standard/commandline/define-commands#define-subcommands
-        root.AddCommand(ConfigureSearch(search));
-        root.AddCommand(ConfigureListKeywords(listKeywords));
-        root.AddCommand(ConfigureClearCache(Program.ApplyClearCacheAsync));
-        root.AddCommand(ConfigureRelease());
-        root.AddCommand(ConfigureOpen());
-        root.AddCommand(ConfigureRecent(search, listKeywords));
+        // see https://learn.microsoft.com/en-us/dotnet/standard/commandline/syntax#subcommands
+        root.Subcommands.Add(ConfigureSearch(search));
+        root.Subcommands.Add(ConfigureListKeywords(listKeywords));
+        root.Subcommands.Add(ConfigureClearCache(Program.ApplyClearCacheAsync));
+        root.Subcommands.Add(ConfigureRelease());
+        root.Subcommands.Add(ConfigureOpen());
+        root.Subcommands.Add(ConfigureRecent(search, listKeywords));
 
-        Parser parser = new CommandLineBuilder(root)
-            .UseVersionOption()
-            .UseEnvironmentVariableDirective()
-            .UseParseDirective()
-            .UseSuggestDirective()
-            .RegisterWithDotnetSuggest()
-            .UseTypoCorrections()
-            .UseParseErrorReporting(errorExitCode: (int)ExitCode.ValidationError)
-            .CancelOnProcessTermination()
+        // see https://learn.microsoft.com/en-us/dotnet/standard/commandline/how-to-customize-help#add-sections-to-help-output
+        var helpOption = root.Options.OfType<HelpOption>().Single();
+        helpOption.Action = new CustomHelpAction((HelpAction)helpOption.Action!);
 
-            // see https://learn.microsoft.com/en-us/dotnet/standard/commandline/customize-help
-            .UseHelp(ctx => ctx.HelpBuilder.CustomizeLayout(context =>
-            {
-                var layout = HelpBuilder.Default.GetLayout();
+        CommandLineConfiguration config = new(root)
+        {
+            EnableDefaultExceptionHandler = false // to throw exceptions instead of garbling them into an exit code
+        };
 
-                if (context.Command == root)
-                {
-                    layout = layout
-                        .Skip(1) // Skip the default command description section.
-                        .Prepend(_ =>
-                        {
-                            // enhance heading for branding
-                            Console.WriteLine(Program.AsciiHeading + root.Description + " " + AssemblyInfo.InformationalVersion);
-                            Console.WriteLine(AssemblyInfo.Copyright);
-                        });
-                }
+        ParseResult parsed = config.Parse(args);
 
-                return layout.Append(_ => Console.WriteLine(Environment.NewLine + $"See {AssemblyInfo.RepoUrl} for more info."));
-            }))
-            .Build();
+        var exit = await parsed.InvokeAsync();
 
-        var exit = await parser.InvokeAsync(args);
+        /*  parser errors are printed by invocation above and return a non-zero exit code - no need to check it
+         *  see https://learn.microsoft.com/en-us/dotnet/standard/commandline/how-to-parse-and-invoke#parse-errors */
+        if (parsed.Action is ParseErrorAction) return ExitCode.ValidationError;
 
-        if (Enum.IsDefined(typeof(ExitCode), exit)) return (ExitCode)exit;
-        else return ExitCode.GenericError;
+        if (Enum.IsDefined(typeof(ExitCode), exit)) return (ExitCode)exit; // translate known exit code
+        else return ExitCode.GenericError; // unify unknown exit codes
     }
+
+    private static void SetCancelableAction(this Command command, Func<ParseResult, CancellationToken, Task> action)
+        => command.SetAction(async (parsed, token) =>
+        {
+            await action(parsed, token);
+            return (int)(token.IsCancellationRequested ? ExitCode.Canceled : ExitCode.Success);
+        });
 
     private static Command ConfigureOpen()
     {
         Command open = new("open", "Opens app-related folders in a file browser.");
-        open.AddAlias("o");
+        open.Aliases.Add("o");
 
-        Argument<Folders> folder = new("folder", "The folder to open.");
-        open.AddArgument(folder);
+        Argument<Folders> folder = new("folder") { Description = "The folder to open." };
+        open.Arguments.Add(folder);
 
-        open.SetHandler(folder => ShellCommands.ExploreFolder(Folder.GetPath(folder)), folder);
+        open.SetAction(parsed => ShellCommands.ExploreFolder(Folder.GetPath(parsed.GetValue(folder))));
         return open;
     }
-}
 
-internal static partial class BindingExtensions
-{
-    internal static T Parsed<T>(this InvocationContext context, Argument<T> arg)
-        => context.ParseResult.GetValueForArgument(arg);
-
-    internal static T? Parsed<T>(this InvocationContext context, Option<T> option)
+    internal class CustomHelpAction(HelpAction action) : SynchronousCommandLineAction
     {
-        var value = context.ParseResult.GetValueForOption(option);
+        public override int Invoke(ParseResult parseResult)
+        {
+            Console.WriteLine(Program.AsciiHeading + AssemblyInfo.Title + " " + AssemblyInfo.InformationalVersion);
+            Console.WriteLine(AssemblyInfo.Copyright);
+            Console.WriteLine();
 
-        // return null instead of an empty collection for enumerable options to make value checks easier
-        if (option.AllowMultipleArgumentsPerToken
-            && value is IEnumerable enumerable
-            && !enumerable.GetEnumerator().MoveNext()) // is empty
-            return default;
-
-        return value;
+            int result = action.Invoke(parseResult);
+            Console.WriteLine(Environment.NewLine + $"See {AssemblyInfo.RepoUrl} for more info.");
+            return result;
+        }
     }
 }

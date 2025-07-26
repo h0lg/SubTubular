@@ -1,6 +1,5 @@
 ﻿using System.Collections.Concurrent;
 using System.CommandLine;
-using System.CommandLine.Invocation;
 using SubTubular.Extensions;
 
 namespace SubTubular.Shell;
@@ -8,12 +7,14 @@ namespace SubTubular.Shell;
 static partial class Program
 {
     private static async Task OutputAsync(OutputCommand command, string originalCommand,
-        Func<Youtube, List<OutputWriter>, CancellationToken, Task> runCommand)
+        Func<Youtube, List<OutputWriter>, CancellationToken, Task> runCommand,
+        CancellationToken token)
     {
-        //inspired by https://johnthiriet.com/cancel-asynchronous-operation-in-csharp/
-        using var cancellation = new CancellationTokenSource();
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
+
         var running = true;
 
+        //inspired by https://johnthiriet.com/cancel-asynchronous-operation-in-csharp/
         var cancel = Task.Run(async () => //start in background, don't wait for completion
         {
             Console.WriteLine("Press any key to cancel");
@@ -33,9 +34,9 @@ static partial class Program
 
         if (command.SaveAsRecent)
         {
-            var commands = await RecentCommands.ListAsync();
+            var commands = await RecentCommands.ListAsync(token);
             commands.AddOrUpdate(command);
-            await RecentCommands.SaveAsync(commands);
+            await RecentCommands.SaveAsync(commands, token);
         }
 
         List<OutputWriter> outputs = [new ConsoleOutputWriter(command)];
@@ -49,7 +50,7 @@ static partial class Program
             output.WriteHeader();
         });
 
-        ConcurrentBag<string> allErrors = [];
+        ConcurrentBag<string> reportableErrors = [];
 
         foreach (var (scope, captionTrackDlStates) in command.GetCaptionTrackDownloadStatus())
         {
@@ -71,32 +72,42 @@ static partial class Program
         // record unexpected error here to have it in the same log file as the scope errors
         catch (Exception ex) when (ex.GetRootCauses().AnyNeedReporting())
         {
-            allErrors.Add($"{DateTime.Now:O} {ex}");
-            throw new OperationCanceledException(); // throw an error ignored upstream to signal execution error without triggering duplicate logging
+            reportableErrors.Add($"{DateTime.Now:O} {ex}");
         }
         finally // write output file even if exception occurs
         {
-            if (outputs.Any(o => o.WroteResults)) // if we displayed a result before running into an error
+            try
             {
-                // only writes an output file if command requires it
-                var fileOutput = outputs.OfType<FileOutputWriter>().SingleOrDefault();
-                var outputPath = fileOutput == null ? null : await fileOutput.SaveFile();
-
-                if (outputPath != null)
+                if (outputs.Any(o => o.WroteResults)) // if we displayed a result before running into an error
                 {
-                    Console.WriteLine("Results were written to " + outputPath);
+                    // only writes an output file if command requires it
+                    var fileOutput = outputs.OfType<FileOutputWriter>().SingleOrDefault();
+                    var outputPath = fileOutput == null ? null : await fileOutput.SaveFile();
 
-                    // spare the user some file browsing
-                    if (command.Show == OutputCommand.Shows.file) ShellCommands.OpenFile(outputPath);
-                    if (command.Show == OutputCommand.Shows.folder) ShellCommands.ExploreFolder(outputPath);
+                    if (outputPath != null)
+                    {
+                        Console.WriteLine("Results were written to " + outputPath);
+
+                        // spare the user some file browsing
+                        if (command.Show == OutputCommand.Shows.file) ShellCommands.OpenFile(outputPath);
+                        if (command.Show == OutputCommand.Shows.folder) ShellCommands.ExploreFolder(outputPath);
+                    }
                 }
+
+                foreach (var output in outputs.OfType<IDisposable>()) output.Dispose();
+                running = false; // to let the cancel task complete if operation did before it
+                await cancel; // just to rethrow possible exceptions
+            }
+            catch (Exception ex) when (ex.GetRootCauses().AnyNeedReporting())
+            {
+                reportableErrors.Add($"{DateTime.Now:O} {ex}");
             }
 
-            if (!allErrors.IsEmpty) await WriteErrorLogAsync(originalCommand, allErrors.Join(ErrorLog.OutputSpacing), command.Describe());
+            // throw to enable setting correct exit code; include errors with time-stamped details to be logged globally
+            if (!reportableErrors.IsEmpty) throw new ErrorLogException(
+                reportableErrors.Prepend(command.Describe(withScopes: true)).Join(ErrorLog.OutputSpacing));
 
-            foreach (var output in outputs.OfType<IDisposable>()) output.Dispose();
-            running = false; // to let the cancel task complete if operation did before it
-            await cancel; // just to rethrow possible exceptions
+            if (cancellation.IsCancellationRequested) throw new OperationCanceledException(); // to enable setting correct exit code
         }
 
         void OnScopeNotified(CommandScope scope, CommandScope.Notification notification) => outputs.ForEach(output =>
@@ -122,7 +133,7 @@ static partial class Program
                         .Prepend($"{DateTime.Now:O} {titleAndScope}")
                         .WithValue().Join(ErrorLog.OutputSpacing);
 
-                    allErrors.Add(errorDetails);
+                    reportableErrors.Add(errorDetails);
                 }
 
                 // output messages immediately
@@ -139,9 +150,13 @@ static partial class CommandInterpreter
 {
     private static Option<bool> AddSaveAsRecent(Command command)
     {
-        Option<bool> saveAsRecent = new(["--recent", "-rc"], "Unless set to false, saves this command into the recent list for later.");
-        saveAsRecent.SetDefaultValue(true);
-        command.AddOption(saveAsRecent);
+        Option<bool> saveAsRecent = new("--recent", "-rc")
+        {
+            Description = "Unless set explicitly to `false`, saves this command into the recent command list to enable re-running it later.",
+            DefaultValueFactory = _ => true
+        };
+
+        command.Options.Add(saveAsRecent);
         return saveAsRecent;
     }
 
@@ -149,39 +164,44 @@ static partial class CommandInterpreter
     {
         const string htmlName = "--html", outputPathName = "--out";
 
-        Option<bool> html = new([htmlName, "-m"],
-            "If set, outputs the highlighted search result in an HTML file including hyperlinks for easy navigation."
-            + $" The output path can be configured in the '{outputPathName}' parameter."
-            + " Omitting it will save the file into the default 'output' folder - named according to your search parameters."
-            + OutputCommand.ExistingFilesAreOverWritten);
+        Option<bool> html = new(htmlName, "-m")
+        {
+            Description = "If set, outputs the highlighted search result in an HTML file including hyperlinks for easy navigation."
+                + $" The output path can be configured in the `{outputPathName}` parameter."
+                + " Omitting it will save the file into the default `output` folder - named according to your search parameters."
+                + OutputCommand.ExistingFilesAreOverWritten
+        };
 
-        Option<string> fileOutputPath = new([outputPathName, "-o"],
-            $"Writes the search results to a file, the format of which is either text or HTML depending on the '{htmlName}' flag. "
-            + OutputCommand.FileOutputPathHint + OutputCommand.ExistingFilesAreOverWritten);
+        Option<string> fileOutputPath = new(outputPathName, "-o")
+        {
+            Description =
+                $"Writes the search results to a file, the format of which is either text or HTML depending on the `{htmlName}` flag. "
+                + OutputCommand.FileOutputPathHint + OutputCommand.ExistingFilesAreOverWritten
+        };
 
-        Option<OutputCommand.Shows?> show = new(["--show", "-s"], "The output to open if a file was written.");
+        Option<OutputCommand.Shows?> show = new("--show", "-s") { Description = "The output to open if a file was written." };
 
-        command.AddOption(html);
-        command.AddOption(fileOutputPath);
-        command.AddOption(show);
+        command.Options.Add(html);
+        command.Options.Add(fileOutputPath);
+        command.Options.Add(show);
         return (html, fileOutputPath, show);
     }
 }
 
 internal static partial class BindingExtensions
 {
-    internal static T BindSaveAsRecent<T>(this T command, InvocationContext ctx, Option<bool> saveAsRecent) where T : OutputCommand
+    internal static T BindSaveAsRecent<T>(this T command, ParseResult parsed, Option<bool> saveAsRecent) where T : OutputCommand
     {
-        command.SaveAsRecent = ctx.Parsed(saveAsRecent);
+        command.SaveAsRecent = parsed.GetValue(saveAsRecent);
         return command;
     }
 
-    internal static T BindOuputOptions<T>(this T command, InvocationContext ctx,
+    internal static T BindOuputOptions<T>(this T command, ParseResult parsed,
         Option<bool> html, Option<string> fileOutputPath, Option<OutputCommand.Shows?> show) where T : OutputCommand
     {
-        command.OutputHtml = ctx.Parsed(html);
-        command.FileOutputPath = ctx.Parsed(fileOutputPath);
-        command.Show = ctx.Parsed(show);
+        command.OutputHtml = parsed.GetValue(html);
+        command.FileOutputPath = parsed.GetValue(fileOutputPath);
+        command.Show = parsed.GetValue(show);
         return command;
     }
 }
