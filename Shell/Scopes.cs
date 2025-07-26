@@ -14,7 +14,7 @@ static partial class CommandInterpreter
         StringListOption channels = new(Scopes.channels)
         {
             Description = "The space-separated channel IDs, handles, slugs, user names and/or URLs for either of those."
-                + $" Effectively searches the special 'Uploads' playlist of the given channels, which are {sortedByLatestUploaded}.",
+                + $" Effectively searches the special Uploads playlist of the given channels, which are {sortedByLatestUploaded}.",
             AllowMultipleArgumentsPerToken = true
         };
 
@@ -40,8 +40,8 @@ static partial class CommandInterpreter
     internal const ushort SkipDefault = 0, TakeDefault = 50;
     internal const float CacheHoursDefault = 24f;
 
-    private const string sortedByLatestUploaded = $"sorted latest '{nameof(SearchCommand.OrderOptions.uploaded)}' first",
-        ofTheIncludedPlaylistLikeScopes = $"of the included '{Scopes.channels}' and '{Scopes.playlists}'";
+    private const string sortedByLatestUploaded = $"sorted latest `{nameof(SearchCommand.OrderOptions.uploaded)}` first",
+        ofTheIncludedPlaylistLikeScopes = $"of the included `{Scopes.channels}` and `{Scopes.playlists}`";
 
     private static (UshortListOption skip, UshortListOption take, FloatListOption cacheHours) AddPlaylistLikeCommandOptions(Command command)
     {
@@ -55,13 +55,13 @@ static partial class CommandInterpreter
 
         UshortListOption take = new(Args.take, "-t")
         {
-            Description = $"The number of videos to process from the top (or '{Args.skip}'-ed to part) {ofTheIncludedPlaylistLikeScopes};"
+            Description = $"The number of videos to process from the top (or `{Args.skip}`-ed to part) {ofTheIncludedPlaylistLikeScopes};"
                 + " effectively limiting the range."
                 + DescribePlaylistLikeOptionValues(TakeDefault)
                 + " You may want to gradually increase this to include all videos in the list while you're refining your query."
                 + $" Note that the special Uploads playlist of a channel is {sortedByLatestUploaded},"
                 + " but custom playlists may be sorted differently. Keep that in mind if you don't find what you're looking for"
-                + $" and when using '{Args.orderBy}' (which is only applied to the results) with '{nameof(SearchCommand.OrderOptions.uploaded)}' on custom playlists.",
+                + $" and when using `{Args.orderBy}` (which is only applied to the results) with `{nameof(SearchCommand.OrderOptions.uploaded)}` on custom playlists.",
             AllowMultipleArgumentsPerToken = true
         };
 
@@ -71,7 +71,7 @@ static partial class CommandInterpreter
                 + " before they're considered stale and the list of contained videos is refreshed."
                 + DescribePlaylistLikeOptionValues(CacheHoursDefault)
                 + " Note this doesn't apply to the videos themselves because their contents rarely change after upload."
-                + $" Use '--{clearCacheCommand}' to clear videos associated with a playlist or channel if that's what you're after.",
+                + $" Use `--{clearCacheCommand}` to clear videos associated with a playlist or channel if that's what you're after.",
             AllowMultipleArgumentsPerToken = true
         };
 
@@ -82,7 +82,7 @@ static partial class CommandInterpreter
     }
 
     private static string DescribePlaylistLikeOptionValues(object defaultValue)
-        => $" You can specify a value for each included scope, '{Scopes.channels}' before '{Scopes.playlists}', in the order they're passed."
+        => $" You can specify a value for each included scope, `{Scopes.channels}` before `{Scopes.playlists}`, in the order they're passed."
             + " If you specify less values than scopes, the last value is used for remaining scopes."
             + $" If left empty, {defaultValue} is used for all scopes.";
 }

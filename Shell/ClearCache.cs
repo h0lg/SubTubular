@@ -30,15 +30,15 @@ static partial class CommandInterpreter
         const string scopeName = "scope", aliasesName = "aliases";
 
         Command clearCache = new(clearCacheCommand, "Deletes cached metadata and full-text indexes for "
-            + $"'{nameof(ClearCache.Scopes.channels)}', '{nameof(ClearCache.Scopes.playlists)}' and '{nameof(ClearCache.Scopes.videos)}'.");
+            + $"`{nameof(ClearCache.Scopes.channels)}`, `{nameof(ClearCache.Scopes.playlists)}` and `{nameof(ClearCache.Scopes.videos)}`.");
 
         clearCache.Aliases.Add("clear");
 
         Argument<ClearCache.Scopes> scope = new(scopeName)
         {
             Description = "The type of caches to delete."
-                + $" For '{nameof(ClearCache.Scopes.playlists)}' and '{nameof(ClearCache.Scopes.channels)}'"
-                + $" this will include the associated '{nameof(ClearCache.Scopes.videos)}'."
+                + $" For `{nameof(ClearCache.Scopes.playlists)}` and `{nameof(ClearCache.Scopes.channels)}`"
+                + $" this will include the associated `{nameof(ClearCache.Scopes.videos)}`."
         };
 
         clearCache.Arguments.Add(scope);
@@ -46,10 +46,10 @@ static partial class CommandInterpreter
         //TODO update to require e.g. an explicit "all videos" as scopes for deleting all videos.
         Argument<IEnumerable<string>> aliases = new(aliasesName)
         {
-            Description = $"The space-separated IDs, URLs or aliases of elements in the '{scopeName}' to delete caches for."
-                + $" Can be used with every '{scopeName}' but '{nameof(ClearCache.Scopes.all)}'"
-                + $" while supporting user names, channel handles and slugs besides IDs for '{nameof(ClearCache.Scopes.channels)}'."
-                + $" If not set, all elements in the specified '{scopeName}' are considered for deletion."
+            Description = $"The space-separated IDs, URLs or aliases of elements in the `{scopeName}` to delete caches for."
+                + $" Can be used with every `{scopeName}` but `{nameof(ClearCache.Scopes.all)}`"
+                + $" while supporting user names, channel handles and slugs besides IDs for `{nameof(ClearCache.Scopes.channels)}`."
+                + $" If not set, all elements in the specified `{scopeName}` are considered for deletion."
                 + quoteIdsStartingWithDash
         };
 
@@ -59,7 +59,7 @@ static partial class CommandInterpreter
         {
             Description = "The maximum number of days since the last access of a cache file for it to be excluded from deletion."
                 + " Effectively only deletes old caches that haven't been accessed for this number of days."
-                + $" Ignored for explicitly set '{aliasesName}'."
+                + $" Ignored for explicitly set `{aliasesName}`."
         };
 
         clearCache.Options.Add(notAccessedForDays);
@@ -67,9 +67,9 @@ static partial class CommandInterpreter
         Option<ClearCache.Modes> mode = new("--mode", "-m")
         {
             Description = "The deletion mode;"
-                + $" '{nameof(ClearCache.Modes.summary)}' only outputs how many of what file type were deleted."
-                + $" '{nameof(ClearCache.Modes.verbose)}' outputs the deleted file names as well as the summary."
-                + $" '{nameof(ClearCache.Modes.simulate)}' lists all file names that would be deleted by running the command instead of deleting them."
+                + $" `{nameof(ClearCache.Modes.summary)}` only outputs how many of what file type were deleted."
+                + $" `{nameof(ClearCache.Modes.verbose)}` outputs the deleted file names as well as the summary."
+                + $" `{nameof(ClearCache.Modes.simulate)}` lists all file names that would be deleted by running the command instead of deleting them."
                 + " You can use this to preview the files that would be deleted.",
             DefaultValueFactory = _ => ClearCache.Modes.summary
         };

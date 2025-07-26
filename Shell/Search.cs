@@ -60,11 +60,11 @@ static partial class CommandInterpreter
 
         Option<IEnumerable<SearchCommand.OrderOptions>> orderBy = new(Args.orderBy, "-r")
         {
-            Description = $"Order the video search results by '{nameof(SearchCommand.OrderOptions.uploaded)}'"
-                + $" or '{nameof(SearchCommand.OrderOptions.score)}' with '{nameof(SearchCommand.OrderOptions.asc)}' for ascending."
-                + $" The default is descending (i.e. latest respectively highest first) and by '{nameof(SearchCommand.OrderOptions.score)}'."
+            Description = $"Order the video search results by `{nameof(SearchCommand.OrderOptions.uploaded)}`"
+                + $" or `{nameof(SearchCommand.OrderOptions.score)}` with `{nameof(SearchCommand.OrderOptions.asc)}` for ascending."
+                + $" The default is descending (i.e. latest respectively highest first) and by `{nameof(SearchCommand.OrderOptions.score)}`."
                 + " Note that the order is only applied to the results with the search scope itself"
-                + $" being limited by the '{Args.skip}' and '{Args.take}' parameters for playlists."
+                + $" being limited by the `{Args.skip}` and `{Args.take}` parameters for playlists."
                 + " Note also that for un-cached videos, this option is ignored in favor of outputting matches as soon as they're found"
                 + " - but simply repeating the search will hit the cache and return them in the requested order.",
             DefaultValueFactory = _ => [SearchCommand.OrderOptions.score],

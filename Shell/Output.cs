@@ -152,7 +152,7 @@ static partial class CommandInterpreter
     {
         Option<bool> saveAsRecent = new("--recent", "-rc")
         {
-            Description = "Unless set explicitly to 'false', saves this command into the recent command list to enable re-running it later.",
+            Description = "Unless set explicitly to `false`, saves this command into the recent command list to enable re-running it later.",
             DefaultValueFactory = _ => true
         };
 
@@ -167,15 +167,15 @@ static partial class CommandInterpreter
         Option<bool> html = new(htmlName, "-m")
         {
             Description = "If set, outputs the highlighted search result in an HTML file including hyperlinks for easy navigation."
-                + $" The output path can be configured in the '{outputPathName}' parameter."
-                + " Omitting it will save the file into the default 'output' folder - named according to your search parameters."
+                + $" The output path can be configured in the `{outputPathName}` parameter."
+                + " Omitting it will save the file into the default `output` folder - named according to your search parameters."
                 + OutputCommand.ExistingFilesAreOverWritten
         };
 
         Option<string> fileOutputPath = new(outputPathName, "-o")
         {
             Description =
-                $"Writes the search results to a file, the format of which is either text or HTML depending on the '{htmlName}' flag. "
+                $"Writes the search results to a file, the format of which is either text or HTML depending on the `{htmlName}` flag. "
                 + OutputCommand.FileOutputPathHint + OutputCommand.ExistingFilesAreOverWritten
         };
 
