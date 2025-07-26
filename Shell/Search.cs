@@ -31,7 +31,7 @@ static partial class CommandInterpreter
         Option<bool> saveAsRecent = AddSaveAsRecent(command);
 
         // forward cancellation token, see https://learn.microsoft.com/en-us/dotnet/standard/commandline/how-to-parse-and-invoke#asynchronous-actions
-        command.SetAction(async (parsed, token) => await search(new SearchCommand()
+        command.SetCancelableAction(async (parsed, token) => await search(new SearchCommand()
             .BindScopes(parsed, videos, channels, playlists, skip, take, cacheHours)
             .BindSearchOptions(parsed, query, padding, orderBy)
             .BindOuputOptions(parsed, html, fileOutputPath, show)

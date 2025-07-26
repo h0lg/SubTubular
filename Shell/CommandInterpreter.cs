@@ -44,6 +44,13 @@ static partial class CommandInterpreter
         else return ExitCode.GenericError; // unify unknown exit codes
     }
 
+    private static void SetCancelableAction(this Command command, Func<ParseResult, CancellationToken, Task> action)
+        => command.SetAction(async (parsed, token) =>
+        {
+            await action(parsed, token);
+            return (int)(token.IsCancellationRequested ? ExitCode.Canceled : ExitCode.Success);
+        });
+
     private static Command ConfigureOpen()
     {
         Command open = new("open", "Opens app-related folders in a file browser.");

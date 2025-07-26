@@ -106,6 +106,8 @@ static partial class Program
             // throw to enable setting correct exit code; include errors with time-stamped details to be logged globally
             if (!reportableErrors.IsEmpty) throw new ErrorLogException(
                 reportableErrors.Prepend(command.Describe(withScopes: true)).Join(ErrorLog.OutputSpacing));
+
+            if (cancellation.IsCancellationRequested) throw new OperationCanceledException(); // to enable setting correct exit code
         }
 
         void OnScopeNotified(CommandScope scope, CommandScope.Notification notification) => outputs.ForEach(output =>
