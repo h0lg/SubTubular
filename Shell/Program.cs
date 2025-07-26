@@ -55,12 +55,7 @@ internal static partial class Program
         }
     }
 
-    private static void WriteConsoleError(string line)
-    {
-        Console.ForegroundColor = ConsoleColor.Red;
-        Console.Error.WriteLine(line);
-        Console.ResetColor();
-    }
+    private static void WriteConsoleError(string line) => ColorShell.WriteErrorLine(line);
 
     private static readonly string cacheFolder = Folder.GetPath(Folders.cache);
     internal static DataStore CreateDataStore() => new JsonFileDataStore(cacheFolder);

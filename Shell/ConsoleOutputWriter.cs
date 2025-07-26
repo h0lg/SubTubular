@@ -3,14 +3,7 @@ namespace SubTubular.Shell;
 /// <summary>Provides formatted and highlighted output for Console.</summary>
 internal sealed class ConsoleOutputWriter : OutputWriter, IDisposable
 {
-    private const ConsoleColor highlightColor = ConsoleColor.Yellow;
-    private const ConsoleColor notificationColor = ConsoleColor.DarkYellow;
-    private const ConsoleColor errorColor = ConsoleColor.Red;
-    private readonly ConsoleColor regularForeGround;
-
-    internal ConsoleOutputWriter(OutputCommand command) : base(command)
-        => regularForeGround = Console.ForegroundColor; // using current
-
+    internal ConsoleOutputWriter(OutputCommand command) : base(command) { }
     public override short GetWrittenInCurrentLine() => (short)Console.CursorLeft;
 
     // allowing for a buffer to avoid irregular text wrapping
@@ -18,13 +11,12 @@ internal sealed class ConsoleOutputWriter : OutputWriter, IDisposable
 
     public override void Write(string text) => Console.Write(text);
     public override void WriteUrl(string url) => Console.Write(url);
-    private void ResetConsoleColor() => Console.ForegroundColor = regularForeGround;
 
     public override void WriteHighlighted(string text)
     {
-        Console.ForegroundColor = highlightColor;
+        ColorShell.SetText(ConsoleColor.Yellow);
         Console.Write(text);
-        ResetConsoleColor();
+        ColorShell.Reset();
     }
 
     public override void WriteLine(string? text = null)
@@ -35,17 +27,24 @@ internal sealed class ConsoleOutputWriter : OutputWriter, IDisposable
 
     public override void WriteNotificationLine(string text)
     {
-        Console.ForegroundColor = notificationColor;
+        ColorShell.SetText(ConsoleColor.DarkYellow);
         Console.WriteLine(text);
-        ResetConsoleColor();
+        ColorShell.Reset();
     }
 
-    public override void WriteErrorLine(string text)
+    public override void WriteErrorLine(string text) => ColorShell.WriteErrorLine(text);
+    public void Dispose() => ColorShell.Reset();
+}
+
+internal static class ColorShell
+{
+    internal static void Reset() => Console.ResetColor();
+    internal static void SetText(ConsoleColor color) => Console.ForegroundColor = color;
+
+    internal static void WriteErrorLine(string line)
     {
-        Console.ForegroundColor = errorColor;
-        Console.Error.WriteLine(text);
-        ResetConsoleColor();
+        SetText(ConsoleColor.Red);
+        Console.Error.WriteLine(line);
+        Reset();
     }
-
-    public void Dispose() => ResetConsoleColor();
 }
