@@ -38,12 +38,7 @@ public class PlaylistTests
         async Task AddVideoShards(int at, int start, int count)
         {
             videoIds.InsertRange(at * shardSize, GenerateShards(start, count, shardSize));
-
-            await using (playlist.CreateChangeToken(() => Task.CompletedTask))
-            {
-                foreach (var id in videoIds) playlist.TryAddVideoId(id.ToString(), (uint)videoIds.IndexOf(id));
-                playlist.UpdateShardNumbers();
-            }
+            await AddVideos(playlist, videoIds);
         }
     }
 
@@ -56,11 +51,11 @@ public class PlaylistTests
 
         // add 3 shards
         List<int> videoIds = [.. GenerateShards(0, 3, shardSize)];
-        await AddVideos();
+        await AddVideos(playlist, videoIds);
 
         // drop every third video
         videoIds.RemoveAll(x => x % 3 == 0);
-        await AddVideos();
+        await AddVideos(playlist, videoIds);
 
         await using (playlist.CreateChangeToken(() => Task.CompletedTask))
         {
@@ -80,7 +75,7 @@ public class PlaylistTests
 
         // add all videos back, but in reverse order
         videoIds = [.. GenerateShards(0, 3, shardSize).Reverse()];
-        await AddVideos();
+        await AddVideos(playlist, videoIds);
 
         await using (playlist.CreateChangeToken(() => Task.CompletedTask))
         {
@@ -94,15 +89,6 @@ public class PlaylistTests
 
             //shard numbers stay the same as on initial load
             AssertCollectionsEqual(expectedShardNumbers, actualShardNumbers);
-        }
-
-        async Task AddVideos()
-        {
-            await using (playlist.CreateChangeToken(() => Task.CompletedTask))
-            {
-                foreach (var id in videoIds) playlist.TryAddVideoId(id.ToString(), (uint)videoIds.IndexOf(id));
-                playlist.UpdateShardNumbers();
-            }
         }
     }
 
@@ -140,12 +126,17 @@ public class PlaylistTests
         async Task AddHalfShard(int at, int start, int count)
         {
             videoIds.InsertRange(at * halfShardSize, GenerateShards(start, count, halfShardSize));
+            await AddVideos(playlist, videoIds);
+        }
+    }
 
-            await using (playlist.CreateChangeToken(() => Task.CompletedTask))
-            {
-                foreach (var id in videoIds) playlist.TryAddVideoId(id.ToString(), (uint)videoIds.IndexOf(id));
-                playlist.UpdateShardNumbers();
-            }
+    // SUT / ACT
+    private static async Task AddVideos(Playlist playlist, List<int> videoIds)
+    {
+        await using (playlist.CreateChangeToken(() => Task.CompletedTask))
+        {
+            foreach (var id in videoIds) playlist.TryAddVideoId(id.ToString(), (uint)videoIds.IndexOf(id));
+            playlist.UpdateShardNumbers();
         }
     }
 
