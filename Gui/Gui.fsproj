@@ -44,13 +44,13 @@
   </ItemGroup>
   <ItemGroup Condition="$(AvaloniaPlatform) == 'Desktop'">
     <Compile Include="$(DesktopPlatformFolder)Program.fs" />
-    <PackageReference Include="Avalonia.Desktop" Version="11.3.2" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.4" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="AsyncImageLoader.Avalonia" Version="3.3.0" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.2" />
+    <PackageReference Include="AsyncImageLoader.Avalonia" Version="3.4.3" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.4" />
     <PackageReference Include="Fabulous.Avalonia.Diagnostics" Version="3.0.0-pre12" />
-    <PackageReference Include="FSharp.Core" Version="9.0.300" />
+    <PackageReference Include="FSharp.Core" Version="9.0.303" />
     <PackageReference Include="Fabulous" Version="3.0.0-pre22" />
     <PackageReference Include="Fabulous.Avalonia" Version="3.0.0-pre12" />
   </ItemGroup>
