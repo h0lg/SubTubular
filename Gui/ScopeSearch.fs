@@ -233,7 +233,10 @@ module ScopeSearch =
           Added = added }
 
     let private openDropdown model =
-        Dispatch.toUiThread (fun () -> model.AliasSearch.Input.Value.IsDropDownOpen <- true)
+        Dispatch.toUiThread (fun () ->
+            match model.AliasSearch.Input.TryValue with
+            | Some dropdown -> dropdown.IsDropDownOpen <- true
+            | None -> ())
 
     let update msg model =
         match msg with
