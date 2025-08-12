@@ -101,11 +101,13 @@ module Scopes =
             model, Cmd.none
 
     let list model maxWidth showThumbnails =
-        (HWrap() {
-            for scope in model.List do
+        ItemsControl(
+            model.List,
+            fun scope ->
                 (Border(View.map (fun scopeMsg -> ScopeMsg(scope, scopeMsg)) (Scope.view scope maxWidth showThumbnails)))
                     .classes ("scope")
-        })
+        )
+            .itemsPanel(HWrapEmpty())
             .onSizeChanged(ListSizeChanged)
             .top ()
 
