@@ -191,7 +191,7 @@ module Scope =
                     else
                         ScopeSearch.input model.ScopeSearch showThumbnails |> View.map ScopeSearchMsg
 
-                    ToggleButton("⚙", model.ShowSettings, ToggleSettings).tooltip ("toggle settings")
+                    ToggleButton("🔧", model.ShowSettings, ToggleSettings).tooltip ("toggle settings")
 
                     (HStack(5) {
                         Label "skip"
