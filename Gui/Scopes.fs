@@ -79,36 +79,23 @@ module Scopes =
 
             updated, fwdCmd
 
-    let private addScopeStack = ViewRef<Border>()
+    let list model maxWidth showThumbnails =
+        HWrap() {
+            for scope in model.List do
+                (Border(View.map (fun scopeMsg -> ScopeMsg(scope, scopeMsg)) (Scope.view scope maxWidth showThumbnails)))
+                    .classes ("scope")
+        }
 
     let private addButton scopeType =
         Button(ScopeViews.displayType scopeType true, AddScope scopeType)
 
-    let view model maxWidth showThumbnails =
-        Panel() {
-            HWrap() {
-                for scope in model.List do
-                    (Border(
-                        View.map (fun scopeMsg -> ScopeMsg(scope, scopeMsg)) (Scope.view scope maxWidth showThumbnails)
-                    ))
-                        .classes ("scope")
-
-                (*  Render an empty spacer the size of the add scope control stack,
-                    effectively creating an empty line in the HWrap if they don't fit the current one.
-                    This prevents the absolutely positioned addScopeStack from overlapping the last scope input. *)
-                match addScopeStack.TryValue with
-                | Some stack -> Rectangle().width(stack.DesiredSize.Width).height (stack.DesiredSize.Height)
-                | None -> ()
+    let addButtons model =
+        (Border(
+            HStack(5) {
+                Label "add"
+                addButton typeof<ChannelScope>
+                addButton typeof<PlaylistScope>
+                (addButton typeof<VideosScope>).isVisible (not model.HasVideos)
             }
-
-            (Border(
-                HStack(5) {
-                    Label "add"
-                    addButton typeof<ChannelScope>
-                    addButton typeof<PlaylistScope>
-                    (addButton typeof<VideosScope>).isVisible (not model.HasVideos)
-                }
-            ))
-                .classes("add-scope")
-                .reference (addScopeStack)
-        }
+        ))
+            .classes ("add-scope")

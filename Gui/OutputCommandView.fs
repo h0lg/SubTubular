@@ -167,8 +167,14 @@ module OutputCommandView =
 
         (Grid(coldefs = [ Star ], rowdefs = [ scopesHeight; Auto; Auto; Stars(2) ]) {
             // scopes
-            ScrollViewer(View.map ScopesMsg (Scopes.view model.Scopes maxWidth showThumbnails))
-                .card()
+            (Panel() {
+                ScrollViewer(View.map ScopesMsg (Scopes.list model.Scopes maxWidth showThumbnails))
+                    .margin(0, 0, 0, 20)
+                    .card ()
+
+                (View.map ScopesMsg (Scopes.addButtons model.Scopes)).margin (0, 0, 10, -10)
+            })
+                .margin(0, 0, 0, 15)
                 .isVisible (model.ShowScopes)
 
             // command options
