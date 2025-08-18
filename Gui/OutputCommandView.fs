@@ -138,28 +138,28 @@ module OutputCommandView =
         }
 
     let render model showThumbnails =
+        let isSearch = model.Command = Commands.Search
+
+        let hasResults =
+            if isSearch then
+                not model.SearchResults.IsEmpty
+            else
+                model.DisplayedKeywords <> null && model.DisplayedKeywords.Count > 0
+
+        let searchResultsOnPage, resultPager =
+            match isSearch && hasResults with
+            | true ->
+                let page, pager =
+                    Pager.render (model.SearchResults |> Array.ofList) (int model.SearchResultPage) 10 (fun page ->
+                        GoToSearchResultPage(uint16 page))
+
+                Some page, Some pager
+            | false -> None, None
+
         // Star Height allows ScrollViewer to work by limiting its height
         let scopesHeight = if model.ShowScopes then Star else Auto
 
         (Grid(coldefs = [ Star ], rowdefs = [ scopesHeight; Auto; Auto; Stars(2) ]) {
-            let isSearch = model.Command = Commands.Search
-
-            let hasResults =
-                if isSearch then
-                    not model.SearchResults.IsEmpty
-                else
-                    model.DisplayedKeywords <> null && model.DisplayedKeywords.Count > 0
-
-            let searchResultsOnPage, resultPager =
-                match isSearch && hasResults with
-                | true ->
-                    let page, pager =
-                        Pager.render (model.SearchResults |> Array.ofList) (int model.SearchResultPage) 10 (fun page ->
-                            GoToSearchResultPage(uint16 page))
-
-                    Some page, Some pager
-                | false -> None, None
-
             // scopes
             ScrollViewer(View.map ScopesMsg (Scopes.view model.Scopes showThumbnails))
                 .card()

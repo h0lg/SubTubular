@@ -57,6 +57,7 @@ module Scopes =
     let update msg model =
         match msg with
         | AddScope ofType -> model.List @ [ Scope.add ofType ] |> updateList model, Cmd.none
+        | Common _ -> model, Cmd.none
 
         | ScopeMsg(scope, scopeMsg) ->
             let updatedScope, cmd, intent = Scope.update scopeMsg scope
@@ -77,7 +78,6 @@ module Scopes =
                 | _ -> mappedCmd
 
             updated, fwdCmd
-        | Common _ -> model, Cmd.none
 
     let private addScopeStack = ViewRef<Border>()
     let private container = ViewRef<Panel>()
