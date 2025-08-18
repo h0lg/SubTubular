@@ -1,6 +1,7 @@
 ﻿namespace SubTubular.Gui
 
 open System
+open Avalonia
 open Avalonia.Controls
 open Fabulous
 open Fabulous.Avalonia
@@ -139,6 +140,17 @@ module OutputCommandView =
 
     let private container = ViewRef<Grid>()
 
+    let private getScopesHeight model max hasResults =
+        if model.ShowScopes then
+            // use only half the height if we're also displaying results, otherwise full minus some padding for other controls
+            let max = if hasResults then max / float 2 else max - float 60
+            let max = if max < 0 then float 0 else max // make sure max is positive or 0
+            let desired = model.Scopes.ListHeight + float 54 // makes up for add buttons
+            let height = if max < desired then max else desired // take up the required or max allowed height
+            Pixel height // Star or Pixel Height allows ScrollViewer to work by limiting its height
+        else
+            Auto // hidden, take up no space
+
     let render model showThumbnails =
         let isSearch = model.Command = Search
 
@@ -157,18 +169,17 @@ module OutputCommandView =
             else
                 None, None
 
-        let maxWidth =
+        let containerSize =
             match container.TryValue with
-            | Some panel -> panel.DesiredSize.Width
-            | None -> infinity
+            | Some grid -> grid.Bounds.Size
+            | None -> Size(0, 0)
 
-        // Star Height allows ScrollViewer to work by limiting its height
-        let scopesHeight = if model.ShowScopes then Star else Auto
+        let scopesHeight = getScopesHeight model containerSize.Height hasResults
 
-        (Grid(coldefs = [ Star ], rowdefs = [ scopesHeight; Auto; Auto; Stars(2) ]) {
+        (Grid(coldefs = [ Star ], rowdefs = [ scopesHeight; Auto; Auto; Star ]) {
             // scopes
             (Panel() {
-                ScrollViewer(View.map ScopesMsg (Scopes.list model.Scopes maxWidth showThumbnails))
+                ScrollViewer(View.map ScopesMsg (Scopes.list model.Scopes containerSize.Width showThumbnails))
                     .margin(0, 0, 0, 20)
                     .card ()
 
