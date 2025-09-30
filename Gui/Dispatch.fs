@@ -39,7 +39,7 @@ type DispatchExtensions =
     /// - while optionally adding some buffer time (in milliseconds) to account for race conditions.
     /// </returns>
     [<Extension>]
-    static member batchThrottled((dispatch: Dispatch<'msg>), interval, (mapBatchToMsg: 'value list -> 'msg)) =
+    static member buffered((dispatch: Dispatch<'msg>), interval, (mapBatchToMsg: 'value list -> 'msg)) =
         let rateLimit = System.TimeSpan.FromMilliseconds(interval)
         let funLock = obj () // ensures safe access to resources shared across different threads
         let mutable lastDispatch = System.DateTime.MinValue
@@ -132,7 +132,7 @@ type AsyncEnumerableExtensions =
         }
 
     [<Extension>]
-    static member dispatchBatchThrottledTo
+    static member dispatchBuffered
         (
             (this: Collections.Generic.IAsyncEnumerable<'result>),
             throttleInterval,
@@ -142,7 +142,7 @@ type AsyncEnumerableExtensions =
         async {
             // create a throttled dispatch of a batch of pending results at regular intervals
             let dispatchSingleResult, awaitNextDispatch =
-                dispatch.batchThrottled (throttleInterval, mapPendingResultsToBatchMsg)
+                dispatch.buffered (throttleInterval, mapPendingResultsToBatchMsg)
 
             do! this.dispatchTo dispatchSingleResult // dispatch single results using throttled method
             do! awaitNextDispatch (Some throttleInterval) // to make sure all results are dispatched before calling it done

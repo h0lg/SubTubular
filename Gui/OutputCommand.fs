@@ -129,7 +129,7 @@ module OutputCommands =
                         do!
                             Services.Youtube
                                 .SearchAsync(search, token)
-                                .dispatchBatchThrottledTo (300, SearchResults, dispatch)
+                                .dispatchBuffered (300, SearchResults, dispatch)
 
                     | :? ListKeywords as listKeywords ->
                         Prevalidate.Scopes listKeywords
@@ -143,7 +143,7 @@ module OutputCommands =
                         do!
                             Services.Youtube
                                 .ListKeywordsAsync(listKeywords, token)
-                                .dispatchBatchThrottledTo (
+                                .dispatchBuffered (
                                     300,
                                     (fun list -> list |> List.map _.ToTuple() |> KeywordResults),
                                     dispatch
