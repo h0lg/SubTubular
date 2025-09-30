@@ -1,47 +1,32 @@
 ﻿namespace SubTubular.Gui
 
-open System
 open System.IO
-open AsyncImageLoader.Loaders
 open Fabulous
 open Fabulous.Avalonia
 open SubTubular
-open SubTubular.Extensions
-
 open type Fabulous.Avalonia.View
 
-module Cache =
-    type ThumbnailCache(folder: string) =
-        inherit DiskCachedWebImageLoader(folder)
-        static member getFileName url = DiskCachedWebImageLoader.CreateMD5 url
+module CachePage =
+    open Cache
 
     type FileType = { Label: string; Description: string }
-
-    type GroupsByPlaylist =
-        { ScopeSearches: ScopeSearches
-          Channels: PlaylistGroup list
-          Playlists: PlaylistGroup list
-          LooseFiles: LooseFiles option }
 
     type Model =
         { FileTypes: FileType array
           Folders: Folder.View array option
           ByLastAccess: LastAccessGroup list option
-          ByPlaylist: GroupsByPlaylist option
+          ByPlaylist: CacheByPlaylist.Model option
           LoadingByPlaylist: bool }
 
     type Msg =
         | ExpandingByLastAccess
         | ExpandingByPlaylist
-        | ByPlaylistLoaded of GroupsByPlaylist
-        | PlaylistGroupLoaded of PlaylistGroup
-        | LooseFilesLoaded of LooseFiles
-        | RemoveFiles of FileInfo array
         | RemoveByLastAccess of LastAccessGroup
         | RemoveFromLastAccessGroup of LastAccessGroup * FileInfo array
         | ExpandingFolders
         | OpenFolder of string
-        | OpenFile of FileInfo
+        | CacheByPlaylistMsg of CacheByPlaylist.Msg
+        | CacheMsg of Cache.Msg
 
     let private fileTypes =
         [| { Label = "video caches" + Icon.videoCache
@@ -58,41 +43,6 @@ module Cache =
                + " Created or enhanced from the downloaded video caches when searching them. Cheap to re-create from already downloaded data." }
            { Label = "searches" + Icon.scopeSearch
              Description = "Caches used to speed up scope searches." } |]
-
-    let private loadByPlaylist () =
-        fun dispatch ->
-            task {
-                let scopeSearches, processAsync =
-                    CacheManager
-                        .LoadByPlaylist(
-                            Services.CacheFolder,
-                            Services.Youtube,
-                            (fun url -> ThumbnailCache.getFileName url)
-                        )
-                        .ToTuple()
-
-                let groups =
-                    { ScopeSearches = scopeSearches
-                      Channels = []
-                      Playlists = []
-                      LooseFiles = None }
-
-                groups |> ByPlaylistLoaded |> dispatch
-
-                do!
-                    processAsync.Invoke(
-                        (fun group -> group |> PlaylistGroupLoaded |> dispatch),
-                        (fun looseVids -> looseVids |> LooseFilesLoaded |> dispatch),
-                        (fun exn ->
-                            ErrorLog.WriteAsync(exn.ToString()).GetAwaiter().GetResult() |> ignore
-
-                            Notify.error "Error loading playlists" "An error log was written to the errors folder."
-                            |> ignore)
-                    )
-            }
-            |> Async.AwaitTask
-            |> Async.Start
-        |> Cmd.ofEffect
 
     let initModel =
         { FileTypes = fileTypes
@@ -118,68 +68,27 @@ module Cache =
             if model.LoadingByPlaylist then
                 Cmd.none
             else
-                loadByPlaylist ()
+                CacheByPlaylist.load () |> Cmd.map CacheByPlaylistMsg
 
-        | ByPlaylistLoaded groups ->
+        | CacheByPlaylistMsg plMsg ->
+            let plModel, fwdMsg =
+                match plMsg with
+                | CacheByPlaylist.Msg.Loaded pl -> pl, None
+                | CacheByPlaylist.Msg.CacheMsg cmsg -> model.ByPlaylist.Value, CacheMsg cmsg |> Some
+                | _ -> model.ByPlaylist.Value, None
+
+            let updated = CacheByPlaylist.update plMsg plModel
+
             { model with
-                ByPlaylist = groups |> Some },
-            Cmd.none
-
-        | PlaylistGroupLoaded group ->
-            let updated =
-                match model.ByPlaylist with
-                | Some groups ->
-                    let updated =
-                        if group.Playlist.Channel = null then
-                            { groups with
-                                Channels = group :: groups.Channels }
-                        else
-                            { groups with
-                                Playlists = group :: groups.Playlists }
-
-                    Some updated
-                | None -> None
-
-            { model with ByPlaylist = updated }, Cmd.none
-
-        | LooseFilesLoaded files ->
-            let updated =
-                match model.ByPlaylist with
-                | Some groups -> { groups with LooseFiles = Some files } |> Some
-                | None -> None
-
-            { model with ByPlaylist = updated }, Cmd.none
-
-        | RemoveFiles files ->
-            for file in files do
-                file.Delete()
-
-            let updated =
-                { model with
-                    ByLastAccess =
-                        match model.ByLastAccess with
-                        | Some la -> la.Remove(files) |> List.ofSeq |> Some
-                        | None -> None
-                    ByPlaylist =
-                        match model.ByPlaylist with
-                        | Some bpl ->
-                            { bpl with
-                                ScopeSearches = bpl.ScopeSearches.Remove(files)
-                                Channels = bpl.Channels.Remove(files) |> List.ofSeq
-                                Playlists = bpl.Playlists.Remove(files) |> List.ofSeq
-                                LooseFiles =
-                                    match bpl.LooseFiles with
-                                    | Some l -> l.Remove(files) |> Some
-                                    | None -> None }
-                            |> Some
-                        | None -> None }
-
-            updated, Cmd.none
+                ByPlaylist = updated |> Some },
+            match fwdMsg with
+            | Some fwd -> Cmd.ofMsg fwd
+            | None -> Cmd.none
 
         | RemoveByLastAccess group ->
             { model with
                 ByLastAccess = model.ByLastAccess.Value |> List.except ([ group ]) |> Some },
-            group.GetFiles() |> Array.ofSeq |> RemoveFiles |> Cmd.ofMsg
+            group.GetFiles() |> Array.ofSeq |> RemoveFiles |> CacheMsg |> Cmd.ofMsg
 
         | RemoveFromLastAccessGroup(group, files) ->
             { model with
@@ -187,7 +96,7 @@ module Cache =
                     model.ByLastAccess.Value
                     |> List.map (fun g -> if g = group then g.Remove(files) else g)
                     |> Some },
-            RemoveFiles files |> Cmd.ofMsg
+            RemoveFiles files |> CacheMsg |> Cmd.ofMsg
 
         | ExpandingFolders ->
             let model =
@@ -203,45 +112,28 @@ module Cache =
             ShellCommands.ExploreFolder path |> ignore
             model, Cmd.none
 
-        | OpenFile file ->
-            ShellCommands.OpenFile file.FullName
-            model, Cmd.none
+        | CacheMsg msg ->
+            let updated =
+                match msg with
+                | Cache.Msg.OpenFile file ->
+                    ShellCommands.OpenFile file.FullName
+                    model
 
-    let private header text = TextBlock(text).header ()
+                | Cache.Msg.RemoveFiles files ->
+                    for file in files do
+                        file.Delete()
 
-    let private displayWithMb label (bytes: int64) =
-        let mbs = double bytes / 1024. / 1024.
-        TextBlock($"{label} ({mbs:f2} Mb)")
+                    { model with
+                        ByLastAccess =
+                            match model.ByLastAccess with
+                            | Some la -> la.Remove(files) |> List.ofSeq |> Some
+                            | None -> None
+                        ByPlaylist =
+                            match model.ByPlaylist with
+                            | Some bpl -> CacheByPlaylist.remove bpl files |> Some
+                            | None -> None }
 
-    let private deletableFile label (file: FileInfo) labelFirst =
-        (HStack(5) {
-            let name =
-                (displayWithMb $"{label}" file.Length).tappable(OpenFile file, "open this file").centerVertical ()
-
-            let button = Button(Icon.trash, RemoveFiles [| file |]).tooltip ("delete this file")
-
-            if labelFirst then
-                name
-                button
-            else
-                button
-                name
-        })
-
-    let private deletableFileFirst label (file: FileInfo) =
-        deletableFile label (file: FileInfo) true
-
-    let private deletableFileLast label (file: FileInfo) =
-        deletableFile label (file: FileInfo) false
-
-    let private reportFiles label (msg: Msg) (files: FileInfo array) =
-        (HStack(5) {
-            let bytes = (files |> Array.map _.Length |> Array.sum)
-            (displayWithMb $"{files.Length} {label}" bytes).centerVertical ()
-            Button(Icon.trash, msg).tooltip ("clear these files")
-        })
-            .right()
-            .isVisible (files.Length > 0)
+            updated, Cmd.none
 
     let private displayFileTypes model =
         ItemsControl(
@@ -294,83 +186,6 @@ module Cache =
         )
             .itemsPanel (HWrapEmpty())
 
-    let private scopeSearch prefix (file: FileInfo) =
-        let label =
-            file.Name.StripAffixes(prefix + Youtube.SearchAffix, JsonFileDataStore.FileExtension)
-
-        (deletableFileLast label file).card().margin (5)
-
-    let private displaySearches icon title prefix (files: FileInfo array) =
-        HWrap() {
-            if Array.isEmpty files |> not then
-                header (icon + title + Icon.scopeSearch)
-
-                ItemsControl(files, fun file -> scopeSearch prefix file).itemsPanel (HWrapEmpty())
-        }
-
-    let private byPlaylist model =
-        VStack() {
-            let report label files =
-                reportFiles label (RemoveFiles files) files
-
-            let scopeSearches, channels, playlists, looseFiles =
-                match model.ByPlaylist with
-                | Some g -> Some g.ScopeSearches, g.Channels, g.Playlists, g.LooseFiles
-                | None -> None, [], [], None
-
-            let displayPlaylistGroup (group: PlaylistGroup) =
-                (VStack() {
-                    let icon = ScopeViews.getIcon (group.Scope.GetType())
-                    header (icon + group.Playlist.Title)
-
-                    (deletableFileFirst ("info and contents" + Icon.playlistLike) group.File).right ()
-
-                    if group.Thumbnail <> null then
-                        (deletableFileFirst ("thumbnail" + Icon.thumbnail) group.Thumbnail).right ()
-
-                    report ("indexes" + Icon.index) group.Indexes
-                    report ("video caches" + Icon.videoCache) group.Videos
-                    report ("video thumbnails" + Icon.thumbnail) group.VideoThumbnails
-                })
-                    .card()
-                    .margin (10)
-
-            ItemsControl(channels, displayPlaylistGroup).itemsPanel (HWrapEmpty())
-            ItemsControl(playlists, displayPlaylistGroup).itemsPanel (HWrapEmpty())
-
-            match looseFiles with
-            | Some files ->
-                (VStack() {
-                    header (Icon.video + "Videos")
-                    report ("caches" + Icon.videoCache) files.Videos
-                    report ("indexes" + Icon.index) files.VideoIndexes
-                    report ("thumbnails" + Icon.thumbnail) files.Thumbnails
-                })
-                    .card()
-                    .right ()
-
-                header ("Other / loose files")
-
-                ItemsControl(files.Other, fun f -> (deletableFileLast f.Name f).card().margin (5))
-                    .itemsPanel (HWrapEmpty())
-            | None -> header "loading..."
-
-            if scopeSearches.IsSome then
-                displaySearches
-                    Icon.channel
-                    "Channel searches"
-                    ChannelScope.StorageKeyPrefix
-                    scopeSearches.Value.Channels
-
-                displaySearches
-                    Icon.playlist
-                    "Playlist searches"
-                    PlaylistScope.StorageKeyPrefix
-                    scopeSearches.Value.Playlists
-
-                displaySearches Icon.video "Video searches" Video.StorageKeyPrefix scopeSearches.Value.Videos
-        }
-
     let view model =
         ScrollViewer(
             let gap = Pixel 10
@@ -389,7 +204,10 @@ module Cache =
                     .gridRow(2)
                     .gridColumnSpan (3)
 
-                Expander($"Files by {Icon.channel}channel, {Icon.playlist}playlist and type", byPlaylist model)
+                Expander(
+                    $"Files by {Icon.channel}channel, {Icon.playlist}playlist and type",
+                    View.map CacheByPlaylistMsg (CacheByPlaylist.view model.ByPlaylist)
+                )
                     .onExpanding(fun _ -> ExpandingByPlaylist)
                     .isExpanded(model.ByPlaylist.IsSome)
                     .gridRow(4)

@@ -17,11 +17,11 @@ module App =
         { Search: OutputCommands.Model
           IsSearchRunning: bool
           Settings: Settings.Model
-          Cache: Cache.Model
+          Cache: CachePage.Model
           Recent: RecentCommandView.Model }
 
     type Msg =
-        | CacheMsg of Cache.Msg
+        | CacheMsg of CachePage.Msg
         | RecentMsg of RecentCommandView.Msg
         | SettingsMsg of Settings.Msg
         | SearchMsg of OutputCommands.Msg
@@ -30,7 +30,7 @@ module App =
         | Common of CommonMsg
 
     let private initModel =
-        { Cache = Cache.initModel
+        { Cache = CachePage.initModel
           Settings = Settings.initModel
           Recent = RecentCommandView.initModel
           Search = OutputCommands.initModel
@@ -56,7 +56,7 @@ module App =
         match msg with
 
         | CacheMsg cmsg ->
-            let cache, cmd = Cache.update cmsg model.Cache
+            let cache, cmd = CachePage.update cmsg model.Cache
             { model with Cache = cache }, Cmd.map CacheMsg cmd
 
         | RecentMsg rmsg ->
@@ -99,12 +99,12 @@ module App =
                     { model with
                         IsSearchRunning = on
                         // reset cache model when search is stopped
-                        Cache = if on then model.Cache else Cache.initModel }
+                        Cache = if on then model.Cache else CachePage.initModel }
                 | OutputCommands.Msg.CommandCompleted _ ->
                     { model with
                         IsSearchRunning = false
                         // reset cache model when search completes
-                        Cache = Cache.initModel }
+                        Cache = CachePage.initModel }
                 | _ -> model
 
             let updated, cmd = OutputCommands.update smsg model.Search
@@ -171,7 +171,7 @@ module App =
             )
                 .reference (searchTab)
 
-            TabItem("🗃 Storage", View.map CacheMsg (Cache.view model.Cache)).isEnabled (not model.IsSearchRunning)
+            TabItem("🗃 Storage", View.map CacheMsg (CachePage.view model.Cache)).isEnabled (not model.IsSearchRunning)
 
             TabItem("⚙ Settings", View.map SettingsMsg (Settings.view model.Settings))
         })

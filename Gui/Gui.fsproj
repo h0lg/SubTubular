@@ -27,6 +27,7 @@
     <Compile Include="ScopeNotifications.fs" />
     <Compile Include="ScopeSearch.fs" />
     <Compile Include="Scope.fs" />
+    <Compile Include="Cache.ByPlaylist.fs" />
     <Compile Include="Cache.fs" />
     <Compile Include="Scopes.fs" />
     <Compile Include="Pager.fs" />
