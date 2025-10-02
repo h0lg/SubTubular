@@ -238,6 +238,8 @@ module ScopeSearch =
             | Some dropdown -> dropdown.IsDropDownOpen <- true
             | None -> ())
 
+        { model with DropdownOpen = true }
+
     let update msg model =
         match msg with
         | AliasesUpdated aliases ->
@@ -247,14 +249,11 @@ module ScopeSearch =
                 Aliases = aliases },
             Cmd.none
 
-        | Populated ->
-            openDropdown model // to assist selection
-            { model with DropdownOpen = true }, Cmd.none
+        | Populated -> openDropdown model, Cmd.none // to assist selection
 
         | FocusToggled gained ->
             if gained then
-                openDropdown model // to assist selection
-                { model with DropdownOpen = true }, Cmd.none
+                openDropdown model, Cmd.none // to assist selection
             else
                 model.AliasSearch.Cancel() // to avoid population after losing focus
 
