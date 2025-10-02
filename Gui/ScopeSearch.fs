@@ -171,6 +171,7 @@ module ScopeSearch =
         | AliasesUpdated of string
         | Populated
         | FocusToggled of bool
+        | FocusChanged of bool
         | DropdownToggled of bool
         | ValidationSucceeded
         | ValidationFailed of exn
@@ -246,13 +247,17 @@ module ScopeSearch =
             | Some dropdown -> dropdown.IsDropDownOpen <- true
             | None -> ())
 
-        { model with DropdownOpen = true }
+        { model with
+            Focused = true
+            DropdownOpen = true }
+
+    let private debounceFocusChange =
+        Cmd.debounce 300 (fun gained -> FocusChanged gained)
 
     let update msg model =
         match msg with
         | AliasesUpdated aliases ->
             { model with
-                Focused = false
                 ValidationError = null
                 Aliases = aliases },
             Cmd.none
@@ -260,6 +265,13 @@ module ScopeSearch =
         | Populated -> openDropdown model, Cmd.none // to assist selection
 
         | FocusToggled gained ->
+            model,
+            if gained then
+                FocusChanged true |> Cmd.ofMsg
+            else
+                debounceFocusChange gained
+
+        | FocusChanged gained ->
             if gained then
                 openDropdown model, Cmd.none // to assist selection
             else
@@ -268,7 +280,7 @@ module ScopeSearch =
                 // update model and validate to lock in selected items
                 let model, cmd = syncScopeWithAliases model |> validate
 
-                model, cmd
+                { model with Focused = false }, cmd
 
         | DropdownToggled isOpen ->
             let model = { model with DropdownOpen = isOpen }
@@ -302,8 +314,8 @@ module ScopeSearch =
                 AutoCompleteBox(model.AliasSearch.SearchAsync)
                     .minimumPopulateDelay(TimeSpan.FromMilliseconds 300)
                     .onTextChanged(model.Aliases, AliasesUpdated)
-                    .onLostFocus(fun _ -> FocusToggled false)
-                    .onGotFocus(fun _ -> FocusToggled true)
+                    .onLostFocus(fun _ -> FocusChanged false)
+                    .onGotFocus(fun _ -> FocusChanged true)
                     .onPopulated(fun _ -> Populated)
                     .minimumPrefixLength(3)
                     .filterMode(AutoCompleteFilterMode.None)
