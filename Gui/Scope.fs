@@ -37,13 +37,13 @@ module Scope =
         | :? VideosScope as _ -> true
         | _ -> false
 
-    let private init (scope: CommandScope) added =
+    let private init (scope: CommandScope) focused =
         let progressChanged = ThrottledEvent(TimeSpan.FromMilliseconds(300))
         scope.ProgressChanged.Add(fun args -> progressChanged.Trigger(scope, args))
 
         { Scope = scope
           ThrottledProgressChanged = progressChanged
-          ScopeSearch = ScopeSearch.init scope added
+          ScopeSearch = ScopeSearch.init scope focused
           Notifications = ScopeNotifications.initModel
           ShowSettings = false }
 
@@ -54,7 +54,7 @@ module Scope =
         let updated, sscmd = ScopeSearch.validate model.ScopeSearch
         { model with ScopeSearch = updated }, sscmd |> Cmd.map ScopeSearchMsg
 
-    /// creates a scope on user command, marking it as Added for it to be focused
+    /// creates an empty Focused scope of the given type on user command
     let add scopeType =
         let aliases = ""
         let skip = uint16 0

@@ -157,7 +157,7 @@ module ScopeSearch =
           AliasSearch: AliasSearch
           DropdownOpen: bool
           ValidationError: string
-          Added: bool }
+          Focused: bool }
 
     type Msg =
         | AliasesUpdated of string
@@ -221,7 +221,7 @@ module ScopeSearch =
         else
             model, Cmd.none
 
-    let init scope added =
+    let init scope focused =
         { Scope = scope
           Aliases = // set from scope to sync
             match scope with
@@ -230,7 +230,7 @@ module ScopeSearch =
           DropdownOpen = false
           AliasSearch = AliasSearch(scope)
           ValidationError = null
-          Added = added }
+          Focused = focused }
 
     let private openDropdown model =
         Dispatch.toUiThread (fun () ->
@@ -244,7 +244,7 @@ module ScopeSearch =
         match msg with
         | AliasesUpdated aliases ->
             { model with
-                Added = false
+                Focused = false
                 ValidationError = null
                 Aliases = aliases },
             Cmd.none
@@ -306,7 +306,7 @@ module ScopeSearch =
                     .onPopulated(fun _ -> Populated)
                     .minimumPrefixLength(3)
                     .filterMode(AutoCompleteFilterMode.None)
-                    .focus(model.Added)
+                    .focus(model.Focused)
                     .watermark(getAliasWatermark model)
                     .itemSelector(model.AliasSearch.SelectAliases)
                     .itemTemplate(fun (result: YoutubeSearchResult) ->
