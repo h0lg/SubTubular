@@ -254,6 +254,11 @@ module ScopeSearch =
     let private debounceFocusChange =
         Cmd.debounce 300 (fun gained -> FocusChanged gained)
 
+    let private setCaretToEnd model =
+        match model.AliasSearch.Input.TryValue with
+        | Some dropdown -> Dispatch.toUiThread (fun () -> dropdown.CaretIndex <- String.length dropdown.Text) // reset caret to end to enable continue typing
+        | None -> ()
+
     let update msg model =
         match msg with
         | AliasesUpdated aliases ->
@@ -272,7 +277,11 @@ module ScopeSearch =
                 debounceFocusChange gained
 
         | FocusChanged gained ->
-            if gained then
+            if gained = model.Focused then
+                setCaretToEnd model
+                model, Cmd.none
+            else if gained then
+                setCaretToEnd model
                 openDropdown model, Cmd.none // to assist selection
             else
                 model.AliasSearch.Cancel() // to avoid population after losing focus
@@ -314,7 +323,7 @@ module ScopeSearch =
                 AutoCompleteBox(model.AliasSearch.SearchAsync)
                     .minimumPopulateDelay(TimeSpan.FromMilliseconds 300)
                     .onTextChanged(model.Aliases, AliasesUpdated)
-                    .onLostFocus(fun _ -> FocusChanged false)
+                    .onLostFocus(fun _ -> FocusToggled false)
                     .onGotFocus(fun _ -> FocusChanged true)
                     .onPopulated(fun _ -> Populated)
                     .minimumPrefixLength(3)
