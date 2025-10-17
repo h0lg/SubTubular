@@ -68,6 +68,13 @@ module ScopeSearch =
 
         let isRunning () = searching <> null
 
+        let watermark =
+            "search YouTube - or enter "
+            + match scope with
+              | Videos _ -> "IDs or URLs; one per line"
+              | Playlist _ -> "an ID or URL"
+              | Channel _ -> "a handle, slug, user name, ID or URL"
+
         let cancel () =
             if isRunning () then
                 searching.Cancel()
@@ -83,6 +90,7 @@ module ScopeSearch =
                 Seq.empty
 
         member this.Input = input
+        member this.Watermark = watermark
         member this.IsRunning = isRunning
         member this.Cancel = cancel
 
@@ -223,12 +231,12 @@ module ScopeSearch =
 
     let init scope focused =
         { Scope = scope
+          AliasSearch = AliasSearch(scope)
           Aliases = // set from scope to sync
             match scope with
             | PlaylistLike pl -> pl.Alias
             | Vids v -> v.Videos |> VideosInput.join
           DropdownOpen = false
-          AliasSearch = AliasSearch(scope)
           ValidationError = null
           Focused = focused }
 
@@ -286,13 +294,6 @@ module ScopeSearch =
                 ValidationError = exn.GetRootCauses() |> Seq.map (fun ex -> ex.Message) |> String.concat "\n" },
             Cmd.none
 
-    let private getAliasWatermark model =
-        "search YouTube - or enter "
-        + match model.Scope with
-          | Videos _ -> "IDs or URLs; one per line"
-          | Playlist _ -> "an ID or URL"
-          | Channel _ -> "a handle, slug, user name, ID or URL"
-
     let input model showThumbnails =
         Grid(coldefs = [ Auto; Star ], rowdefs = [ Auto; Auto ]) {
             Label(ScopeViews.displayType (model.Scope.GetType()) false).padding (0)
@@ -307,7 +308,7 @@ module ScopeSearch =
                     .minimumPrefixLength(3)
                     .filterMode(AutoCompleteFilterMode.None)
                     .focus(model.Focused)
-                    .watermark(getAliasWatermark model)
+                    .watermark(model.AliasSearch.Watermark)
                     .itemSelector(model.AliasSearch.SelectAliases)
                     .itemTemplate(fun (result: YoutubeSearchResult) ->
                         HStack(5) {
