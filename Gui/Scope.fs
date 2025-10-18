@@ -1,6 +1,9 @@
 ﻿namespace SubTubular.Gui
 
 open System
+open Avalonia
+open Avalonia.Controls
+open Avalonia.Layout
 open Fabulous
 open Fabulous.Avalonia
 open SubTubular
@@ -11,6 +14,7 @@ module Scope =
     type Model =
         { Scope: CommandScope
           ThrottledProgressChanged: ThrottledEvent
+          MaxWidth: double
           ScopeSearch: ScopeSearch.Model
           Notifications: ScopeNotifications.Model
           ShowSettings: bool }
@@ -20,6 +24,8 @@ module Scope =
         | SkipChanged of float option
         | TakeChanged of float option
         | CacheHoursChanged of float option
+        | ContentSizeChanged of SizeChangedEventArgs
+        | ApplySize of Size
         | Remove
         | RemoveVideo of string
         | ProgressChanged
@@ -43,6 +49,7 @@ module Scope =
 
         { Scope = scope
           ThrottledProgressChanged = progressChanged
+          MaxWidth = Double.PositiveInfinity
           ScopeSearch = ScopeSearch.init scope focused
           Notifications = ScopeNotifications.initModel
           ShowSettings = false }
@@ -69,6 +76,8 @@ module Scope =
 
         init scope true
 
+    let private applySize = Cmd.debounce 100 (fun size -> ApplySize size)
+
     let update msg model =
         match msg with
         | ToggleSettings show -> { model with ShowSettings = show }, Cmd.none, DoNothing
@@ -93,6 +102,9 @@ module Scope =
             | _ -> ()
 
             model, Cmd.none, DoNothing
+
+        | ContentSizeChanged args -> model, applySize args.NewSize, DoNothing
+        | ApplySize size -> { model with MaxWidth = size.Width }, Cmd.none, DoNothing
 
         | RemoveVideo id ->
             match model.Scope with
@@ -165,7 +177,7 @@ module Scope =
         VStack() {
             match model.Scope with
             | PlaylistLike playlistLike ->
-                HStack(5) {
+                (HStack(5) {
                     removeBtn ()
 
                     if playlistLike.IsValid then
@@ -219,12 +231,14 @@ module Scope =
                     })
                         .centerHorizontal()
                         .isVisible (model.ShowSettings)
-                }
+                })
+                    .horizontalAlignment(HorizontalAlignment.Left) // to trigger size change when ProgressBar is wider than contents
+                    .onSizeChanged (ContentSizeChanged) // to update MaxWidth for ProgressBar
 
             | Vids videos ->
                 let remoteValidated = videos.GetRemoteValidated() |> List.ofSeq
 
-                Grid(coldefs = [ Auto; Auto ], rowdefs = [ Auto; Auto ]) {
+                (Grid(coldefs = [ Auto; Auto ], rowdefs = [ Auto; Auto ]) {
                     if remoteValidated.IsEmpty then
                         removeBtn().gridRow (1)
                     else
@@ -251,11 +265,14 @@ module Scope =
                         .maxWidth(maxWidth) // limit to surrounding panel width
                         .gridColumn(1)
                         .gridRow (1)
-                }
+                })
+                    .horizontalAlignment(HorizontalAlignment.Left) // to trigger size change when ProgressBar is wider than contents
+                    .onSizeChanged (ContentSizeChanged) // to update MaxWidth for ProgressBar
 
             ScopeSearch.validationErrors model.ScopeSearch
 
             ProgressBar(0, model.Scope.Progress.AllJobs, model.Scope.Progress.CompletedJobs, ProgressValueChanged)
                 .isIndeterminate(model.ScopeSearch.AliasSearch.IsRunning())
+                .maxWidth(model.MaxWidth) // to prevent it from expanding the component size beyond what's required for the contents
                 .onThrottledEvent (model.ThrottledProgressChanged, ProgressChanged)
         }
