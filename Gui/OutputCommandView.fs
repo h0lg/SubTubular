@@ -56,13 +56,13 @@ module OutputCommandView =
         Grid(coldefs = [ Auto; Star; Auto; Auto; Auto; Auto; Auto ], rowdefs = [ Auto ]) {
             Menu() {
                 MenuItem("🏷 List _keywords")
-                    .onClick(fun _ -> CommandChanged Commands.ListKeywords)
+                    .onClick(fun _ -> CommandChanged Keywords)
                     .tooltip(ListKeywords.Description)
                     .tapCursor()
                     .asToggle (not isSearch)
 
                 MenuItem(Icon.search + "_Search for")
-                    .onClick(fun _ -> CommandChanged Commands.Search)
+                    .onClick(fun _ -> CommandChanged Search)
                     .tooltip(SearchCommand.Description)
                     .tapCursor()
                     .asToggle (isSearch)
@@ -138,23 +138,22 @@ module OutputCommandView =
         }
 
     let render model showThumbnails =
-        let isSearch = model.Command = Commands.Search
+        let isSearch = model.Command = Search
 
         let hasResults =
-            if isSearch then
-                not model.SearchResults.IsEmpty
-            else
-                model.DisplayedKeywords <> null && model.DisplayedKeywords.Count > 0
+            match model.Command with
+            | Search -> not model.SearchResults.IsEmpty
+            | Keywords -> model.DisplayedKeywords <> null && model.DisplayedKeywords.Count > 0
 
         let searchResultsOnPage, resultPager =
-            match isSearch && hasResults with
-            | true ->
+            if isSearch && hasResults then
                 let page, pager =
                     Pager.render (model.SearchResults |> Array.ofList) (int model.SearchResultPage) 10 (fun page ->
                         GoToSearchResultPage(uint16 page))
 
                 Some page, Some pager
-            | false -> None, None
+            else
+                None, None
 
         // Star Height allows ScrollViewer to work by limiting its height
         let scopesHeight = if model.ShowScopes then Star else Auto

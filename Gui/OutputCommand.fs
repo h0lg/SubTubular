@@ -12,8 +12,8 @@ open SubTubular.Extensions
 
 module OutputCommands =
     type Commands =
-        | ListKeywords = 1
-        | Search = 0
+        | Keywords
+        | Search
 
     type PagedKeywords =
         { Keywords: struct (string * int) array
@@ -68,11 +68,10 @@ module OutputCommands =
     let private mapToCommand model includeOutputOptions =
         let order = ResultOptions.getSearchCommandOrderOptions model.ResultOptions
 
-        let command =
-            if model.Command = Commands.Search then
-                SearchCommand() :> OutputCommand
-            else
-                ListKeywords()
+        let command: OutputCommand =
+            match model.Command with
+            | Commands.Search -> SearchCommand()
+            | Commands.Keywords -> ListKeywords()
 
         Scopes.setOnCommand model.Scopes command
 
@@ -222,7 +221,7 @@ module OutputCommands =
         |> Cmd.ofEffect
 
     let initModel =
-        { Command = Commands.Search
+        { Command = Search
           Query = ""
           FocusQuery = false
 
@@ -244,16 +243,14 @@ module OutputCommands =
             match cmd with
             | :? SearchCommand as s ->
                 { model with
-                    Command = Commands.Search
+                    Command = Search
                     Query = s.Query
                     ResultOptions =
                         { model.ResultOptions with
                             Padding = s.Padding |> int
                             OrderByScore = s.OrderBy |> Seq.contains SearchCommand.OrderOptions.score
                             OrderDesc = s.OrderBy |> Seq.contains SearchCommand.OrderOptions.asc |> not } }
-            | :? ListKeywords as l ->
-                { model with
-                    Command = Commands.ListKeywords }
+            | :? ListKeywords as l -> { model with Command = Keywords }
             | _ -> failwith "unsupported command type"
 
         let scopes, scopesCmd = Scopes.loadRecentCommand model.Scopes cmd
@@ -349,12 +346,12 @@ module OutputCommands =
 
                     // reset result collections when starting a new search
                     SearchResults =
-                        if on && model.Command = Commands.Search then
+                        if on && model.Command = Search then
                             []
                         else
                             model.SearchResults
                     KeywordResults =
-                        if on && model.Command = Commands.ListKeywords then
+                        if on && model.Command = Keywords then
                             Dictionary<CommandScope, Dictionary<string, List<string>>>()
                         else
                             model.KeywordResults }
@@ -396,10 +393,9 @@ module OutputCommands =
                 model.Running.Dispose() // explicitly, before setting it null below to avoid waiting for GC
 
             let workload =
-                if model.Command = Commands.Search then
-                    "search"
-                else
-                    "listing keywords"
+                match model.Command with
+                | Search -> "search"
+                | Keywords -> "listing keywords"
 
             let msg =
                 if successful then
