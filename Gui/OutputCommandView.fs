@@ -138,11 +138,10 @@ module OutputCommandView =
                 .gridColumnSpan (5)
         }
 
-    let private container = ViewRef<Grid>()
-
-    let private getScopesHeight model max hasResults =
+    let private getScopesHeight model hasResults =
         if model.ShowScopes then
-            // use only half the height if we're also displaying results, otherwise full minus some padding for other controls
+            let max = model.MaxSize.Height // start with full page height
+            // use only half if we're also displaying results, otherwise full minus some padding for other controls
             let max = if hasResults then max / float 2 else max - float 60
             let max = if max < 0 then float 0 else max // make sure max is positive or 0
             let desired = model.Scopes.ListHeight + float 54 // makes up for add buttons
@@ -169,17 +168,12 @@ module OutputCommandView =
             else
                 None, None
 
-        let containerSize =
-            match container.TryValue with
-            | Some grid -> grid.Bounds.Size
-            | None -> Size(0, 0)
-
-        let scopesHeight = getScopesHeight model containerSize.Height hasResults
+        let scopesHeight = getScopesHeight model hasResults
 
         (Grid(coldefs = [ Star ], rowdefs = [ scopesHeight; Auto; Auto; Star ]) {
             // scopes
             (Panel() {
-                ScrollViewer(View.map ScopesMsg (Scopes.list model.Scopes containerSize.Width showThumbnails))
+                ScrollViewer(View.map ScopesMsg (Scopes.list model.Scopes model.MaxSize.Width showThumbnails))
                     .margin(0, 0, 0, 20)
                     .card ()
 
@@ -214,5 +208,5 @@ module OutputCommandView =
                 .isVisible(hasResults)
                 .gridRow (3)
         })
-            .reference(container)
+            .onSizeChanged(ContainerSizeChanged)
             .margin (5, 5, 5, 0)
