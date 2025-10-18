@@ -11,7 +11,6 @@ module Scope =
     type Model =
         { Scope: CommandScope
           ThrottledProgressChanged: ThrottledEvent
-          CompletedJobs: int // included as an equality comparison trigger for the ItemsControl to re-render this item
           ScopeSearch: ScopeSearch.Model
           Notifications: ScopeNotifications.Model
           ShowSettings: bool }
@@ -44,7 +43,6 @@ module Scope =
 
         { Scope = scope
           ThrottledProgressChanged = progressChanged
-          CompletedJobs = 0
           ScopeSearch = ScopeSearch.init scope focused
           Notifications = ScopeNotifications.initModel
           ShowSettings = false }
@@ -122,11 +120,7 @@ module Scope =
                 else
                     model
 
-            { model with
-                // update to trigger the parent ItemsControl into re-rendering this item
-                CompletedJobs = model.Scope.Progress.CompletedJobs },
-            Cmd.none,
-            DoNothing
+            model, Cmd.none, DoNothing
 
         | ProgressValueChanged _ -> model, Cmd.none, DoNothing
 
