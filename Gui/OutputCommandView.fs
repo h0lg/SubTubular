@@ -137,6 +137,8 @@ module OutputCommandView =
                 .gridColumnSpan (5)
         }
 
+    let private container = ViewRef<Grid>()
+
     let render model showThumbnails =
         let isSearch = model.Command = Search
 
@@ -155,12 +157,17 @@ module OutputCommandView =
             else
                 None, None
 
+        let maxWidth =
+            match container.TryValue with
+            | Some panel -> panel.DesiredSize.Width
+            | None -> infinity
+
         // Star Height allows ScrollViewer to work by limiting its height
         let scopesHeight = if model.ShowScopes then Star else Auto
 
         (Grid(coldefs = [ Star ], rowdefs = [ scopesHeight; Auto; Auto; Stars(2) ]) {
             // scopes
-            ScrollViewer(View.map ScopesMsg (Scopes.view model.Scopes showThumbnails))
+            ScrollViewer(View.map ScopesMsg (Scopes.view model.Scopes maxWidth showThumbnails))
                 .card()
                 .isVisible (model.ShowScopes)
 
@@ -190,4 +197,5 @@ module OutputCommandView =
                 .isVisible(hasResults)
                 .gridRow (3)
         })
+            .reference(container)
             .margin (5, 5, 5, 0)

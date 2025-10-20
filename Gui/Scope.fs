@@ -244,12 +244,11 @@ module Scope =
                                     (Some video.Id)
                                     showThumbnails
                         })
-                            .gridColumn(1)
-                            (*   *)
-                            .maxWidth (maxWidth)
+                            .maxWidth(maxWidth) // wrap list according to surrounding panel width
+                            .gridColumn (1)
 
                     (ScopeSearch.input model.ScopeSearch showThumbnails |> View.map ScopeSearchMsg)
-                        .maxWidth(maxWidth)
+                        .maxWidth(maxWidth) // limit to surrounding panel width
                         .gridColumn(1)
                         .gridRow (1)
                 }

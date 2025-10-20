@@ -80,19 +80,13 @@ module Scopes =
             updated, fwdCmd
 
     let private addScopeStack = ViewRef<Border>()
-    let private container = ViewRef<Panel>()
 
     let private addButton scopeType =
         Button(ScopeViews.displayType scopeType true, AddScope scopeType)
 
-    let view model showThumbnails =
-        (Panel() {
+    let view model maxWidth showThumbnails =
+        Panel() {
             HWrap() {
-                let maxWidth =
-                    match container.TryValue with
-                    | Some panel -> panel.DesiredSize.Width
-                    | None -> infinity
-
                 for scope in model.List do
                     (Border(
                         View.map (fun scopeMsg -> ScopeMsg(scope, scopeMsg)) (Scope.view scope maxWidth showThumbnails)
@@ -117,5 +111,4 @@ module Scopes =
             ))
                 .classes("add-scope")
                 .reference (addScopeStack)
-        })
-            .reference (container)
+        }
