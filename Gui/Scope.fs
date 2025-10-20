@@ -12,20 +12,25 @@ open type Fabulous.Avalonia.View
 
 module Scope =
     type Model =
-        { Scope: CommandScope
-          ThrottledProgressChanged: ThrottledEvent
-          MaxWidth: double
-          ScopeSearch: ScopeSearch.Model
-          Notifications: ScopeNotifications.Model
-          ShowSettings: bool }
+        {
+            Scope: CommandScope
+            ThrottledProgressChanged: ThrottledEvent
+
+            /// Tracked to determine the max width of the ProgressBar in the view.
+            /// Measuring the size of contents proved more reliable
+            /// than relying on their debounced SizeChanged events.
+            Contents: ViewRef<Layoutable>
+
+            ScopeSearch: ScopeSearch.Model
+            Notifications: ScopeNotifications.Model
+            ShowSettings: bool
+        }
 
     type Msg =
         | ToggleSettings of bool
         | SkipChanged of float option
         | TakeChanged of float option
         | CacheHoursChanged of float option
-        | ContentSizeChanged of SizeChangedEventArgs
-        | ApplySize of Size
         | Remove
         | RemoveVideo of string
         | ProgressChanged
@@ -49,7 +54,7 @@ module Scope =
 
         { Scope = scope
           ThrottledProgressChanged = progressChanged
-          MaxWidth = Double.PositiveInfinity
+          Contents = ViewRef<Layoutable>()
           ScopeSearch = ScopeSearch.init scope focused
           Notifications = ScopeNotifications.initModel
           ShowSettings = false }
@@ -76,11 +81,10 @@ module Scope =
 
         init scope true
 
-    let private applySize = Cmd.debounce 100 (fun size -> ApplySize size)
-
     let update msg model =
         match msg with
-        | ToggleSettings show -> { model with ShowSettings = show }, Cmd.none, DoNothing
+        // fwd any behaviourless existing msg to re-trigger the MVU loop, shrinking the ProgressBar on hide
+        | ToggleSettings show -> { model with ShowSettings = show }, ProgressValueChanged 0 |> Cmd.ofMsg, DoNothing
 
         | SkipChanged skip ->
             match model.Scope with
@@ -102,9 +106,6 @@ module Scope =
             | _ -> ()
 
             model, Cmd.none, DoNothing
-
-        | ContentSizeChanged args -> model, applySize args.NewSize, DoNothing
-        | ApplySize size -> { model with MaxWidth = size.Width }, Cmd.none, DoNothing
 
         | RemoveVideo id ->
             match model.Scope with
@@ -173,6 +174,12 @@ module Scope =
             .onScopeNotified(model.Scope, Notified) // just to trigger re-render of this view
             .tappable (ToggleFlyout >> Common, "some things came up while working on this scope")
 
+    // measuring size of contents proved more reliable than relying on their debounced SizeChanged events
+    let private getContentsWidth model =
+        match model.Contents.TryValue with
+        | Some layoutable -> layoutable.DesiredSize.Width
+        | _ -> Double.PositiveInfinity
+
     let view model maxWidth showThumbnails =
         VStack() {
             match model.Scope with
@@ -232,8 +239,7 @@ module Scope =
                         .centerHorizontal()
                         .isVisible (model.ShowSettings)
                 })
-                    .horizontalAlignment(HorizontalAlignment.Left) // to trigger size change when ProgressBar is wider than contents
-                    .onSizeChanged (ContentSizeChanged) // to update MaxWidth for ProgressBar
+                    .reference (model.Contents) // to measure MaxWidth for ProgressBar from
 
             | Vids videos ->
                 let remoteValidated = videos.GetRemoteValidated() |> List.ofSeq
@@ -266,13 +272,12 @@ module Scope =
                         .gridColumn(1)
                         .gridRow (1)
                 })
-                    .horizontalAlignment(HorizontalAlignment.Left) // to trigger size change when ProgressBar is wider than contents
-                    .onSizeChanged (ContentSizeChanged) // to update MaxWidth for ProgressBar
+                    .reference (model.Contents) // to measure MaxWidth for ProgressBar from
 
             ScopeSearch.validationErrors model.ScopeSearch
 
             ProgressBar(0, model.Scope.Progress.AllJobs, model.Scope.Progress.CompletedJobs, ProgressValueChanged)
                 .isIndeterminate(model.ScopeSearch.AliasSearch.IsRunning())
-                .maxWidth(model.MaxWidth) // to prevent it from expanding the component size beyond what's required for the contents
+                .maxWidth(getContentsWidth model) // prevent expanding the component size beyond what the contents need
                 .onThrottledEvent (model.ThrottledProgressChanged, ProgressChanged)
         }
