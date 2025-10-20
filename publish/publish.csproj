@@ -9,11 +9,13 @@
   </Target>
 
   <Target Name="PublishShell">
+    <MSBuild Projects="..\Shell\Shell.csproj" Targets="Restore" />
     <MSBuild Projects="..\Shell\Shell.csproj" Targets="Publish"
              Properties="Configuration=Release;PublishDir=$(PublishDir);PublishSingleFile=false;SelfContained=false;RuntimeIdentifier=$(RuntimeIdentifier)" />
   </Target>
 
   <Target Name="PublishGui">
+    <MSBuild Projects="..\Gui\Gui.fsproj" Targets="Restore" />
     <MSBuild Projects="..\Gui\Gui.fsproj" Targets="Publish"
              Properties="Configuration=Release;PublishDir=$(PublishDir);PublishSingleFile=false;SelfContained=false;RuntimeIdentifier=$(RuntimeIdentifier);TargetFramework=net9.0" />
   </Target>
