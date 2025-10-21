@@ -10,18 +10,29 @@ open type Fabulous.Avalonia.View
 
 module Scopes =
     type Model =
-        { List: Scope.Model list
-          HasVideos: bool }
+        {
+            List: Scope.Model list
+
+            /// tracks size of the list view for parent view to adjust the layout
+            ListHeight: float
+
+            /// indicates whether the List contains any Scope for Videos
+            HasVideos: bool
+        }
 
     type Msg =
         | AddScope of Type
         | ScopeMsg of Scope.Model * Scope.Msg
+        | ListSizeChanged of SizeChangedEventArgs
         | Common of CommonMsg
 
     let private mapScopeCmd scopeModel scopeCmd =
         Cmd.map (fun scopeMsg -> ScopeMsg(scopeModel, scopeMsg)) scopeCmd
 
-    let init () = { List = []; HasVideos = false }
+    let init () =
+        { List = []
+          ListHeight = 0
+          HasVideos = false }
 
     let private updateList model list =
         { model with
@@ -79,12 +90,24 @@ module Scopes =
 
             updated, fwdCmd
 
+        | ListSizeChanged args ->
+            let model =
+                if args.HeightChanged then
+                    { model with
+                        ListHeight = args.NewSize.Height }
+                else
+                    model
+
+            model, Cmd.none
+
     let list model maxWidth showThumbnails =
-        HWrap() {
+        (HWrap() {
             for scope in model.List do
                 (Border(View.map (fun scopeMsg -> ScopeMsg(scope, scopeMsg)) (Scope.view scope maxWidth showThumbnails)))
                     .classes ("scope")
-        }
+        })
+            .onSizeChanged(ListSizeChanged)
+            .top ()
 
     let private addButton scopeType =
         Button(ScopeViews.displayType scopeType true, AddScope scopeType)

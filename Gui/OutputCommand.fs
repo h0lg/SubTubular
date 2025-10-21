@@ -5,6 +5,8 @@ open System.Linq
 open System.Collections.Concurrent
 open System.Collections.Generic
 open System.Threading
+open Avalonia
+open Avalonia.Controls
 open Fabulous
 open FSharp.Control
 open SubTubular
@@ -21,6 +23,7 @@ module OutputCommands =
 
     type Model =
         {
+            MaxSize: Size
             Command: Commands
             Scopes: Scopes.Model
             ShowScopes: bool
@@ -42,6 +45,7 @@ module OutputCommands =
         }
 
     type Msg =
+        | ContainerSizeChanged of SizeChangedEventArgs
         | CommandChanged of Commands
         | FocusQuery of bool
         | QueryChanged of string
@@ -224,6 +228,7 @@ module OutputCommands =
         { Command = Search
           Query = ""
           FocusQuery = false
+          MaxSize = Size()
 
           Scopes = Scopes.init ()
           ShowScopes = true
@@ -286,6 +291,7 @@ module OutputCommands =
 
     let update msg model =
         match msg with
+        | ContainerSizeChanged args -> { model with MaxSize = args.NewSize }, Cmd.none
         | CommandChanged cmd -> { model with Command = cmd }, Cmd.none
         | FocusQuery focus -> { model with FocusQuery = focus }, Cmd.none
         | QueryChanged txt -> { model with Query = txt }, Cmd.none

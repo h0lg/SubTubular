@@ -1,6 +1,7 @@
 ﻿namespace SubTubular.Gui
 
 open System
+open Avalonia
 open Avalonia.Controls
 open Fabulous
 open Fabulous.Avalonia
@@ -137,7 +138,17 @@ module OutputCommandView =
                 .gridColumnSpan (5)
         }
 
-    let private container = ViewRef<Grid>()
+    let private getScopesHeight model hasResults =
+        if model.ShowScopes then
+            let max = model.MaxSize.Height // start with full page height
+            // use only half if we're also displaying results, otherwise full minus some padding for other controls
+            let max = if hasResults then max / float 2 else max - float 60
+            let max = if max < 0 then float 0 else max // make sure max is positive or 0
+            let desired = model.Scopes.ListHeight + float 54 // makes up for add buttons
+            let height = if max < desired then max else desired // take up the required or max allowed height
+            Pixel height // Star or Pixel Height allows ScrollViewer to work by limiting its height
+        else
+            Auto // hidden, take up no space
 
     let render model showThumbnails =
         let isSearch = model.Command = Search
@@ -157,18 +168,12 @@ module OutputCommandView =
             else
                 None, None
 
-        let maxWidth =
-            match container.TryValue with
-            | Some panel -> panel.DesiredSize.Width
-            | None -> infinity
+        let scopesHeight = getScopesHeight model hasResults
 
-        // Star Height allows ScrollViewer to work by limiting its height
-        let scopesHeight = if model.ShowScopes then Star else Auto
-
-        (Grid(coldefs = [ Star ], rowdefs = [ scopesHeight; Auto; Auto; Stars(2) ]) {
+        (Grid(coldefs = [ Star ], rowdefs = [ scopesHeight; Auto; Auto; Star ]) {
             // scopes
             (Panel() {
-                ScrollViewer(View.map ScopesMsg (Scopes.list model.Scopes maxWidth showThumbnails))
+                ScrollViewer(View.map ScopesMsg (Scopes.list model.Scopes model.MaxSize.Width showThumbnails))
                     .margin(0, 0, 0, 20)
                     .card ()
 
@@ -203,5 +208,5 @@ module OutputCommandView =
                 .isVisible(hasResults)
                 .gridRow (3)
         })
-            .reference(container)
+            .onSizeChanged(ContainerSizeChanged)
             .margin (5, 5, 5, 0)
