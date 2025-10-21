@@ -1,6 +1,9 @@
 ﻿namespace SubTubular.Gui
 
 open System
+open Avalonia
+open Avalonia.Controls
+open Avalonia.Layout
 open Fabulous
 open Fabulous.Avalonia
 open SubTubular
@@ -9,11 +12,19 @@ open type Fabulous.Avalonia.View
 
 module Scope =
     type Model =
-        { Scope: CommandScope
-          ThrottledProgressChanged: ThrottledEvent
-          ScopeSearch: ScopeSearch.Model
-          Notifications: ScopeNotifications.Model
-          ShowSettings: bool }
+        {
+            Scope: CommandScope
+            ThrottledProgressChanged: ThrottledEvent
+
+            /// Tracked to determine the max width of the ProgressBar in the view.
+            /// Measuring the size of contents proved more reliable
+            /// than relying on their debounced SizeChanged events.
+            Contents: ViewRef<Layoutable>
+
+            ScopeSearch: ScopeSearch.Model
+            Notifications: ScopeNotifications.Model
+            ShowSettings: bool
+        }
 
     type Msg =
         | ToggleSettings of bool
@@ -43,6 +54,7 @@ module Scope =
 
         { Scope = scope
           ThrottledProgressChanged = progressChanged
+          Contents = ViewRef<Layoutable>()
           ScopeSearch = ScopeSearch.init scope focused
           Notifications = ScopeNotifications.initModel
           ShowSettings = false }
@@ -71,7 +83,8 @@ module Scope =
 
     let update msg model =
         match msg with
-        | ToggleSettings show -> { model with ShowSettings = show }, Cmd.none, DoNothing
+        // fwd any behaviourless existing msg to re-trigger the MVU loop, shrinking the ProgressBar on hide
+        | ToggleSettings show -> { model with ShowSettings = show }, ProgressValueChanged 0 |> Cmd.ofMsg, DoNothing
 
         | SkipChanged skip ->
             match model.Scope with
@@ -161,11 +174,17 @@ module Scope =
             .onScopeNotified(model.Scope, Notified) // just to trigger re-render of this view
             .tappable (ToggleFlyout >> Common, "some things came up while working on this scope")
 
+    // measuring size of contents proved more reliable than relying on their debounced SizeChanged events
+    let private getContentsWidth model =
+        match model.Contents.TryValue with
+        | Some layoutable -> layoutable.DesiredSize.Width
+        | _ -> Double.PositiveInfinity
+
     let view model maxWidth showThumbnails =
         VStack() {
             match model.Scope with
             | PlaylistLike playlistLike ->
-                HStack(5) {
+                (HStack(5) {
                     removeBtn ()
 
                     if playlistLike.IsValid then
@@ -219,12 +238,13 @@ module Scope =
                     })
                         .centerHorizontal()
                         .isVisible (model.ShowSettings)
-                }
+                })
+                    .reference (model.Contents) // to measure MaxWidth for ProgressBar from
 
             | Vids videos ->
                 let remoteValidated = videos.GetRemoteValidated() |> List.ofSeq
 
-                Grid(coldefs = [ Auto; Auto ], rowdefs = [ Auto; Auto ]) {
+                (Grid(coldefs = [ Auto; Auto ], rowdefs = [ Auto; Auto ]) {
                     if remoteValidated.IsEmpty then
                         removeBtn().gridRow (1)
                     else
@@ -251,11 +271,13 @@ module Scope =
                         .maxWidth(maxWidth) // limit to surrounding panel width
                         .gridColumn(1)
                         .gridRow (1)
-                }
+                })
+                    .reference (model.Contents) // to measure MaxWidth for ProgressBar from
 
             ScopeSearch.validationErrors model.ScopeSearch
 
             ProgressBar(0, model.Scope.Progress.AllJobs, model.Scope.Progress.CompletedJobs, ProgressValueChanged)
                 .isIndeterminate(model.ScopeSearch.AliasSearch.IsRunning())
+                .maxWidth(getContentsWidth model) // prevent expanding the component size beyond what the contents need
                 .onThrottledEvent (model.ThrottledProgressChanged, ProgressChanged)
         }
