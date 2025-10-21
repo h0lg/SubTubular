@@ -13,7 +13,7 @@ public class SplitIntoPaddedGroupsTests
         var result = noMatches.SplitIntoPaddedGroups(5).ToList();
 
         // Assert
-        Assert.AreEqual(0, result.Count);
+        Assert.IsEmpty(result);
     }
 
     [TestMethod]
@@ -26,7 +26,7 @@ public class SplitIntoPaddedGroupsTests
         var result = singleMatch.SplitIntoPaddedGroups(5).ToList();
 
         // Assert
-        Assert.AreEqual(1, result.Count);
+        Assert.HasCount(1, result);
         Assert.AreEqual(singleMatch.Text, result[0].Text);
         CollectionAssert.AreEqual(singleMatch.Matches, result[0].Matches);
         Assert.AreEqual(singleMatch, result[0]);
@@ -44,7 +44,7 @@ public class SplitIntoPaddedGroupsTests
         var result = multipleMatches.SplitIntoPaddedGroups(5).ToList();
 
         // Assert
-        Assert.AreEqual(1, result.Count);
+        Assert.HasCount(1, result);
         Assert.AreEqual(multipleMatches.Text, result[0].Text);
         CollectionAssert.AreEqual(multipleMatches.Matches, result[0].Matches);
     }
@@ -61,7 +61,7 @@ public class SplitIntoPaddedGroupsTests
         var result = matchesAtBeginningAndEnd.SplitIntoPaddedGroups(5).ToList();
 
         // Assert
-        Assert.AreEqual(2, result.Count);
+        Assert.HasCount(2, result);
         CollectionAssert.AreEqual(new[] { new MatchedText.Match(start: 0, length: 7) }, result[0].Matches);
         CollectionAssert.AreEqual(new[] { new MatchedText.Match(start: 29, length: 4) }, result[1].Matches);
     }
