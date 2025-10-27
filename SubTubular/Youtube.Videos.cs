@@ -150,7 +150,7 @@ partial class Youtube
         {
             scope.Report(videoId, VideoList.Status.downloading);
 
-            var vid = await Client.Videos.GetAsync(videoId, token);
+            var vid = await client.Videos.GetAsync(videoId, token);
             video = MapVideo(vid);
             video.UnIndexed = true; // to re-index it if it was already indexed
             if (downloadCaptionTracksAndSave) await DownloadCaptionTracksAndSaveAsync(video, scope, token);
@@ -176,7 +176,7 @@ partial class Youtube
 
         try
         {
-            var trackManifest = await Client.Videos.ClosedCaptions.GetManifestAsync(video.Id, token);
+            var trackManifest = await client.Videos.ClosedCaptions.GetManifestAsync(video.Id, token);
             video.CaptionTracks = [];
 
             foreach (var trackInfo in trackManifest.Tracks)
@@ -186,7 +186,7 @@ partial class Youtube
                 try
                 {
                     // Get the actual closed caption track
-                    var track = await Client.Videos.ClosedCaptions.GetAsync(trackInfo, token);
+                    var track = await client.Videos.ClosedCaptions.GetAsync(trackInfo, token);
 
                     captionTrack.Captions = [.. track.Captions
                         .Select(c => new Caption { At = Convert.ToInt32(c.Offset.TotalSeconds), Text = c.Text })

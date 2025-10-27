@@ -17,6 +17,13 @@ partial class Youtube
         return $"https://www.youtube.com/{urlGlue}{alias}";
     }
 
+    public ValueTask<Channel> GetChannel(object alias, CancellationToken token)
+        => alias is ChannelId id ? client.Channels.GetAsync(id, token)
+            : alias is ChannelHandle handle ? client.Channels.GetByHandleAsync(handle, token)
+            : alias is UserName user ? client.Channels.GetByUserAsync(user, token)
+            : alias is ChannelSlug slug ? client.Channels.GetBySlugAsync(slug, token)
+            : throw new NotImplementedException($"Getting channel for alias {alias.GetType()} is not implemented.");
+
     /// <summary>Searches videos defined by a playlist.</summary>
     private async Task SearchPlaylistAsync(SearchCommand command, PlaylistLikeScope scope,
         Func<VideoSearchResult, ValueTask> yieldResult, CancellationToken token = default)
@@ -101,14 +108,14 @@ partial class Youtube
     internal Task<Playlist> GetPlaylistAsync(PlaylistScope scope, CancellationToken token) =>
         GetPlaylistAsync(scope, async () =>
         {
-            var playlist = await Client.Playlists.GetAsync(scope.SingleValidated.Id, token);
+            var playlist = await client.Playlists.GetAsync(scope.SingleValidated.Id, token);
             return (playlist.Title, SelectUrl(playlist.Thumbnails), playlist.Author?.ChannelTitle);
         });
 
     internal Task<Playlist> GetPlaylistAsync(ChannelScope scope, CancellationToken token) =>
         GetPlaylistAsync(scope, async () =>
         {
-            var channel = await Client.Channels.GetAsync(scope.SingleValidated.Id, token);
+            var channel = await client.Channels.GetAsync(scope.SingleValidated.Id, token);
             return (channel.Title, SelectUrl(channel.Thumbnails), null);
         });
 
@@ -220,8 +227,8 @@ partial class Youtube
 
     private IAsyncEnumerable<PlaylistVideo> GetVideos(PlaylistLikeScope scope, CancellationToken token) => scope switch
     {
-        ChannelScope _ => Client.Channels.GetUploadsAsync(scope.SingleValidated.Id, token),
-        PlaylistScope _ => Client.Playlists.GetVideosAsync(scope.SingleValidated.Id, token),
+        ChannelScope _ => client.Channels.GetUploadsAsync(scope.SingleValidated.Id, token),
+        PlaylistScope _ => client.Playlists.GetVideosAsync(scope.SingleValidated.Id, token),
         _ => throw new NotImplementedException($"Getting videos for the {scope.GetType()} is not implemented.")
     };
 

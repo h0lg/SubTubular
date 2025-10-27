@@ -8,21 +8,21 @@ partial class Youtube
     public async Task<IEnumerable<YoutubeSearchResult>> SearchForChannelsAsync(string text, CancellationToken token)
         => await SearchedForCachedAsync(text, ChannelScope.StorageKeyPrefix, async text =>
         {
-            var channels = await Client.Search.GetChannelsAsync(text, token);
+            var channels = await client.Search.GetChannelsAsync(text, token);
             return channels.Select(c => new YoutubeSearchResult(c.Id, c.Title, c.Url, SelectUrl(c.Thumbnails)));
         }, token);
 
     public async Task<IEnumerable<YoutubeSearchResult>> SearchForPlaylistsAsync(string text, CancellationToken token)
         => await SearchedForCachedAsync(text, PlaylistScope.StorageKeyPrefix, async text =>
         {
-            var playlists = await Client.Search.GetPlaylistsAsync(text, token);
+            var playlists = await client.Search.GetPlaylistsAsync(text, token);
             return playlists.Select(pl => new YoutubeSearchResult(pl.Id, pl.Title, pl.Url, SelectUrl(pl.Thumbnails), pl.Author?.ChannelTitle));
         }, token);
 
     public async Task<IEnumerable<YoutubeSearchResult>> SearchForVideosAsync(string text, CancellationToken token)
         => await SearchedForCachedAsync(text, Video.StorageKeyPrefix, async text =>
         {
-            var videos = await Client.Search.GetVideosAsync(text, token);
+            var videos = await client.Search.GetVideosAsync(text, token);
             return videos.Select(v => new YoutubeSearchResult(v.Id, v.Title, v.Url, SelectUrl(v.Thumbnails), v.Author?.ChannelTitle));
         }, token);
 

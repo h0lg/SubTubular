@@ -264,19 +264,12 @@ public static class RemoteValidate
         {
             var map = knownAliasMaps.ForAlias(alias);
             if (map != null) return map; // use cached info
-
-            var loadChannel = alias is ChannelId id ? youtube.Client.Channels.GetAsync(id, token)
-                : alias is ChannelHandle handle ? youtube.Client.Channels.GetByHandleAsync(handle, token)
-                : alias is UserName user ? youtube.Client.Channels.GetByUserAsync(user, token)
-                : alias is ChannelSlug slug ? youtube.Client.Channels.GetBySlugAsync(slug, token)
-                : throw new NotImplementedException($"Getting channel for alias {alias.GetType()} is not implemented.");
-
             var (type, value) = ChannelAliasMap.GetTypeAndValue(alias);
             map = new ChannelAliasMap { Type = type, Value = value };
 
             try
             {
-                var channel = await loadChannel;
+                var channel = await youtube.GetChannel(alias, token);
                 map.ChannelId = channel.Id;
             }
             catch (HttpRequestException ex) when (ex.IsNotFound()) { map.ChannelId = null; }

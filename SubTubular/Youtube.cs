@@ -8,7 +8,7 @@ namespace SubTubular;
 
 public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository videoIndexRepo)
 {
-    public readonly YoutubeClient Client = new();
+    private readonly YoutubeClient client = new();
 
     public async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command,
         [EnumeratorCancellation] CancellationToken token = default)
