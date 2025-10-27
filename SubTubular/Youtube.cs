@@ -6,7 +6,7 @@ using YoutubeExplode.Common;
 
 namespace SubTubular;
 
-public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository videoIndexRepo)
+public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository videoIndexRepo) : IDisposable
 {
     private readonly YoutubeClient client = new();
 
@@ -108,4 +108,6 @@ public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository vi
     }
 
     private static string SelectUrl(IReadOnlyList<Thumbnail> thumbnails) => thumbnails.MinBy(tn => tn.Resolution.Area)!.Url;
+
+    public void Dispose() => client.Dispose();
 }

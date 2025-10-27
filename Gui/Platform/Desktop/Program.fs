@@ -29,4 +29,12 @@ module Program =
     [<EntryPoint; STAThread>]
     let main argv =
         setupGlobalExceptionHandlers ()
-        buildAvaloniaApp().StartWithClassicDesktopLifetime(argv)
+
+        buildAvaloniaApp()
+            .StartWithClassicDesktopLifetime(
+                argv,
+                fun lifeTime ->
+                    lifeTime.Exit.AddHandler(fun _ _ ->
+                        // dispose services that need it
+                        Services.Youtube.Dispose())
+            )

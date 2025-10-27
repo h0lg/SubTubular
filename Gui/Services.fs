@@ -35,7 +35,7 @@ module Shared =
 module Services =
     let CacheFolder = Folder.GetPath Folders.cache
     let DataStore = JsonFileDataStore CacheFolder
-    let Youtube = Youtube(DataStore, VideoIndexRepository CacheFolder)
+    let Youtube = new Youtube(DataStore, VideoIndexRepository CacheFolder)
     let mutable Storage: IStorageProvider = null
 
 module Notify =
