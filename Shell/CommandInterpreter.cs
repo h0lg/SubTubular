@@ -31,15 +31,12 @@ static partial class CommandInterpreter
         // see https://learn.microsoft.com/en-us/dotnet/standard/commandline/how-to-customize-help#add-sections-to-help-output
         var helpOption = root.Options.OfType<HelpOption>().Single();
         helpOption.Action = new CustomHelpAction((HelpAction)helpOption.Action!);
+        ParseResult parsed = root.Parse(args);
 
-        CommandLineConfiguration config = new(root)
+        var exit = await parsed.InvokeAsync(new InvocationConfiguration()
         {
             EnableDefaultExceptionHandler = false // to throw exceptions instead of garbling them into an exit code
-        };
-
-        ParseResult parsed = config.Parse(args);
-
-        var exit = await parsed.InvokeAsync();
+        });
 
         /*  parser errors are printed by invocation above and return a non-zero exit code - no need to check it
          *  see https://learn.microsoft.com/en-us/dotnet/standard/commandline/how-to-parse-and-invoke#parse-errors */
