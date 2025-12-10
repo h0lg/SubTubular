@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net9.0</TargetFrameworks>
+    <TargetFrameworks>net10.0</TargetFrameworks>
     <PublishDir>$(MSBuildThisFileDirectory)packages\$(Product) $(VersionPrefix)</PublishDir>
   </PropertyGroup>
 
@@ -17,7 +17,7 @@
   <Target Name="PublishGui">
     <MSBuild Projects="..\Gui\Gui.fsproj" Targets="Restore" />
     <MSBuild Projects="..\Gui\Gui.fsproj" Targets="Publish"
-             Properties="Configuration=Release;PublishDir=$(PublishDir);PublishSingleFile=false;SelfContained=false;RuntimeIdentifier=$(RuntimeIdentifier);TargetFramework=net9.0" />
+             Properties="Configuration=Release;PublishDir=$(PublishDir);PublishSingleFile=false;SelfContained=false;RuntimeIdentifier=$(RuntimeIdentifier);TargetFramework=net10.0" />
   </Target>
 
   <Target Name="ZipOutput">

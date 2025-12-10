@@ -39,7 +39,7 @@ type DispatchExtensions =
     /// - while optionally adding some buffer time (in milliseconds) to account for race conditions.
     /// </returns>
     [<Extension>]
-    static member buffered((dispatch: Dispatch<'msg>), interval, (mapBatchToMsg: 'value list -> 'msg)) =
+    static member buffered((dispatch: Dispatch<'msg>), (interval: int64), (mapBatchToMsg: 'value list -> 'msg)) =
         let rateLimit = System.TimeSpan.FromMilliseconds(interval)
         let funLock = obj () // ensures safe access to resources shared across different threads
         let mutable lastDispatch = System.DateTime.MinValue
@@ -95,7 +95,7 @@ type DispatchExtensions =
                         ))
 
         // a function to wait until after the next async dispatch + some buffer time to ensure the dispatch is complete
-        let awaitNextDispatch buffer =
+        let awaitNextDispatch (buffer: int64 option) =
             lock funLock (fun () ->
                 async {
                     if not pendingValues.IsEmpty then

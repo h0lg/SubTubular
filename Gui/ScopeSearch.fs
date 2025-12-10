@@ -303,7 +303,7 @@ module ScopeSearch =
 
             let autoComplete =
                 AutoCompleteBox(model.AliasSearch.SearchAsync)
-                    .minimumPopulateDelay(TimeSpan.FromMilliseconds 300)
+                    .minimumPopulateDelay(TimeSpan.FromMilliseconds(int64 300))
                     .onTextChanged(model.Aliases, AliasesUpdated)
                     .onLostFocus(fun _ -> FocusToggled false)
                     .onGotFocus(fun _ -> FocusToggled true)

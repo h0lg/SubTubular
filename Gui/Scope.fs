@@ -48,7 +48,7 @@ module Scope =
         | _ -> false
 
     let private init (scope: CommandScope) focused =
-        let progressChanged = ThrottledEvent(TimeSpan.FromMilliseconds(300))
+        let progressChanged = ThrottledEvent(TimeSpan.FromMilliseconds(int64 300))
         scope.ProgressChanged.Add(fun args -> progressChanged.Trigger(scope, args))
 
         { Scope = scope
