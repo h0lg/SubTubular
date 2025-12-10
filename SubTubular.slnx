@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path="Directory.Build.props" />
+    <File Path="publish/publish.cmd" />
+    <File Path="publish/publish.csproj" />
+    <File Path="ReadMe.md" />
+  </Folder>
+  <Project Path="Gui/Gui.fsproj" />
+  <Project Path="Shell/Shell.csproj" />
+  <Project Path="SubTubular/SubTubular.csproj" />
+  <Project Path="Tests/Tests.csproj" />
+</Solution>
