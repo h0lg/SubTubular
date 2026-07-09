@@ -336,5 +336,6 @@ module ScopeSearch =
     let validationErrors model =
         TextBlock(model.ValidationError)
             .classes("error")
-            // display if there is a validation error and the model state is not valid
-            .isVisible (model.ValidationError <> null && not model.Scope.IsValid)
+            (*  display if there is a validation error, ignoring whether model.Scope.IsValid
+                because in the videos scope there may be invalid at the same time and IsValid ignores Invalidated inputs *)
+            .isVisible (model.ValidationError <> null)
