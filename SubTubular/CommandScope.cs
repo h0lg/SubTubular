@@ -21,7 +21,7 @@ public class VideosScope(List<string> videos) : CommandScope
     /// <summary>Input video IDs or URLs.</summary>
     public List<string> Videos { get; } = [.. videos.Select(id => id.Trim())];
 
-    public static string? TryParseId(string id) => VideoId.TryParse(id.Trim('"'))?.ToString();
+    public static string? TryParseId(string videoIdOrUrl) => VideoId.TryParse(videoIdOrUrl.Trim('"'))?.ToString();
     public override bool RequiresValidation() => Videos.Except(GetRemoteValidated().Ids()).Any();
 
     /// <summary>Converts the <paramref name="videoIdsOrUrls"/> into a dictionary
