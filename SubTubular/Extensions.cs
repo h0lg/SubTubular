@@ -193,11 +193,15 @@ public static class ExceptionExtensions
         _ => [ex]
     };
 
-    public static bool IsInputError(this Exception ex) => ex is InputException || ex is LiftiException
-        || ex is VideoUnavailableException || ex is PlaylistUnavailableException;
+    // user-facing, stopping parallel searches on other scopes
+    public static bool IsInputError(this Exception ex) => ex is InputException or LiftiException;
+
+    // user-facing, but not logged or influencing parallel searches
+    public static bool IsUnavailable(this Exception ex) => ex is VideoUnavailableException or PlaylistUnavailableException;
 
     public static bool AnyNeedReporting(this IEnumerable<Exception> exns)
-        => exns.Any(e => e is not OperationCanceledException && !e.IsInputError());
+        // exclude input or transient unavailable errors from reporting
+        => exns.Any(e => e is not OperationCanceledException && !e.IsInputError() && !e.IsUnavailable());
 
     public static bool HaveInputError(this IEnumerable<Exception> exns) => exns.Any(IsInputError);
     public static bool AreAll<T>(this IEnumerable<Exception> exns) => exns.All(e => e is T);

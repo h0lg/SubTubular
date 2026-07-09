@@ -3,9 +3,9 @@
     <ApplicationIcon>../SubTubular.ico</ApplicationIcon>
     <AssemblyTitle>SubTubular - full-text search for YouTube videos</AssemblyTitle>
     <Product>SubTubular</Product>
-    <VersionPrefix>4.1.1</VersionPrefix>
+    <VersionPrefix>4.2.0</VersionPrefix>
     <Description>Full-text-search YouTube video subtitles and metadata.</Description>
     <Authors>Holger Schmidt</Authors>
-    <Copyright>Copyright © Holger Schmidt 2020-25</Copyright>
+    <Copyright>Copyright © Holger Schmidt 2020-26</Copyright>
   </PropertyGroup>
 </Project>
