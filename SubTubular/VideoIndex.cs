@@ -186,7 +186,9 @@ internal sealed class VideoIndex : IDisposable
                 var matchesForVideosWithoutUploadDate = matches.Where(m =>
                     !relevantVideos.ContainsKey(m.Key) || relevantVideos[m.Key] == null).ToArray();
 
-                // get upload dates for videos that we don't know it of (may occur if index remembers a video the Playlist forgot about)
+                /*  Get upload dates for videos that we don't know it of.
+                 *  This may occur if index remembers a video the Playlist forgot about
+                 *  or when searching multiple videos and the video cache was deleted. */
                 if (matchesForVideosWithoutUploadDate.Length != 0)
                 {
                     token.ThrowIfCancellationRequested();
@@ -222,6 +224,7 @@ internal sealed class VideoIndex : IDisposable
             // consider results for un-cached videos stale
             if (unIndexedVideos.Any(video => video.Id == match.Key)) continue;
 
+            // get video, trying videosWithoutUploadDate before getVideoAsync because it's cheaper
             var video = videosWithoutUploadDate?.SingleOrDefault(v => v.Id == match.Key);
 
             if (video == null)

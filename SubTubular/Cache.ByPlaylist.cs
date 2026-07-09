@@ -129,7 +129,7 @@ static partial class CacheManager
         {
             var id = file.Name.StripAffixes(prefix, JsonFileDataStore.FileExtension);
             var scope = createScope(id);
-            scope.AddPrevalidated(id, getUrl(id));
+            scope.AddPrevalidated(id, getUrl(id)); // so that getPlaylist can use StorageKey and SingleValidated
             var playlist = await getPlaylist(scope);
             var indexes = allIndexes.WithPrefix(prefix + id).ToArray();
 

@@ -34,10 +34,11 @@ partial class Youtube
 
                 try
                 {
+                    // get video, trying validated Videos scope first
                     Video? video = command.Videos?.Validated.SingleOrDefault(v => v.Id == id)?.Video;
                     video ??= await GetVideoAsync(id, token, scope, downloadCaptionTracksAndSave: false);
 
-                    // re/download caption tracks for the video
+                    // (retry) download caption tracks for the video; validation doesn't do it and there may have been transient errors
                     if (!video.GetCaptionTrackDownloadStatus().IsComplete())
                         await DownloadCaptionTracksAndSaveAsync(video, scope, token);
 
@@ -113,7 +114,11 @@ partial class Youtube
         }
 
         var videoIds = scope.GetRemoteValidated().Ids().ToArray();
+
+        /* order multiple video IDs alphabetically to create a predictable key
+         * for later searches on the same scope with the same IDs in a different order */
         var storageKey = Video.StorageKeyPrefix + videoIds.Order().Join(" ");
+
         var index = await videoIndexRepo.GetAsync(storageKey);
 
         Task searching;
@@ -165,7 +170,7 @@ partial class Youtube
             scope.Report(videoId, VideoList.Status.downloading);
             var vid = await client.Videos.GetAsync(videoId, token);
             video = MapVideo(vid);
-            video.UnIndexed = true; // to re-index it if it was already indexed
+            video.UnIndexed = true; // to re-index it during search if it was indexed before, but cache was deleted
             if (downloadCaptionTracksAndSave) await DownloadCaptionTracksAndSaveAsync(video, scope, token);
         }
 
