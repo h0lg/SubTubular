@@ -22,17 +22,20 @@ public class VideosScope(List<string> videos) : CommandScope
     public List<string> Videos { get; } = [.. videos.Select(id => id.Trim())];
 
     public static string? TryParseId(string videoIdOrUrl) => VideoId.TryParse(videoIdOrUrl.Trim('"'))?.ToString();
-    public override bool RequiresValidation() => Videos.Except(GetRemoteValidated().Ids()).Any();
+
+    public override bool RequiresValidation()
+        // if there are input Videos (IDs or URLs) without a remote-validated ValidationResult with matching Alias
+        => Videos.Except(GetRemoteValidated().Select(v => v.Alias)).Any();
 
     /// <summary>Converts the <paramref name="videoIdsOrUrls"/> into a dictionary
     /// with the input as key and a pre-validated video ID or null as value.</summary>
-    public static (IEnumerable<string> preValidatedIds, IEnumerable<string> invalidAliases) ParseIds(IEnumerable<string> videoIdsOrUrls)
-    {
-        Dictionary<string, string?> aliasToPrevalidatedId = videoIdsOrUrls.ToDictionary(alias => alias, TryParseId);
+    public static Dictionary<string, string?> ParseIds(IEnumerable<string> videoIdsOrUrls)
+        => videoIdsOrUrls.ToDictionary(alias => alias, TryParseId);
 
-        return (preValidatedIds: aliasToPrevalidatedId.Values.WithValue().Distinct(),
-            invalidAliases: aliasToPrevalidatedId.Where(pair => pair.Value == null).Select(pair => pair.Key));
-    }
+    /// <summary>Extracts and return the invalid inputs from the <see cref="ParseIds(IEnumerable{string})"/>
+    /// result <paramref name="aliasToPrevalidatedId"/>.</summary>
+    internal static string[] GetInvalidAliases(Dictionary<string, string?> aliasToPrevalidatedId)
+        => aliasToPrevalidatedId.Where(pair => pair.Value == null).Select(pair => pair.Key).ToArray();
 
     /// <summary>Returns inputs that pre-validate as video ID or URL but don't remote-validate.</summary>
     public IEnumerable<string> GetRemoteInvalidatedIds()

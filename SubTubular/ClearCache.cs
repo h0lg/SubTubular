@@ -32,13 +32,13 @@ public static partial class CacheManager
             case ClearCache.Scopes.videos:
                 if (command.Aliases.HasAny())
                 {
-                    (IEnumerable<string> preValidatedIds, IEnumerable<string> invalidAliases) = VideosScope.ParseIds(command.Aliases!);
-                    string[] invalid = [.. invalidAliases];
+                    var aliasToPrevalidatedId = VideosScope.ParseIds(command.Aliases!);
+                    string[] invalid = VideosScope.GetInvalidAliases(aliasToPrevalidatedId);
 
                     if (invalid.Length > 0) throw new InputException(
                         "The following inputs are not valid video IDs or URLs: " + invalid.Join(" "));
 
-                    DeleteByNames(preValidatedIds.Select(videoId => Video.StorageKeyPrefix + videoId));
+                    DeleteByNames(aliasToPrevalidatedId.Values.WithValue().Select(videoId => Video.StorageKeyPrefix + videoId));
                 }
                 else
                 {

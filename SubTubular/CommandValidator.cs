@@ -110,18 +110,18 @@ public static class Prevalidate
     private static string[] VideosSeperately(VideosScope? scope)
     {
         if (scope == null) return [];
-        (IEnumerable<string> preValidatedIds, IEnumerable<string> invalidAliases) = VideosScope.ParseIds(scope.Videos);
-        string[] preValidated = [.. preValidatedIds];
-        scope.QueueVideos(preValidated); // ignores already queued
-        var alreadyValidated = scope.Validated.Ids(); // pre/validated
+        var aliasToPrevalidatedId = VideosScope.ParseIds(scope.Videos);
+        scope.QueueVideos(aliasToPrevalidatedId.Values.WithValue()); // ignores already queued
+        var alreadyValidated = scope.Validated.Ids().ToArray(); // pre/validated
 
-        foreach (var id in preValidated.Except(alreadyValidated))
+        foreach (var preValidated in aliasToPrevalidatedId.Where(pair => pair.Value != null && !alreadyValidated.Contains(pair.Value)))
         {
-            scope.AddPrevalidated(id, Youtube.GetVideoUrl(id));
+            var id = preValidated.Value!;
+            scope.AddPrevalidated(id, Youtube.GetVideoUrl(id), alias: preValidated.Key);
             scope.Report(id, VideoList.Status.preValidated);
         }
 
-        string[] invalid = [.. invalidAliases];
+        string[] invalid = VideosScope.GetInvalidAliases(aliasToPrevalidatedId);
         if (invalid.Length == 0) scope.Report(VideoList.Status.preValidated);
         return invalid; // aliases
     }

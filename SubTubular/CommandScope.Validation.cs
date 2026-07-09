@@ -16,8 +16,8 @@ partial class CommandScope
     /// <summary>Only safe to access if <see cref="IsValid"/>.</summary>
     [JsonIgnore] public ValidationResult SingleValidated => Validated.Single();
 
-    public void AddPrevalidated(string id, string url)
-        => Validated.Add(new ValidationResult { Id = id, Url = url });
+    public void AddPrevalidated(string id, string url, string? alias = null)
+        => Validated.Add(new ValidationResult { Id = id, Url = url, Alias = alias });
 
     /*/// <summary>Returns the <see cref="ValidationResult.Id"/> of all <see cref="Validated"/>,
     /// which are either pre- or remote validated depending on <see cref="IsValid"/>.</summary>
@@ -35,6 +35,11 @@ partial class CommandScope
         public required string Id { get; set; }
 
         public string? Url { get; set; }
+
+        /// <summary>Remembers the input alias from <see cref="VideosScope.Videos"/> this validation belongs to
+        /// because it may not be comparable to <see cref="Id"/> or <see cref="Url"/> after parsing and normalization.
+        /// For <see cref="VideosScope"/>s only.</summary>
+        internal string? Alias { get; set; }
 
         /// <summary>Syntactically correct interpretations of <see cref="ChannelScope.Alias"/>
         /// returned by <see cref="Prevalidate.ChannelAlias(string)"/>.

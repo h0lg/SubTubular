@@ -199,8 +199,8 @@ module ScopeSearch =
                 aliases
             | Vids vids ->
                 let _, searchTerms = VideosInput.partition aliases vids
-                let parsed = searchTerms |> List.map Alias.clean |> VideosScope.ParseIds
-                let preValidatedIds, _ = parsed.ToTuple()
+                let aliasToPrevalidatedId = searchTerms |> List.map Alias.clean |> VideosScope.ParseIds
+                let preValidatedIds = aliasToPrevalidatedId.Values.WithValue()
 
                 let missing =
                     preValidatedIds
