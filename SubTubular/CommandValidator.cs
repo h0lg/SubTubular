@@ -162,7 +162,8 @@ public static class RemoteValidate
 
             try
             {
-                // video is not saved here without captiontracks so none in the cache means there probably are none - otherwise cached info is indeterminate
+                /* Load the video to validate it exists, excluding caption tracks which can be downloaded when actually searching it.
+                 * Don't save the video to cache here because GetVideoAsync assumes a saved video has its caption tracks downloaded. */
                 validationResult.Video = await youtube.GetVideoAsync(id, token, videosScope, downloadCaptionTracksAndSave: false);
             }
             catch (VideoUnavailableException)

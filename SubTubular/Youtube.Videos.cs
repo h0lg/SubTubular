@@ -173,6 +173,8 @@ partial class Youtube
             video.UnIndexed = true; // to re-index it during search if it was indexed before, but cache was deleted
             if (downloadCaptionTracksAndSave) await DownloadCaptionTracksAndSaveAsync(video, scope, token);
         }
+        /* video loaded from dataStore have at least tried to download caption tracks;
+         * see how dataStore only saves videos in DownloadCaptionTracksAndSaveAsync */
 
         scope.Report(videoId, VideoList.Status.validated);
         return video;
@@ -235,6 +237,7 @@ partial class Youtube
                 .Select(t => $"  {t.LanguageName}: {t.Url}")
                 .Join(Environment.NewLine), [.. errors], video);
 
+        // videos are only ever saved after trying to download subtitles
         await dataStore.SetAsync(Video.StorageKeyPrefix + video.Id, video);
     }
 }
