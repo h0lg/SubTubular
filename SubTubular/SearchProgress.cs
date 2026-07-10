@@ -109,14 +109,14 @@ partial class CommandScope
         Notified?.Invoke(this, msg);
     }
 
-    public struct Notification(string title, string? message = null,
+    public readonly struct Notification(string title, string? message = null,
         Exception[]? errors = null, Video? video = null, Notification.Levels level = default)
     {
-        public string Title { get; set; } = title;
-        public string? Message { get; set; } = message;
-        public Exception[]? Errors { get; set; } = errors;
-        public Video? Video { get; set; } = video;
-        public Levels Level { get; set; } = level;
+        public readonly string Title = title;
+        public readonly string? Message = message;
+        public readonly Exception[]? Errors = errors;
+        public readonly Video? Video = video;
+        public readonly Levels Level = level;
 
         public enum Levels { Info, Warning, Error }
     }
