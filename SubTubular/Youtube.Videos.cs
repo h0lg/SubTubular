@@ -47,7 +47,13 @@ partial class Youtube
                     await unIndexedVideos.Writer.WriteAsync(video, token);
                     scope.Report(id, VideoList.Status.indexing);
                 }
-                /* only start another download if channel has accepted the video or an error occurred */
+                catch (Exception ex)
+                {
+                    // notify scope immediately about errors that need reporting to record their time correctly via the notification
+                    if (ex.NeedsReporting()) scope.Notify("Error loading video " + id, errors: [ex]);
+                    else throw; // bubble less important errors up to have them collected by SearchUpdatingScope
+                }
+                // only start another download if channel has accepted the video or an error occurred
                 finally { loadLimiter.Release(); }
             }, token));
 

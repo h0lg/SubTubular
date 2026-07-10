@@ -200,9 +200,11 @@ public static class ExceptionExtensions
     public static bool IsUnavailable(this Exception ex)
         => ex is VideoUnavailableException or VideoUnplayableException or PlaylistUnavailableException;
 
-    public static bool AnyNeedReporting(this IEnumerable<Exception> exns)
+    public static bool AnyNeedReporting(this IEnumerable<Exception> exns) => exns.Any(NeedsReporting);
+
+    internal static bool NeedsReporting(this Exception ex)
         // exclude input or transient unavailable errors from reporting
-        => exns.Any(e => e is not OperationCanceledException && !e.IsInputError() && !e.IsUnavailable());
+        => ex is not OperationCanceledException && !ex.IsInputError() && !ex.IsUnavailable();
 
     public static bool HaveInputError(this IEnumerable<Exception> exns) => exns.Any(IsInputError);
     public static bool AreAll<T>(this IEnumerable<Exception> exns) => exns.All(e => e is T);
