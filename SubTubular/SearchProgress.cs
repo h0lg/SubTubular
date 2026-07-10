@@ -117,6 +117,7 @@ partial class CommandScope
         public readonly Exception[]? Errors = errors;
         public readonly Video? Video = video;
         public readonly Levels Level = level;
+        public readonly DateTime Created = DateTime.Now;
 
         public enum Levels { Info, Warning, Error }
     }

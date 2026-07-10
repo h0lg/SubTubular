@@ -131,7 +131,7 @@ static partial class Program
                     // collect error details for log
                     var errorDetails = causes.Select(e => e.ToString())
                         .Prepend(notification.Message)
-                        .Prepend($"{DateTime.Now:O} {titleAndScope}")
+                        .Prepend($"{notification.Created:O} {titleAndScope}")
                         .WithValue().Join(ErrorLog.OutputSpacing);
 
                     reportableErrors.Add(errorDetails);
