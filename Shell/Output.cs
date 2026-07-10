@@ -60,9 +60,6 @@ static partial class Program
                 foreach (var ntf in notifications) OnScopeNotified(scope, ntf);
         }
 
-        // set up async notification channel
-        command.OnScopeNotification(OnScopeNotified);
-
         try
         {
             /*  passing token into command for it to react to cancellation,
@@ -78,6 +75,10 @@ static partial class Program
         {
             try
             {
+                foreach (var scope in command.GetScopes())
+                    foreach (var notification in scope.Notifications)
+                        OnScopeNotified(scope, notification);
+
                 if (outputs.Any(o => o.WroteResults)) // if we displayed a result before running into an error
                 {
                     // only writes an output file if command requires it
