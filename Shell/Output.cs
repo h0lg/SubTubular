@@ -113,9 +113,9 @@ static partial class Program
         void OnScopeNotified(CommandScope scope, CommandScope.Notification notification) => outputs.ForEach(output =>
         {
             output.WriteLine();
-            var titleAndScope = notification.Title + " in " + scope.Describe(inDetail: false).Join(" ");
+            var titleAndScope = $"{notification.Title} in {scope.Describe(inDetail: false).Join(" ")}";
             bool hasErrors = notification.Errors.HasAny();
-            Action<string> write = hasErrors ? text => output.WriteErrorLine(text) : text => output.WriteNotificationLine(text);
+            Action<string> write = hasErrors ? output.WriteErrorLine : output.WriteNotificationLine;
             write(titleAndScope);
             Video? video = notification.Video;
             if (video != null) write($"Video: {video.Title} {Youtube.GetVideoUrl(video.Id)}");
