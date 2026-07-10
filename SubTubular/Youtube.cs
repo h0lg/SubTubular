@@ -85,11 +85,19 @@ public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository vi
         }
     }
 
-    private static async Task SearchUpdatingScope(Task searching, CommandScope scope, Action? cleanUp = null)
+    /// <summary>Awaits the <paramref name="search"/> task and updates the <paramref name="scope"/>
+    /// with a <see cref="VideoList.Status"/> according to its outcome.
+    /// It catches aggregated exceptions and notifies the <paramref name="scope"/> about them,
+    /// only bubbling up those that <see cref="ExceptionExtensions.HaveInputError(IEnumerable{Exception})"/>
+    /// so they can trigger the cancelation of parallel searches in
+    /// <see cref="SearchAsync(SearchCommand, CancellationToken, CancellationTokenSource?)"/>.</summary>
+    /// <param name="cleanUp">An optional action called after the <paramref name="search"/>
+    /// has completed to free resources used by it.</param>
+    private static async Task SearchUpdatingScope(Task search, CommandScope scope, Action? cleanUp = null)
     {
         try
         {
-            await searching; // to throw exceptions
+            await search; // to throw exceptions
             scope.Report(VideoList.Status.searched);
         }
         catch (Exception ex)
