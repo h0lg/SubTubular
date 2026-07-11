@@ -119,6 +119,7 @@ partial class Youtube
             return;
         }
 
+        // allows for, but ignores inputs that are not remote validated
         var videoIds = scope.GetRemoteValidated().Ids().ToArray();
 
         /* order multiple video IDs alphabetically to create a predictable key

@@ -60,6 +60,9 @@ partial class CommandScope
 
 public static class ScopeExtensions
 {
+    /// <summary>Filters the incoming <paramref name="scopes"/>
+    /// returning those that <see cref="CommandScope.IsValid"/>,
+    /// i.e. completely remote-validated.</summary>
     internal static IEnumerable<T> GetValid<T>(this IEnumerable<T> scopes) where T : CommandScope
         => scopes.Where(s => s.IsValid);
 

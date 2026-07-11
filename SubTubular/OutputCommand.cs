@@ -12,6 +12,9 @@ public abstract class OutputCommand
         FileOutputPathHint = "Supply either a file or folder path. If the path doesn't contain a file name, the file will be named according to your search parameters.";
 
     public VideosScope? Videos { get; set; }
+
+    /// <summary>Indicates that this command has a <see cref="Videos"/> scope
+    /// and it is completely remote-validated.</summary>
     internal bool HasValidVideos => Videos?.IsValid == true;
 
     public PlaylistScope[]? Playlists { get; set; }
