@@ -55,10 +55,10 @@ partial class Youtube
             var shardSearches = videos.GroupBy(v => v.ShardNumber).Select(async group =>
             {
                 List<Task> searches = [];
-                var containedVideoIds = group.Ids().ToArray();
-                var completeVideos = group.Where(v => v.CaptionTrackDownloadStatus.IsComplete()).ToArray();
                 var shard = await videoIndexRepo.GetIndexShardAsync(storageKey, group.Key!.Value);
-                var indexedVideoIds = shard.GetIndexed(completeVideos.Ids());
+
+                // only intersection of videos in shard and video caches we've tried downloading caption tracks for count into indexed
+                var indexedVideoIds = shard.GetIndexed(group.Where(v => v.CaptionTrackDownloadStatus.IsComplete()).Ids());
 
                 if (indexedVideoIds.Length != 0)
                 {
@@ -78,7 +78,8 @@ partial class Youtube
                     }
                 }
 
-                var unIndexedVideoIds = containedVideoIds.Except(indexedVideoIds).ToArray();
+                // all other videos count as unindexed
+                var unIndexedVideoIds = group.Ids().Except(indexedVideoIds).ToArray();
 
                 // load, index and search not yet indexed videos
                 if (unIndexedVideoIds.Length > 0)
