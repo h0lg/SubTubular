@@ -49,6 +49,9 @@ partial class Youtube
             var videoIds = videos.Ids().ToArray();
             scope.QueueVideos(videoIds);
 
+            // validation of the playlist and RefreshPlaylistAsync don't load the videos; create a remote-enabled lookup to lazy-load them
+            Func<string, CancellationToken, Task<Video>> remoteVideoLookup = CreateRemoteVideoLookup(scope);
+
             var shardSearches = videos.GroupBy(v => v.ShardNumber).Select(async group =>
             {
                 List<Task> searches = [];
@@ -68,7 +71,7 @@ partial class Youtube
                     {
                         foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searching);
 
-                        await foreach (var result in shard.SearchAsync(command, CreateRemoteVideoLookup(scope), indexedVideoInfos, playlist, token))
+                        await foreach (var result in shard.SearchAsync(command, remoteVideoLookup, indexedVideoInfos, playlist, token))
                             await Yield(result);
 
                         foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searched);
