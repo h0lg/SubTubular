@@ -129,10 +129,7 @@ module OutputCommands =
                         if command.SaveAsRecent then
                             SaveRecent command |> dispatch
 
-                        do!
-                            Services.Youtube
-                                .SearchAsync(search, token)
-                                .dispatchBuffered (300, SearchResults, dispatch)
+                        do! Services.Youtube.SearchAsync(search, token).dispatchBuffered (300, SearchResults, dispatch)
 
                     | :? ListKeywords as listKeywords ->
                         Prevalidate.Scopes listKeywords

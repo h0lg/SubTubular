@@ -167,9 +167,8 @@ internal sealed class VideoIndex : IDisposable
             throw new InputException(ex.Message + ". Available are " + Index.FieldLookup.AllFieldNames.Join(", "), ex);
         }
 
-        var matches = unfiltered
-            // make sure to only return results for the requested videos if specified; playlist or channel indexes may contain more
-            .Where(m => relevantVideos?.ContainsKey(m.Key) != false).ToList();
+        // make sure to only return results for the requested videos if specified; playlist or channel indexes may contain more
+        var matches = unfiltered.Where(m => relevantVideos?.ContainsKey(m.Key) != false).ToList();
 
         Video[]? videosWithoutUploadDate = null;
         List<Video> unIndexedVideos = [];

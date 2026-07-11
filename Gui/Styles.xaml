@@ -130,7 +130,7 @@
   <Style Selector="MenuItem.active-toggle">
     <Setter Property="Background" Value="{DynamicResource ActiveToggleBackground}" />
   </Style>
-  
+
   <Style Selector="MenuItem.inactive-toggle">
     <Setter Property="Background" Value="{DynamicResource InactiveToggleBackground}" />
     <Setter Property="Foreground" Value="{DynamicResource InactiveToggleForeground}" />
