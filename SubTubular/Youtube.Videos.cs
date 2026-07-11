@@ -68,7 +68,7 @@ partial class Youtube
         var uncommitted = new List<Video>(); // batch of loaded and indexed, but uncommitted video index changes
 
         // local getter reusing already loaded video from uncommitted bag for better performance
-        Func<string, CancellationToken, Task<Video>> getVideoAsync = CreateVideoLookup(uncommitted);
+        Func<string, CancellationToken, Task<Video>> localVideoLookup = CreateLocalVideoLookup(uncommitted);
 
         // read synchronously from the channel because we're writing to the same video index
         // don't pass cancellation token to avoid throwing before loadVideos is awaited below
@@ -90,7 +90,7 @@ partial class Youtube
                 scope.Report(uncommitted, VideoList.Status.searching);
 
                 // search after committing index changes to output matches as we go
-                await foreach (var result in index.SearchAsync(command, getVideoAsync, indexedVideoInfos, token: token))
+                await foreach (var result in index.SearchAsync(command, localVideoLookup, indexedVideoInfos, token: token))
                     yield return result;
 
                 scope.Report(uncommitted, VideoList.Status.searched);
@@ -137,7 +137,7 @@ partial class Youtube
             // indexed videos are assumed to have downloaded their caption tracks already
             Video[] videos = [.. scope.Validated.Select(v => v.Video!)];
 
-            await foreach (var result in index.SearchAsync(command, CreateVideoLookup(videos), token: token))
+            await foreach (var result in index.SearchAsync(command, CreateLocalVideoLookup(videos), token: token))
                 await yieldResult(result);
         }, token);
 
@@ -226,6 +226,6 @@ partial class Youtube
     }
 
     /// <summary>Returns a video lookup that used the local <paramref name="videos"/> collection for better performance.</summary>
-    private static Func<string, CancellationToken, Task<Video>> CreateVideoLookup(IEnumerable<Video> videos)
+    private static Func<string, CancellationToken, Task<Video>> CreateLocalVideoLookup(IEnumerable<Video> videos)
         => (videoId, _) => Task.FromResult(videos.Single(v => v.Id == videoId));
 }

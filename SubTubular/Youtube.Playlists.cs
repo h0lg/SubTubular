@@ -68,7 +68,7 @@ partial class Youtube
                     {
                         foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searching);
 
-                        await foreach (var result in shard.SearchAsync(command, CreateVideoLookup(scope), indexedVideoInfos, playlist, token))
+                        await foreach (var result in shard.SearchAsync(command, CreateRemoteVideoLookup(scope), indexedVideoInfos, playlist, token))
                             await Yield(result);
 
                         foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searched);
@@ -234,6 +234,6 @@ partial class Youtube
 
     /// <summary>Returns a curried <see cref="GetVideoAsync(string, CancellationToken, CommandScope, bool)"/>
     /// with the <paramref name="scope"/> supplied.</summary>
-    private Func<string, CancellationToken, Task<Video>> CreateVideoLookup(CommandScope scope)
+    private Func<string, CancellationToken, Task<Video>> CreateRemoteVideoLookup(CommandScope scope)
         => (videoId, token) => GetVideoAsync(videoId, token, scope);
 }
