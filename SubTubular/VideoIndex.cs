@@ -305,7 +305,7 @@ internal sealed class VideoIndex : IDisposable
             scope.Report(unIndexedVideos, VideoList.Status.searching);
 
             await foreach (var result in SearchAsync(command, scope, LookupUnindexedVideoLocally,
-                unIndexedVideos.ToDictionary(v => v.Id, v => v.Uploaded as DateTime?),
+                relevantVideos: unIndexedVideos.ToDictionary(v => v.Id, v => v.Uploaded as DateTime?),
                 playlist, token))
                 yield return result;
 

@@ -86,11 +86,11 @@ partial class Youtube
             {
                 await index.CommitBatchChangeAsync(token);
 
-                var indexedVideoInfos = uncommitted.ToDictionary(v => v.Id, v => v.Uploaded as DateTime?);
+                var relevantVideos = uncommitted.ToDictionary(v => v.Id, v => v.Uploaded as DateTime?);
                 scope.Report(uncommitted, VideoList.Status.searching);
 
                 // search after committing index changes to output matches as we go
-                await foreach (var result in index.SearchAsync(command, scope, LookupVideoLocally, indexedVideoInfos, token: token))
+                await foreach (var result in index.SearchAsync(command, scope, LookupVideoLocally, relevantVideos, token: token))
                     yield return result;
 
                 scope.Report(uncommitted, VideoList.Status.searched);

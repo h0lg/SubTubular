@@ -62,7 +62,7 @@ partial class Youtube
 
                 if (indexedVideoIds.Length != 0)
                 {
-                    var indexedVideoInfos = indexedVideoIds.ToDictionary(id => id, id => group.Single(v => v.Id == id).Uploaded);
+                    var relevantVideos = indexedVideoIds.ToDictionary(id => id, id => group.Single(v => v.Id == id).Uploaded);
 
                     // search already indexed videos in one go - but on background task to start downloading and indexing videos in parallel
                     searches.Add(SearchIndexedVideos());
@@ -71,7 +71,7 @@ partial class Youtube
                     {
                         foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searching);
 
-                        await foreach (var result in shard.SearchAsync(command, scope, LookupVideoRemotely, indexedVideoInfos, playlist, token))
+                        await foreach (var result in shard.SearchAsync(command, scope, LookupVideoRemotely, relevantVideos, playlist, token))
                             await Yield(result);
 
                         foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searched);
