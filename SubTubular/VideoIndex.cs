@@ -325,7 +325,7 @@ internal sealed class VideoIndex : IDisposable
             token.ThrowIfCancellationRequested();
 
             await Task.WhenAll(indexedKeys.Where(key => key == video.Id)
-                .Select(key => Index.RemoveAsync(key))).WithAggregateException();
+                .Select(key => Index.RemoveAsync(key, token))).WithAggregateException();
 
             await AddOrUpdateAsync(video, scope, token);
         }
