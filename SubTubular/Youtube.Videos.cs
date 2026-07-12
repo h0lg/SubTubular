@@ -67,8 +67,8 @@ partial class Youtube
 
         var uncommitted = new List<Video>(); // batch of loaded and indexed, but uncommitted video index changes
 
-        // local getter reusing already loaded video from uncommitted bag for better performance
-        Func<string, CancellationToken, Task<Video>> localVideoLookup = CreateLocalVideoLookup(uncommitted);
+        // local lookup reusing already loaded video from uncommitted bag for better performance; can be used because videos in it have caption tracks loaded
+        Task<Video> LookupVideoLocally(string videoId, CancellationToken _) => Task.FromResult(uncommitted.Single(v => v.Id == videoId));
 
         // read synchronously from the channel because we're writing to the same video index
         // don't pass cancellation token to avoid throwing before loadVideos is awaited below
@@ -90,7 +90,7 @@ partial class Youtube
                 scope.Report(uncommitted, VideoList.Status.searching);
 
                 // search after committing index changes to output matches as we go
-                await foreach (var result in index.SearchAsync(command, localVideoLookup, indexedVideoInfos, token: token))
+                await foreach (var result in index.SearchAsync(command, LookupVideoLocally, indexedVideoInfos, token: token))
                     yield return result;
 
                 scope.Report(uncommitted, VideoList.Status.searched);
@@ -231,8 +231,4 @@ partial class Youtube
 
         await dataStore.SetAsync(Video.StorageKeyPrefix + video.Id, video);
     }
-
-    /// <summary>Returns a video lookup that used the local <paramref name="videos"/> collection for better performance.</summary>
-    private static Func<string, CancellationToken, Task<Video>> CreateLocalVideoLookup(IEnumerable<Video> videos)
-        => (videoId, _) => Task.FromResult(videos.Single(v => v.Id == videoId));
 }

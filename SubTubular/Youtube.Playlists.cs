@@ -50,7 +50,7 @@ partial class Youtube
             scope.QueueVideos(videoIds);
 
             // validation of the playlist and RefreshPlaylistAsync don't load the videos; create a remote-enabled lookup to lazy-load them
-            Func<string, CancellationToken, Task<Video>> remoteVideoLookup = CreateRemoteVideoLookup(scope);
+            Task<Video> LookupVideoRemotely(string videoId, CancellationToken token) => GetVideoAsync(videoId, token, scope);
 
             var shardSearches = videos.GroupBy(v => v.ShardNumber).Select(async group =>
             {
@@ -71,7 +71,7 @@ partial class Youtube
                     {
                         foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searching);
 
-                        await foreach (var result in shard.SearchAsync(command, remoteVideoLookup, indexedVideoInfos, playlist, token))
+                        await foreach (var result in shard.SearchAsync(command, LookupVideoRemotely, indexedVideoInfos, playlist, token))
                             await Yield(result);
 
                         foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searched);
@@ -234,9 +234,4 @@ partial class Youtube
         PlaylistScope _ => client.Playlists.GetVideosAsync(scope.SingleValidated.Id, token),
         _ => throw new NotImplementedException($"Getting videos for the {scope.GetType()} is not implemented.")
     };
-
-    /// <summary>Returns a curried <see cref="GetVideoAsync(string, CancellationToken, CommandScope, bool)"/>
-    /// with the <paramref name="scope"/> supplied.</summary>
-    private Func<string, CancellationToken, Task<Video>> CreateRemoteVideoLookup(CommandScope scope)
-        => (videoId, token) => GetVideoAsync(videoId, token, scope);
 }
