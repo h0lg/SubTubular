@@ -123,6 +123,9 @@ internal sealed class VideoIndex : IDisposable
 
     internal async Task AddOrUpdateAsync(Video video, CancellationToken token)
     {
+        if (!video.GetCaptionTrackDownloadStatus().IsComplete())
+            throw new InvalidOperationException("Make sure you've tried to download a video's caption tracks before indexing it.");
+
         /*  Adds or replaces the video, see
             https://mikegoatly.github.io/lifti/docs/index-construction/withduplicatekeybehavior/
             https://github.com/mikegoatly/lifti/discussions/124#discussioncomment-11296041 */
@@ -139,6 +142,8 @@ internal sealed class VideoIndex : IDisposable
     /// or the <paramref name="token"/> is invoked.</summary>
     /// <param name="command">Determines the <see cref="SearchCommand.Query"/> for the search
     /// and the <see cref="PlaylistLikeScope.OrderBy"/> and <see cref="SearchCommand.Padding"/> of the results.</param>
+    /// <param name="getVideoAsync">Used to lookup videos by their ID; must return <see cref="Video"/>s
+    /// that have tried downloading their <see cref="Video.CaptionTracks"/>.</param>
     /// <param name="relevantVideos"><see cref="Video.Id"/>s the search is limited to
     /// accompanied by their corresponding <see cref="Video.Uploaded"/> dates, if known.
     /// The latter are only used for <see cref="SearchCommand.OrderOptions.uploaded"/>
@@ -293,14 +298,14 @@ internal sealed class VideoIndex : IDisposable
             // consider results for un-cached videos stale and re-index them
             await UpdateAsync(unIndexedVideos, token);
 
-            await foreach (var result in SearchAsync(command, GetReIndexedVideoAsync,
+            await foreach (var result in SearchAsync(command, LookupUnindexedVideoLocally,
                 unIndexedVideos.ToDictionary(v => v.Id, v => v.Uploaded as DateTime?),
                 playlist, token))
                 yield return result;
 
             // re-trigger search for re-indexed videos only
-            async Task<Video> GetReIndexedVideoAsync(string id, CancellationToken token)
-                => unIndexedVideos.SingleOrDefault(v => v.Id == id) ?? await getVideoAsync(id, token);
+            async Task<Video> LookupUnindexedVideoLocally(string id, CancellationToken _)
+                => unIndexedVideos.Single(v => v.Id == id);
         }
     }
 

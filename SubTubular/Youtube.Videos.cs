@@ -134,11 +134,18 @@ partial class Youtube
         {
             scope.Report(VideoList.Status.searching);
 
-            // indexed videos are assumed to have downloaded their caption tracks already
-            Video[] videos = [.. scope.Validated.Select(v => v.Video!)];
+            /* Validated video may have downloaded caption tracks already when they were indexed,
+             * but we can't rely on it because validation doesn't do it
+             * and the video caches that were once indexed may have been deleted separately */
+            var videosById = scope.Validated.Select(v => v.Video!).ToDictionary(v => v.Id);
 
-            await foreach (var result in index.SearchAsync(command, CreateLocalVideoLookup(videos), token: token))
+            await foreach (var result in index.SearchAsync(command, LookupVideoLocallyFirst, token: token))
                 await yieldResult(result);
+
+            async Task<Video> LookupVideoLocallyFirst(string videoId, CancellationToken token)
+                // prefer lookup from local collection because it's faster - but only if the video found has its caption tracks downloaded
+                => videosById.TryGetValue(videoId, out var video) && video.GetCaptionTrackDownloadStatus().IsComplete() ? video
+                    : await GetVideoAsync(videoId, token, scope); // otherwise look it up remotely, downloading the caption tracks
         }, token);
 
         await SearchUpdatingScope(searching, scope, () => index.Dispose());
