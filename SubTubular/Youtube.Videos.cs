@@ -67,36 +67,40 @@ partial class Youtube
             }
         });
 
-        var uncommitted = new List<Video>(); // batch of loaded and indexed, but uncommitted video index changes
+        /* the batch of loaded and indexed, but uncommitted video index changes.
+         * Can use a simple list because there's no concurrent access. */
+        var indexed = new List<Video>();
 
-        // local lookup reusing already loaded video from uncommitted bag for better performance; can be used because videos in it have caption tracks loaded
-        Task<Video> LookupVideoLocally(string videoId, CancellationToken _) => Task.FromResult(uncommitted.Single(v => v.Id == videoId));
+        // local lookup reusing already loaded video from indexed bag for better performance; can be used because videos in it have caption tracks loaded
+        Task<Video> LookupVideoLocally(string videoId, CancellationToken _) => Task.FromResult(indexed.Single(v => v.Id == videoId));
 
         // read synchronously from the channel because we're writing to the same video index
         // don't pass cancellation token to avoid throwing before loadVideos is awaited below
         await foreach (var video in unIndexedVideos.Reader.ReadAllAsync())
         {
             if (token.IsCancellationRequested) break; // end loop gracefully to throw below
-            if (uncommitted.Count == 0) index.BeginBatchChange();
+            if (indexed.Count == 0) index.BeginBatchChange();
             await index.AddOrUpdateAsync(video, scope, token);
-            uncommitted.Add(video);
+            indexed.Add(video);
 
             // save batch of changes
-            if (uncommitted.Count >= queueSize // to prevent the batch from growing too big
+            if (indexed.Count >= queueSize // to prevent the batch from growing too big
                 || unIndexedVideos.Reader.Completion.IsCompleted // to save remaining changes
                 || unIndexedVideos.Reader.Count == 0) // to use resources efficiently while we've got nothing queued up for indexing
             {
                 await index.CommitBatchChangeAsync(token);
 
-                var relevantVideos = uncommitted.ToDictionary(v => v.Id, v => v.Uploaded as DateTime?);
-                scope.Report(uncommitted, VideoList.Status.searching);
+                // limit search to videos in indexed and now committed batch
+                var relevantVideos = indexed.ToDictionary(v => v.Id, v => v.Uploaded as DateTime?);
+
+                scope.Report(indexed, VideoList.Status.searching);
 
                 // search after committing index changes to output matches as we go
                 await foreach (var result in index.SearchAsync(command, scope, LookupVideoLocally, relevantVideos, token: token))
                     yield return result;
 
-                scope.Report(uncommitted, VideoList.Status.searched);
-                uncommitted.Clear(); // safe to do because we're reading synchronously and no other thread could have added to it in between
+                scope.Report(indexed, VideoList.Status.searched);
+                indexed.Clear(); // safe to do because we're reading synchronously and no other thread could have added to it in between
             }
         }
 
