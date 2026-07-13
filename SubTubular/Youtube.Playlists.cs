@@ -71,7 +71,7 @@ partial class Youtube
                     {
                         foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searching);
 
-                        await foreach (var result in shard.SearchAsync(command, LookupVideoRemotely, indexedVideoInfos, playlist, token))
+                        await foreach (var result in shard.SearchAsync(command, scope, LookupVideoRemotely, indexedVideoInfos, playlist, token))
                             await Yield(result);
 
                         foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searched);

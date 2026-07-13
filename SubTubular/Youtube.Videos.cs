@@ -45,7 +45,6 @@ partial class Youtube
                     playlist?.Update(video);
 
                     await unIndexedVideos.Writer.WriteAsync(video, token);
-                    scope.Report(id, VideoList.Status.indexing);
                 }
                 catch (Exception ex)
                 {
@@ -76,7 +75,7 @@ partial class Youtube
         {
             if (token.IsCancellationRequested) break; // end loop gracefully to throw below
             if (uncommitted.Count == 0) index.BeginBatchChange();
-            await index.AddOrUpdateAsync(video, token);
+            await index.AddOrUpdateAsync(video, scope, token);
             uncommitted.Add(video);
 
             // save batch of changes
@@ -90,7 +89,7 @@ partial class Youtube
                 scope.Report(uncommitted, VideoList.Status.searching);
 
                 // search after committing index changes to output matches as we go
-                await foreach (var result in index.SearchAsync(command, LookupVideoLocally, indexedVideoInfos, token: token))
+                await foreach (var result in index.SearchAsync(command, scope, LookupVideoLocally, indexedVideoInfos, token: token))
                     yield return result;
 
                 scope.Report(uncommitted, VideoList.Status.searched);
@@ -140,7 +139,7 @@ partial class Youtube
             scope.Report(VideoList.Status.searching);
             scope.Report(videosById.Values, VideoList.Status.searching);
 
-            await foreach (var result in index.SearchAsync(command, LookupVideoLocallyFirst, token: token))
+            await foreach (var result in index.SearchAsync(command, scope, LookupVideoLocallyFirst, token: token))
                 await yieldResult(result);
 
             scope.Report(videosById.Values, VideoList.Status.searched);
@@ -165,8 +164,8 @@ partial class Youtube
         if (video == null)
         {
             scope.Report(videoId, VideoList.Status.downloading);
-
             var vid = await client.Videos.GetAsync(videoId, token);
+            scope.Report(videoId, VideoList.Status.validated);
             video = MapVideo(vid);
             video.UnIndexed = true; // to re-index it if it was already indexed
             if (downloadCaptionTracksAndSave) await DownloadCaptionTracksAndSaveAsync(video, scope, token);

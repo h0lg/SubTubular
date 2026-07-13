@@ -121,8 +121,10 @@ internal sealed class VideoIndex : IDisposable
     internal string[] GetIndexed(IEnumerable<string> videoIds)
         => [.. videoIds.Where(Index.Metadata.Contains)];
 
-    internal async Task AddOrUpdateAsync(Video video, CancellationToken token)
+    internal async Task AddOrUpdateAsync(Video video, CommandScope scope, CancellationToken token)
     {
+        scope.Report(video.Id, VideoList.Status.indexing);
+
         /*  Adds or replaces the video, see
             https://mikegoatly.github.io/lifti/docs/index-construction/withduplicatekeybehavior/
             https://github.com/mikegoatly/lifti/discussions/124#discussioncomment-11296041 */
@@ -139,6 +141,7 @@ internal sealed class VideoIndex : IDisposable
     /// or the <paramref name="token"/> is invoked.</summary>
     /// <param name="command">Determines the <see cref="SearchCommand.Query"/> for the search
     /// and the <see cref="PlaylistLikeScope.OrderBy"/> and <see cref="SearchCommand.Padding"/> of the results.</param>
+    /// <param name="scope">The command scope - used for accurately reporting the status of videos that get re-indexed during a search.</param>
     /// <param name="getVideoAsync">Used to lookup videos by their ID; must return <see cref="Video"/>s
     /// that have tried downloading their <see cref="Video.CaptionTracks"/>.</param>
     /// <param name="relevantVideos"><see cref="Video.Id"/>s the search is limited to
@@ -148,7 +151,7 @@ internal sealed class VideoIndex : IDisposable
     /// <param name="playlist">Allows updating the <see cref="Playlist.GetVideos()"/>
     /// with the <see cref="Video.Uploaded"/> dates after loading them for
     /// <see cref="SearchCommand.OrderOptions.uploaded"/>.</param>
-    internal async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command,
+    internal async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command, CommandScope scope,
         Func<string, CancellationToken, Task<Video>> getVideoAsync,
         IDictionary<string, DateTime?>? relevantVideos = default,
         Playlist? playlist = default,
@@ -293,9 +296,12 @@ internal sealed class VideoIndex : IDisposable
         if (unIndexedVideos.Count > 0)
         {
             // consider results for un-cached videos stale and re-index them
-            await UpdateAsync(unIndexedVideos, token);
+            await UpdateAsync(unIndexedVideos, scope, token);
 
-            await foreach (var result in SearchAsync(command, LookupUnindexedVideoLocally,
+            // unIndexedVideos were reloaded and are in validated state ATM
+            scope.Report(unIndexedVideos, VideoList.Status.searching);
+
+            await foreach (var result in SearchAsync(command, scope, LookupUnindexedVideoLocally,
                 unIndexedVideos.ToDictionary(v => v.Id, v => v.Uploaded as DateTime?),
                 playlist, token))
                 yield return result;
@@ -306,7 +312,7 @@ internal sealed class VideoIndex : IDisposable
         }
     }
 
-    private async Task UpdateAsync(IEnumerable<Video> videos, CancellationToken token)
+    private async Task UpdateAsync(IEnumerable<Video> videos, CommandScope scope, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
         var indexedKeys = Index.Metadata.GetIndexedDocuments().Select(d => d.Key).ToArray();
@@ -319,7 +325,7 @@ internal sealed class VideoIndex : IDisposable
             await Task.WhenAll(indexedKeys.Where(key => key == video.Id)
                 .Select(key => Index.RemoveAsync(key))).WithAggregateException();
 
-            await AddOrUpdateAsync(video, token);
+            await AddOrUpdateAsync(video, scope, token);
         }
 
         await CommitBatchChangeAsync(token);
