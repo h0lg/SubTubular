@@ -113,7 +113,6 @@ partial class Youtube
         }
 
         var videoIds = scope.GetRemoteValidated().Ids().ToArray();
-        scope.QueueVideos(videoIds);
         var storageKey = Video.StorageKeyPrefix + videoIds.Order().Join(" ");
         var index = await videoIndexRepo.GetAsync(storageKey);
 

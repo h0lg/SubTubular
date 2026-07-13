@@ -80,7 +80,6 @@ partial class Youtube
         async Task ForVideos(VideosScope videos)
         {
             var videoIds = videos.GetRemoteValidated().Ids().ToArray();
-            videos.QueueVideos(videoIds);
             videos.Report(VideoList.Status.searching);
 
             await Task.WhenAll(videoIds.Select(async videoId =>
