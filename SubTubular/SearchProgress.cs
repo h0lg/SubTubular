@@ -90,9 +90,10 @@ partial class CommandScope
     {
         Notifications.Clear();
 
+        // at the time of calling, validated is the safe progress to fall back to
         if (Progress.Videos.HasAny())
             foreach (var id in Progress.Videos!.Keys.AsEnumerable())
-                UpdateVideoState(id, VideoList.Status.queued);
+                UpdateVideoState(id, VideoList.Status.validated);
 
         Report(VideoList.Status.validated);
     }
