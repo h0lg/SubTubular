@@ -36,15 +36,17 @@ partial class Youtube
                 {
                     // get video, trying validated Videos scope first
                     Video? video = command.Videos?.Validated.SingleOrDefault(v => v.Id == id)?.Video;
-                    video ??= await GetVideoAsync(id, token, scope, downloadCaptionTracksAndSave: false);
+
+                    video ??= await GetVideoAsync(id, token, scope,
+                        downloadCaptionTracks: false, save: false); // both done below
 
                     // (retry) download caption tracks for the video; validation doesn't do it and there may have been transient errors
                     if (!video.HasDownloadedCaptionTracks())
-                        await DownloadCaptionTracksAndSaveAsync(video, scope, token);
+                        await DownloadCaptionTracksAsync(video, scope, token);
 
+                    await SaveVideo(video);
                     token.ThrowIfCancellationRequested();
                     playlist?.Update(video);
-
                     await unIndexedVideos.Writer.WriteAsync(video, token);
                 }
                 catch (Exception ex)
@@ -158,7 +160,7 @@ partial class Youtube
     }
 
     internal async Task<Video> GetVideoAsync(string videoId, CancellationToken token,
-        CommandScope scope, bool downloadCaptionTracksAndSave = true)
+        CommandScope scope, bool downloadCaptionTracks = true, bool save = true)
     {
         token.ThrowIfCancellationRequested();
         var storageKey = Video.StorageKeyPrefix + videoId;
@@ -171,10 +173,14 @@ partial class Youtube
             var vid = await client.Videos.GetAsync(videoId, token);
             video = MapVideo(vid);
             video.UnIndexed = true; // to re-index it during search if it was indexed before, but cache was deleted
-            if (downloadCaptionTracksAndSave) await DownloadCaptionTracksAndSaveAsync(video, scope, token);
+            if (downloadCaptionTracks) await DownloadCaptionTracksAsync(video, scope, token);
+            if (save) await SaveVideo(video);
         }
-        /* video loaded from dataStore have at least tried to download caption tracks;
-         * see how dataStore only saves videos in DownloadCaptionTracksAndSaveAsync */
+        else if (downloadCaptionTracks && !video.HasDownloadedCaptionTracks())
+        {
+            await DownloadCaptionTracksAsync(video, scope, token);
+            if (save) await SaveVideo(video);
+        }
 
         scope.Report(videoId, VideoList.Status.validated);
         return video;
@@ -191,7 +197,7 @@ partial class Youtube
         Thumbnail = SelectUrl(video.Thumbnails)
     };
 
-    private async Task DownloadCaptionTracksAndSaveAsync(Video video, CommandScope scope, CancellationToken token)
+    private async Task DownloadCaptionTracksAsync(Video video, CommandScope scope, CancellationToken token)
     {
         List<Exception> errors = [];
 
@@ -236,8 +242,7 @@ partial class Youtube
             message: video.CaptionTracks?.WithErrors()
                 .Select(t => $"  {t.LanguageName}: {t.Url}")
                 .Join(Environment.NewLine), [.. errors], video);
-
-        // videos are only ever saved after trying to download subtitles
-        await dataStore.SetAsync(Video.StorageKeyPrefix + video.Id, video);
     }
+
+    private Task SaveVideo(Video video) => dataStore.SetAsync(Video.StorageKeyPrefix + video.Id, video);
 }
