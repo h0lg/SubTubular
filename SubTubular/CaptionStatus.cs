@@ -26,8 +26,8 @@ public static class CaptionStatusExtensions
             : video.CaptionTracks.WithErrors().Any() ? CaptionStatus.Error
             : null; // downloaded
 
-    internal static bool IsComplete(this CaptionStatus? status)
-        => status is null or CaptionStatus.None;
+    internal static bool HasDownloadedCaptionTracks(this Video video) => video.GetCaptionTrackDownloadStatus().IsComplete();
+    internal static bool IsComplete(this CaptionStatus? status) => status is null or CaptionStatus.None;
 
     public static IEnumerable<CaptionTrackDownloadStatus> Irregular(this CaptionTrackDownloadStatus[] states)
         => states.Where(s => s.status.HasValue); // not downloaded

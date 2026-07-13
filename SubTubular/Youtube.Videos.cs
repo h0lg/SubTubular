@@ -39,7 +39,7 @@ partial class Youtube
                     video ??= await GetVideoAsync(id, token, scope, downloadCaptionTracksAndSave: false);
 
                     // (retry) download caption tracks for the video; validation doesn't do it and there may have been transient errors
-                    if (!video.GetCaptionTrackDownloadStatus().IsComplete())
+                    if (!video.HasDownloadedCaptionTracks())
                         await DownloadCaptionTracksAndSaveAsync(video, scope, token);
 
                     token.ThrowIfCancellationRequested();
@@ -150,7 +150,7 @@ partial class Youtube
 
             async Task<Video> LookupVideoLocallyFirst(string videoId, CancellationToken token)
                 // prefer lookup from local collection because it's faster - but only if the video found has its caption tracks downloaded
-                => videosById.TryGetValue(videoId, out var video) && video.GetCaptionTrackDownloadStatus().IsComplete() ? video
+                => videosById.TryGetValue(videoId, out var video) && video.HasDownloadedCaptionTracks() ? video
                     : await GetVideoAsync(videoId, token, scope); // otherwise look it up remotely, downloading the caption tracks
         }, token);
 
