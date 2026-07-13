@@ -132,15 +132,18 @@ partial class Youtube
         }
         else searching = Task.Run(async () =>
         {
-            scope.Report(VideoList.Status.searching);
-
             /* Validated video may have downloaded caption tracks already when they were indexed,
              * but we can't rely on it because validation doesn't do it
              * and the video caches that were once indexed may have been deleted separately */
             var videosById = scope.Validated.Select(v => v.Video!).ToDictionary(v => v.Id);
 
+            scope.Report(VideoList.Status.searching);
+            scope.Report(videosById.Values, VideoList.Status.searching);
+
             await foreach (var result in index.SearchAsync(command, LookupVideoLocallyFirst, token: token))
                 await yieldResult(result);
+
+            scope.Report(videosById.Values, VideoList.Status.searched);
 
             async Task<Video> LookupVideoLocallyFirst(string videoId, CancellationToken token)
                 // prefer lookup from local collection because it's faster - but only if the video found has its caption tracks downloaded
