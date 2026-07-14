@@ -58,7 +58,7 @@ public abstract class OutputCommand
         if (Videos != null) yield return Videos;
     }
 
-    public bool RequiresRemoteValidation() => !GetScopes().All(s => s.IsValid);
+    public bool RequiresRemoteValidation() => GetScopes().Any(s => !s.IsValid);
     protected string DescribeScopes() => GetScopes().Select(p => p.Describe().Join(" ")).Join(" ");
 
     /// <summary>Forwards the <see cref="CommandScope.Notified"/> on all <see cref="GetScopes"/>
