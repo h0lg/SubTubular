@@ -129,7 +129,7 @@ internal sealed class VideoIndex : IDisposable
             https://mikegoatly.github.io/lifti/docs/index-construction/withduplicatekeybehavior/
             https://github.com/mikegoatly/lifti/discussions/124#discussioncomment-11296041 */
         await Index.AddAsync(video, token);
-        video.UnIndexed = false; // to reset the flag
+        video.IsFresh = false; // reset the flag that triggers re-indexing during search
     }
 
     internal void BeginBatchChange() => Index.BeginBatchChange();
@@ -171,7 +171,7 @@ internal sealed class VideoIndex : IDisposable
         var matches = unfiltered.Where(m => relevantVideos?.ContainsKey(m.Key) != false).ToList();
 
         Video[]? videosWithoutUploadDate = null;
-        List<Video> unIndexedVideos = [];
+        List<Video> freshVideos = []; // collects videos the index remembers, but the local cache is missing - for re-indexing
 
         // order matches
         if (matches.Count > 1)
@@ -194,7 +194,7 @@ internal sealed class VideoIndex : IDisposable
                     var getVideos = matchesForVideosWithoutUploadDate.Select(m => getVideoAsync(m.Key, token)).ToArray();
                     await Task.WhenAll(getVideos).WithAggregateException();
                     videosWithoutUploadDate = [.. getVideos.Select(t => t.Result)];
-                    unIndexedVideos.AddRange(videosWithoutUploadDate.Where(v => v.UnIndexed));
+                    freshVideos.AddRange(videosWithoutUploadDate.Where(v => v.IsFresh));
 
                     foreach (var match in matchesForVideosWithoutUploadDate)
                     {
@@ -220,8 +220,8 @@ internal sealed class VideoIndex : IDisposable
         {
             token.ThrowIfCancellationRequested();
 
-            // consider results for un-cached videos stale
-            if (unIndexedVideos.Any(video => video.Id == match.Key)) continue;
+            // consider results for freshVideos stale
+            if (freshVideos.Any(video => video.Id == match.Key)) continue;
 
             // get video, trying videosWithoutUploadDate before getVideoAsync because it's cheaper
             var video = videosWithoutUploadDate?.SingleOrDefault(v => v.Id == match.Key);
@@ -230,10 +230,10 @@ internal sealed class VideoIndex : IDisposable
             {
                 video = await getVideoAsync(match.Key, token);
 
-                if (video.UnIndexed)
+                if (video.IsFresh)
                 {
-                    unIndexedVideos.Add(video);
-                    continue; // consider results for un-cached videos stale
+                    freshVideos.Add(video);
+                    continue; // consider results for freshVideos stale
                 }
             }
 
@@ -295,22 +295,22 @@ internal sealed class VideoIndex : IDisposable
             yield return result;
         }
 
-        if (unIndexedVideos.Count > 0)
+        if (freshVideos.Count > 0)
         {
-            // consider results for un-cached videos stale and re-index them
-            await UpdateAsync(unIndexedVideos, scope, token);
+            // consider results for freshVideos stale and re-index them
+            await UpdateAsync(freshVideos, scope, token);
 
-            // unIndexedVideos were reloaded and are in validated state ATM
-            scope.Report(unIndexedVideos, VideoList.Status.searching);
+            // freshVideos were reloaded and are in validated state ATM
+            scope.Report(freshVideos, VideoList.Status.searching);
 
-            await foreach (var result in SearchAsync(command, scope, LookupUnindexedVideoLocally,
-                relevantVideos: unIndexedVideos.ToDictionary(v => v.Id, v => v.Uploaded as DateTime?),
+            // re-trigger search for freshVideos only
+            await foreach (var result in SearchAsync(command, scope, LookupFreshVideoLocally,
+                relevantVideos: freshVideos.ToDictionary(v => v.Id, v => v.Uploaded as DateTime?),
                 playlist, token))
                 yield return result;
 
-            // re-trigger search for re-indexed videos only
-            Task<Video> LookupUnindexedVideoLocally(string id, CancellationToken _)
-                => Task.FromResult(unIndexedVideos.Single(v => v.Id == id));
+            Task<Video> LookupFreshVideoLocally(string id, CancellationToken _)
+                => Task.FromResult(freshVideos.Single(v => v.Id == id));
         }
     }
 

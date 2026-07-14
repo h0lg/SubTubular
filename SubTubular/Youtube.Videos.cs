@@ -176,7 +176,7 @@ partial class Youtube
             scope.Report(videoId, VideoList.Status.downloading);
             var vid = await client.Videos.GetAsync(videoId, token);
             video = MapVideo(vid);
-            video.UnIndexed = true; // to re-index it during search if it was indexed before, but cache was deleted
+            video.IsFresh = true; // to re-index it during search if it was indexed before, but cache was deleted
             if (downloadCaptionTracks) await DownloadCaptionTracksAsync(video, scope, token);
             if (save) await SaveVideo(video);
         }

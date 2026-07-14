@@ -18,8 +18,8 @@ public sealed class Video
     public DateTime Uploaded { get; set; }
 
     /// <summary>Set internally and temporarily when a video was re-loaded from YouTube and needs re-indexing.
-    /// This is a work-around for <see cref="CacheManager"/> not cleaning up playlist indexes when singular videos are cleared.</summary>
-    internal bool UnIndexed { get; set; }
+    /// This is a work-around for <see cref="CacheManager"/> not cleaning up fulltext indexes when video caches are deleted.</summary>
+    internal bool IsFresh { get; set; }
 
     /// <summary>Null if tracks have not been downloaded.</summary>
     public IList<CaptionTrack>? CaptionTracks { get; set; }
