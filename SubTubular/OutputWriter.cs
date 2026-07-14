@@ -31,8 +31,8 @@ public abstract class OutputWriter(OutputCommand command)
         void WriteScopes(string label, params CommandScope?[]? scopes)
         {
             if (scopes == null) return;
-            var validScopes = scopes.WithValue().GetValid();
-            if (!validScopes.Any()) return;
+            var validScopes = scopes.WithValue().GetValid().ToArray();
+            if (validScopes.Length == 0) return;
             Write(label + " ");
             var indent = CreateIndent();
             foreach (var scope in validScopes) Describe(scope, indent);
