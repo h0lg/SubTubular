@@ -68,7 +68,8 @@ partial class Youtube
                     async Task SearchIndexedVideos()
                     {
                         foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searching);
-                        var relevantVideos = indexedVideoIds.ToDictionary(id => id, id => group.Single(v => v.Id == id).Uploaded);
+                        var videosById = group.ToDictionary(v => v.Id); // buy O(n) look-up below for 1 dict alloc
+                        var relevantVideos = indexedVideoIds.ToDictionary(id => id, id => videosById[id].Uploaded);
 
                         await foreach (var result in shard.SearchAsync(command, scope, LookupVideoRemotely, relevantVideos, playlist, token))
                             await Yield(result);
