@@ -309,8 +309,8 @@ internal sealed class VideoIndex : IDisposable
                 yield return result;
 
             // re-trigger search for re-indexed videos only
-            async Task<Video> LookupUnindexedVideoLocally(string id, CancellationToken _)
-                => unIndexedVideos.Single(v => v.Id == id);
+            Task<Video> LookupUnindexedVideoLocally(string id, CancellationToken _)
+                => Task.FromResult(unIndexedVideos.Single(v => v.Id == id));
         }
     }
 
