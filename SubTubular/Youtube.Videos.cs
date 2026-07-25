@@ -165,12 +165,12 @@ partial class Youtube
         {
             scope.Report(videoId, VideoList.Status.downloading);
             var vid = await client.Videos.GetAsync(videoId, token);
-            scope.Report(videoId, VideoList.Status.validated);
             video = MapVideo(vid);
             video.UnIndexed = true; // to re-index it if it was already indexed
             if (downloadCaptionTracksAndSave) await DownloadCaptionTracksAndSaveAsync(video, scope, token);
         }
 
+        scope.Report(videoId, VideoList.Status.validated);
         return video;
     }
 
