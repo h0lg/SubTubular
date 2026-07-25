@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace SubTubular;
 
@@ -6,6 +7,7 @@ public static class RecentCommands
 {
     private static readonly string recentPath = Path.Combine(Folder.GetPath(Folders.storage), "recent.json");
     private static readonly Comparison<Item> byLastRunDesc = new((fst, snd) => snd.LastRun.CompareTo(fst.LastRun));
+    private static readonly JsonSerializerOptions options = new() { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault };
 
     public static async Task<List<Item>> ListAsync(CancellationToken token = default)
     {
@@ -13,8 +15,8 @@ public static class RecentCommands
 
         try
         {
-            string json = await File.ReadAllTextAsync(recentPath, token);
-            return JsonSerializer.Deserialize<List<Item>>(json) ?? [];
+            await using FileStream stream = new(recentPath, FileMode.Open);
+            return await JsonSerializer.DeserializeAsync<List<Item>>(stream, options, token) ?? [];
         }
         catch (Exception ex)
         {
@@ -31,8 +33,8 @@ public static class RecentCommands
 
     public static async Task SaveAsync(IEnumerable<Item> commands, CancellationToken token = default)
     {
-        string json = JsonSerializer.Serialize(commands);
-        await File.WriteAllTextAsync(recentPath, json, token);
+        await using FileStream stream = new(recentPath, FileMode.Create);
+        await JsonSerializer.SerializeAsync(stream, commands, options, token);
     }
 
     public static void AddOrUpdate(this List<Item> list, OutputCommand command)
