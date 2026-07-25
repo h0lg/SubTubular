@@ -16,7 +16,10 @@ public static class RecentCommands
         try
         {
             await using FileStream stream = new(recentPath, FileMode.Open);
-            return await JsonSerializer.DeserializeAsync<List<Item>>(stream, options, token) ?? [];
+            var items = await JsonSerializer.DeserializeAsync<List<Item>>(stream, options, token);
+            if (items == null) return [];
+            foreach (var item in items) item.Command?.RemoveEmptyScopes();
+            return items;
         }
         catch (Exception ex)
         {
@@ -33,6 +36,7 @@ public static class RecentCommands
 
     public static async Task SaveAsync(IEnumerable<Item> commands, CancellationToken token = default)
     {
+        foreach (var item in commands) item.Command?.RemoveEmptyScopes();
         await using FileStream stream = new(recentPath, FileMode.Create);
         await JsonSerializer.SerializeAsync(stream, commands, options, token);
     }

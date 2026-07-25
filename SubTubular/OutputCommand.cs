@@ -66,6 +66,22 @@ public abstract class OutputCommand
             scope.Notified += (scope, message) => notify((CommandScope)scope!, message);
     }
 
+    internal void RemoveEmptyScopes()
+    {
+        Playlists = GetSignificantPlaylistLikeScopes(Playlists);
+        Channels = GetSignificantPlaylistLikeScopes(Channels);
+
+        if (Videos?.Videos.HasAny() == false)
+            Videos = null; // remove empty Videos scope
+    }
+
+    private static T[]? GetSignificantPlaylistLikeScopes<T>(T[]? playlistLikes) where T : PlaylistLikeScope
+    {
+        if (!playlistLikes.HasAny()) return null;
+        var relevant = playlistLikes!.Where(s => s.Alias.IsNonWhiteSpace()).ToArray();
+        return relevant.Length == 0 ? null : relevant;
+    }
+
     /// <summary>Provides a human-readable description of the command, by default <paramref name="withScopes"/>.
     /// This can be used to generate unique file names, but be aware that the returned description is not filename-safe.</summary>
     public abstract string Describe(bool withScopes = true);
