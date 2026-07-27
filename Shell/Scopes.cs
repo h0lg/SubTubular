@@ -4,7 +4,7 @@ using SubTubular.Extensions;
 namespace SubTubular.Shell;
 
 using FloatListOption = Option<IEnumerable<float>?>;
-using StringListOption = Option<IEnumerable<string>>;
+using StringListOption = Option<IEnumerable<string>?>;
 using UshortListOption = Option<IEnumerable<ushort>?>;
 
 static partial class CommandInterpreter
@@ -98,29 +98,29 @@ internal static partial class BindingExtensions
         StringListOption videos, StringListOption channels, StringListOption playlists,
         UshortListOption skip, UshortListOption take, FloatListOption cacheHours) where T : OutputCommand
     {
-        var videoIds = parsed.GetValue(videos);
-        command.Videos = videoIds == null ? null : new VideosScope([.. videoIds]);
+        var videoIds = parsed.GetValue(videos)?.ToList();
+        command.Videos = videoIds.HasAny() ? new VideosScope(videoIds!) : null;
 
-        var channelScopes = parsed.GetValue(channels);
-        var playlistScopes = parsed.GetValue(playlists);
-        int channelCount = channelScopes?.Count() ?? 0;
+        var channelScopes = parsed.GetValue(channels)?.ToArray();
+        var playlistScopes = parsed.GetValue(playlists)?.ToArray();
+        int channelCount = channelScopes?.Length ?? 0;
 
         var skips = parsed.GetValue(skip)?.ToArray();
         var takes = parsed.GetValue(take)?.ToArray();
         var cacheHour = parsed.GetValue(cacheHours)?.ToArray();
 
-        if (channelScopes.HasAny()) command.Channels = [.. channelScopes!.Select((alias, i) =>
+        if (channelScopes.HasAny()) command.Channels = channelScopes!.Select((alias, i) =>
         {
             (ushort skip, ushort take, float cacheHrs) = GetOptions(i);
             return new ChannelScope(alias, skip, take, cacheHrs);
-        })];
+        }).ToArray();
 
-        if (playlistScopes.HasAny()) command.Playlists = [.. playlistScopes!.Select((playlist, idx) =>
+        if (playlistScopes.HasAny()) command.Playlists = playlistScopes!.Select((playlist, idx) =>
         {
             var i = channelCount + idx;
             (ushort skip, ushort take, float cacheHrs) = GetOptions(i);
             return new PlaylistScope(playlist, skip, take, cacheHrs);
-        })];
+        }).ToArray();
 
         return command;
 
