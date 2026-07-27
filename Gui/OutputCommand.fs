@@ -305,12 +305,12 @@ module OutputCommands =
         | ShowScopesChanged show -> { model with ShowScopes = show }, Cmd.none
         | CopyAsShellCmd -> model, mapToCommand model true |> CopyShellCmd |> Common |> Cmd.ofMsg
 
-        // udpate ResultOptions and debounce applying them to SearchResults
+        // update ResultOptions and de-bounce applying them to SearchResults
         | ResultOptionsMsg ext ->
             let options = ResultOptions.update ext model.ResultOptions
             { model with ResultOptions = options }, applyResultOptions ()
 
-        // apply ResultOptions to SearchResults and debounce saving app settings
+        // apply ResultOptions to SearchResults and de-bounce saving app settings
         | ResultOptionsChanged ->
             { model with
                 SearchResults =

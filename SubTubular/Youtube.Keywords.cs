@@ -29,7 +29,7 @@ partial class Youtube
             {
                 channel.Writer.Complete();
                 if (t.IsFaulted) throw t.Exception; // bubble up error
-                // cancellation needs no handling because lookups use the same token as this task
+                // cancellation needs no handling because look-ups use the same token as this task
             }, token); // reader uses the same token, writer completion is not required.
 
         // start reading

@@ -163,7 +163,7 @@ internal sealed class VideoIndex : IDisposable
         try { unfiltered = Index.Search(command.Query!); }
         catch (LiftiException ex) when (ex.Message.StartsWith("Unknown field"))
         {
-            // rethrow to attach info about available fields
+            // re-throw to attach info about available fields
             throw new InputException(ex.Message + ". Available are " + Index.FieldLookup.AllFieldNames.Join(", "), ex);
         }
 

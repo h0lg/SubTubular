@@ -65,7 +65,7 @@ static partial class CommandInterpreter
                 + $" The default is descending (i.e. latest respectively highest first) and by `{nameof(SearchCommand.OrderOptions.score)}`."
                 + " Note that the order is only applied to the results with the search scope itself"
                 + $" being limited by the `{Args.skip}` and `{Args.take}` parameters for playlists."
-                + " Note also that for un-cached videos, this option is ignored in favor of outputting matches as soon as they're found"
+                + " Note also that for uncached videos, this option is ignored in favor of outputting matches as soon as they're found"
                 + " - but simply repeating the search will hit the cache and return them in the requested order.",
             DefaultValueFactory = _ => [SearchCommand.OrderOptions.score],
             AllowMultipleArgumentsPerToken = true

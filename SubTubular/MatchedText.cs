@@ -81,7 +81,7 @@ public static class MatchedTextExtensions
     /// <param name="write">A function returning a widget for the unmatched parts of the output <see cref="MatchedText.Text"/>.</param>
     /// <param name="highlight">A function returning a widget for each <see cref="MatchedText.Match"/>.</param>
     /// <param name="matchPadding">The number of characters each <see cref="MatchedText.Match"/> will be displayed in for context.</param>
-    /// <returns>A sequence of widgets of type <typeparamref name="T"/> for the un-matched and matched parts of
+    /// <returns>A sequence of widgets of type <typeparamref name="T"/> for the unmatched and matched parts of
     /// <paramref name="matchedText"/> in the order they appear in <see cref="MatchedText.Text"/>.</returns>
     public static IEnumerable<T> WriteHighlightingMatches<T>(this MatchedText matchedText,
         Func<string, T> write, Func<string, T> highlight, uint? matchPadding = null)

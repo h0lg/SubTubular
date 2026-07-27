@@ -215,7 +215,7 @@ module App =
                 if path = null then
                     notifyError "The following errors occurred and we were unable to write a log for them:" report
                 else
-                    notifyError "Errors occured and were logged" ("to " + path)
+                    notifyError "Errors occurred and were logged" ("to " + path)
 #endif
 
                 true // handled, try continuing to run

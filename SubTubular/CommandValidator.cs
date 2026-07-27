@@ -235,10 +235,10 @@ public static class RemoteValidate
         token.ThrowIfCancellationRequested();
 
         /*  generate tasks checking which of the validAliases are accessible
-            (via knownAliasMaps cache or HTTP request) and execute them in parrallel */
+            (via knownAliasMaps cache or HTTP request) and execute them in parallel */
         var (matchingChannels, maybeExceptions) = await ValueTasks.WhenAll(channel.SingleValidated.WellStructuredAliases!.Select(GetChannelAliasMap));
 
-        #region rethrow unexpected exceptions
+        #region re-throw unexpected exceptions
         var exceptions = maybeExceptions.Where(ex => ex is not null).ToArray();
 
         if (exceptions.Length > 0) throw new AggregateException(
@@ -273,7 +273,7 @@ public static class RemoteValidate
                 map.ChannelId = channel.Id;
             }
             catch (HttpRequestException ex) when (ex.IsNotFound()) { map.ChannelId = null; }
-            // otherwise rethrow to raise assumed transient error
+            // otherwise re-throw to raise assumed transient error
 
             return map;
         }

@@ -38,7 +38,7 @@ public static class CaptionStatusExtensions
             {
                 var (level, issue) = s.status switch
                 {
-                    null => (Levels.Info, " all caption tracks dowloaded"),
+                    null => (Levels.Info, " all caption tracks downloaded"),
                     CaptionStatus.None => (Levels.Info, "out caption tracks"),
                     CaptionStatus.Error => (Levels.Error, " errors during caption track download"),
                     CaptionStatus.UnChecked => (Levels.Warning, " unchecked caption track status"),

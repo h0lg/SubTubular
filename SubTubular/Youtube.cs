@@ -59,7 +59,7 @@ public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository vi
          * b) We can't know ahead of time whether the results will span multiple indexes as well and may rescore without having to.
          *
          * However, since this method yields results as soon as they're found and doesn't keep references to them,
-         * we have to be pessimistic about rescoring. If we determined the number of distinct indexes that yielded results at runtime,
+         * we have to be pessimistic about re-scoring. If we determined the number of distinct indexes that yielded results at runtime,
          * we wouldn't be able to rescore already yielded results if required. */
         var spansMultipleIndexes = command.GetScopes().Count() > 1
             || command.GetPlaylistLikeScopes().Any(pl => pl.SpansMultipleIndexShards());
@@ -89,7 +89,7 @@ public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository vi
     /// with a <see cref="VideoList.Status"/> according to its outcome.
     /// It catches aggregated exceptions and notifies the <paramref name="scope"/> about them,
     /// only bubbling up those that <see cref="ExceptionExtensions.HaveInputError(IEnumerable{Exception})"/>
-    /// so they can trigger the cancelation of parallel searches in
+    /// so they can trigger the cancellation of parallel searches in
     /// <see cref="SearchAsync(SearchCommand, CancellationToken, CancellationTokenSource?)"/>.</summary>
     /// <param name="cleanUp">An optional action called after the <paramref name="search"/>
     /// has completed to free resources used by it.</param>

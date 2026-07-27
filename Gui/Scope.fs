@@ -16,7 +16,7 @@ module Scope =
 
             /// Tracked to determine the max width of the ProgressBar in the view.
             /// Measuring the size of contents proved more reliable
-            /// than relying on their debounced SizeChanged events.
+            /// than relying on their de-bounced SizeChanged events.
             Contents: ViewRef<Layoutable>
 
             ScopeSearch: ScopeSearch.Model
@@ -172,7 +172,7 @@ module Scope =
             .onScopeNotified(model.Scope, Notified) // just to trigger re-render of this view
             .tappable (ToggleFlyout >> Common, "some things came up while working on this scope")
 
-    // measuring size of contents proved more reliable than relying on their debounced SizeChanged events
+    // measuring size of contents proved more reliable than relying on their de-bounced SizeChanged events
     let private getContentsWidth model =
         match model.Contents.TryValue with
         | Some layoutable -> layoutable.DesiredSize.Width
