@@ -16,10 +16,7 @@ public static class RecentCommands
         try
         {
             await using FileStream stream = new(recentPath, FileMode.Open);
-            var items = await JsonSerializer.DeserializeAsync<List<Item>>(stream, options, token);
-            if (items == null) return [];
-            foreach (var item in items) item.Command?.RemoveEmptyScopes();
-            return items;
+            return await JsonSerializer.DeserializeAsync<List<Item>>(stream, options, token) ?? [];
         }
         catch (Exception ex)
         {
