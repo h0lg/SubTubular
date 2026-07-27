@@ -104,7 +104,6 @@ internal static partial class BindingExtensions
         var channelScopes = parsed.GetValue(channels);
         var playlistScopes = parsed.GetValue(playlists);
         int channelCount = channelScopes?.Count() ?? 0;
-        var playlistLikes = channelCount + (playlistScopes?.Count() ?? 0);
 
         var skips = parsed.GetValue(skip)?.ToArray();
         var takes = parsed.GetValue(take)?.ToArray();
