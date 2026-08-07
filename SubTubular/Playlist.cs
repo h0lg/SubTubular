@@ -231,5 +231,8 @@ public sealed class Playlist
 
 public static class PlaylistExtensions
 {
+    internal static IEnumerable<Playlist.VideoInfo> GetRelevantVideos(this Playlist playlist, PlaylistLikeScope scope)
+        => playlist.GetVideos().Skip(scope.Skip).Take(scope.Take);
+
     public static IEnumerable<string> Ids(this IEnumerable<Playlist.VideoInfo> videos) => videos.Select(v => v.Id);
 }

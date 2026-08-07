@@ -59,7 +59,7 @@ partial class Youtube
             await using (playlist.CreateChangeToken(() => dataStore.SetAsync(scope.StorageKey, playlist)))
             {
                 Task? continuedRefresh = await RefreshPlaylistAsync(scope, token);
-                var videos = playlist.GetVideos().Skip(scope.Skip).Take(scope.Take).ToArray();
+                var videos = playlist.GetRelevantVideos(scope).ToArray();
                 var videoIds = videos.Ids().ToArray();
                 scope.QueueVideos(videoIds);
                 scope.Report(VideoList.Status.searching);
