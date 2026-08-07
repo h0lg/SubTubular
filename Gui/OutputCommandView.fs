@@ -111,30 +111,32 @@ module OutputCommandView =
         }
 
     let private renderResultOptions model isSearch (resultPager: WidgetBuilder<Msg, IFabReversibleStackPanel> option) =
-        Grid(coldefs = [ Auto; Star; Star; Star; Auto ], rowdefs = [ Auto; Auto ]) {
+        Grid(coldefs = [ Auto; Star; Auto ], rowdefs = [ Auto; Auto ]) {
             TextBlock("Results").header ()
 
-            (View.map ResultOptionsMsg (ResultOptions.orderBy model.ResultOptions))
-                .centerVertical()
-                .centerHorizontal()
-                .isVisible(isSearch)
+            (HWrap(WrapPanelItemsAlignment.Center) {
+                (View.map ResultOptionsMsg (ResultOptions.orderBy model.ResultOptions))
+                    .centerVertical()
+                    .centerHorizontal()
+                    .isVisible (isSearch)
+
+                (View.map ResultOptionsMsg (ResultOptions.padding model.ResultOptions))
+                    .centerHorizontal()
+                    .isVisible (isSearch)
+
+                if resultPager.IsSome then
+                    resultPager.Value
+            })
+                .itemSpacing(15)
                 .gridColumn (1)
 
-            (View.map ResultOptionsMsg (ResultOptions.padding model.ResultOptions))
-                .centerHorizontal()
-                .isVisible(isSearch)
-                .gridColumn (2)
-
-            if resultPager.IsSome then
-                resultPager.Value.gridColumn (3)
-
-            ToggleButton("to file 📄", model.DisplayOutputOptions, DisplayOutputOptionsChanged).gridColumn (4)
+            ToggleButton("to file 📄", model.DisplayOutputOptions, DisplayOutputOptionsChanged).bottom().gridColumn (2)
 
             // output options
             (View.map FileOutputMsg (FileOutput.view model.FileOutput))
                 .isVisible(model.DisplayOutputOptions)
                 .gridRow(1)
-                .gridColumnSpan (5)
+                .gridColumnSpan (3)
         }
 
     let private getScopesHeight model hasResults =
