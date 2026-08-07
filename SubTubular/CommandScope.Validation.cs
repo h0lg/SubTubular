@@ -61,6 +61,12 @@ partial class CommandScope
 partial class PlaylistLikeScope
 {
     public override bool RequiresValidation() => Alias.IsNonWhiteSpace() && !IsValid;
+
+    internal void SetPlaylist(Playlist playlist)
+    {
+        SingleValidated.Playlist = playlist;
+        Report(VideoList.Status.validated);
+    }
 }
 
 public static class ScopeExtensions
