@@ -85,6 +85,8 @@ public abstract class PlaylistLikeScope(string alias, ushort skip, ushort take, 
     /// <summary>A unique identifier for the storing this <see cref="PlaylistLikeScope"/>,
     /// capturing its type and <see cref="CommandScope.ValidationResult.Id"/>.</summary>
     internal string StorageKey => KeyPrefix + SingleValidated.Id;
+
+    internal int RequiredVideoLoadCount => Skip + Take;
     #endregion
 
     // public options
@@ -98,7 +100,7 @@ public abstract class PlaylistLikeScope(string alias, ushort skip, ushort take, 
         var identifier = IsValid ? SingleValidated.Playlist!.Title : Alias;
 
         if (!inDetail) yield return identifier;
-        else yield return $"{identifier} ({Skip + 1} - {Skip + Take + 1})";
+        else yield return $"{identifier} ({Skip + 1} - {RequiredVideoLoadCount + 1})";
     }
 
     public override bool RequiresValidation() => Alias.IsNonWhiteSpace() && !IsValid;

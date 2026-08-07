@@ -147,7 +147,7 @@ partial class Youtube
     {
         token.ThrowIfCancellationRequested();
         var playlist = scope.SingleValidated.Playlist!;
-        var requiredVideoCount = (uint)(scope.Skip + scope.Take);
+        var requiredVideoCount = (uint)scope.RequiredVideoLoadCount;
 
         // return fresh enough playlist with sufficient videos loaded
         if (DateTime.UtcNow.AddHours(-Math.Abs(scope.CacheHours)) <= playlist.Loaded
