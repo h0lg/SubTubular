@@ -58,6 +58,11 @@ partial class CommandScope
     }
 }
 
+partial class PlaylistLikeScope
+{
+    public override bool RequiresValidation() => Alias.IsNonWhiteSpace() && !IsValid;
+}
+
 public static class ScopeExtensions
 {
     /// <summary>Filters the incoming <paramref name="scopes"/>

@@ -76,7 +76,7 @@ public class VideosScope(List<string> videos) : CommandScope
         => info.AddValue(nameof(Videos), Videos);*/
 }
 
-public abstract class PlaylistLikeScope(string alias, ushort skip, ushort take, float cacheHours) : CommandScope
+public abstract partial class PlaylistLikeScope(string alias, ushort skip, ushort take, float cacheHours) : CommandScope
 {
     #region internal API
     /// <summary>The prefix for the <see cref="StorageKey"/>.</summary>
@@ -102,8 +102,6 @@ public abstract class PlaylistLikeScope(string alias, ushort skip, ushort take, 
         if (!inDetail) yield return identifier;
         else yield return $"{identifier} ({Skip + 1} - {RequiredVideoLoadCount + 1})";
     }
-
-    public override bool RequiresValidation() => Alias.IsNonWhiteSpace() && !IsValid;
 
     // for equality comparison of recent commands
     public override int GetHashCode() => Alias.GetHashCode();

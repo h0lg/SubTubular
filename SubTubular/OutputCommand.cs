@@ -45,6 +45,7 @@ public abstract class OutputCommand
     }
 
     internal bool HasPreValidatedScopes() => GetScopes().Any(s => s.IsPrevalidated);
+    public bool RequiresRemoteValidation() => GetScopes().Any(s => !s.IsValid);
 
     internal IEnumerable<PlaylistLikeScope> GetPlaylistLikeScopes()
     {
@@ -57,9 +58,6 @@ public abstract class OutputCommand
         foreach (var playlist in GetPlaylistLikeScopes()) yield return playlist;
         if (Videos != null) yield return Videos;
     }
-
-    public bool RequiresRemoteValidation() => GetScopes().Any(s => !s.IsValid);
-    protected string DescribeScopes() => GetScopes().Select(p => p.Describe().Join(" ")).Join(" ");
 
     /// <summary>Forwards the <see cref="CommandScope.Notified"/> on all <see cref="GetScopes"/>
     /// for notifications during their async processing to the supplied <paramref name="notify"/>.</summary>
@@ -85,21 +83,11 @@ public abstract class OutputCommand
         return relevant.Length == 0 ? null : relevant;
     }
 
+    protected string DescribeScopes() => GetScopes().Select(p => p.Describe().Join(" ")).Join(" ");
+
     /// <summary>Provides a human-readable description of the command, by default <paramref name="withScopes"/>.
     /// This can be used to generate unique file names, but be aware that the returned description is not filename-safe.</summary>
     public abstract string Describe(bool withScopes = true);
-
-    // for comparing in recent command list
-    public override int GetHashCode()
-        => new HashCode()
-            .AddOrdered(Channels.AsHashCodeSet())
-            .AddOrdered(Playlists.AsHashCodeSet())
-            .AddOrdered(Videos?.Videos.AsHashCodeSet() ?? [])
-            .ToHashCode();
-
-    // for comparing in recent command list
-    public override bool Equals(object? obj)
-        => obj != null && obj.GetType() == GetType() && obj.GetHashCode() == GetHashCode();
 
     protected string FormatShellCommand(string action, string? extraParameters = null)
     {
@@ -130,6 +118,18 @@ public abstract class OutputCommand
     }
 
     public abstract string ToShellCommand();
+
+    // for comparing in recent command list
+    public override int GetHashCode()
+        => new HashCode()
+            .AddOrdered(Channels.AsHashCodeSet())
+            .AddOrdered(Playlists.AsHashCodeSet())
+            .AddOrdered(Videos?.Videos.AsHashCodeSet() ?? [])
+            .ToHashCode();
+
+    // for comparing in recent command list
+    public override bool Equals(object? obj)
+        => obj != null && obj.GetType() == GetType() && obj.GetHashCode() == GetHashCode();
 
     public enum Shows { file, folder }
 }
