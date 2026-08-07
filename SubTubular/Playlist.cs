@@ -234,6 +234,7 @@ public sealed class Playlist
         {
             playlist.UpdateShardNumbers(); // in case user canceled process, leading to early disposal
             await playlist.SaveAsync(savePlaylist);
+            playlist.changeToken?.Release(); // to avoid deadlock
             playlist.changeToken?.Dispose();
             playlist.changeToken = null; // not required any longer when changes have been made
         }
