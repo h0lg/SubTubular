@@ -75,6 +75,9 @@ static partial class Program
         // write output file even if exception occurs
         try
         {
+            foreach (var ntf in command.Notifications)
+                WriteNotification(ntf);
+
             foreach (var scope in command.GetScopes())
                 foreach (var notification in scope.Notifications) // safe to loop over because notifying stopped
                     OnScopeNotified(scope, notification);
@@ -110,13 +113,16 @@ static partial class Program
 
         if (cancellation.IsCancellationRequested) throw new OperationCanceledException(); // to enable setting correct exit code
 
-        void OnScopeNotified(CommandScope scope, CommandScope.Notification notification) => outputs.ForEach(output =>
+        void OnScopeNotified(CommandScope scope, CommandScope.Notification notification)
+            => WriteNotification(notification, title: $"{notification.Title} in {scope.Describe(inDetail: false).Join(" ")}");
+
+        void WriteNotification(CommandScope.Notification notification, string? title = null) => outputs.ForEach(output =>
         {
             output.WriteLine();
-            var titleAndScope = $"{notification.Title} in {scope.Describe(inDetail: false).Join(" ")}";
+            title ??= notification.Title;
             bool hasErrors = notification.Errors.HasAny();
             Action<string> write = hasErrors ? output.WriteErrorLine : output.WriteNotificationLine;
-            write(titleAndScope);
+            write(title);
             Video? video = notification.Video;
             if (video != null) write($"Video: {video.Title} {Youtube.GetVideoUrl(video.Id)}");
             if (notification.Message.IsNonEmpty()) write(notification.Message!);
@@ -130,7 +136,7 @@ static partial class Program
                     // collect error details for log
                     var errorDetails = causes.Select(e => e.ToString())
                         .Prepend(notification.Message)
-                        .Prepend($"{notification.Created:O} {titleAndScope}")
+                        .Prepend($"{notification.Created:O} {title}")
                         .WithValue().Join(ErrorLog.OutputSpacing);
 
                     reportableErrors.Add(errorDetails);

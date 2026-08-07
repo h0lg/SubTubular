@@ -136,6 +136,8 @@ public sealed class Playlist
         finally { changeToken?.Release(); }
     }
 
+    internal event Action? ShardNumbersUpdated;
+
     public void UpdateShardNumbers()
     {
         if (changeToken == null) return;
@@ -161,6 +163,8 @@ public sealed class Playlist
             }
         }
         finally { changeToken?.Release(); }
+
+        ShardNumbersUpdated?.Invoke();
     }
 
     /// <summary>Calculates the shard number for the video with <see cref="VideoInfo.PlaylistIndex"/> at <paramref name="index"/>

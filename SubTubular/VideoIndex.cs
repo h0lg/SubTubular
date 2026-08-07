@@ -339,10 +339,3 @@ internal sealed class VideoIndex : IDisposable
         AccessToken.Dispose();
     }
 }
-
-internal static class VideoIndexExtensions
-{
-    internal static bool SpansMultipleIndexShards(this PlaylistLikeScope scope)
-        => scope.SingleValidated.Playlist!.GetRelevantVideos(scope)
-            .GroupBy(v => v.ShardNumber).Count() > 1;
-}

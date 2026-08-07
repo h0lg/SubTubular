@@ -61,8 +61,7 @@ public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository vi
          * However, since this method yields results as soon as they're found and doesn't keep references to them,
          * we have to be pessimistic about re-scoring. If we determined the number of distinct indexes that yielded results at runtime,
          * we wouldn't be able to rescore already yielded results if required. */
-        var spansMultipleIndexes = command.GetScopes().Count() > 1
-            || command.GetPlaylistLikeScopes().Any(pl => pl.SpansMultipleIndexShards());
+        var spansMultipleIndexes = command.SpansMultipleIndexes();
 
         // don't pass cancellation token to avoid throwing before searching is awaited below
         await foreach (var result in results.Reader.ReadAllAsync())
@@ -71,6 +70,12 @@ public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository vi
             if (spansMultipleIndexes) result.Rescore();
             yield return result;
         }
+
+        if (spansMultipleIndexes != command.SpansMultipleIndexes())
+            command.Notify(spansMultipleIndexes ? "Result scores can be improved" : "Result scores are inaccurate",
+                spansMultipleIndexes ? "The search unexpectedly ran on a single index. If you repeat it, that may improve ordering by score."
+                    : "The search unexpectedly ran on multiple indexes, turning the result scores calculated for one index stale."
+                        + " If you repeat it, results will be re-scored across multiple scopes using a simplified algorithm.");
 
         await searching; // throws the relevant input errors
 

@@ -105,6 +105,22 @@ module OutputCommands =
                 let command = mapToCommand model false
                 let token = model.Running.Token
 
+                command.OnNotified(fun ntf ->
+                    let noMsg = isNull ntf.Message
+
+                    match ntf.Level with
+                    | CommandScope.Notification.Levels.Error ->
+                        if noMsg then
+                            Fail(ntf.Title)
+                        else
+                            FailLong(ntf.Title, ntf.Message)
+                    | _ ->
+                        if noMsg then
+                            Notify(ntf.Title)
+                        else
+                            NotifyLong(ntf.Title, ntf.Message)
+                    |> dispatchCommon)
+
                 command.OnScopeNotification(fun scope ntf ->
                     if ntf.Errors.HasAny() then
                         let causes = ntf.Errors.GetRootCauses().ToArray()

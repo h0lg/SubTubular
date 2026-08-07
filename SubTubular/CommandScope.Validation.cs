@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Serialization;
+using SubTubular.Extensions;
 
 namespace SubTubular;
 
@@ -60,12 +61,30 @@ partial class CommandScope
 
 partial class PlaylistLikeScope
 {
+    /// <summary>Only has a value after Remote Validation, see <see cref="SetPlaylist(Playlist)"/>.</summary>
+    internal bool? SpansMultipleIndexShards { get; private set; }
+
     public override bool RequiresValidation() => Alias.IsNonWhiteSpace() && !IsValid;
 
     internal void SetPlaylist(Playlist playlist)
     {
         SingleValidated.Playlist = playlist;
         Report(VideoList.Status.validated);
+        SpansMultipleIndexShards = LikelySpansMultipleIndexShards(playlist);
+        playlist.ShardNumbersUpdated += () => SpansMultipleIndexShards = this.SpansMultipleIndexShards();
+    }
+
+    private bool LikelySpansMultipleIndexShards(Playlist playlist)
+    {
+        if (Playlist.ShardSize < Take) return true;
+
+        if (RequiredVideoLoadCount <= playlist.GetVideos().Count) return this.SpansMultipleIndexShards();
+
+        // required videos not loaded; calculate shard numbers and figure it out
+        int firstLoadedIndex = playlist.GetIndexOfFirstLoadedVideo();
+        short? lowShard = Playlist.CalculateShardNumber(Skip, firstLoadedIndex);
+        short? highShard = Playlist.CalculateShardNumber(RequiredVideoLoadCount, firstLoadedIndex);
+        return lowShard != highShard;
     }
 }
 
@@ -79,4 +98,8 @@ public static class ScopeExtensions
 
     public static IEnumerable<string> Ids(this IEnumerable<CommandScope.ValidationResult> results)
         => results.Select(r => r.Id);
+
+    internal static bool SpansMultipleIndexShards(this PlaylistLikeScope scope)
+        => scope.SingleValidated.Playlist!.GetRelevantVideos(scope)
+            .GroupBy(v => v.ShardNumber).Count() > 1;
 }

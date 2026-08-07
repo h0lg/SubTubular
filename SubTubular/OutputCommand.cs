@@ -47,6 +47,14 @@ public abstract class OutputCommand
     internal bool HasPreValidatedScopes() => GetScopes().Any(s => s.IsPrevalidated);
     public bool RequiresRemoteValidation() => GetScopes().Any(s => !s.IsValid);
 
+    /// <summary>Only safe to access after Remote Validation;
+    /// see <see cref="PlaylistLikeScope.SpansMultipleIndexShards"/>.</summary>
+    internal bool SpansMultipleIndexes()
+    {
+        var numberOfScopes = Channels?.Length ?? 0 + Playlists?.Length ?? 0 + (Videos == null ? 0 : 1);
+        return 1 < numberOfScopes || GetPlaylistLikeScopes().Any(pl => pl.SpansMultipleIndexShards == true);
+    }
+
     internal IEnumerable<PlaylistLikeScope> GetPlaylistLikeScopes()
     {
         if (Channels.HasAny()) foreach (var channel in Channels!) yield return channel;
@@ -58,6 +66,21 @@ public abstract class OutputCommand
         foreach (var playlist in GetPlaylistLikeScopes()) yield return playlist;
         if (Videos != null) yield return Videos;
     }
+
+    public List<CommandScope.Notification> Notifications { get; } = [];
+    public event Action<CommandScope.Notification>? Notified;
+
+    internal void Notify(string title, string message,
+        CommandScope.Notification.Levels level = CommandScope.Notification.Levels.Warning)
+    {
+        CommandScope.Notification msg = new(title, message, level: level);
+        Notifications.Add(msg);
+        Notified?.Invoke(msg);
+    }
+
+    /// <summary>Forwards the <see cref="Notified"/>
+    /// for notifications during their async processing to the supplied <paramref name="notify"/>.</summary>
+    public void OnNotified(Action<CommandScope.Notification> notify) => Notified += (message) => notify(message);
 
     /// <summary>Forwards the <see cref="CommandScope.Notified"/> on all <see cref="GetScopes"/>
     /// for notifications during their async processing to the supplied <paramref name="notify"/>.</summary>
