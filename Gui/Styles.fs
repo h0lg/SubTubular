@@ -22,7 +22,7 @@ module Icon =
     let search = "🔍 "
 
     // notifications
-    let error = "🛑 "
+    let error = "💥 "
     let warning = "⚠️ "
     let info = "ⓘ "
 
