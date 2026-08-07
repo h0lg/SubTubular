@@ -69,29 +69,31 @@ public sealed class Playlist
 
             if (video == null)
             {
-                foreach (var dropped in videos.Where(v => newIndex == v.PlaylistIndex))
-                    dropped.PlaylistIndex = null;
+                DropVideos(v => v.PlaylistIndex == newIndex); // drop videos occupying the new video's index
 
-                video = new VideoInfo { Id = videoId, PlaylistIndex = newIndex, CaptionTrackDownloadStatus = CommandScope.CaptionStatus.UnChecked };
+                video = new VideoInfo
+                {
+                    Id = videoId,
+                    PlaylistIndex = newIndex,
+                    CaptionTrackDownloadStatus = CommandScope.CaptionStatus.UnChecked
+                };
+
                 videos.Add(video);
                 hasUnsavedChanges = true;
-                return true;
+                return true; // made changes
             }
-            else
+            else // video exists, update if necessary
             {
-                if (newIndex == video.PlaylistIndex) return false;
+                if (newIndex == video.PlaylistIndex) return false; // nothing to do, made no changes
 
-                if (video.PlaylistIndex == null)
-                    foreach (var dropped in videos.Where(v => newIndex == v.PlaylistIndex))
-                        dropped.PlaylistIndex = null;
-                else
-                    foreach (var dropped in videos.Where(v => newIndex <= v.PlaylistIndex))
-                        dropped.PlaylistIndex = null;
+                if (video.PlaylistIndex == null) // existing video was dropped before
+                    DropVideos(v => v.PlaylistIndex == newIndex); // drop videos occupying the new index
+                else // drop all videos with higher index than the new one; they all need re-indexing
+                    DropVideos(v => newIndex <= v.PlaylistIndex);
 
                 video.PlaylistIndex = newIndex;
-
                 hasUnsavedChanges = true;
-                return true;
+                return true; // made changes
             }
         }
         finally { changeToken?.Release(); }
@@ -145,14 +147,11 @@ public sealed class Playlist
             if (withoutShardNumber.Length == 0) return;
 
             videos = [.. videos.OrderBy(v => v.PlaylistIndex)];
-            var firstLoaded = videos.Find(v => v.ShardNumber == 0);
-            var indexOfFirstLoaded = firstLoaded == null ? 0 : videos.IndexOf(firstLoaded);
+            int firstLoadedIndex = GetIndexOfFirstLoadedVideo();
 
             foreach (var video in withoutShardNumber)
             {
-                var index = videos.IndexOf(video);
-                int translatedIndex = index - indexOfFirstLoaded;
-                var shardNumber = (short?)(translatedIndex < 0 ? ((translatedIndex + 1) / ShardSize) - 1 : translatedIndex / ShardSize);
+                short? shardNumber = CalculateShardNumber(videos.IndexOf(video), firstLoadedIndex);
 
                 if (video.ShardNumber != shardNumber)
                 {
@@ -164,6 +163,30 @@ public sealed class Playlist
         finally { changeToken?.Release(); }
     }
 
+    /// <summary>Calculates the shard number for the video with <see cref="VideoInfo.PlaylistIndex"/> at <paramref name="index"/>
+    /// deterministically for the configured <see cref="ShardSize"/>
+    /// using an index relative to the <paramref name="firstLoadedVideoIndex"/> -
+    /// so that already loaded videos stay in the same shard when videos are added to the top/front of the playlist
+    /// (as is normal for the Uploads playlist of a channel) as well as to its end/bottom.
+    /// This keeps the shards fairly stable over time
+    /// by preventing videos from "moving" through the shards when a playlist is prepended to,
+    /// which would have the effect of accumulating stale data about videos in the top/front index shards -
+    /// from videos that once were indexed in that shard but have since pushed into another shard.</summary>
+    /// <param name="index">The index of the video to calculate the shard number for.</param>
+    /// <param name="firstLoadedVideoIndex">The index of the first loaded video, determined via <see cref="GetIndexOfFirstLoadedVideo"/>.</param>
+    internal static short? CalculateShardNumber(int index, int firstLoadedVideoIndex)
+    {
+        int translatedIndex = index - firstLoadedVideoIndex;
+        return (short?)(translatedIndex < 0 ? ((translatedIndex + 1) / ShardSize) - 1 : translatedIndex / ShardSize);
+    }
+
+    /// <summary>Figures out the index of the first loaded video, which was indexed in shard 0.</summary>
+    internal int GetIndexOfFirstLoadedVideo()
+    {
+        var firstLoaded = videos.Find(v => v.ShardNumber == 0);
+        return firstLoaded == null ? 0 : videos.IndexOf(firstLoaded);
+    }
+
     internal void UpdateLoaded()
     {
         if (changeToken == null) return;
@@ -171,6 +194,13 @@ public sealed class Playlist
         Loaded = DateTime.UtcNow;
         hasUnsavedChanges = true;
         changeToken?.Release();
+    }
+
+    private void DropVideos(Func<VideoInfo, bool> condition)
+    {
+        foreach (var video in videos)
+            if (condition(video))
+                video.PlaylistIndex = null;
     }
 
     private async ValueTask SaveAsync(Func<Task> save)
