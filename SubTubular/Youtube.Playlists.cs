@@ -164,7 +164,7 @@ partial class Youtube
         var paging = Task.Run(async () =>
         {
             token.ThrowIfCancellationRequested();
-            uint listIndex = 0;
+            uint listIndex = 0; // tracks the index of the next video in the playlist
             var madeChanges = new Queue<bool>(10); // tracks whether adding the last x videos resulted in any changes
 
             // for canceling paging when we have enough videos while allowing for outside cancellation
@@ -196,7 +196,8 @@ partial class Youtube
                         returnedEarly = true;
                     }
 
-                    if (listIndex > requiredVideoCount)
+                    // enough loaded when count reaches or exceeds next (0-based) video index
+                    if (requiredVideoCount <= listIndex)
                     {
                         linkedCts.Cancel(); // cancel paging
                         break; // stop enumerating
