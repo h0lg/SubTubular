@@ -1,8 +1,6 @@
 ﻿namespace SubTubular.Gui
 
 open System
-open Avalonia
-open Avalonia.Controls
 open Avalonia.Layout
 open Fabulous
 open Fabulous.Avalonia
