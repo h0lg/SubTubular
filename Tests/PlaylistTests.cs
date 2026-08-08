@@ -5,6 +5,8 @@ namespace Tests;
 [TestClass]
 public class PlaylistTests
 {
+    private static readonly Func<Task> savePlaylist = () => Task.CompletedTask;
+
     [TestMethod]
     public async Task RefreshOrdersVideosAndUpdatesShardNumbersCorrectly()
     {
@@ -24,7 +26,7 @@ public class PlaylistTests
 
         AssertCollectionsEqual([.. GenerateShards(0, 6, shardSize)], videoIds);
 
-        await using (playlist.CreateChangeToken(() => Task.CompletedTask))
+        await using (playlist.CreateChangeToken(savePlaylist))
         {
             var videos = playlist.GetVideos().ToList();
             var actualVideoIds = videos.Ids().ToList();
@@ -57,7 +59,7 @@ public class PlaylistTests
         videoIds.RemoveAll(x => x % 3 == 0);
         await AddVideos(playlist, videoIds);
 
-        await using (playlist.CreateChangeToken(() => Task.CompletedTask))
+        await using (playlist.CreateChangeToken(savePlaylist))
         {
             var videos = playlist.GetVideos().ToList();
             var actualVideoIds = videos.Ids().ToList();
@@ -77,7 +79,7 @@ public class PlaylistTests
         videoIds = [.. GenerateShards(0, 3, shardSize).Reverse()];
         await AddVideos(playlist, videoIds);
 
-        await using (playlist.CreateChangeToken(() => Task.CompletedTask))
+        await using (playlist.CreateChangeToken(savePlaylist))
         {
             var videos = playlist.GetVideos().ToList();
             var actualVideoIds = videos.Ids().ToList();
@@ -112,7 +114,7 @@ public class PlaylistTests
 
         AssertCollectionsEqual([.. GenerateShards(0, 4, halfShardSize)], videoIds);
 
-        await using (playlist.CreateChangeToken(() => Task.CompletedTask))
+        await using (playlist.CreateChangeToken(savePlaylist))
         {
             var videos = playlist.GetVideos().ToList();
             var actualVideoIds = videos.Ids().ToList();
@@ -133,7 +135,7 @@ public class PlaylistTests
     // SUT / ACT
     private static async Task AddVideos(Playlist playlist, List<int> videoIds)
     {
-        await using (playlist.CreateChangeToken(() => Task.CompletedTask))
+        await using (playlist.CreateChangeToken(savePlaylist))
         {
             foreach (var id in videoIds) playlist.TryAddVideoId(id.ToString(), (uint)videoIds.IndexOf(id));
             playlist.UpdateShardNumbers();
