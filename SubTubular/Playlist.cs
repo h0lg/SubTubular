@@ -18,7 +18,7 @@ public sealed class Playlist
     public static ushort ShardSize = 200;
 #pragma warning restore CA2211
 
-    private bool hasUnsavedChanges;
+    private bool mayChange, hasUnsavedChanges;
 
     [JP("t")] public required string Title { get; set; }
     [JP("u")] public required string ThumbnailUrl { get; set; }
@@ -32,28 +32,39 @@ public sealed class Playlist
 
     /// <summary>The videos included in the <see cref="Playlist" /> (i.e. excluding dropped)
     /// ordered by <see cref="VideoInfo.PlaylistIndex"/>.</summary>
-    public IOrderedEnumerable<VideoInfo> GetVideos()
+    public IReadOnlyList<VideoInfo> GetVideos()
+        => SyncedFunc(() => videos.Where(v => v.PlaylistIndex.HasValue).OrderBy(v => v.PlaylistIndex).ToArray()); // execute LINQ inside lock
+
+    private T SyncedFunc<T>(Func<T> action)
     {
         changeToken?.Wait();
-        try { return videos.Where(v => v.PlaylistIndex.HasValue).OrderBy(v => v.PlaylistIndex); }
+        try { return action(); }
+        finally { changeToken?.Release(); }
+    }
+
+    private void SyncedAction(Action action)
+    {
+        changeToken?.Wait();
+        try { action(); }
         finally { changeToken?.Release(); }
     }
 
     // Retrieve all video IDs from all shards
-    internal IEnumerable<string> GetVideoIds()
-    {
-        changeToken?.Wait();
-        try { return videos.Ids(); }
-        finally { changeToken?.Release(); }
-    }
+    internal IReadOnlyList<string> GetVideoIds()
+        => SyncedFunc(() => videos.Ids().ToArray()); // execute LINQ inside lock
 
-    private SemaphoreSlim? changeToken; // ensures safe concurrent access during the update phase
+    /// <summary>Ensures safe concurrent access to the playlist during the update phase.
+    /// Only needs to be set via <see cref="CreateChangeToken(Func{Task})"/>
+    /// when starting a process that makes writing changes to the playlist.</summary>
+    private SemaphoreSlim? changeToken;
 
-    // creates the changeToken required for changes
+    // creates the changeToken required for making changes
     public IAsyncDisposable CreateChangeToken(Func<Task> savePlaylist)
     {
-        changeToken = new(1, 1);
-        return new ChangeTokenResetter(this, savePlaylist); // resets the changeToken to null when disposed
+        if (mayChange) throw new InvalidOperationException("A change scope is already active.");
+        mayChange = true;
+        changeToken ??= new(1, 1);
+        return new ChangeTokenResetter(this, savePlaylist); // resets mayChange to false when disposed
     }
 
     /// <summary>Tries inserting or moving <paramref name="videoId"/>
@@ -61,10 +72,9 @@ public sealed class Playlist
     /// and returns whether the operation resulted in any changes.</summary>
     public bool TryAddVideoId(string videoId, uint newIndex)
     {
-        if (changeToken == null) return false; // made no changes
-        changeToken.Wait();
+        if (!mayChange) return false; // made no changes
 
-        try
+        return SyncedFunc(() =>
         {
             var video = GetVideo(videoId);
 
@@ -96,16 +106,14 @@ public sealed class Playlist
                 hasUnsavedChanges = true;
                 return true; // made changes
             }
-        }
-        finally { changeToken?.Release(); }
+        });
     }
 
     internal bool Update(Video loadedVideo)
     {
-        if (changeToken == null) return false; // made no changes
-        changeToken.Wait();
+        if (!mayChange) return false; // no change token, no changes
 
-        try
+        return SyncedFunc(() =>
         {
             VideoInfo? video = GetVideo(loadedVideo.Id);
 
@@ -114,7 +122,7 @@ public sealed class Playlist
             {
                 video = new VideoInfo { Id = loadedVideo.Id };
                 videos.Add(video);
-                UpdateShardNumbers();
+                UpdateShardNumbers(); //TODO would deadlock, change token is held by this method!
                 hasUnsavedChanges = true;
             }
 
@@ -133,24 +141,22 @@ public sealed class Playlist
             }
 
             return madeChanges;
-        }
-        finally { changeToken?.Release(); }
+        });
     }
 
     internal event Action? ShardNumbersUpdated;
 
     public void UpdateShardNumbers()
     {
-        if (changeToken == null) return;
-        changeToken.Wait();
+        if (!mayChange) return; // make no changes without change token
 
-        try
+        SyncedAction(() =>
         {
             var withoutShardNumber = videos.Where(v => v.ShardNumber == null).ToArray();
             if (withoutShardNumber.Length == 0) return;
 
             videos = [.. videos.OrderBy(v => v.PlaylistIndex)];
-            int firstLoadedIndex = GetIndexOfFirstLoadedVideo();
+            int firstLoadedIndex = GetIndexOfFirstLoadedVideoUnsynced();
 
             foreach (var video in withoutShardNumber)
             {
@@ -162,8 +168,7 @@ public sealed class Playlist
                     hasUnsavedChanges = true;
                 }
             }
-        }
-        finally { changeToken?.Release(); }
+        });
 
         ShardNumbersUpdated?.Invoke();
     }
@@ -186,7 +191,9 @@ public sealed class Playlist
     }
 
     /// <summary>Figures out the index of the first loaded video, which was indexed in shard 0.</summary>
-    internal int GetIndexOfFirstLoadedVideo()
+    internal int GetIndexOfFirstLoadedVideo() => SyncedFunc(GetIndexOfFirstLoadedVideoUnsynced);
+
+    private int GetIndexOfFirstLoadedVideoUnsynced()
     {
         var firstLoaded = videos.Find(v => v.ShardNumber == 0);
         return firstLoaded == null ? 0 : videos.IndexOf(firstLoaded);
@@ -194,11 +201,11 @@ public sealed class Playlist
 
     internal void UpdateLoaded()
     {
-        if (changeToken == null) return;
-        changeToken.Wait();
+        if (!mayChange) return; // make no changes without change token
+        changeToken!.Wait();
         Loaded = DateTime.UtcNow;
         hasUnsavedChanges = true;
-        changeToken?.Release();
+        changeToken!.Release();
     }
 
     private void DropVideos(Func<VideoInfo, bool> condition)
@@ -210,8 +217,9 @@ public sealed class Playlist
 
     private async ValueTask SaveAsync(Func<Task> save)
     {
-        if (!hasUnsavedChanges || changeToken == null) return;
-        await changeToken.WaitAsync();
+        // skip if there are no changes or we don't have a token to make any
+        if (!hasUnsavedChanges || !mayChange) return;
+        await changeToken!.WaitAsync();
 
         try
         {
@@ -220,7 +228,7 @@ public sealed class Playlist
         }
         finally
         {
-            changeToken?.Release();
+            changeToken!.Release();
         }
     }
 
@@ -234,9 +242,7 @@ public sealed class Playlist
         {
             playlist.UpdateShardNumbers(); // in case user canceled process, leading to early disposal
             await playlist.SaveAsync(savePlaylist);
-            playlist.changeToken?.Release(); // to avoid deadlock
-            playlist.changeToken?.Dispose();
-            playlist.changeToken = null; // not required any longer when changes have been made
+            playlist.mayChange = false;
         }
     }
 
