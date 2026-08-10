@@ -24,6 +24,7 @@ public sealed class Playlist
     [JP("u")] public required string ThumbnailUrl { get; set; }
     [JP("c")] public string? Channel { get; set; }
     [JP("l")] public DateTime Loaded { get; set; }
+    [JP("n")] public int? Count { get; internal set; }
 
     [JsonInclude, JP("v")] private List<VideoInfo> videos = [];
 

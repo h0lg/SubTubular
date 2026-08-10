@@ -113,26 +113,40 @@ partial class Youtube
         GetPlaylistAsync(scope, async () =>
         {
             var playlist = await client.Playlists.GetAsync(scope.SingleValidated.Id, token);
-            return (playlist.Title, SelectUrl(playlist.Thumbnails), playlist.Author?.ChannelTitle);
+            return (playlist.Title, SelectUrl(playlist.Thumbnails), playlist.Author?.ChannelTitle, playlist.Count);
         });
 
     internal Task<Playlist> GetPlaylistAsync(ChannelScope scope, CancellationToken token) =>
         GetPlaylistAsync(scope, async () =>
         {
             var channel = await client.Channels.GetAsync(scope.SingleValidated.Id, token);
-            return (channel.Title, SelectUrl(channel.Thumbnails), null);
+            return (channel.Title, SelectUrl(channel.Thumbnails), null, null);
         });
 
     private async Task<Playlist> GetPlaylistAsync(PlaylistLikeScope scope,
-        Func<Task<(string title, string thumbnailUrl, string? channel)>> downloadData)
+        Func<Task<(string title, string thumbnailUrl, string? channel, int? count)>> downloadData)
     {
         scope.Report(VideoList.Status.loading);
         var playlist = await dataStore.GetAsync<Playlist>(scope.StorageKey); // get cached
-        if (playlist != null) return playlist;
 
+        // only return directly from cache if fresh enough
+        if (playlist != null && scope.IsFreshEnough(playlist)) return playlist;
+
+        // otherwise download fresh metadata
         scope.Report(VideoList.Status.downloading);
-        var (title, thumbnailUrl, channel) = await downloadData();
-        playlist = new Playlist { Title = title, ThumbnailUrl = thumbnailUrl, Channel = channel };
+        var (title, thumbnailUrl, channel, count) = await downloadData();
+
+        // only create new playlist if none was cached
+        if (playlist == null) playlist = new Playlist { Title = title, ThumbnailUrl = thumbnailUrl };
+        else // otherwise just update the existing one to retain its videos
+        {
+            playlist.Title = title;
+            playlist.ThumbnailUrl = thumbnailUrl;
+        }
+
+        playlist.Channel = channel;
+        playlist.Count = count;
+
         await dataStore.SetAsync(scope.StorageKey, playlist);
         return playlist;
     }
@@ -150,8 +164,7 @@ partial class Youtube
         var requiredVideoCount = (uint)scope.RequiredVideoLoadCount;
 
         // return fresh enough playlist with sufficient videos loaded
-        if (DateTime.UtcNow.AddHours(-Math.Abs(scope.CacheHours)) <= playlist.Loaded
-            && requiredVideoCount <= playlist.GetVideos().Count())
+        if (scope.IsFreshEnough(playlist) && requiredVideoCount <= playlist.GetVideos().Count())
         {
             playlist.UpdateShardNumbers(); // in case they weren't before due to an error
             return null; // not changed from previous return

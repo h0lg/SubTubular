@@ -103,6 +103,9 @@ public abstract partial class PlaylistLikeScope(string alias, ushort skip, ushor
         else yield return $"{identifier} ({Skip + 1} - {RequiredVideoLoadCount + 1})";
     }
 
+    internal bool IsFreshEnough(Playlist playlist)
+        => DateTime.UtcNow.AddHours(-Math.Abs(CacheHours)) <= playlist.Loaded;
+
     // for equality comparison of recent commands
     public override int GetHashCode() => Alias.GetHashCode();
 }
