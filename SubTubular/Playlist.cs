@@ -38,13 +38,6 @@ public sealed class Playlist
         finally { changeToken?.Release(); }
     }
 
-    internal uint GetVideoCount()
-    {
-        changeToken?.Wait();
-        try { return (uint)videos.Count; }
-        finally { changeToken?.Release(); }
-    }
-
     // Retrieve all video IDs from all shards
     internal IEnumerable<string> GetVideoIds()
     {

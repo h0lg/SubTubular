@@ -150,7 +150,7 @@ partial class Youtube
 
         // return fresh enough playlist with sufficient videos loaded
         if (DateTime.UtcNow.AddHours(-Math.Abs(scope.CacheHours)) <= playlist.Loaded
-            && requiredVideoCount <= playlist.GetVideoCount())
+            && requiredVideoCount <= playlist.GetVideos().Count())
         {
             playlist.UpdateShardNumbers(); // in case they weren't before due to an error
             return null; // not changed from previous return
@@ -189,7 +189,7 @@ partial class Youtube
                     /* return the playlist early because we have enough cached info to serve the request scope
                      * and can reasonably assume that the cache is up to date
                      * because adding the last n videos didn't result in any changes */
-                    else if (requiredVideoCount <= playlist.GetVideoCount() && madeChanges.All(x => !x))
+                    else if (requiredVideoCount <= playlist.GetVideos().Count() && madeChanges.All(x => !x))
                     {
                         playlist.UpdateShardNumbers();
                         earlyReturn.Release();
