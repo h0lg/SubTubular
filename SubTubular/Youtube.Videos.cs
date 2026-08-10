@@ -124,7 +124,7 @@ partial class Youtube
 
         /* order multiple video IDs alphabetically to create a predictable key
          * for later searches on the same scope with the same IDs in a different order */
-        var storageKey = Video.StorageKeyPrefix + videoIds.Order().Join(" ");
+        var storageKey = Video.StorageKey(videoIds.Order().Join(" "));
 
         var index = await videoIndexRepo.GetAsync(storageKey);
 
@@ -168,7 +168,7 @@ partial class Youtube
         CommandScope scope, bool downloadCaptionTracks = true, bool save = true)
     {
         token.ThrowIfCancellationRequested();
-        var storageKey = Video.StorageKeyPrefix + videoId;
+        var storageKey = Video.StorageKey(videoId);
         scope.Report(videoId, VideoList.Status.loading);
         var video = await dataStore.GetAsync<Video>(storageKey);
 
@@ -249,5 +249,5 @@ partial class Youtube
                 .Join(Environment.NewLine), [.. errors], video);
     }
 
-    private Task SaveVideo(Video video) => dataStore.SetAsync(Video.StorageKeyPrefix + video.Id, video);
+    private Task SaveVideo(Video video) => dataStore.SetAsync(Video.StorageKey(video.Id), video);
 }

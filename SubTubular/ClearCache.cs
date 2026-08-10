@@ -38,7 +38,7 @@ public static partial class CacheManager
                     if (invalid.Length > 0) throw new InputException(
                         "The following inputs are not valid video IDs or URLs: " + invalid.Join(" "));
 
-                    DeleteByNames(aliasToPrevalidatedId.Values.WithValue().Select(videoId => Video.StorageKeyPrefix + videoId));
+                    DeleteByNames(aliasToPrevalidatedId.Values.WithValue().Select(Video.StorageKey));
                 }
                 else
                 {
@@ -108,7 +108,7 @@ public static partial class CacheManager
             foreach (var key in deletableKeys)
             {
                 var playlist = await playListLikeDataStore.GetAsync<Playlist>(key);
-                if (playlist != null) DeleteByNames(playlist.GetVideoIds().Select(videoId => Video.StorageKeyPrefix + videoId));
+                if (playlist != null) DeleteByNames(playlist.GetVideoIds().Select(Video.StorageKey));
                 DeleteByName(key);
             }
         }
