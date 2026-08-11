@@ -213,12 +213,14 @@ partial class Youtube
                 // to enable indexing new videos - can't succeed if playlist change token has been revoked
                 if (!token.IsCancellationRequested) playlist.UpdateShardNumbers();
 
-                if (returnedEarly && madeChangesAfterEarlyReturn) scope.Notify("Results may be stale.",
-                    "The command was run on cached playlist info that turned out to be stale - you may want re-run it."
-                    + $" {AssemblyInfo.Name} decided to do so when hitting known video IDs during playlist refresh to get you quicker results"
-                    + " - but completing the refresh in the background turned up with unexpected changes.");
-
-                earlyReturn.Release(); // to stop waiting below
+                if (returnedEarly)
+                {
+                    if (madeChangesAfterEarlyReturn) scope.Notify("Results may be stale.",
+                        "The command was run on cached playlist info that turned out to be stale - you may want re-run it."
+                        + $" {AssemblyInfo.Name} decided to do so when hitting known video IDs during playlist refresh to get you quicker results"
+                        + " - but completing the refresh in the background turned up with unexpected changes.");
+                }
+                else earlyReturn.Release(); // to stop waiting below
             }
         }, token);
 
