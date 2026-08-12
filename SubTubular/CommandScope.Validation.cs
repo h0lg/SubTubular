@@ -78,12 +78,16 @@ partial class PlaylistLikeScope
     {
         if (Playlist.ShardSize < Take) return true;
 
-        if (RequiredVideoLoadCount <= playlist.GetVideos().Count) return this.SpansMultipleIndexShards();
+        int required = playlist.Count == null ? RequiredVideoLoadCount
+            : RequiredVideoLoadCount < playlist.Count ? RequiredVideoLoadCount // less than total count requested
+            : playlist.Count.Value; // more requested than available, use available count
+
+        if (required <= playlist.GetVideos().Count) return this.SpansMultipleIndexShards();
 
         // required videos not loaded; calculate shard numbers and figure it out
         int firstLoadedIndex = playlist.GetIndexOfFirstLoadedVideo();
         short? lowShard = Playlist.CalculateShardNumber(Skip, firstLoadedIndex);
-        short? highShard = Playlist.CalculateShardNumber(RequiredVideoLoadCount, firstLoadedIndex);
+        short? highShard = Playlist.CalculateShardNumber(required, firstLoadedIndex);
         return lowShard != highShard;
     }
 }
