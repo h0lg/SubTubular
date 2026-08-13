@@ -219,11 +219,11 @@ public sealed class Playlist
     {
         // skip if there are no changes or we don't have a token to make any
         if (!hasUnsavedChanges || !mayChange) return;
-        await changeToken!.WaitAsync();
+        await changeToken!.WaitAsync().ConfigureAwait(false);
 
         try
         {
-            await save();
+            await save().ConfigureAwait(false);
             hasUnsavedChanges = false;
         }
         finally
@@ -241,7 +241,7 @@ public sealed class Playlist
         public async ValueTask DisposeAsync()
         {
             playlist.UpdateShardNumbers(); // in case user canceled process, leading to early disposal
-            await playlist.SaveAsync(savePlaylist);
+            await playlist.SaveAsync(savePlaylist).ConfigureAwait(false);
             playlist.mayChange = false;
         }
     }

@@ -52,7 +52,7 @@ public abstract class FileDataStore : DataStore
         var path = GetPath(key);
 
         if (value == null) File.Delete(path);
-        else await SerializeToPath(value, path);
+        else await SerializeToPath(value, path).ConfigureAwait(false);
     }
 
     public DateTime? GetLastModified(string key)
@@ -118,7 +118,7 @@ public class JsonFileDataStore(string directory) : FileDataStore(directory, File
     protected override async Task SerializeToPath<T>(T value, string path)
     {
         await using FileStream stream = new(path, FileMode.Create);
-        await JsonSerializer.SerializeAsync(stream, value, options);
+        await JsonSerializer.SerializeAsync(stream, value, options).ConfigureAwait(false);
     }
 }
 
