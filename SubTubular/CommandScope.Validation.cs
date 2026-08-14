@@ -70,8 +70,8 @@ partial class PlaylistLikeScope
     {
         SingleValidated.Playlist = playlist;
         Report(VideoList.Status.validated);
-        SpansMultipleIndexShards = await LikelySpansMultipleIndexShardsAsync(playlist);
-        playlist.ShardNumbersUpdated += async () => SpansMultipleIndexShards = await this.SpansMultipleIndexShardsAsync();
+        SpansMultipleIndexShards = await LikelySpansMultipleIndexShardsAsync(playlist).ContinueAnywhere();
+        playlist.ShardNumbersUpdated += async () => SpansMultipleIndexShards = await this.SpansMultipleIndexShardsAsync().ContinueAnywhere();
     }
 
     private async Task<bool> LikelySpansMultipleIndexShardsAsync(Playlist playlist)
@@ -82,11 +82,11 @@ partial class PlaylistLikeScope
             : RequiredVideoLoadCount < playlist.Count ? RequiredVideoLoadCount // less than total count requested
             : playlist.Count.Value; // more requested than available, use available count
 
-        var videos = await playlist.GetVideosAsync();
-        if (required <= videos.Count) return await this.SpansMultipleIndexShardsAsync();
+        var videos = await playlist.GetVideosAsync().ContinueAnywhere();
+        if (required <= videos.Count) return await this.SpansMultipleIndexShardsAsync().ContinueAnywhere();
 
         // required videos not loaded; calculate shard numbers and figure it out
-        int firstLoadedIndex = await playlist.GetIndexOfFirstLoadedVideoAsync();
+        int firstLoadedIndex = await playlist.GetIndexOfFirstLoadedVideoAsync().ContinueAnywhere();
         short? lowShard = Playlist.CalculateShardNumber(Skip, firstLoadedIndex);
         short? highShard = Playlist.CalculateShardNumber(required, firstLoadedIndex);
         return lowShard != highShard;
@@ -105,6 +105,6 @@ public static class ScopeExtensions
         => results.Select(r => r.Id);
 
     internal static async Task<bool> SpansMultipleIndexShardsAsync(this PlaylistLikeScope scope)
-        => (await scope.SingleValidated.Playlist!.GetRelevantVideosAsync(scope))
+        => (await scope.SingleValidated.Playlist!.GetRelevantVideosAsync(scope).ContinueAnywhere())
             .GroupBy(v => v.ShardNumber).Count() > 1;
 }

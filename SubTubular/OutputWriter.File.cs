@@ -33,7 +33,7 @@ public abstract class FileOutputWriter : OutputWriter
     public async ValueTask<string> SaveFile()
     {
         var path = GetOutputFilePath();
-        await FileHelper.WriteTextAsync(Flush(), path);
+        await FileHelper.WriteTextAsync(Flush(), path).ContinueAnywhere();
         return path;
     }
 

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using SubTubular.Extensions;
 
 namespace SubTubular;
 
@@ -27,11 +28,11 @@ public sealed class ChannelAliasMap
     /// or the <paramref name="dataStore"/>.</summary>
     internal static async Task<HashSet<ChannelAliasMap>> LoadListAsync(DataStore dataStore)
     {
-        await access.WaitAsync();
+        await access.WaitAsync().ContinueAnywhere();
 
         try
         {
-            await LoadLocalCacheAsync(dataStore);
+            await LoadLocalCacheAsync(dataStore).ContinueAnywhere();
             return [.. localCache!.Values];
         }
         finally
@@ -44,11 +45,11 @@ public sealed class ChannelAliasMap
     /// and saves them via <see cref="LoadLocalCacheAsync(DataStore)"/> to the <paramref name="dataStore"/>.</summary>
     internal static async Task AddEntriesAsync(IEnumerable<ChannelAliasMap> entries, DataStore dataStore)
     {
-        await access.WaitAsync();
+        await access.WaitAsync().ContinueAnywhere();
 
         try
         {
-            await LoadLocalCacheAsync(dataStore);
+            await LoadLocalCacheAsync(dataStore).ContinueAnywhere();
 
             foreach (var entry in entries)
             {
@@ -68,11 +69,11 @@ public sealed class ChannelAliasMap
     /// and saves changes via <see cref="LoadLocalCacheAsync(DataStore)"/> to the <paramref name="dataStore"/>.</summary>
     internal static async Task RemoveEntriesAsync(IEnumerable<ChannelAliasMap> entries, DataStore dataStore)
     {
-        await access.WaitAsync();
+        await access.WaitAsync().ContinueAnywhere();
 
         try
         {
-            await LoadLocalCacheAsync(dataStore);
+            await LoadLocalCacheAsync(dataStore).ContinueAnywhere();
 
             foreach (var entry in entries)
             {
@@ -91,7 +92,7 @@ public sealed class ChannelAliasMap
         // load data from the data store if the local cache is empty
         if (localCache == null)
         {
-            var stored = await dataStore.GetAsync<HashSet<ChannelAliasMap>>(StorageKey) ?? [];
+            var stored = await dataStore.GetAsync<HashSet<ChannelAliasMap>>(StorageKey).ContinueAnywhere() ?? [];
             localCache = new();
 
             foreach (var entry in stored)
@@ -107,7 +108,7 @@ public sealed class ChannelAliasMap
     private static void DebounceClearCache(DataStore dataStore)
     {
         if (inactivityTimer == null)
-            inactivityTimer = new Timer(async _ => await PersistCacheAsync(dataStore), null, inactivityPeriod, Timeout.InfiniteTimeSpan);
+            inactivityTimer = new Timer(async _ => await PersistCacheAsync(dataStore).ContinueAnywhere(), null, inactivityPeriod, Timeout.InfiniteTimeSpan);
         else inactivityTimer.Change(inactivityPeriod, Timeout.InfiniteTimeSpan);
     }
 
@@ -115,7 +116,7 @@ public sealed class ChannelAliasMap
     /// to the <paramref name="dataStore"/> if <see cref="changesMade"/>.</summary>
     private static async Task PersistCacheAsync(DataStore dataStore)
     {
-        await access.WaitAsync();
+        await access.WaitAsync().ContinueAnywhere();
 
         try
         {
@@ -123,7 +124,7 @@ public sealed class ChannelAliasMap
             {
                 if (changesMade)
                 {
-                    await dataStore.SetAsync(StorageKey, localCache.Values.ToHashSet());
+                    await dataStore.SetAsync(StorageKey, localCache.Values.ToHashSet()).ContinueAnywhere();
                     changesMade = false; // mark persisted
                 }
 

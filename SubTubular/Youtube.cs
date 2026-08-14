@@ -28,7 +28,7 @@ public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository vi
 
         var searching = Task.Run(async () =>
         {
-            await foreach (var task in Task.WhenEach(searches))
+            await foreach (var task in Task.WhenEach(searches).ContinueAnywhere())
             {
                 if (task.IsFaulted)
                 {
@@ -64,7 +64,7 @@ public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository vi
         var spansMultipleIndexes = command.SpansMultipleIndexes();
 
         // don't pass cancellation token to avoid throwing before searching is awaited below
-        await foreach (var result in results.Reader.ReadAllAsync())
+        await foreach (var result in results.Reader.ReadAllAsync().ContinueAnywhere())
         {
             if (linkedTs.Token.IsCancellationRequested) break; // end loop gracefully to throw below
             if (spansMultipleIndexes) result.Rescore();
@@ -77,7 +77,7 @@ public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository vi
                     : "The search unexpectedly ran on multiple indexes, turning the result scores calculated for one index stale."
                         + " If you repeat it, results will be re-scored across multiple scopes using a simplified algorithm.");
 
-        await searching; // throws the relevant input errors
+        await searching.ContinueAnywhere(); // throws the relevant input errors
 
         void SearchPlaylistLikeScopes(PlaylistLikeScope[]? scopes)
         {
@@ -102,7 +102,7 @@ public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository vi
     {
         try
         {
-            await search; // to throw exceptions
+            await search.ContinueAnywhere(); // to throw exceptions
             scope.Report(VideoList.Status.searched);
         }
         catch (Exception ex)

@@ -1,4 +1,6 @@
-﻿namespace SubTubular;
+﻿using SubTubular.Extensions;
+
+namespace SubTubular;
 
 using CaptionStatus = CommandScope.CaptionStatus;
 using CaptionTrackDownloadStatus = (CommandScope.CaptionStatus? status, int videos);
@@ -20,7 +22,7 @@ public static class CaptionStatusExtensions
                 .ToArray();
         else
         {
-            var videos = await scope.SingleValidated.Playlist!.GetVideosAsync();
+            var videos = await scope.SingleValidated.Playlist!.GetVideosAsync().ContinueAnywhere();
 
             return videos
                 .GroupBy(v => v.CaptionTrackDownloadStatus)
@@ -58,7 +60,7 @@ public static class CaptionStatusExtensions
             })];
 
     public static IEnumerable<Task<(CommandScope scope, (CaptionStatus? status, int videos)[])>> GetCaptionTrackDownloadStatus(this OutputCommand command)
-        => command.GetScopes().Select(async scope => (scope, await scope.GetCaptionTrackDownloadStatesAsync()));
+        => command.GetScopes().Select(async scope => (scope, await scope.GetCaptionTrackDownloadStatesAsync().ContinueAnywhere()));
 
     internal static IEnumerable<CaptionTrack> WithErrors(this IEnumerable<CaptionTrack> tracks)
         => tracks.Where(t => t.Error != null);

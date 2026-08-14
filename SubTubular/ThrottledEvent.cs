@@ -1,3 +1,5 @@
+using SubTubular.Extensions;
+
 namespace SubTubular;
 
 /// <summary><para>A throttled event dispatcher that raises events at most once per <paramref name="interval"/>
@@ -42,7 +44,7 @@ public class ThrottledEvent(TimeSpan interval, SynchronizationContext? syncConte
     {
         while (true)
         {
-            await Task.Delay(interval);
+            await Task.Delay(interval).ContinueAnywhere();
             (object sender, EventArgs args)? next = null;
 
             lock (locker)

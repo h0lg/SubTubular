@@ -33,15 +33,15 @@ partial class Youtube
             }, token); // reader uses the same token, writer completion is not required.
 
         // start reading
-        await foreach (var keywords in channel.Reader.ReadAllAsync(token)) yield return keywords;
+        await foreach (var keywords in channel.Reader.ReadAllAsync(token).ContinueAnywhere()) yield return keywords;
 
-        await lookups;
+        await lookups.ContinueAnywhere();
 
         async Task RunUpdatingScope(Task listingKeywords, CommandScope scope)
         {
             try
             {
-                await listingKeywords; // to throw exceptions
+                await listingKeywords.ContinueAnywhere(); // to throw exceptions
                 scope.Report(VideoList.Status.searched);
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested) { scope.Report(VideoList.Status.canceled); }
@@ -58,8 +58,8 @@ partial class Youtube
 
             await using (playlist.CreateChangeToken(() => dataStore.SetAsync(scope.StorageKey, playlist)))
             {
-                Task? continuedRefresh = await RefreshPlaylistAsync(scope, token);
-                var videos = (await playlist.GetRelevantVideosAsync(scope).ConfigureAwait(false)).ToArray();
+                Task? continuedRefresh = await RefreshPlaylistAsync(scope, token).ContinueAnywhere();
+                var videos = (await playlist.GetRelevantVideosAsync(scope).ContinueAnywhere()).ToArray();
                 var videoIds = videos.Ids().ToArray();
                 scope.QueueVideos(videoIds);
                 scope.Report(VideoList.Status.searching);
@@ -67,13 +67,13 @@ partial class Youtube
                 foreach (var video in videos)
                 {
                     if (video.Keywords?.Length > 0)
-                        await channel.Writer.WriteAsync((video.Keywords, video.Id, scope), token);
+                        await channel.Writer.WriteAsync((video.Keywords, video.Id, scope), token).ContinueAnywhere();
 
                     scope.Report(video.Id, VideoList.Status.searched);
                 }
 
                 scope.Report(VideoList.Status.searched); // early, independent of background refresh
-                if (continuedRefresh != null) await continuedRefresh;
+                if (continuedRefresh != null) await continuedRefresh.ContinueAnywhere();
             }
         }
 
@@ -85,10 +85,10 @@ partial class Youtube
             await Task.WhenAll(videoIds.Select(async videoId =>
             {
                 videos.Report(videoId, VideoList.Status.searching);
-                var video = await GetVideoAsync(videoId, token, videos);
-                await channel.Writer.WriteAsync((video.Keywords, videoId, videos), token);
+                var video = await GetVideoAsync(videoId, token, videos).ContinueAnywhere();
+                await channel.Writer.WriteAsync((video.Keywords, videoId, videos), token).ContinueAnywhere();
                 videos.Report(videoId, VideoList.Status.searched);
-            })).WithAggregateException();
+            })).WithAggregateException().ContinueAnywhere();
         }
     }
 

@@ -10,21 +10,21 @@ partial class Youtube
         {
             var channels = await client.Search.GetChannelsAsync(text, token);
             return channels.Select(c => new YoutubeSearchResult(c.Id, c.Title, c.Url, SelectUrl(c.Thumbnails)));
-        }, token);
+        }, token).ContinueAnywhere();
 
     public async Task<IEnumerable<YoutubeSearchResult>> SearchForPlaylistsAsync(string text, CancellationToken token)
         => await SearchedForCachedAsync(text, PlaylistScope.StorageKeyPrefix, async text =>
         {
             var playlists = await client.Search.GetPlaylistsAsync(text, token);
             return playlists.Select(pl => new YoutubeSearchResult(pl.Id, pl.Title, pl.Url, SelectUrl(pl.Thumbnails), pl.Author?.ChannelTitle));
-        }, token);
+        }, token).ContinueAnywhere();
 
     public async Task<IEnumerable<YoutubeSearchResult>> SearchForVideosAsync(string text, CancellationToken token)
         => await SearchedForCachedAsync(text, Video.StorageKeyPrefix, async text =>
         {
             var videos = await client.Search.GetVideosAsync(text, token);
             return videos.Select(v => new YoutubeSearchResult(v.Id, v.Title, v.Url, SelectUrl(v.Thumbnails), v.Author?.ChannelTitle));
-        }, token);
+        }, token).ContinueAnywhere();
 
     /// <summary>Identifies scope search caches by being the second prefix after the StorageKeyPrefix identifying the scope type.</summary>
     public const string SearchAffix = "search ";
@@ -34,7 +34,7 @@ partial class Youtube
     {
         if (token.IsCancellationRequested) return []; // caller was forced to pass token and should know about cancellation without throwing
         string key = keyPrefix + SearchAffix + text.ToFileSafe();
-        var cached = await dataStore.GetAsync<YoutubeSearchResult.Cache>(key);
+        var cached = await dataStore.GetAsync<YoutubeSearchResult.Cache>(key).ContinueAnywhere();
 
         if (cached == null || cached.Search != text || cached.Created.AddHours(1) < DateTime.Now)
         {
@@ -42,9 +42,9 @@ partial class Youtube
 
             try
             {
-                var mapped = await searchYoutubeAsync(text);
+                var mapped = await searchYoutubeAsync(text).ContinueAnywhere();
                 cached = new YoutubeSearchResult.Cache(text, [.. mapped], DateTime.Now);
-                await dataStore.SetAsync(key, cached);
+                await dataStore.SetAsync(key, cached).ContinueAnywhere();
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested)
             {

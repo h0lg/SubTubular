@@ -2,3 +2,6 @@
 
 # IDE0061: Prefer expression bodies for local functions
 csharp_style_expression_bodied_local_functions = true
+
+# Consider calling ConfigureAwait on the awaited task (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca2007)
+# dotnet_diagnostic.CA2007.severity = warning

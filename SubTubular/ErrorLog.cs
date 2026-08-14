@@ -33,7 +33,7 @@ public static class ErrorLog
 
             /* don't continueOnCapturedContext to enable safely waiting for this synchronously on the UI thread
              * using Write() below - without dead-locking the UI thread by awaiting on it */
-            await FileHelper.WriteTextAsync(report, path).ConfigureAwait(continueOnCapturedContext: false);
+            await FileHelper.WriteTextAsync(report, path).ContinueAnywhere();
 
             return (path, report);
         }

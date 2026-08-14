@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
+using SubTubular.Extensions;
 
 namespace SubTubular;
 
@@ -16,7 +17,7 @@ public static class RecentCommands
         try
         {
             await using FileStream stream = new(recentPath, FileMode.Open);
-            return await JsonSerializer.DeserializeAsync<List<Item>>(stream, options, token) ?? [];
+            return await JsonSerializer.DeserializeAsync<List<Item>>(stream, options, token).ContinueAnywhere() ?? [];
         }
         catch (Exception ex)
         {
@@ -25,7 +26,7 @@ public static class RecentCommands
 
             await ErrorLog.WriteAsync(ex.ToString(),
                 header: "Error loading recent commands. A copy has been saved to " + copyPath,
-                fileNameDescription: "loading recent commands");
+                fileNameDescription: "loading recent commands").ContinueAnywhere();
 
             return [];
         }
@@ -35,7 +36,7 @@ public static class RecentCommands
     {
         foreach (var item in commands) item.Command?.RemoveEmptyScopes();
         await using FileStream stream = new(recentPath, FileMode.Create);
-        await JsonSerializer.SerializeAsync(stream, commands, options, token);
+        await JsonSerializer.SerializeAsync(stream, commands, options, token).ContinueAnywhere();
     }
 
     public static void AddOrUpdate(this List<Item> list, OutputCommand command)

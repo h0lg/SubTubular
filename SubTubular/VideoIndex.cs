@@ -50,8 +50,8 @@ public sealed class VideoIndexRepository
         // see https://mikegoatly.github.io/lifti/docs/index-construction/withindexmodificationaction/
         FullTextIndex<string> index = CreateIndexBuilder().WithIndexModificationAction(async indexSnapshot =>
         {
-            await videoIndex!.AccessToken.WaitAsync();
-            try { await SaveAsync(indexSnapshot, key); }
+            await videoIndex!.AccessToken.WaitAsync().ContinueAnywhere();
+            try { await SaveAsync(indexSnapshot, key).ContinueAnywhere(); }
             finally { videoIndex!.AccessToken.Release(); }
         }).Build();
 
@@ -71,11 +71,11 @@ public sealed class VideoIndexRepository
 
         try
         {
-            await index.AccessToken.WaitAsync();
+            await index.AccessToken.WaitAsync().ContinueAnywhere();
 
             // see https://mikegoatly.github.io/lifti/docs/serialization/
             await using (var reader = file.OpenRead())
-                await serializer.DeserializeAsync(index.Index, reader, disposeStream: false);
+                await serializer.DeserializeAsync(index.Index, reader, disposeStream: false).ContinueAnywhere();
 
             return index;
         }
@@ -94,7 +94,7 @@ public sealed class VideoIndexRepository
     internal async ValueTask<VideoIndex> GetIndexShardAsync(string playlistKey, int shardNumber)
     {
         string key = playlistKey + "." + shardNumber;
-        var index = await GetAsync(key);
+        var index = await GetAsync(key).ContinueAnywhere();
         index ??= Build(key);
         return index;
     }
@@ -102,8 +102,8 @@ public sealed class VideoIndexRepository
     private async Task SaveAsync(IIndexSnapshot<string> indexSnapshot, string key)
     {
         // see https://mikegoatly.github.io/lifti/docs/serialization/
-        await using var writer = new FileStream(GetPath(key), FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
-        await serializer.SerializeAsync(indexSnapshot, writer, disposeStream: false);
+        await using FileStream writer = new(GetPath(key), FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
+        await serializer.SerializeAsync(indexSnapshot, writer, disposeStream: false).ContinueAnywhere();
     }
 
     public IEnumerable<string> Delete(string? keyPrefix = null, string? key = null, ushort? notAccessedForDays = null, bool simulate = false)
@@ -128,7 +128,7 @@ internal sealed class VideoIndex : IDisposable
         /*  Adds or replaces the video, see
             https://mikegoatly.github.io/lifti/docs/index-construction/withduplicatekeybehavior/
             https://github.com/mikegoatly/lifti/discussions/124#discussioncomment-11296041 */
-        await Index.AddAsync(video, token);
+        await Index.AddAsync(video, token).ContinueAnywhere();
         video.IsFresh = false; // reset the flag that triggers re-indexing during search
     }
 
@@ -192,7 +192,7 @@ internal sealed class VideoIndex : IDisposable
                 {
                     token.ThrowIfCancellationRequested();
                     var getVideos = matchesForVideosWithoutUploadDate.Select(m => getVideoAsync(m.Key, token)).ToArray();
-                    await Task.WhenAll(getVideos).WithAggregateException();
+                    await Task.WhenAll(getVideos).WithAggregateException().ContinueAnywhere();
                     videosWithoutUploadDate = [.. getVideos.Select(t => t.Result)];
                     freshVideos.AddRange(videosWithoutUploadDate.Where(v => v.IsFresh));
 
@@ -228,7 +228,7 @@ internal sealed class VideoIndex : IDisposable
 
             if (video == null)
             {
-                video = await getVideoAsync(match.Key, token);
+                video = await getVideoAsync(match.Key, token).ContinueAnywhere();
 
                 if (video.IsFresh)
                 {
@@ -298,7 +298,7 @@ internal sealed class VideoIndex : IDisposable
         if (freshVideos.Count > 0)
         {
             // consider results for freshVideos stale and re-index them
-            await UpdateAsync(freshVideos, scope, token);
+            await UpdateAsync(freshVideos, scope, token).ContinueAnywhere();
 
             // freshVideos were reloaded and are in validated state ATM
             scope.Report(freshVideos, VideoList.Status.searching);
@@ -306,7 +306,7 @@ internal sealed class VideoIndex : IDisposable
             // re-trigger search for freshVideos only
             await foreach (var result in SearchAsync(command, scope, LookupFreshVideoLocally,
                 relevantVideos: freshVideos.ToDictionary(v => v.Id, v => v.Uploaded as DateTime?),
-                playlist, token))
+                playlist, token).ContinueAnywhere())
                 yield return result;
 
             Task<Video> LookupFreshVideoLocally(string id, CancellationToken _)
@@ -325,12 +325,12 @@ internal sealed class VideoIndex : IDisposable
             token.ThrowIfCancellationRequested();
 
             await Task.WhenAll(indexedKeys.Where(key => key == video.Id)
-                .Select(key => Index.RemoveAsync(key, token))).WithAggregateException();
+                .Select(key => Index.RemoveAsync(key, token))).WithAggregateException().ContinueAnywhere();
 
-            await AddOrUpdateAsync(video, scope, token);
+            await AddOrUpdateAsync(video, scope, token).ContinueAnywhere();
         }
 
-        await CommitBatchChangeAsync(token);
+        await CommitBatchChangeAsync(token).ContinueAnywhere();
     }
 
     public void Dispose()

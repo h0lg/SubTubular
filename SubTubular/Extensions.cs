@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using Lifti;
 using YoutubeExplode.Exceptions;
@@ -155,7 +156,7 @@ internal static class ValueTasks
         var results = new T[tasks.Count];
 
         for (var i = 0; i < tasks.Count; i++)
-            try { results[i] = await tasks[i].ConfigureAwait(false); }
+            try { results[i] = await tasks[i].ContinueAnywhere(); }
             catch (Exception ex) { exceptions[i] = ex; }
 
         return (results, exceptions);
@@ -171,10 +172,30 @@ public static class TaskExtensions
     /// From https://github.com/dotnet/runtime/issues/47605#issuecomment-778930734</summary>
     internal static async Task WithAggregateException(this Task task)
     {
-        try { await task.ConfigureAwait(false); }
+        try { await task.ContinueAnywhere(); }
         catch (OperationCanceledException) when (task.IsCanceled) { throw; }
         catch { task.Wait(); }
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static ConfiguredTaskAwaitable ContinueAnywhere(this Task task)
+        => task.ConfigureAwait(continueOnCapturedContext: false);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static ConfiguredValueTaskAwaitable ContinueAnywhere(this ValueTask task)
+        => task.ConfigureAwait(continueOnCapturedContext: false);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static ConfiguredTaskAwaitable<T> ContinueAnywhere<T>(this Task<T> task)
+        => task.ConfigureAwait(continueOnCapturedContext: false);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static ConfiguredValueTaskAwaitable<T> ContinueAnywhere<T>(this ValueTask<T> task)
+        => task.ConfigureAwait(continueOnCapturedContext: false);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static ConfiguredCancelableAsyncEnumerable<T> ContinueAnywhere<T>(this IAsyncEnumerable<T> asyncEnumerable)
+        => asyncEnumerable.ConfigureAwait(continueOnCapturedContext: false);
 
     public static async IAsyncEnumerable<T> InCompletionOrder<T>(this IEnumerable<Task<T>> tasks)
     {
@@ -182,9 +203,9 @@ public static class TaskExtensions
 
         while (remaining.Count > 0)
         {
-            var completed = await Task.WhenAny(remaining);
+            var completed = await Task.WhenAny(remaining).ContinueAnywhere();
             remaining.Remove(completed);
-            yield return await completed;
+            yield return await completed.ContinueAnywhere();
         }
     }
 }

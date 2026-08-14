@@ -93,7 +93,7 @@ static partial class CacheManager
 
                 try
                 {
-                    await foreach (var task in Task.WhenEach(tasks))
+                    await foreach (var task in Task.WhenEach(tasks).ContinueAnywhere())
                     {
                         if (task.IsCompletedSuccessfully && task.Result.HasValue) dispatchGroup(task.Result.Value);
                         if (task.IsFaulted) dispatchException(task.Exception);
@@ -130,13 +130,14 @@ static partial class CacheManager
             var id = file.Name.StripAffixes(prefix, JsonFileDataStore.FileExtension);
             var scope = createScope(id);
             scope.AddPrevalidated(id, getUrl(id)); // so that getPlaylist can use StorageKey and SingleValidated
-            var playlist = await getPlaylist(scope);
+            var playlist = await getPlaylist(scope).ContinueAnywhere();
             var indexes = allIndexes.WithPrefix(prefix + id).ToArray();
 
             var thumbName = getThumbnailFileName(playlist.ThumbnailUrl);
             var thumbnail = files.SingleOrDefault(i => i.Name == thumbName);
 
-            var videoIds = (await playlist.GetVideosAsync()).Ids().ToArray();
+            var videoInfos = await playlist.GetVideosAsync().ContinueAnywhere();
+            var videoIds = videoInfos.Ids().ToArray();
             var videoNames = videoIds.Select(Video.StorageKey).ToArray();
             var videos = files.Where(f => videoNames.Any(n => f.HasPrefix(n))).ToArray();
 

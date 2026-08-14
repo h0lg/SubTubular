@@ -55,7 +55,7 @@ public static partial class CacheManager
                     {
                         var id = PlaylistScope.TryParseId(v);
                         return id == null ? [] : [id];
-                    });
+                    }).ContinueAnywhere();
 
                 break;
             case ClearCache.Scopes.channels:
@@ -63,12 +63,12 @@ public static partial class CacheManager
 
                 if (command.Aliases.HasAny())
                 {
-                    var aliasToChannelIds = await ClearChannelAliases(command.Aliases!, cacheDataStore, simulate);
+                    var aliasToChannelIds = await ClearChannelAliases(command.Aliases!, cacheDataStore, simulate).ContinueAnywhere();
                     parseAlias = alias => aliasToChannelIds.TryGetValue(alias, out var channelIds) ? channelIds : null;
                 }
                 else DeleteByName(ChannelAliasMap.StorageKey);
 
-                await ClearPlaylists(ChannelScope.StorageKeyPrefix, cacheDataStore, parseAlias!);
+                await ClearPlaylists(ChannelScope.StorageKeyPrefix, cacheDataStore, parseAlias!).ContinueAnywhere();
                 break;
             default: throw new NotImplementedException($"Clearing {nameof(ClearCache.Scope)} {command.Scope} is not implemented.");
         }
@@ -107,11 +107,11 @@ public static partial class CacheManager
 
             foreach (var key in deletableKeys)
             {
-                var playlist = await playListLikeDataStore.GetAsync<Playlist>(key).ConfigureAwait(false);
+                var playlist = await playListLikeDataStore.GetAsync<Playlist>(key).ContinueAnywhere();
 
                 if (playlist != null)
                 {
-                    var videoIds = await playlist.GetVideoIdsAsync().ConfigureAwait(false);
+                    var videoIds = await playlist.GetVideoIdsAsync().ContinueAnywhere();
                     DeleteByNames(videoIds.Select(Video.StorageKey));
                 }
 
@@ -123,7 +123,7 @@ public static partial class CacheManager
     private static async Task<Dictionary<string, string[]>> ClearChannelAliases(
         IEnumerable<string> aliases, DataStore dataStore, bool simulate)
     {
-        var cachedMaps = await ChannelAliasMap.LoadListAsync(dataStore);
+        var cachedMaps = await ChannelAliasMap.LoadListAsync(dataStore).ContinueAnywhere();
         var matchedMaps = new List<ChannelAliasMap>();
 
         var aliasToChannelIds = aliases.ToDictionary(alias => alias, alias =>
@@ -144,7 +144,7 @@ public static partial class CacheManager
             var channelIds = aliasToChannelIds.SelectMany(pair => pair.Value).Distinct().ToArray();
             var siblings = cachedMaps.Where(map => channelIds.Contains(map.ChannelId));
             var removable = matchedMaps.Union(siblings).ToArray();
-            if (removable.Length > 0) await ChannelAliasMap.RemoveEntriesAsync(removable, dataStore);
+            if (removable.Length > 0) await ChannelAliasMap.RemoveEntriesAsync(removable, dataStore).ContinueAnywhere();
         }
 
         return aliasToChannelIds;

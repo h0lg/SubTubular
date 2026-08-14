@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using SubTubular.Extensions;
 
 namespace SubTubular;
 
@@ -39,7 +40,7 @@ public abstract class FileDataStore : DataStore
         var path = GetPath(key);
         if (!File.Exists(path)) return default;
 
-        try { return await DeserializeFrom<T>(key, path); }
+        try { return await DeserializeFrom<T>(key, path).ContinueAnywhere(); }
         catch
         {
             File.Delete(path); // delete corrupted or incorrectly formatted cache
@@ -52,7 +53,7 @@ public abstract class FileDataStore : DataStore
         var path = GetPath(key);
 
         if (value == null) File.Delete(path);
-        else await SerializeToPath(value, path).ConfigureAwait(false);
+        else await SerializeToPath(value, path).ContinueAnywhere();
     }
 
     public DateTime? GetLastModified(string key)
@@ -112,13 +113,13 @@ public class JsonFileDataStore(string directory) : FileDataStore(directory, File
     protected override async ValueTask<T?> DeserializeFrom<T>(string key, string path) where T : default
     {
         await using FileStream stream = new(path, FileMode.Open);
-        return await JsonSerializer.DeserializeAsync<T?>(stream, options);
+        return await JsonSerializer.DeserializeAsync<T?>(stream, options).ContinueAnywhere();
     }
 
     protected override async Task SerializeToPath<T>(T value, string path)
     {
         await using FileStream stream = new(path, FileMode.Create);
-        await JsonSerializer.SerializeAsync(stream, value, options).ConfigureAwait(false);
+        await JsonSerializer.SerializeAsync(stream, value, options).ContinueAnywhere();
     }
 }
 

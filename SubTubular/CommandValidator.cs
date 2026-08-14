@@ -144,13 +144,13 @@ public static class RemoteValidate
         if (command.Videos?.IsPrevalidated == true)
             validations.AddRange(Videos(command.Videos!, youtube, token));
 
-        await Task.WhenAll(validations).WithAggregateException();
+        await Task.WhenAll(validations).WithAggregateException().ContinueAnywhere();
         if (command.HasValidVideos) command.Videos!.Report(VideoList.Status.validated);
     }
 
     public static async Task AllVideosAsync(VideosScope videosScope, Youtube youtube, CancellationToken token)
     {
-        await Task.WhenAll(Videos(videosScope, youtube, token)).WithAggregateException();
+        await Task.WhenAll(Videos(videosScope, youtube, token)).WithAggregateException().ContinueAnywhere();
         if (videosScope.IsValid) videosScope.Report(VideoList.Status.validated);
     }
 
@@ -164,7 +164,8 @@ public static class RemoteValidate
             {
                 // load the video to validate it exists
                 validationResult.Video = await youtube.GetVideoAsync(id, token, videosScope,
-                    downloadCaptionTracks: false); // can be done during search
+                    downloadCaptionTracks: false) // can be done during search
+                    .ContinueAnywhere();
             }
             catch (VideoUnavailableException)
             {
@@ -175,8 +176,8 @@ public static class RemoteValidate
 
     public static async Task PlaylistAsync(PlaylistScope scope, Youtube youtube, CancellationToken token)
     {
-        var playlist = await youtube.GetPlaylistAsync(scope, token).ConfigureAwait(false);
-        await scope.SetPlaylistAsync(playlist).ConfigureAwait(false);
+        var playlist = await youtube.GetPlaylistAsync(scope, token).ContinueAnywhere();
+        await scope.SetPlaylistAsync(playlist).ContinueAnywhere();
     }
 
     public static async Task ChannelsAsync(ChannelScope[] channelScopes, Youtube youtube, DataStore dataStore, CancellationToken token)
@@ -184,14 +185,14 @@ public static class RemoteValidate
         token.ThrowIfCancellationRequested();
 
         // load cached info about which channel aliases map to which channel IDs and which channel IDs are accessible
-        var knownAliasMaps = await ChannelAliasMap.LoadListAsync(dataStore);
+        var knownAliasMaps = await ChannelAliasMap.LoadListAsync(dataStore).ContinueAnywhere();
 
         var channelValidations = channelScopes.Select(async channel =>
         {
             string? error = null;
             ChannelAliasMap[] matchingChannels = [];
 
-            try { matchingChannels = await ChannelAsync(channel, knownAliasMaps, youtube, token); }
+            try { matchingChannels = await ChannelAsync(channel, knownAliasMaps, youtube, token).ContinueAnywhere(); }
             catch (InputException ex) { error = ex.Message; } // record input exceptions separately
 
             if (matchingChannels.Length > 1)
@@ -214,14 +215,14 @@ public static class RemoteValidate
 
         List<Exception> errors = [];
 
-        try { await Task.WhenAll(channelValidations).WithAggregateException(); }
+        try { await Task.WhenAll(channelValidations).WithAggregateException().ContinueAnywhere(); }
         catch (Exception ex) { errors.AddRange(ex.GetRootCauses()); }
 
         var results = channelValidations.Where(t => t.IsCompletedSuccessfully).Select(t => t.Result).ToArray();
         var matchingChannels = results.SelectMany(r => r.matchingChannels).Distinct();
 
         // save the knownAliasMaps HashSet if adding any matching channel returns true indicating that it was new
-        if (matchingChannels.Any()) await ChannelAliasMap.AddEntriesAsync(matchingChannels, dataStore);
+        if (matchingChannels.Any()) await ChannelAliasMap.AddEntriesAsync(matchingChannels, dataStore).ContinueAnywhere();
 
         // merge input errors
         errors.AddRange(results.Select(r => r.error).WithValue().Select(error => new InputException(error)));
@@ -236,7 +237,9 @@ public static class RemoteValidate
 
         /*  generate tasks checking which of the validAliases are accessible
             (via knownAliasMaps cache or HTTP request) and execute them in parallel */
-        var (matchingChannels, maybeExceptions) = await ValueTasks.WhenAll(channel.SingleValidated.WellStructuredAliases!.Select(GetChannelAliasMap));
+        var (matchingChannels, maybeExceptions) = await ValueTasks
+            .WhenAll(channel.SingleValidated.WellStructuredAliases!.Select(GetChannelAliasMap))
+            .ContinueAnywhere();
 
         #region re-throw unexpected exceptions
         var exceptions = maybeExceptions.Where(ex => ex is not null).ToArray();
@@ -256,8 +259,8 @@ public static class RemoteValidate
         string id = distinctChannels.Single().ChannelId!;
         channel.SingleValidated.Id = id;
         channel.SingleValidated.Url = Youtube.GetChannelUrl((ChannelId)id);
-        var playlist = await youtube.GetPlaylistAsync(channel, token).ConfigureAwait(false);
-        await channel.SetPlaylistAsync(playlist).ConfigureAwait(false);
+        var playlist = await youtube.GetPlaylistAsync(channel, token).ContinueAnywhere();
+        await channel.SetPlaylistAsync(playlist).ContinueAnywhere();
         return distinctChannels;
 
         async ValueTask<ChannelAliasMap> GetChannelAliasMap(object alias)
@@ -269,7 +272,7 @@ public static class RemoteValidate
 
             try
             {
-                var channel = await youtube.GetChannel(alias, token);
+                var channel = await youtube.GetChannel(alias, token).ContinueAnywhere();
                 map.ChannelId = channel.Id;
             }
             catch (HttpRequestException ex) when (ex.IsNotFound()) { map.ChannelId = null; }

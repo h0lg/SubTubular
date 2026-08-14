@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Serialization;
+using SubTubular.Extensions;
 
 namespace SubTubular;
 
@@ -33,12 +34,12 @@ public sealed class Playlist
     /// <summary>The videos included in the <see cref="Playlist" /> (i.e. excluding dropped)
     /// ordered by <see cref="VideoInfo.PlaylistIndex"/>.</summary>
     public async Task<IReadOnlyList<VideoInfo>> GetVideosAsync()
-        => await RunSync(() => videos.Where(v => v.PlaylistIndex.HasValue).OrderBy(v => v.PlaylistIndex).ToArray()); // execute LINQ inside lock
+        => await RunSync(() => videos.Where(v => v.PlaylistIndex.HasValue).OrderBy(v => v.PlaylistIndex).ToArray()).ContinueAnywhere(); // execute LINQ inside lock
 
     private async ValueTask<T> RunSync<T>(Func<T> action)
     {
         if (changeToken != null)
-            await changeToken.WaitAsync();
+            await changeToken.WaitAsync().ContinueAnywhere();
 
         try { return action(); }
         finally { changeToken?.Release(); }
@@ -47,7 +48,7 @@ public sealed class Playlist
     private async ValueTask SyncedAction(Action action)
     {
         if (changeToken != null)
-            await changeToken.WaitAsync();
+            await changeToken.WaitAsync().ContinueAnywhere();
 
         try { action(); }
         finally { changeToken?.Release(); }
@@ -55,7 +56,7 @@ public sealed class Playlist
 
     // Retrieve all video IDs from all shards
     internal async Task<IReadOnlyList<string>> GetVideoIdsAsync()
-        => await RunSync(() => videos.Ids().ToArray()); // execute LINQ inside lock
+        => await RunSync(() => videos.Ids().ToArray()).ContinueAnywhere(); // execute LINQ inside lock
 
     /// <summary>Ensures safe concurrent access to the playlist during the update phase.
     /// Only needs to be set via <see cref="CreateChangeToken(Func{Task})"/>
@@ -110,7 +111,7 @@ public sealed class Playlist
                 hasUnsavedChanges = true;
                 return true; // made changes
             }
-        });
+        }).ContinueAnywhere();
     }
 
     internal async Task<bool> UpdateAsync(Video loadedVideo)
@@ -145,7 +146,7 @@ public sealed class Playlist
             }
 
             return madeChanges;
-        });
+        }).ContinueAnywhere();
     }
 
     internal event Action? ShardNumbersUpdated;
@@ -153,7 +154,7 @@ public sealed class Playlist
     public async Task UpdateShardNumbersAsync()
     {
         if (!mayChange) return; // make no changes without change token
-        await SyncedAction(UpdateShardNumbers).ConfigureAwait(false);
+        await SyncedAction(UpdateShardNumbers).ContinueAnywhere();
     }
 
     private void UpdateShardNumbers()
@@ -207,7 +208,7 @@ public sealed class Playlist
     internal async Task UpdateLoadedAsync()
     {
         if (!mayChange) return; // make no changes without change token
-        await changeToken!.WaitAsync().ConfigureAwait(false);
+        await changeToken!.WaitAsync().ContinueAnywhere();
         Loaded = DateTime.UtcNow;
         hasUnsavedChanges = true;
         changeToken!.Release();
@@ -224,11 +225,11 @@ public sealed class Playlist
     {
         // skip if there are no changes or we don't have a token to make any
         if (!hasUnsavedChanges || !mayChange) return;
-        await changeToken!.WaitAsync().ConfigureAwait(false);
+        await changeToken!.WaitAsync().ContinueAnywhere();
 
         try
         {
-            await save().ConfigureAwait(false);
+            await save().ContinueAnywhere();
             hasUnsavedChanges = false;
         }
         finally
@@ -245,8 +246,8 @@ public sealed class Playlist
     {
         public async ValueTask DisposeAsync()
         {
-            await playlist.UpdateShardNumbersAsync().ConfigureAwait(false); // in case user canceled process, leading to early disposal
-            await playlist.SaveAsync(savePlaylist).ConfigureAwait(false);
+            await playlist.UpdateShardNumbersAsync().ContinueAnywhere(); // in case user canceled process, leading to early disposal
+            await playlist.SaveAsync(savePlaylist).ContinueAnywhere();
             playlist.mayChange = false;
         }
     }
@@ -279,7 +280,7 @@ public sealed class Playlist
 public static class PlaylistExtensions
 {
     internal static async Task<IEnumerable<Playlist.VideoInfo>> GetRelevantVideosAsync(this Playlist playlist, PlaylistLikeScope scope)
-        => (await playlist.GetVideosAsync()).Skip(scope.Skip).Take(scope.Take);
+        => (await playlist.GetVideosAsync().ContinueAnywhere()).Skip(scope.Skip).Take(scope.Take);
 
     public static IEnumerable<string> Ids(this IEnumerable<Playlist.VideoInfo> videos) => videos.Select(v => v.Id);
 }

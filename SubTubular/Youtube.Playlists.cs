@@ -39,13 +39,13 @@ partial class Youtube
 
         await using (playlist.CreateChangeToken(() => dataStore.SetAsync(storageKey, playlist)))
         {
-            await SearchUpdatingScope(Search(), scope);
+            await SearchUpdatingScope(Search(), scope).ContinueAnywhere();
         }
 
         async Task Search()
         {
-            Task? continuedRefresh = await RefreshPlaylistAsync(scope, token);
-            var videos = (await playlist.GetRelevantVideosAsync(scope)).ToArray();
+            Task? continuedRefresh = await RefreshPlaylistAsync(scope, token).ContinueAnywhere();
+            var videos = (await playlist.GetRelevantVideosAsync(scope).ContinueAnywhere()).ToArray();
             var videoIds = videos.Ids().ToArray();
             scope.QueueVideos(videoIds);
 
@@ -55,7 +55,7 @@ partial class Youtube
             var shardSearches = videos.GroupBy(v => v.ShardNumber).Select(async group =>
             {
                 List<Task> searches = [];
-                var shard = await videoIndexRepo.GetIndexShardAsync(storageKey, group.Key!.Value);
+                var shard = await videoIndexRepo.GetIndexShardAsync(storageKey, group.Key!.Value).ContinueAnywhere();
 
                 // only intersection of videos in shard and video caches we've tried downloading caption tracks for count into indexed
                 var indexedVideoIds = shard.GetIndexed(group.Where(v => v.CaptionTrackDownloadStatus.IsComplete()).Ids());
@@ -71,8 +71,8 @@ partial class Youtube
                         var videosById = group.ToDictionary(v => v.Id); // buy O(n) look-up below for 1 dict alloc
                         var relevantVideos = indexedVideoIds.ToDictionary(id => id, id => videosById[id].Uploaded);
 
-                        await foreach (var result in shard.SearchAsync(command, scope, LookupVideoRemotely, relevantVideos, playlist, token))
-                            await Yield(result);
+                        await foreach (var result in shard.SearchAsync(command, scope, LookupVideoRemotely, relevantVideos, playlist, token).ContinueAnywhere())
+                            await Yield(result).ContinueAnywhere();
 
                         foreach (var videoId in indexedVideoIds) scope.Report(videoId, VideoList.Status.searched);
                     }
@@ -88,18 +88,18 @@ partial class Youtube
 
                     async Task SearchUnindexedVids()
                     {
-                        await foreach (var result in SearchUnindexedVideos(command, unIndexedVideoIds, shard, scope, token, playlist))
-                            await Yield(result);
+                        await foreach (var result in SearchUnindexedVideos(command, unIndexedVideoIds, shard, scope, token, playlist).ContinueAnywhere())
+                            await Yield(result).ContinueAnywhere();
                     }
                 }
 
-                try { await Task.WhenAll(searches).WithAggregateException(); }
+                try { await Task.WhenAll(searches).WithAggregateException().ContinueAnywhere(); }
                 finally { shard.Dispose(); }
             }).ToArray();
 
             scope.Report(VideoList.Status.searching);
-            await Task.WhenAll(shardSearches).WithAggregateException();
-            if (continuedRefresh != null) await continuedRefresh;
+            await Task.WhenAll(shardSearches).WithAggregateException().ContinueAnywhere();
+            if (continuedRefresh != null) await continuedRefresh.ContinueAnywhere();
 
             ValueTask Yield(VideoSearchResult result)
             {
@@ -112,14 +112,14 @@ partial class Youtube
     internal Task<Playlist> GetPlaylistAsync(PlaylistScope scope, CancellationToken token) =>
         GetPlaylistAsync(scope, async () =>
         {
-            var playlist = await client.Playlists.GetAsync(scope.SingleValidated.Id, token);
+            var playlist = await client.Playlists.GetAsync(scope.SingleValidated.Id, token).ContinueAnywhere();
             return (playlist.Title, SelectUrl(playlist.Thumbnails), playlist.Author?.ChannelTitle, playlist.Count);
         });
 
     internal Task<Playlist> GetPlaylistAsync(ChannelScope scope, CancellationToken token) =>
         GetPlaylistAsync(scope, async () =>
         {
-            var channel = await client.Channels.GetAsync(scope.SingleValidated.Id, token);
+            var channel = await client.Channels.GetAsync(scope.SingleValidated.Id, token).ContinueAnywhere();
             return (channel.Title, SelectUrl(channel.Thumbnails), null, null);
         });
 
@@ -127,14 +127,14 @@ partial class Youtube
         Func<Task<(string title, string thumbnailUrl, string? channel, int? count)>> downloadData)
     {
         scope.Report(VideoList.Status.loading);
-        var playlist = await dataStore.GetAsync<Playlist>(scope.StorageKey); // get cached
+        var playlist = await dataStore.GetAsync<Playlist>(scope.StorageKey).ContinueAnywhere(); // get cached
 
         // only return directly from cache if fresh enough
         if (playlist != null && scope.IsFreshEnough(playlist)) return playlist;
 
         // otherwise download fresh metadata
         scope.Report(VideoList.Status.downloading);
-        var (title, thumbnailUrl, channel, count) = await downloadData();
+        var (title, thumbnailUrl, channel, count) = await downloadData().ContinueAnywhere();
 
         // only create new playlist if none was cached
         if (playlist == null) playlist = new Playlist { Title = title, ThumbnailUrl = thumbnailUrl };
@@ -147,7 +147,7 @@ partial class Youtube
         playlist.Channel = channel;
         playlist.Count = count;
 
-        await dataStore.SetAsync(scope.StorageKey, playlist);
+        await dataStore.SetAsync(scope.StorageKey, playlist).ContinueAnywhere();
         return playlist;
     }
 
@@ -162,12 +162,12 @@ partial class Youtube
         token.ThrowIfCancellationRequested();
         var playlist = scope.SingleValidated.Playlist!;
         var requiredVideoCount = (uint)scope.RequiredVideoLoadCount;
-        var videos = await playlist.GetVideosAsync();
+        var videos = await playlist.GetVideosAsync().ContinueAnywhere();
 
         // return fresh enough playlist with sufficient videos loaded
         if (scope.IsFreshEnough(playlist) && requiredVideoCount <= videos.Count)
         {
-            await playlist.UpdateShardNumbersAsync(); // in case they weren't before due to an error
+            await playlist.UpdateShardNumbersAsync().ContinueAnywhere(); // in case they weren't before due to an error
             return null; // not changed from previous return
         }
 
@@ -190,11 +190,11 @@ partial class Youtube
             try
             {
                 // load and update videos in playlist while keeping existing video info
-                await foreach (var video in GetVideos(scope, linkedCts.Token))
+                await foreach (var video in GetVideos(scope, linkedCts.Token).ContinueAnywhere())
                 {
                     if (linkedCts.Token.IsCancellationRequested) break; // to avoid trying to make changes to playlist without change token
                     if (madeChanges.Count > 9) madeChanges.Dequeue(); // only track the last 10 changes
-                    bool changed = await playlist.TryAddVideoIdAsync(video.Id, listIndex++);
+                    bool changed = await playlist.TryAddVideoIdAsync(video.Id, listIndex++).ContinueAnywhere();
                     madeChanges.Enqueue(changed);
 
                     if (returnedEarly)
@@ -206,11 +206,11 @@ partial class Youtube
                      * because adding the last n videos didn't result in any changes */
                     else
                     {
-                        var videos = await playlist.GetVideosAsync();
+                        var videos = await playlist.GetVideosAsync().ContinueAnywhere();
 
                         if (requiredVideoCount <= videos.Count && madeChanges.All(x => !x))
                         {
-                            await playlist.UpdateShardNumbersAsync();
+                            await playlist.UpdateShardNumbersAsync().ContinueAnywhere();
                             earlyReturn.Release();
                             returnedEarly = true;
                         }
@@ -231,7 +231,7 @@ partial class Youtube
             finally
             {
                 // to enable indexing new videos - can't succeed if playlist change token has been revoked
-                if (!token.IsCancellationRequested) await playlist.UpdateShardNumbersAsync();
+                if (!token.IsCancellationRequested) await playlist.UpdateShardNumbersAsync().ContinueAnywhere();
 
                 if (returnedEarly)
                 {
@@ -245,9 +245,9 @@ partial class Youtube
         }, token);
 
         // wait on empty semaphore instead of task to enable early return
-        await earlyReturn.WaitAsync(token).ConfigureAwait(false);
+        await earlyReturn.WaitAsync(token).ContinueAnywhere();
 
-        await playlist.UpdateLoadedAsync().ConfigureAwait(false);
+        await playlist.UpdateLoadedAsync().ContinueAnywhere();
         return paging; // to enable continuing to wait for refresh to finish on early return
     }
 

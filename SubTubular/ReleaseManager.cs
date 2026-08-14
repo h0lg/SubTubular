@@ -13,7 +13,7 @@ public static class ReleaseManager
 
     public static async Task<string> ListAsync(DataStore dataStore)
     {
-        var releases = await GetAll(dataStore);
+        var releases = await GetAll(dataStore).ContinueAnywhere();
         const string version = "version";
         var maxVersionLength = Math.Max(version.Length, releases.Max(r => r.Version.Length));
 
@@ -24,7 +24,7 @@ public static class ReleaseManager
 
     public static async Task InstallByTagAsync(string version, string installInto, Action<string> report, DataStore dataStore)
     {
-        var release = await GetRelease(version, dataStore);
+        var release = await GetRelease(version, dataStore).ContinueAnywhere();
 
         if (release.Version == AssemblyInfo.Version)
             throw new InputException($"Release {release.Version} is already installed.");
@@ -68,7 +68,7 @@ public static class ReleaseManager
             {
                 var url = release.BinariesZip.DownloadUrl;
                 report($"Downloading {release.Version} from '{url}'{nl}to '{zipPath}' ... ");
-                await FileHelper.DownloadAsync(url, zipPath);
+                await FileHelper.DownloadAsync(url, zipPath).ContinueAnywhere();
                 report(done);
             }
 
@@ -86,7 +86,7 @@ public static class ReleaseManager
     }
 
     public static async Task OpenNotesAsync(string version, DataStore dataStore)
-        => OpenNotes(await GetRelease(version, dataStore));
+        => OpenNotes(await GetRelease(version, dataStore).ContinueAnywhere());
 
     private static void OpenNotes(CacheModel release) => ShellCommands.OpenUri(release.HtmlUrl);
     public static string GetArchivePath(string appFolder) => Path.Combine(appFolder, "other releases");
@@ -102,7 +102,7 @@ public static class ReleaseManager
         // if cache exists and is not older than 1 hour
         if (lastModified.HasValue && DateTime.Now.Subtract(lastModified.Value).TotalHours < 1)
         {
-            var cached = await dataStore.GetAsync<List<CacheModel>>(cacheKey);
+            var cached = await dataStore.GetAsync<List<CacheModel>>(cacheKey).ContinueAnywhere();
 
             if (cached != null)
             {
@@ -111,15 +111,15 @@ public static class ReleaseManager
             }
         }
 
-        var freshReleases = await GetGithubClient().Repository.Release.GetAll(AssemblyInfo.RepoOwner, AssemblyInfo.RepoName);
+        var freshReleases = await GetGithubClient().Repository.Release.GetAll(AssemblyInfo.RepoOwner, AssemblyInfo.RepoName).ContinueAnywhere();
         var releases = freshReleases.Select(release => new CacheModel(release)).Valid().ToList();
-        await dataStore.SetAsync(cacheKey, releases);
+        await dataStore.SetAsync(cacheKey, releases).ContinueAnywhere();
         return releases;
     }
 
     private static async Task<CacheModel> GetRelease(string version, DataStore dataStore)
     {
-        var releases = await GetAll(dataStore);
+        var releases = await GetAll(dataStore).ContinueAnywhere();
         if (version == "latest") return releases.OrderBy(r => r.PublishedAt).Last();
         var containing = releases.Where(r => r.Version.Contains(version)).ToArray();
 
