@@ -33,6 +33,7 @@ module Scope =
         | RemoveVideo of string
         | ProgressChanged
         | Notified of CommandScope.Notification
+        | CaptionTracksUpdated of CommandScope.Notification array
         | ProgressValueChanged of float
         | ScopeSearchMsg of ScopeSearch.Msg
         | Common of CommonMsg
@@ -79,6 +80,17 @@ module Scope =
 
         init scope true
 
+    let private getCaptionTrackDownloadStates model =
+        task {
+            let! tracks = model.Scope.GetCaptionTrackDownloadStatesAsync() |> Async.AwaitTask
+            let ntf = tracks.Irregular().AsNotifications()
+            return CaptionTracksUpdated ntf
+        }
+
+    let private updateNotifications model captionTrackDownloadStates =
+        { model with
+            Notifications = ScopeNotifications.update model.Notifications model.Scope captionTrackDownloadStates }
+
     let update msg model =
         match msg with
         // fwd any behaviourless existing msg to re-trigger the MVU loop, shrinking the ProgressBar on hide
@@ -117,22 +129,18 @@ module Scope =
         (*  no need to record passed notification;
             CaptionTrack state notifications are generated selectively based on progress.
             Regular Notifications get rendered from model.Scope via notificationToggle *)
-        | Notified _ ->
-            { model with
-                Notifications = ScopeNotifications.update model.Notifications model.Scope None },
-            Cmd.none,
-            DoNothing
+        | Notified _ -> updateNotifications model None, Cmd.none, DoNothing
 
         | ProgressChanged ->
-            let model =
+            let fwdCmd =
                 if ScopeNotifications.needsCaptionTracksUpdate model.Scope.Progress.State then
-                    { model with
-                        Notifications = ScopeNotifications.updateCaptionTracks model.Notifications model.Scope }
+                    getCaptionTrackDownloadStates model |> Cmd.OfTask.msg
                 else
-                    model
+                    Cmd.none
 
-            model, Cmd.none, DoNothing
+            model, fwdCmd, DoNothing
 
+        | CaptionTracksUpdated ctdls -> ctdls |> Some |> updateNotifications model, Cmd.none, DoNothing
         | ProgressValueChanged _ -> model, Cmd.none, DoNothing
 
         | ScopeSearchMsg ssmsg ->

@@ -28,7 +28,7 @@ public class PlaylistTests
 
         await using (playlist.CreateChangeToken(savePlaylist))
         {
-            var videos = playlist.GetVideos().ToList();
+            var videos = (await playlist.GetVideosAsync()).ToList();
             var actualVideoIds = videos.Ids().ToList();
             AssertCollectionsEqual(videoIds.ConvertAll(i => i.ToString()), actualVideoIds);
 
@@ -61,7 +61,7 @@ public class PlaylistTests
 
         await using (playlist.CreateChangeToken(savePlaylist))
         {
-            var videos = playlist.GetVideos().ToList();
+            var videos = (await playlist.GetVideosAsync()).ToList();
             var actualVideoIds = videos.Ids().ToList();
             List<string> expectedVideoIds = videoIds.ConvertAll(i => i.ToString());
             AssertCollectionsEqual(expectedVideoIds, actualVideoIds);
@@ -81,7 +81,7 @@ public class PlaylistTests
 
         await using (playlist.CreateChangeToken(savePlaylist))
         {
-            var videos = playlist.GetVideos().ToList();
+            var videos = (await playlist.GetVideosAsync()).ToList();
             var actualVideoIds = videos.Ids().ToList();
             var expectedVideoIds = videoIds.ConvertAll(i => i.ToString());
             AssertCollectionsEqual(expectedVideoIds, actualVideoIds);
@@ -116,7 +116,7 @@ public class PlaylistTests
 
         await using (playlist.CreateChangeToken(savePlaylist))
         {
-            var videos = playlist.GetVideos().ToList();
+            var videos = (await playlist.GetVideosAsync()).ToList();
             var actualVideoIds = videos.Ids().ToList();
             AssertCollectionsEqual(videoIds.ConvertAll(i => i.ToString()), actualVideoIds);
 
@@ -137,8 +137,10 @@ public class PlaylistTests
     {
         await using (playlist.CreateChangeToken(savePlaylist))
         {
-            foreach (var id in videoIds) playlist.TryAddVideoId(id.ToString(), (uint)videoIds.IndexOf(id));
-            playlist.UpdateShardNumbers();
+            foreach (var id in videoIds)
+                await playlist.TryAddVideoIdAsync(id.ToString(), (uint)videoIds.IndexOf(id));
+
+            await playlist.UpdateShardNumbersAsync();
         }
     }
 

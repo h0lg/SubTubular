@@ -52,7 +52,7 @@ static partial class Program
 
         ConcurrentBag<string> reportableErrors = [];
 
-        foreach (var (scope, captionTrackDlStates) in command.GetCaptionTrackDownloadStatus())
+        await foreach (var (scope, captionTrackDlStates) in command.GetCaptionTrackDownloadStatus().InCompletionOrder())
         {
             var notifications = captionTrackDlStates.Irregular().AsNotifications();
 

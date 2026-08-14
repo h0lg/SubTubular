@@ -136,7 +136,7 @@ static partial class CacheManager
             var thumbName = getThumbnailFileName(playlist.ThumbnailUrl);
             var thumbnail = files.SingleOrDefault(i => i.Name == thumbName);
 
-            var videoIds = playlist.GetVideos().Ids().ToArray();
+            var videoIds = (await playlist.GetVideosAsync()).Ids().ToArray();
             var videoNames = videoIds.Select(Video.StorageKey).ToArray();
             var videos = files.Where(f => videoNames.Any(n => f.HasPrefix(n))).ToArray();
 

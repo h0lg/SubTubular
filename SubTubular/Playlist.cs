@@ -32,26 +32,30 @@ public sealed class Playlist
 
     /// <summary>The videos included in the <see cref="Playlist" /> (i.e. excluding dropped)
     /// ordered by <see cref="VideoInfo.PlaylistIndex"/>.</summary>
-    public IReadOnlyList<VideoInfo> GetVideos()
-        => SyncedFunc(() => videos.Where(v => v.PlaylistIndex.HasValue).OrderBy(v => v.PlaylistIndex).ToArray()); // execute LINQ inside lock
+    public async Task<IReadOnlyList<VideoInfo>> GetVideosAsync()
+        => await RunSync(() => videos.Where(v => v.PlaylistIndex.HasValue).OrderBy(v => v.PlaylistIndex).ToArray()); // execute LINQ inside lock
 
-    private T SyncedFunc<T>(Func<T> action)
+    private async ValueTask<T> RunSync<T>(Func<T> action)
     {
-        changeToken?.Wait();
+        if (changeToken != null)
+            await changeToken.WaitAsync();
+
         try { return action(); }
         finally { changeToken?.Release(); }
     }
 
-    private void SyncedAction(Action action)
+    private async ValueTask SyncedAction(Action action)
     {
-        changeToken?.Wait();
+        if (changeToken != null)
+            await changeToken.WaitAsync();
+
         try { action(); }
         finally { changeToken?.Release(); }
     }
 
     // Retrieve all video IDs from all shards
-    internal IReadOnlyList<string> GetVideoIds()
-        => SyncedFunc(() => videos.Ids().ToArray()); // execute LINQ inside lock
+    internal async Task<IReadOnlyList<string>> GetVideoIdsAsync()
+        => await RunSync(() => videos.Ids().ToArray()); // execute LINQ inside lock
 
     /// <summary>Ensures safe concurrent access to the playlist during the update phase.
     /// Only needs to be set via <see cref="CreateChangeToken(Func{Task})"/>
@@ -68,13 +72,13 @@ public sealed class Playlist
     }
 
     /// <summary>Tries inserting or moving <paramref name="videoId"/>
-    /// at or to <paramref name="newIndex"/> in <see cref="GetVideos()"/>
+    /// at or to <paramref name="newIndex"/> in <see cref="GetVideosAsync()"/>
     /// and returns whether the operation resulted in any changes.</summary>
-    public bool TryAddVideoId(string videoId, uint newIndex)
+    public async Task<bool> TryAddVideoIdAsync(string videoId, uint newIndex)
     {
         if (!mayChange) return false; // made no changes
 
-        return SyncedFunc(() =>
+        return await RunSync(() =>
         {
             var video = GetVideo(videoId);
 
@@ -109,11 +113,11 @@ public sealed class Playlist
         });
     }
 
-    internal bool Update(Video loadedVideo)
+    internal async Task<bool> UpdateAsync(Video loadedVideo)
     {
         if (!mayChange) return false; // no change token, no changes
 
-        return SyncedFunc(() =>
+        return await RunSync(() =>
         {
             VideoInfo? video = GetVideo(loadedVideo.Id);
 
@@ -122,7 +126,7 @@ public sealed class Playlist
             {
                 video = new VideoInfo { Id = loadedVideo.Id };
                 videos.Add(video);
-                UpdateShardNumbers(); //TODO would deadlock, change token is held by this method!
+                UpdateShardNumbers();
                 hasUnsavedChanges = true;
             }
 
@@ -146,29 +150,30 @@ public sealed class Playlist
 
     internal event Action? ShardNumbersUpdated;
 
-    public void UpdateShardNumbers()
+    public async Task UpdateShardNumbersAsync()
     {
         if (!mayChange) return; // make no changes without change token
+        await SyncedAction(UpdateShardNumbers).ConfigureAwait(false);
+    }
 
-        SyncedAction(() =>
+    private void UpdateShardNumbers()
+    {
+        var withoutShardNumber = videos.Where(v => v.ShardNumber == null).ToArray();
+        if (withoutShardNumber.Length == 0) return;
+
+        videos = [.. videos.OrderBy(v => v.PlaylistIndex)];
+        int firstLoadedIndex = GetIndexOfFirstLoadedVideoUnsynced();
+
+        foreach (var video in withoutShardNumber)
         {
-            var withoutShardNumber = videos.Where(v => v.ShardNumber == null).ToArray();
-            if (withoutShardNumber.Length == 0) return;
+            short? shardNumber = CalculateShardNumber(videos.IndexOf(video), firstLoadedIndex);
 
-            videos = [.. videos.OrderBy(v => v.PlaylistIndex)];
-            int firstLoadedIndex = GetIndexOfFirstLoadedVideoUnsynced();
-
-            foreach (var video in withoutShardNumber)
+            if (video.ShardNumber != shardNumber)
             {
-                short? shardNumber = CalculateShardNumber(videos.IndexOf(video), firstLoadedIndex);
-
-                if (video.ShardNumber != shardNumber)
-                {
-                    video.ShardNumber = shardNumber;
-                    hasUnsavedChanges = true;
-                }
+                video.ShardNumber = shardNumber;
+                hasUnsavedChanges = true;
             }
-        });
+        }
 
         ShardNumbersUpdated?.Invoke();
     }
@@ -183,7 +188,7 @@ public sealed class Playlist
     /// which would have the effect of accumulating stale data about videos in the top/front index shards -
     /// from videos that once were indexed in that shard but have since pushed into another shard.</summary>
     /// <param name="index">The index of the video to calculate the shard number for.</param>
-    /// <param name="firstLoadedVideoIndex">The index of the first loaded video, determined via <see cref="GetIndexOfFirstLoadedVideo"/>.</param>
+    /// <param name="firstLoadedVideoIndex">The index of the first loaded video, determined via <see cref="GetIndexOfFirstLoadedVideoAsync"/>.</param>
     internal static short? CalculateShardNumber(int index, int firstLoadedVideoIndex)
     {
         int translatedIndex = index - firstLoadedVideoIndex;
@@ -191,7 +196,7 @@ public sealed class Playlist
     }
 
     /// <summary>Figures out the index of the first loaded video, which was indexed in shard 0.</summary>
-    internal int GetIndexOfFirstLoadedVideo() => SyncedFunc(GetIndexOfFirstLoadedVideoUnsynced);
+    internal ValueTask<int> GetIndexOfFirstLoadedVideoAsync() => RunSync(GetIndexOfFirstLoadedVideoUnsynced);
 
     private int GetIndexOfFirstLoadedVideoUnsynced()
     {
@@ -199,10 +204,10 @@ public sealed class Playlist
         return firstLoaded == null ? 0 : videos.IndexOf(firstLoaded);
     }
 
-    internal void UpdateLoaded()
+    internal async Task UpdateLoadedAsync()
     {
         if (!mayChange) return; // make no changes without change token
-        changeToken!.Wait();
+        await changeToken!.WaitAsync().ConfigureAwait(false);
         Loaded = DateTime.UtcNow;
         hasUnsavedChanges = true;
         changeToken!.Release();
@@ -240,7 +245,7 @@ public sealed class Playlist
     {
         public async ValueTask DisposeAsync()
         {
-            playlist.UpdateShardNumbers(); // in case user canceled process, leading to early disposal
+            await playlist.UpdateShardNumbersAsync().ConfigureAwait(false); // in case user canceled process, leading to early disposal
             await playlist.SaveAsync(savePlaylist).ConfigureAwait(false);
             playlist.mayChange = false;
         }
@@ -273,8 +278,8 @@ public sealed class Playlist
 
 public static class PlaylistExtensions
 {
-    internal static IEnumerable<Playlist.VideoInfo> GetRelevantVideos(this Playlist playlist, PlaylistLikeScope scope)
-        => playlist.GetVideos().Skip(scope.Skip).Take(scope.Take);
+    internal static async Task<IEnumerable<Playlist.VideoInfo>> GetRelevantVideosAsync(this Playlist playlist, PlaylistLikeScope scope)
+        => (await playlist.GetVideosAsync()).Skip(scope.Skip).Take(scope.Take);
 
     public static IEnumerable<string> Ids(this IEnumerable<Playlist.VideoInfo> videos) => videos.Select(v => v.Id);
 }

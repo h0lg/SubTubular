@@ -46,7 +46,7 @@ partial class Youtube
 
                     await SaveVideo(video);
                     token.ThrowIfCancellationRequested();
-                    playlist?.Update(video);
+                    if (playlist != null) await playlist.UpdateAsync(video);
                     await unIndexedVideos.Writer.WriteAsync(video, token);
                 }
                 catch (Exception ex) when (ex.NeedsReporting())

@@ -43,11 +43,6 @@ module ScopeNotifications =
     let needsCaptionTracksUpdate state =
         refreshCaptionTracksAfter |> Array.contains state
 
-    let updateCaptionTracks model (scope: CommandScope) =
-        scope.GetCaptionTrackDownloadStates().Irregular().AsNotifications()
-        |> Some
-        |> update model scope
-
     let private flyout (notifications: CommandScope.Notification list) =
         let tb text = // TextAlignment override is required because centered text is inherited from host :(
             TextBlock(text).textAlignment (TextAlignment.Left)

@@ -174,7 +174,10 @@ public static class RemoteValidate
         });
 
     public static async Task PlaylistAsync(PlaylistScope scope, Youtube youtube, CancellationToken token)
-        => scope.SetPlaylist(await youtube.GetPlaylistAsync(scope, token));
+    {
+        var playlist = await youtube.GetPlaylistAsync(scope, token).ConfigureAwait(false);
+        await scope.SetPlaylistAsync(playlist).ConfigureAwait(false);
+    }
 
     public static async Task ChannelsAsync(ChannelScope[] channelScopes, Youtube youtube, DataStore dataStore, CancellationToken token)
     {
@@ -253,7 +256,8 @@ public static class RemoteValidate
         string id = distinctChannels.Single().ChannelId!;
         channel.SingleValidated.Id = id;
         channel.SingleValidated.Url = Youtube.GetChannelUrl((ChannelId)id);
-        channel.SetPlaylist(await youtube.GetPlaylistAsync(channel, token));
+        var playlist = await youtube.GetPlaylistAsync(channel, token).ConfigureAwait(false);
+        await channel.SetPlaylistAsync(playlist).ConfigureAwait(false);
         return distinctChannels;
 
         async ValueTask<ChannelAliasMap> GetChannelAliasMap(object alias)

@@ -164,7 +164,7 @@ internal static class ValueTasks
     internal static ValueTask<(T[], Exception[])> WhenAll<T>(IEnumerable<ValueTask<T>> tasks) => WhenAll(tasks!.ToArray());
 }
 
-internal static class TaskExtensions
+public static class TaskExtensions
 {
     /// <summary>Use with the <paramref name="task"/> returned by <see cref="Task.WhenAll(IEnumerable{Task})"/>
     /// to throw all exceptions as an <see cref="AggregateException"/> instead of only the first one (as is the default).
@@ -174,6 +174,18 @@ internal static class TaskExtensions
         try { await task.ConfigureAwait(false); }
         catch (OperationCanceledException) when (task.IsCanceled) { throw; }
         catch { task.Wait(); }
+    }
+
+    public static async IAsyncEnumerable<T> InCompletionOrder<T>(this IEnumerable<Task<T>> tasks)
+    {
+        var remaining = tasks.ToHashSet();
+
+        while (remaining.Count > 0)
+        {
+            var completed = await Task.WhenAny(remaining);
+            remaining.Remove(completed);
+            yield return await completed;
+        }
     }
 }
 

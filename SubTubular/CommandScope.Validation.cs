@@ -61,20 +61,20 @@ partial class CommandScope
 
 partial class PlaylistLikeScope
 {
-    /// <summary>Only has a value after Remote Validation, see <see cref="SetPlaylist(Playlist)"/>.</summary>
+    /// <summary>Only has a value after Remote Validation, see <see cref="SetPlaylistAsync(Playlist)"/>.</summary>
     internal bool? SpansMultipleIndexShards { get; private set; }
 
     public override bool RequiresValidation() => Alias.IsNonWhiteSpace() && !IsValid;
 
-    internal void SetPlaylist(Playlist playlist)
+    internal async Task SetPlaylistAsync(Playlist playlist)
     {
         SingleValidated.Playlist = playlist;
         Report(VideoList.Status.validated);
-        SpansMultipleIndexShards = LikelySpansMultipleIndexShards(playlist);
-        playlist.ShardNumbersUpdated += () => SpansMultipleIndexShards = this.SpansMultipleIndexShards();
+        SpansMultipleIndexShards = await LikelySpansMultipleIndexShardsAsync(playlist);
+        playlist.ShardNumbersUpdated += async () => SpansMultipleIndexShards = await this.SpansMultipleIndexShardsAsync();
     }
 
-    private bool LikelySpansMultipleIndexShards(Playlist playlist)
+    private async Task<bool> LikelySpansMultipleIndexShardsAsync(Playlist playlist)
     {
         if (Playlist.ShardSize < Take) return true;
 
@@ -82,10 +82,11 @@ partial class PlaylistLikeScope
             : RequiredVideoLoadCount < playlist.Count ? RequiredVideoLoadCount // less than total count requested
             : playlist.Count.Value; // more requested than available, use available count
 
-        if (required <= playlist.GetVideos().Count) return this.SpansMultipleIndexShards();
+        var videos = await playlist.GetVideosAsync();
+        if (required <= videos.Count) return await this.SpansMultipleIndexShardsAsync();
 
         // required videos not loaded; calculate shard numbers and figure it out
-        int firstLoadedIndex = playlist.GetIndexOfFirstLoadedVideo();
+        int firstLoadedIndex = await playlist.GetIndexOfFirstLoadedVideoAsync();
         short? lowShard = Playlist.CalculateShardNumber(Skip, firstLoadedIndex);
         short? highShard = Playlist.CalculateShardNumber(required, firstLoadedIndex);
         return lowShard != highShard;
@@ -103,7 +104,7 @@ public static class ScopeExtensions
     public static IEnumerable<string> Ids(this IEnumerable<CommandScope.ValidationResult> results)
         => results.Select(r => r.Id);
 
-    internal static bool SpansMultipleIndexShards(this PlaylistLikeScope scope)
-        => scope.SingleValidated.Playlist!.GetRelevantVideos(scope)
+    internal static async Task<bool> SpansMultipleIndexShardsAsync(this PlaylistLikeScope scope)
+        => (await scope.SingleValidated.Playlist!.GetRelevantVideosAsync(scope))
             .GroupBy(v => v.ShardNumber).Count() > 1;
 }

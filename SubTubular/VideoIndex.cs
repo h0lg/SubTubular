@@ -148,7 +148,7 @@ internal sealed class VideoIndex : IDisposable
     /// accompanied by their corresponding <see cref="Video.Uploaded"/> dates, if known.
     /// The latter are only used for <see cref="SearchCommand.OrderOptions.uploaded"/>
     /// and missing dates are determined by loading the videos using <paramref name="getVideoAsync"/>.</param>
-    /// <param name="playlist">Allows updating the <see cref="Playlist.GetVideos()"/>
+    /// <param name="playlist">Allows updating the <see cref="Playlist.GetVideosAsync()"/>
     /// with the <see cref="Video.Uploaded"/> dates after loading them for
     /// <see cref="SearchCommand.OrderOptions.uploaded"/>.</param>
     internal async IAsyncEnumerable<VideoSearchResult> SearchAsync(SearchCommand command, CommandScope scope,
@@ -201,7 +201,7 @@ internal sealed class VideoIndex : IDisposable
                         token.ThrowIfCancellationRequested();
                         Video video = videosWithoutUploadDate.Single(v => v.Id == match.Key);
                         relevantVideos[match.Key] = video.Uploaded;
-                        playlist?.Update(video);
+                        playlist?.UpdateAsync(video);
                     }
                 }
             }

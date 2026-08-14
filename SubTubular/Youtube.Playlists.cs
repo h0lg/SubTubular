@@ -45,7 +45,7 @@ partial class Youtube
         async Task Search()
         {
             Task? continuedRefresh = await RefreshPlaylistAsync(scope, token);
-            var videos = playlist.GetRelevantVideos(scope).ToArray();
+            var videos = (await playlist.GetRelevantVideosAsync(scope)).ToArray();
             var videoIds = videos.Ids().ToArray();
             scope.QueueVideos(videoIds);
 
@@ -162,11 +162,12 @@ partial class Youtube
         token.ThrowIfCancellationRequested();
         var playlist = scope.SingleValidated.Playlist!;
         var requiredVideoCount = (uint)scope.RequiredVideoLoadCount;
+        var videos = await playlist.GetVideosAsync();
 
         // return fresh enough playlist with sufficient videos loaded
-        if (scope.IsFreshEnough(playlist) && requiredVideoCount <= playlist.GetVideos().Count)
+        if (scope.IsFreshEnough(playlist) && requiredVideoCount <= videos.Count)
         {
-            playlist.UpdateShardNumbers(); // in case they weren't before due to an error
+            await playlist.UpdateShardNumbersAsync(); // in case they weren't before due to an error
             return null; // not changed from previous return
         }
 
@@ -193,7 +194,7 @@ partial class Youtube
                 {
                     if (linkedCts.Token.IsCancellationRequested) break; // to avoid trying to make changes to playlist without change token
                     if (madeChanges.Count > 9) madeChanges.Dequeue(); // only track the last 10 changes
-                    bool changed = playlist.TryAddVideoId(video.Id, listIndex++);
+                    bool changed = await playlist.TryAddVideoIdAsync(video.Id, listIndex++);
                     madeChanges.Enqueue(changed);
 
                     if (returnedEarly)
@@ -203,11 +204,16 @@ partial class Youtube
                     /* return the playlist early because we have enough cached info to serve the request scope
                      * and can reasonably assume that the cache is up to date
                      * because adding the last n videos didn't result in any changes */
-                    else if (requiredVideoCount <= playlist.GetVideos().Count && madeChanges.All(x => !x))
+                    else
                     {
-                        playlist.UpdateShardNumbers();
-                        earlyReturn.Release();
-                        returnedEarly = true;
+                        var videos = await playlist.GetVideosAsync();
+
+                        if (requiredVideoCount <= videos.Count && madeChanges.All(x => !x))
+                        {
+                            await playlist.UpdateShardNumbersAsync();
+                            earlyReturn.Release();
+                            returnedEarly = true;
+                        }
                     }
 
                     // enough loaded when count reaches or exceeds next (0-based) video index
@@ -225,7 +231,7 @@ partial class Youtube
             finally
             {
                 // to enable indexing new videos - can't succeed if playlist change token has been revoked
-                if (!token.IsCancellationRequested) playlist.UpdateShardNumbers();
+                if (!token.IsCancellationRequested) await playlist.UpdateShardNumbersAsync();
 
                 if (returnedEarly)
                 {
@@ -239,9 +245,9 @@ partial class Youtube
         }, token);
 
         // wait on empty semaphore instead of task to enable early return
-        await earlyReturn.WaitAsync(token);
+        await earlyReturn.WaitAsync(token).ConfigureAwait(false);
 
-        playlist.UpdateLoaded();
+        await playlist.UpdateLoadedAsync().ConfigureAwait(false);
         return paging; // to enable continuing to wait for refresh to finish on early return
     }
 

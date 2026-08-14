@@ -107,8 +107,14 @@ public static partial class CacheManager
 
             foreach (var key in deletableKeys)
             {
-                var playlist = await playListLikeDataStore.GetAsync<Playlist>(key);
-                if (playlist != null) DeleteByNames(playlist.GetVideoIds().Select(Video.StorageKey));
+                var playlist = await playListLikeDataStore.GetAsync<Playlist>(key).ConfigureAwait(false);
+
+                if (playlist != null)
+                {
+                    var videoIds = await playlist.GetVideoIdsAsync().ConfigureAwait(false);
+                    DeleteByNames(videoIds.Select(Video.StorageKey));
+                }
+
                 DeleteByName(key);
             }
         }

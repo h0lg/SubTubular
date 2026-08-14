@@ -11,14 +11,23 @@ partial class CommandScope
 
 public static class CaptionStatusExtensions
 {
-    public static CaptionTrackDownloadStatus[] GetCaptionTrackDownloadStates(this CommandScope scope)
-        => [.. scope is PlaylistLikeScope
-            ? scope.SingleValidated.Playlist!.GetVideos()
+    public static async Task<(CaptionStatus? status, int videos)[]> GetCaptionTrackDownloadStatesAsync(this CommandScope scope)
+    {
+        if (scope is not PlaylistLikeScope)
+            return scope.Validated.Select(vr => vr.Video!)
+                .GroupBy(v => v.GetCaptionTrackDownloadStatus())
+                .Select(g => (g.Key, g.Count()))
+                .ToArray();
+        else
+        {
+            var videos = await scope.SingleValidated.Playlist!.GetVideosAsync();
+
+            return videos
                 .GroupBy(v => v.CaptionTrackDownloadStatus)
                 .Select(g => (g.Key, g.Count()))
-            : scope.Validated.Select(vr => vr.Video!)
-                .GroupBy(v => v.GetCaptionTrackDownloadStatus())
-                .Select(g => (g.Key, g.Count())) ];
+                .ToArray();
+        }
+    }
 
     internal static CaptionStatus? GetCaptionTrackDownloadStatus(this Video video)
         => video.CaptionTracks == null ? CaptionStatus.UnChecked
@@ -48,8 +57,8 @@ public static class CaptionStatusExtensions
                 return new CommandScope.Notification($"{s.videos} videos with{issue}", level: level);
             })];
 
-    public static IEnumerable<(CommandScope scope, CaptionTrackDownloadStatus[] captionTrackDlStates)> GetCaptionTrackDownloadStatus(this OutputCommand command)
-        => command.GetScopes().Select(scope => (scope, scope.GetCaptionTrackDownloadStates()));
+    public static IEnumerable<Task<(CommandScope scope, (CaptionStatus? status, int videos)[])>> GetCaptionTrackDownloadStatus(this OutputCommand command)
+        => command.GetScopes().Select(async scope => (scope, await scope.GetCaptionTrackDownloadStatesAsync()));
 
     internal static IEnumerable<CaptionTrack> WithErrors(this IEnumerable<CaptionTrack> tracks)
         => tracks.Where(t => t.Error != null);
