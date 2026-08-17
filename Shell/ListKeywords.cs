@@ -1,4 +1,5 @@
 ﻿using System.CommandLine;
+using SubTubular.Extensions;
 
 namespace SubTubular.Shell;
 
@@ -12,7 +13,7 @@ static partial class Program
         {
             Dictionary<CommandScope, Dictionary<string, List<string>>> scopes = [];
 
-            await foreach (var (keywords, videoId, scope) in youtube.ListKeywordsAsync(command, cancellation))
+            await foreach (var (keywords, videoId, scope) in youtube.ListKeywordsAsync(command, cancellation).ContinueAnywhere())
                 Youtube.AggregateKeywords(keywords, videoId, scope, scopes);
 
             if (scopes.Count > 0)
@@ -21,7 +22,7 @@ static partial class Program
                 outputs.ForEach(o => o.ListKeywords(countedKeywords));
             }
             else Console.WriteLine("Found no keywords."); // any file output wouldn't be saved without results anyway
-        }, token);
+        }, token).ContinueAnywhere();
     }
 }
 
@@ -40,7 +41,7 @@ static partial class CommandInterpreter
         command.SetCancelableAction(async (result, token) => await listKeywords(new ListKeywords()
             .BindScopes(result, videos, channels, playlists, skip, take, cacheHours)
             .BindOuputOptions(result, html, fileOutputPath, show)
-            .BindSaveAsRecent(result, saveAsRecent), token));
+            .BindSaveAsRecent(result, saveAsRecent), token).ContinueAnywhere());
 
         return command;
     }

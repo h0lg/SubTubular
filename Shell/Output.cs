@@ -30,13 +30,13 @@ static partial class Program
 
         DataStore dataStore = CreateDataStore();
         using var youtube = new Youtube(dataStore, CreateVideoIndexRepo());
-        await RemoteValidate.ScopesAsync(command, youtube, dataStore, cancellation.Token);
+        await RemoteValidate.ScopesAsync(command, youtube, dataStore, cancellation.Token).ContinueAnywhere();
 
         if (command.SaveAsRecent)
         {
-            var commands = await RecentCommands.ListAsync(token);
+            var commands = await RecentCommands.ListAsync(token).ContinueAnywhere();
             commands.AddOrUpdate(command);
-            await RecentCommands.SaveAsync(commands, token);
+            await RecentCommands.SaveAsync(commands, token).ContinueAnywhere();
         }
 
         List<OutputWriter> outputs = [new ConsoleOutputWriter(command)];
@@ -52,7 +52,7 @@ static partial class Program
 
         ConcurrentBag<string> reportableErrors = [];
 
-        await foreach (var (scope, captionTrackDlStates) in command.GetCaptionTrackDownloadStatus().InCompletionOrder())
+        await foreach (var (scope, captionTrackDlStates) in command.GetCaptionTrackDownloadStatus().InCompletionOrder().ContinueAnywhere())
         {
             var notifications = captionTrackDlStates.Irregular().AsNotifications();
 
@@ -64,7 +64,7 @@ static partial class Program
         {
             /*  passing token into command for it to react to cancellation,
                 see https://docs.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8#a-tour-through-async-enumerables */
-            await runCommand(youtube, outputs, cancellation.Token);
+            await runCommand(youtube, outputs, cancellation.Token).ContinueAnywhere();
         }
         // record unexpected error here to have it in the same log file as the scope errors
         catch (Exception ex) when (ex.GetRootCauses().AnyNeedReporting())
@@ -86,7 +86,7 @@ static partial class Program
             {
                 // only writes an output file if command requires it
                 var fileOutput = outputs.OfType<FileOutputWriter>().SingleOrDefault();
-                var outputPath = fileOutput == null ? null : await fileOutput.SaveFile();
+                var outputPath = fileOutput == null ? null : await fileOutput.SaveFile().ContinueAnywhere();
 
                 if (outputPath != null)
                 {

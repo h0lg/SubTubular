@@ -21,7 +21,7 @@ internal static partial class Program
 
         try
         {
-            var exitCode = await CommandInterpreter.ParseArgs(args, originalCommand);
+            var exitCode = await CommandInterpreter.ParseArgs(args, originalCommand).ContinueAnywhere();
             return (int)exitCode;
         }
         catch (Exception ex)
@@ -49,7 +49,7 @@ internal static partial class Program
                 WriteConsoleError(causes.Select(c => c.Message)
                     .Prepend("Unexpected errors occurred loading data from YouTube. Try again later or with an updated version. ")
                     .Join(Environment.NewLine));
-            else await WriteErrorLogAsync(originalCommand, ex is ErrorLogException ? ex.Message : ex.ToString());
+            else await WriteErrorLogAsync(originalCommand, ex is ErrorLogException ? ex.Message : ex.ToString()).ContinueAnywhere();
 
             return (int)ExitCode.GenericError;
         }
@@ -63,7 +63,7 @@ internal static partial class Program
 
     private static async Task WriteErrorLogAsync(string originalCommand, string errors)
     {
-        (var path, var report) = await ErrorLog.WriteAsync(errors, header: originalCommand);
+        (var path, var report) = await ErrorLog.WriteAsync(errors, header: originalCommand).ContinueAnywhere();
         var fileWritten = path != null;
 
         if (fileWritten) WriteConsoleError("Errors were logged to " + path);

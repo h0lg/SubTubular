@@ -1,4 +1,5 @@
 ﻿using System.CommandLine;
+using SubTubular.Extensions;
 
 namespace SubTubular.Shell;
 
@@ -11,14 +12,14 @@ static partial class CommandInterpreter
 
         Command list = new("list", $"Lists available releases from {AssemblyInfo.ReleasesUrl} .");
         list.Aliases.Add("l");
-        list.SetAction(async _ => Console.WriteLine(await ReleaseManager.ListAsync(Program.CreateDataStore())));
+        list.SetAction(async _ => Console.WriteLine(await ReleaseManager.ListAsync(Program.CreateDataStore()).ContinueAnywhere()));
 
         Argument<string> version = new("version") { Description = "The version number of a release or 'latest'." };
 
         Command notes = new("notes", "Opens the github release notes for a single release.");
         notes.Aliases.Add("n");
         notes.Arguments.Add(version);
-        notes.SetAction(async parsed => await ReleaseManager.OpenNotesAsync(parsed.GetValue(version)!, Program.CreateDataStore()));
+        notes.SetAction(async parsed => await ReleaseManager.OpenNotesAsync(parsed.GetValue(version)!, Program.CreateDataStore()).ContinueAnywhere());
 
         Command install = new(ReleaseManager.InstallVersionConsoleCommand, "Downloads a release from github"
             + " and unzips it to the current installation folder while backing up the running version.");
@@ -31,7 +32,8 @@ static partial class CommandInterpreter
         install.Options.Add(installInto);
 
         install.SetAction(async parsed => await ReleaseManager.InstallByTagAsync(
-            parsed.GetValue(version)!, parsed.GetValue(installInto)!, Console.Write, Program.CreateDataStore()));
+            parsed.GetValue(version)!, parsed.GetValue(installInto)!,
+            Console.Write, Program.CreateDataStore()).ContinueAnywhere());
 
         release.Subcommands.Add(list);
         release.Subcommands.Add(notes);

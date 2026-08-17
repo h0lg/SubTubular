@@ -178,7 +178,7 @@ public static class TaskExtensions
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static ConfiguredTaskAwaitable ContinueAnywhere(this Task task)
+    public static ConfiguredTaskAwaitable ContinueAnywhere(this Task task)
         => task.ConfigureAwait(continueOnCapturedContext: false);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -186,15 +186,15 @@ public static class TaskExtensions
         => task.ConfigureAwait(continueOnCapturedContext: false);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static ConfiguredTaskAwaitable<T> ContinueAnywhere<T>(this Task<T> task)
+    public static ConfiguredTaskAwaitable<T> ContinueAnywhere<T>(this Task<T> task)
         => task.ConfigureAwait(continueOnCapturedContext: false);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static ConfiguredValueTaskAwaitable<T> ContinueAnywhere<T>(this ValueTask<T> task)
+    public static ConfiguredValueTaskAwaitable<T> ContinueAnywhere<T>(this ValueTask<T> task)
         => task.ConfigureAwait(continueOnCapturedContext: false);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static ConfiguredCancelableAsyncEnumerable<T> ContinueAnywhere<T>(this IAsyncEnumerable<T> asyncEnumerable)
+    public static ConfiguredCancelableAsyncEnumerable<T> ContinueAnywhere<T>(this IAsyncEnumerable<T> asyncEnumerable)
         => asyncEnumerable.ConfigureAwait(continueOnCapturedContext: false);
 
     public static async IAsyncEnumerable<T> InCompletionOrder<T>(this IEnumerable<Task<T>> tasks)

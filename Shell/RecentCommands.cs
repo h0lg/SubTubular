@@ -1,4 +1,5 @@
 ﻿using System.CommandLine;
+using SubTubular.Extensions;
 
 namespace SubTubular.Shell;
 
@@ -22,7 +23,7 @@ static partial class CommandInterpreter
 
         list.SetCancelableAction(async (_, token) =>
         {
-            var saved = await RecentCommands.ListAsync(token);
+            var saved = await RecentCommands.ListAsync(token).ContinueAnywhere();
 
             if (saved.Count == 0)
             {
@@ -53,18 +54,18 @@ static partial class CommandInterpreter
 
         run.SetCancelableAction(async (parsed, token) =>
         {
-            var commands = await RecentCommands.ListAsync(token);
+            var commands = await RecentCommands.ListAsync(token).ContinueAnywhere();
             var command = commands.GetByNumber(parsed.GetValue(number));
 
             if (command == null) Console.WriteLine($"Command {number} couldn't be found.");
             else
             {
-                if (command.Command is SearchCommand searchCmd) await search(searchCmd, token);
-                else if (command.Command is ListKeywords listCmd) await listKeywords(listCmd, token);
+                if (command.Command is SearchCommand searchCmd) await search(searchCmd, token).ContinueAnywhere();
+                else if (command.Command is ListKeywords listCmd) await listKeywords(listCmd, token).ContinueAnywhere();
                 else throw new NotSupportedException("Unsupported command type " + command.Command?.GetType());
 
                 command.LastRun = DateTime.Now;
-                await RecentCommands.SaveAsync(commands, token);
+                await RecentCommands.SaveAsync(commands, token).ContinueAnywhere();
             }
         });
 
@@ -81,14 +82,14 @@ static partial class CommandInterpreter
 
         remove.SetCancelableAction(async (parsed, token) =>
         {
-            var commands = await RecentCommands.ListAsync(token);
+            var commands = await RecentCommands.ListAsync(token).ContinueAnywhere();
             var command = commands.GetByNumber(parsed.GetValue(number));
 
             if (command == null) Console.WriteLine($"Command {number} couldn't be found.");
             else
             {
                 commands.Remove(command);
-                await RecentCommands.SaveAsync(commands, token);
+                await RecentCommands.SaveAsync(commands, token).ContinueAnywhere();
             }
         });
 

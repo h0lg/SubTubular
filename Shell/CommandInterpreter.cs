@@ -1,6 +1,7 @@
 ﻿using System.CommandLine;
 using System.CommandLine.Help;
 using System.CommandLine.Invocation;
+using SubTubular.Extensions;
 
 namespace SubTubular.Shell;
 
@@ -36,7 +37,7 @@ static partial class CommandInterpreter
         var exit = await parsed.InvokeAsync(new InvocationConfiguration()
         {
             EnableDefaultExceptionHandler = false // to throw exceptions instead of garbling them into an exit code
-        });
+        }).ContinueAnywhere();
 
         /*  parser errors are printed by invocation above and return a non-zero exit code - no need to check it
          *  see https://learn.microsoft.com/en-us/dotnet/standard/commandline/how-to-parse-and-invoke#parse-errors */
@@ -49,7 +50,7 @@ static partial class CommandInterpreter
     private static void SetCancelableAction(this Command command, Func<ParseResult, CancellationToken, Task> action)
         => command.SetAction(async (parsed, token) =>
         {
-            await action(parsed, token);
+            await action(parsed, token).ContinueAnywhere();
             return (int)(token.IsCancellationRequested ? ExitCode.Canceled : ExitCode.Success);
         });
 

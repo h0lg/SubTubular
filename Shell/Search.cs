@@ -11,9 +11,9 @@ static partial class Program
 
         await OutputAsync(command, originalCommand, async (youtube, outputs, token) =>
         {
-            await foreach (var result in youtube.SearchAsync(command, token: token))
+            await foreach (var result in youtube.SearchAsync(command, token: token).ContinueAnywhere())
                 outputs.ForEach(o => o.WriteVideoResult(result, command.Padding));
-        }, token);
+        }, token).ContinueAnywhere();
     }
 }
 
@@ -35,7 +35,7 @@ static partial class CommandInterpreter
             .BindScopes(parsed, videos, channels, playlists, skip, take, cacheHours)
             .BindSearchOptions(parsed, query, padding, orderBy)
             .BindOuputOptions(parsed, html, fileOutputPath, show)
-            .BindSaveAsRecent(parsed, saveAsRecent), token));
+            .BindSaveAsRecent(parsed, saveAsRecent), token).ContinueAnywhere());
 
         return command;
     }
