@@ -39,11 +39,16 @@ public static class FileHelper
         if (targetFolder != null && !Directory.Exists(targetFolder)) Directory.CreateDirectory(targetFolder);
     }
 
+    private static readonly HttpClient httpClient = new(new SocketsHttpHandler
+    {
+        // prevents port exhaustion, see https://learn.microsoft.com/en-us/dotnet/fundamentals/networking/http/httpclient-guidelines
+        PooledConnectionLifetime = TimeSpan.FromMinutes(15)
+    });
+
     /// <summary>Asynchronously downloads a file from <paramref name="downloadUrl"/>
     /// and saves it at <paramref name="targetPath"/>.</summary>
     internal static async Task DownloadAsync(string downloadUrl, string targetPath)
     {
-        using var httpClient = new HttpClient();
         var response = await httpClient.GetAsync(downloadUrl);
 
         if (response.IsSuccessStatusCode) await File.WriteAllBytesAsync(targetPath,
