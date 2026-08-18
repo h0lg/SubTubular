@@ -123,9 +123,6 @@ internal sealed class VideoIndex : IDisposable
 
     internal async Task AddOrUpdateAsync(Video video, CancellationToken token)
     {
-        if (!video.GetCaptionTrackDownloadStatus().IsComplete())
-            throw new InvalidOperationException("Make sure you've tried to download a video's caption tracks before indexing it.");
-
         /*  Adds or replaces the video, see
             https://mikegoatly.github.io/lifti/docs/index-construction/withduplicatekeybehavior/
             https://github.com/mikegoatly/lifti/discussions/124#discussioncomment-11296041 */
