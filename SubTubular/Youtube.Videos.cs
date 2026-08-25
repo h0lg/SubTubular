@@ -49,12 +49,11 @@ partial class Youtube
                     playlist?.Update(video);
                     await unIndexedVideos.Writer.WriteAsync(video, token);
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex.NeedsReporting())
                 {
                     // notify scope immediately about errors that need reporting to record their time correctly via the notification
-                    if (ex.NeedsReporting()) scope.Notify("Error loading video " + id, errors: [ex]);
-                    else throw; // bubble less important errors up to have them collected by SearchUpdatingScope
-                }
+                    scope.Notify("Error loading video " + id, errors: [ex]);
+                } // bubble less important errors up to have them collected by SearchUpdatingScope
                 // only start another download if channel has accepted the video or an error occurred
                 finally { loadLimiter.Release(); }
             }, token));
