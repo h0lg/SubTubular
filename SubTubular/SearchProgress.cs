@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.Collections.Concurrent;
+using System.Text.Json.Serialization;
 using SubTubular.Extensions;
 
 namespace SubTubular;
@@ -52,7 +53,7 @@ public sealed class VideoList
 partial class CommandScope
 {
     [JsonIgnore] public VideoList Progress { get; } = new();
-    [JsonIgnore] public List<Notification> Notifications { get; } = [];
+    [JsonIgnore] public ConcurrentBag<Notification> Notifications { get; } = [];
 
     public event EventHandler? ProgressChanged;
     public event EventHandler<Notification>? Notified;

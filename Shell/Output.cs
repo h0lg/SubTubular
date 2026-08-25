@@ -76,7 +76,7 @@ static partial class Program
         try
         {
             foreach (var scope in command.GetScopes())
-                foreach (var notification in scope.Notifications)
+                foreach (var notification in scope.Notifications) // safe to loop over because notifying stopped
                     OnScopeNotified(scope, notification);
 
             if (outputs.Any(o => o.WroteResults)) // if we displayed a result before running into an error
