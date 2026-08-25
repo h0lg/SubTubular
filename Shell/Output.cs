@@ -71,45 +71,44 @@ static partial class Program
         {
             reportableErrors.Add($"{DateTime.Now:O} {ex}");
         }
-        finally // write output file even if exception occurs
+
+        // write output file even if exception occurs
+        try
         {
-            try
-            {
-                foreach (var scope in command.GetScopes())
-                    foreach (var notification in scope.Notifications)
-                        OnScopeNotified(scope, notification);
+            foreach (var scope in command.GetScopes())
+                foreach (var notification in scope.Notifications)
+                    OnScopeNotified(scope, notification);
 
-                if (outputs.Any(o => o.WroteResults)) // if we displayed a result before running into an error
+            if (outputs.Any(o => o.WroteResults)) // if we displayed a result before running into an error
+            {
+                // only writes an output file if command requires it
+                var fileOutput = outputs.OfType<FileOutputWriter>().SingleOrDefault();
+                var outputPath = fileOutput == null ? null : await fileOutput.SaveFile();
+
+                if (outputPath != null)
                 {
-                    // only writes an output file if command requires it
-                    var fileOutput = outputs.OfType<FileOutputWriter>().SingleOrDefault();
-                    var outputPath = fileOutput == null ? null : await fileOutput.SaveFile();
+                    Console.WriteLine("Results were written to " + outputPath);
 
-                    if (outputPath != null)
-                    {
-                        Console.WriteLine("Results were written to " + outputPath);
-
-                        // spare the user some file browsing
-                        if (command.Show == OutputCommand.Shows.file) ShellCommands.OpenFile(outputPath);
-                        if (command.Show == OutputCommand.Shows.folder) ShellCommands.ExploreFolder(outputPath);
-                    }
+                    // spare the user some file browsing
+                    if (command.Show == OutputCommand.Shows.file) ShellCommands.OpenFile(outputPath);
+                    if (command.Show == OutputCommand.Shows.folder) ShellCommands.ExploreFolder(outputPath);
                 }
-
-                foreach (var output in outputs.OfType<IDisposable>()) output.Dispose();
-                running = false; // to let the cancel task complete if operation did before it
-                await cancel; // just to rethrow possible exceptions
-            }
-            catch (Exception ex) when (ex.GetRootCauses().AnyNeedReporting())
-            {
-                reportableErrors.Add($"{DateTime.Now:O} {ex}");
             }
 
-            // throw to enable setting correct exit code; include errors with time-stamped details to be logged globally
-            if (!reportableErrors.IsEmpty) throw new ErrorLogException(
-                reportableErrors.Prepend(command.Describe(withScopes: true)).Join(ErrorLog.OutputSpacing));
-
-            if (cancellation.IsCancellationRequested) throw new OperationCanceledException(); // to enable setting correct exit code
+            foreach (var output in outputs.OfType<IDisposable>()) output.Dispose();
+            running = false; // to let the cancel task complete if operation did before it
+            await cancel; // just to rethrow possible exceptions
         }
+        catch (Exception ex) when (ex.GetRootCauses().AnyNeedReporting())
+        {
+            reportableErrors.Add($"{DateTime.Now:O} {ex}");
+        }
+
+        // throw to enable setting correct exit code; include errors with time-stamped details to be logged globally
+        if (!reportableErrors.IsEmpty) throw new ErrorLogException(
+            reportableErrors.Prepend(command.Describe(withScopes: true)).Join(ErrorLog.OutputSpacing));
+
+        if (cancellation.IsCancellationRequested) throw new OperationCanceledException(); // to enable setting correct exit code
 
         void OnScopeNotified(CommandScope scope, CommandScope.Notification notification) => outputs.ForEach(output =>
         {
