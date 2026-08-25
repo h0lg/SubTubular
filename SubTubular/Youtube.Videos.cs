@@ -37,8 +37,9 @@ partial class Youtube
                     // get video, trying validated Videos scope first
                     Video? video = command.Videos?.Validated.SingleOrDefault(v => v.Id == id)?.Video;
 
-                    video ??= await GetVideoAsync(id, token, scope,
-                        downloadCaptionTracks: false, save: false).ContinueAnywhere(); // both done below
+                    video ??= await GetVideoAsync(id, scope,
+                        downloadCaptionTracks: false, save: false, // both done below
+                        token: token).ContinueAnywhere();
 
                     // (retry) download caption tracks for the video; validation doesn't do it and there may have been transient errors
                     if (!video.HasDownloadedCaptionTracks())
@@ -157,14 +158,14 @@ partial class Youtube
             async Task<Video> LookupVideoLocallyFirst(string videoId, CancellationToken token)
                 // prefer lookup from local collection because it's faster - but only if the video found has its caption tracks downloaded
                 => videosById.TryGetValue(videoId, out var video) && video.HasDownloadedCaptionTracks() ? video
-                    : await GetVideoAsync(videoId, token, scope).ContinueAnywhere(); // otherwise look it up remotely, downloading the caption tracks
+                    : await GetVideoAsync(videoId, scope, token: token).ContinueAnywhere(); // otherwise look it up remotely, downloading the caption tracks
         }, token);
 
         await SearchUpdatingScope(searching, scope, () => index.Dispose()).ContinueAnywhere();
     }
 
-    internal async Task<Video> GetVideoAsync(string videoId, CancellationToken token,
-        CommandScope scope, bool downloadCaptionTracks = true, bool save = true)
+    internal async Task<Video> GetVideoAsync(string videoId, CommandScope scope,
+        bool downloadCaptionTracks = true, bool save = true, CancellationToken token = default)
     {
         token.ThrowIfCancellationRequested();
         var storageKey = Video.StorageKey(videoId);

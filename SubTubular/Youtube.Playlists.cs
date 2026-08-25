@@ -51,7 +51,7 @@ partial class Youtube
             scope.QueueVideos(videoIds);
 
             // validation of the playlist and RefreshPlaylistAsync don't load the videos; create a remote-enabled lookup to lazy-load them
-            Task<Video> LookupVideoRemotely(string videoId, CancellationToken token) => GetVideoAsync(videoId, token, scope);
+            Task<Video> LookupVideoRemotely(string videoId, CancellationToken token) => GetVideoAsync(videoId, scope, token: token);
 
             var shardSearches = videos.GroupBy(v => v.ShardNumber).Select(async group =>
             {

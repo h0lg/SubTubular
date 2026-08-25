@@ -86,7 +86,7 @@ partial class Youtube
             await Task.WhenAll(videoIds.Select(async videoId =>
             {
                 videos.Report(videoId, VideoList.Status.searching);
-                var video = await GetVideoAsync(videoId, token, videos).ContinueAnywhere();
+                var video = await GetVideoAsync(videoId, videos, token: token).ContinueAnywhere();
                 await channel.Writer.WriteAsync((video.Keywords, videoId, videos), token).ContinueAnywhere();
                 videos.Report(videoId, VideoList.Status.searched);
             })).WithAggregateException().ContinueAnywhere();

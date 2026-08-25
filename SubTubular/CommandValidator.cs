@@ -163,9 +163,9 @@ public static class RemoteValidate
             try
             {
                 // load the video to validate it exists
-                validationResult.Video = await youtube.GetVideoAsync(id, token, videosScope,
-                    downloadCaptionTracks: false) // can be done during search
-                    .ContinueAnywhere();
+                validationResult.Video = await youtube.GetVideoAsync(id, videosScope,
+                    downloadCaptionTracks: false, // can be done during search
+                    token: token).ContinueAnywhere();
             }
             catch (VideoUnavailableException)
             {
