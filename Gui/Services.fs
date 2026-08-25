@@ -3,6 +3,7 @@
 open System
 open System.Text.Json
 open Avalonia.Controls.Notifications
+open Avalonia.Input
 open Avalonia.Interactivity
 open Avalonia.Platform.Storage
 open Fabulous
@@ -28,7 +29,10 @@ module Shared =
         task {
             let clipboard = FabApplication.Current.Clipboard
             let text = command.ToShellCommand()
-            do! clipboard.SetTextAsync(text)
+            // see https://docs.avaloniaui.net/docs/services/clipboard/#implementation
+            let data = new DataTransfer()
+            text |> DataTransferItem.CreateText |> data.Add
+            do! clipboard.SetDataAsync(data)
             return NotifyLong("In the clipboard:", text)
         }
 

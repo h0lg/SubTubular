@@ -188,7 +188,7 @@ module App =
                 .title("SubTubular")
                 .extendClientAreaToDecorationsHint(true)
 #if DEBUG
-                .attachDevTools ()
+                .attachDeveloperTools ()
 #endif
 
         (DesktopApplication() { window })

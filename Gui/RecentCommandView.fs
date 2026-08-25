@@ -76,7 +76,7 @@ module RecentCommandView =
 
     let view model =
         Grid(coldefs = [ Star ], rowdefs = [ Auto; Star ]) {
-            TextBox(model.Query, QueryChanged).watermark("Filter this list").trailingMargin ()
+            TextBox(model.Query, QueryChanged).placeholderText("Filter this list").trailingMargin ()
 
             ListBox(
                 model.Filtered,

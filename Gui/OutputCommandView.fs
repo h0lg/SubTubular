@@ -69,7 +69,7 @@ module OutputCommandView =
             }
 
             TextBox(model.Query, QueryChanged)
-                .watermark("what to find")
+                .placeholderText("what to find")
                 .isVisible(isSearch)
                 .multiline(true)
                 .focus(model.FocusQuery)

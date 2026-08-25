@@ -118,7 +118,7 @@ module FileOutput =
             Label("to").gridColumn (2)
 
             TextBox(model.To, ToChanged)
-                .watermark("where to save the output file")
+                .placeholderText("where to save the output file")
                 .tooltip(OutputCommand.FileOutputPathHint + OutputCommand.ExistingFilesAreOverWritten)
                 .gridColumn (3)
 

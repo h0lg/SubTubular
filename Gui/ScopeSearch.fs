@@ -311,7 +311,7 @@ module ScopeSearch =
                     .minimumPrefixLength(3)
                     .filterMode(AutoCompleteFilterMode.None)
                     .focus(model.Focused)
-                    .watermark(model.AliasSearch.Watermark)
+                    .placeholderText(model.AliasSearch.Watermark)
                     .itemSelector(model.AliasSearch.SelectAliases)
                     .itemTemplate(fun (result: YoutubeSearchResult) ->
                         HStack(5) {
