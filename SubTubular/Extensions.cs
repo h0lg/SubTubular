@@ -2,12 +2,7 @@ using System.Text.RegularExpressions;
 using Lifti;
 using YoutubeExplode.Exceptions;
 
-/*  Namespace does not match folder structure.
- *  It was deliberately chosen to avoid including maybe conflicting extensions accidentally
- *  with the reference to other public types in the top-level namespace. */
-#pragma warning disable IDE0130
 namespace SubTubular.Extensions;
-#pragma warning restore IDE0130
 
 public static class TimeSpanExtensions
 {
