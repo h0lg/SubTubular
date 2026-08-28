@@ -12,7 +12,12 @@ static partial class CommandInterpreter
 
         Command list = new("list", $"Lists available releases from {AssemblyInfo.ReleasesUrl} .");
         list.Aliases.Add("l");
-        list.SetAction(async _ => Console.WriteLine(await ReleaseManager.ListAsync(Program.CreateDataStore()).ContinueAnywhere()));
+
+        list.SetAction(async _ =>
+        {
+            string releases = await ReleaseManager.ListAsync(Program.CreateDataStore()).ContinueAnywhere();
+            Console.WriteLine(releases);
+        });
 
         Argument<string> version = new("version") { Description = "The version number of a release or 'latest'." };
 

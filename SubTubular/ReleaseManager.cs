@@ -86,7 +86,10 @@ public static class ReleaseManager
     }
 
     public static async Task OpenNotesAsync(string version, DataStore dataStore)
-        => OpenNotes(await GetRelease(version, dataStore).ContinueAnywhere());
+    {
+        CacheModel release = await GetRelease(version, dataStore).ContinueAnywhere();
+        OpenNotes(release);
+    }
 
     private static void OpenNotes(CacheModel release) => ShellCommands.OpenUri(release.HtmlUrl);
     public static string GetArchivePath(string appFolder) => Path.Combine(appFolder, "other releases");

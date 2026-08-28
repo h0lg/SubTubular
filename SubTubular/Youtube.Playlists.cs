@@ -45,7 +45,8 @@ partial class Youtube
         async Task Search()
         {
             Task? continuedRefresh = await RefreshPlaylistAsync(scope, token).ContinueAnywhere();
-            var videos = (await playlist.GetRelevantVideosAsync(scope).ContinueAnywhere()).ToArray();
+            var relevantVideos = await playlist.GetRelevantVideosAsync(scope).ContinueAnywhere();
+            var videos = relevantVideos.ToArray();
             var videoIds = videos.Ids().ToArray();
             scope.QueueVideos(videoIds);
 

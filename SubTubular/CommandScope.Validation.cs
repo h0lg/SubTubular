@@ -105,6 +105,8 @@ public static class ScopeExtensions
         => results.Select(r => r.Id);
 
     internal static async Task<bool> SpansMultipleIndexShardsAsync(this PlaylistLikeScope scope)
-        => (await scope.SingleValidated.Playlist!.GetRelevantVideosAsync(scope).ContinueAnywhere())
-            .GroupBy(v => v.ShardNumber).Count() > 1;
+    {
+        var relevant = await scope.SingleValidated.Playlist!.GetRelevantVideosAsync(scope).ContinueAnywhere();
+        return relevant.GroupBy(v => v.ShardNumber).Count() > 1;
+    }
 }

@@ -280,7 +280,10 @@ public sealed class Playlist
 public static class PlaylistExtensions
 {
     internal static async Task<IEnumerable<Playlist.VideoInfo>> GetRelevantVideosAsync(this Playlist playlist, PlaylistLikeScope scope)
-        => (await playlist.GetVideosAsync().ContinueAnywhere()).Skip(scope.Skip).Take(scope.Take);
+    {
+        var videoInfos = await playlist.GetVideosAsync().ContinueAnywhere();
+        return videoInfos.Skip(scope.Skip).Take(scope.Take);
+    }
 
     public static IEnumerable<string> Ids(this IEnumerable<Playlist.VideoInfo> videos) => videos.Select(v => v.Id);
 }
