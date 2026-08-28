@@ -63,9 +63,17 @@ public static partial class StringExtensions
     }
 
     /// <summary>Replaces all characters unsafe for file or directory names in <paramref name="value"/>
-    /// with <paramref name="replacement"/>.</summary>
-    public static string ToFileSafe(this string value, string replacement = "_")
-        => Regex.Replace(value, "[" + Regex.Escape(new string(Path.GetInvalidFileNameChars())) + "]", replacement);
+    /// with <paramref name="replacement"/>, limiting it to <paramref name="maxLength"/>.</summary>
+    /// <param name="maxLength">The maximum length of the returned, cleaned file name.
+    /// The default is chosen well below the relevant maximum file name (255 incl. extension)
+    /// and path length (260 historically) on Windows, which has the strictest relevant limits.
+    /// This is probably long enough and leaves room for the path
+    /// and e.g.UTF-16 character "expansion" when encoded into a file system path.</param>
+    public static string ToFileSafe(this string value, string replacement = "_", int maxLength = 100)
+    {
+        var cleaned = Regex.Replace(value, "[" + Regex.Escape(new string(Path.GetInvalidFileNameChars())) + "]", replacement);
+        return cleaned.Length <= maxLength ? cleaned : cleaned[..maxLength] + "...";
+    }
 
     /// <summary>Removes the <paramref name="prefix"/> from the start and the <paramref name="suffix"/>
     /// from the end of the <paramref name="value"/> and returns the rest.</summary>
