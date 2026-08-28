@@ -49,13 +49,15 @@ public static class FileHelper
     /// and saves it at <paramref name="targetPath"/>.</summary>
     internal static async Task DownloadAsync(string downloadUrl, string targetPath)
     {
-        var response = await httpClient.GetAsync(downloadUrl).ContinueAnywhere();
+        using var response = await httpClient
+            .GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead) // to stream response body efficiently
+            .ContinueAnywhere();
 
-        if (response.IsSuccessStatusCode)
-        {
-            byte[] bytes = await response.Content.ReadAsByteArrayAsync().ContinueAnywhere();
-            await File.WriteAllBytesAsync(targetPath, bytes).ContinueAnywhere();
-        }
+        if (!response.IsSuccessStatusCode) return;
+
+        await using var input = await response.Content.ReadAsStreamAsync().ContinueAnywhere();
+        await using var output = File.Create(targetPath);
+        await input.CopyToAsync(output).ContinueAnywhere();
     }
 
     /// <summary>Unpacks the <paramref name="zipFile"/> into the <paramref name="targetFolder"/>
