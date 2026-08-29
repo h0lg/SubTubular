@@ -49,7 +49,7 @@ public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository vi
             results.Writer.Complete(); // complete writer independent of cancellation to stop reader, which not guarded by it either
             if (t.IsFaulted) throw t.Exception; // bubble up errors
             // nothing to do if search is canceled
-        });
+        }, CancellationToken.None); // let writer complete
 
         /* Determine whether the search spans multiple indexes, indicating that results have to be re-scored.
          * This is required because scores from different indexes are not comparable [cit. req.].
@@ -64,7 +64,7 @@ public sealed partial class Youtube(DataStore dataStore, VideoIndexRepository vi
         var spansMultipleIndexes = command.SpansMultipleIndexes();
 
         // don't pass cancellation token to avoid throwing before searching is awaited below
-        await foreach (var result in results.Reader.ReadAllAsync().ContinueAnywhere())
+        await foreach (var result in results.Reader.ReadAllAsync(CancellationToken.None).ContinueAnywhere())
         {
             if (linkedTs.Token.IsCancellationRequested) break; // end loop gracefully to throw below
             if (spansMultipleIndexes) result.Rescore();
