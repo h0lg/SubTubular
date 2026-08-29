@@ -64,6 +64,7 @@ static partial class CommandInterpreter
                 else if (command.Command is ListKeywords listCmd) await listKeywords(listCmd, token).ContinueAnywhere();
                 else throw new NotSupportedException("Unsupported command type " + command.Command?.GetType());
 
+                if (token.IsCancellationRequested) return; // skip saving recent command
                 command.LastRun = DateTime.Now;
                 await RecentCommands.SaveAsync(commands, token).ContinueAnywhere();
             }

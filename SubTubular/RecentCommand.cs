@@ -34,9 +34,20 @@ public static class RecentCommands
 
     public static async Task SaveAsync(IEnumerable<Item> commands, CancellationToken token = default)
     {
-        foreach (var item in commands) item.Command?.RemoveEmptyScopes();
-        await using FileStream stream = new(recentPath, FileMode.Create);
-        await JsonSerializer.SerializeAsync(stream, commands, options, token).ContinueAnywhere();
+        if (token.IsCancellationRequested) return; // avoid entering writing
+        foreach (var item in commands) item.Command?.RemoveEmptyScopes(); // clean up
+
+        /* write the updated version of the recent commands file to a temporary path
+         * instead of doing a live replacement to avoid corrupting the file on cancellation or crash */
+        string tempPath = recentPath + ".tmp";
+
+        await using (FileStream stream = new(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            // don't fwd passed token to prevent clearing the recent commands file if it is canceled and we entered here
+            await JsonSerializer.SerializeAsync(stream, commands, options, CancellationToken.None).ContinueAnywhere();
+        // disposal of stream flushes it, completing the write operation
+
+        // atomically replace the old file with the updated version after the latter was written
+        File.Move(tempPath, recentPath, overwrite: true);
     }
 
     public static void AddOrUpdate(this List<Item> list, OutputCommand command)
