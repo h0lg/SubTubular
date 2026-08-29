@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Octokit;
 using SubTubular.Extensions;
 
@@ -165,15 +166,20 @@ public static class ReleaseManager
 
             var zips = release.Assets.Where(asset => asset.Name.EndsWith(".zip")).ToArray();
 
+            ReleaseAsset? asset;
+
             if (zips.Length > 1)
             {
-                /*  To support automatic release installation with multiple matching zip files,
-                    implement a strategy to select the one with the (correct) binaries to download. */
-                BinariesZipError = "multiple .zip assets"; // custom, other than the source code
-                return;
-            }
+                // Pick the zip containing the RuntimeIdentifier of the platform for which the host or runtime was built.
+                asset = zips.SingleOrDefault(zip => zip.Name.Contains(RuntimeInformation.RuntimeIdentifier));
 
-            var asset = zips.SingleOrDefault();
+                if (asset == null)
+                {
+                    BinariesZipError = "found no .zip asset for runtime " + RuntimeInformation.RuntimeIdentifier; // custom, other than the source code
+                    return;
+                }
+            }
+            else asset = zips.SingleOrDefault();
 
             if (asset == null) BinariesZipError = "no .zip asset";
             else BinariesZip = new BinariesZipAsset

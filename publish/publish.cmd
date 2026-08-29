@@ -3,14 +3,15 @@
 :: dotnet list package
 :: dotnet list package --outdated
 
+:: publish Shell and Gui into same output folder and zip it for different runtimes, see https://learn.microsoft.com/en-us/dotnet/core/rid-catalog#known-rids for others
+dotnet msbuild publish.csproj -target:CleanPublishBothZipped -verbosity:detailed -p:RuntimeIdentifier=win-x64
+dotnet msbuild publish.csproj -target:CleanPublishBothZipped -verbosity:detailed -p:RuntimeIdentifier=linux-x64
+dotnet msbuild publish.csproj -target:CleanPublishBothZipped -verbosity:detailed -p:RuntimeIdentifier=osx-arm64
+
 :: clean output (to prevent build fragment bleed when rebuilding different parts of the same version)
-dotnet msbuild publish.csproj /t:CleanOutput /v:d
+:: dotnet msbuild publish.csproj -target:CleanOutput -verbosity:detailed -p:RuntimeIdentifier=win-x64
 
-:: publish Shell
-dotnet msbuild publish.csproj /t:PublishShell /v:d
-
-:: publish Gui
-dotnet msbuild publish.csproj /t:PublishGui /v:d
-
-:: zip the output folder
-dotnet msbuild publish.csproj /t:ZipOutput /v:d
+:: publish and zip Shell or Gui individually
+::dotnet msbuild publish.csproj -target:PublishShell -verbosity:detailed -p:RuntimeIdentifier=win-x64
+::dotnet msbuild publish.csproj -target:PublishGui -verbosity:detailed -p:RuntimeIdentifier=win-x64
+::dotnet msbuild publish.csproj -target:ZipOutput -verbosity:detailed -p:RuntimeIdentifier=win-x64

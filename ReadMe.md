@@ -8,6 +8,8 @@ Comes with both a **graphical** (GUI, `SubTubular.Gui`) and **command line inter
     title="Not just a propelled sweet potato with trench binos&#13; - but the best-looking tuber in the soup." />
 
 - [Overview](#overview)
+- [Where to download?](#where-to-download)
+  - [How do I build from source?](#how-do-i-build-from-source)
 - [Shell Commands](#shell-commands)
   - [Common `search` and `keywords` command options](#common-search-and-keywords-command-options)
   - [`search`-only command options](#search-only-command-options)
@@ -78,6 +80,27 @@ Comes with both a **graphical** (GUI, `SubTubular.Gui`) and **command line inter
 ## **not** providing <!-- omit in toc -->
 - subtitle download in any common, reusable format (although that would be an easy addition if required).
 
+
+# Where to download?
+
+Look for the latest build for your operating system and [runtime](https://learn.microsoft.com/en-us/dotnet/core/rid-catalog#known-rids) in the **Assets** at the bottom of the [latest release](https://github.com/h0lg/SubTubular/releases/latest).
+Note that [older releases](https://github.com/h0lg/SubTubular/releases) may include just one build for all OSes and runtimes.
+
+Download the `SubTubular {version} {runtime}.zip` and unzip it where you like.
+It should run out of the box on recent Windows versions. If it doesn't, make sure you have the
+[.NET 10 Runtime](https://dotnet.microsoft.com/en-us/download/dotnet/10.0/runtime) installed.
+
+Currently **available builds** are `win-x64` for Windows, `linux-x64` for Linux desktops and `osx-arm64` for macOS (on Apple chipset). Only the one for Windows is actively tested.
+If you need a build for a different runtime, vote for it in the [issues](https://github.com/h0lg/SubTubular/issues) or build it yourself from source.
+
+## How do I build from source?
+
+You don't have to trust the uploaded bits or rely on the supported runtimes. You can review the source and build from it yourself, targeting the [runtime](https://learn.microsoft.com/en-us/dotnet/core/rid-catalog#known-rids) of your choice supported by the [.NET SDK](https://dotnet.microsoft.com/en-us/download/visual-studio-sdks).
+
+Get the [current source](https://github.com/h0lg/FOMOcal/archive/refs/heads/master.zip) from the `Code` download widget above - and that for [older releases](https://github.com/h0lg/FOMOcal/releases) from one of the github-generated `Source code` archives in the _Assets_ at the bottom of each release.
+
+On Windows, you can use the [`publish.cmd`](https://github.com/h0lg/SubTubular/blob/master/publish/publish.cmd). Adjust it to your target runtime/s as required.
+On other OSes, you'd have to adjust the script to the shell syntax and exclude the `ZipOutput` target (using Windows-only _PowerShell_) call from the [publish project](https://github.com/h0lg/SubTubular/blob/master/publish/publish.csproj).
 
 # Shell Commands
 
