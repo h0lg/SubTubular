@@ -2,7 +2,7 @@
 # SubTubular <!-- omit in toc -->
 
 A **full-text search** for **[YouTube](https://www.youtube.com/)** searching **subtitles** and **video metadata** and returning text results including **time-stamped video links** - allowing you to find and go directly to the relevant content in videos, playlists, even entire channels.
-Comes with both a **graphical** (GUI, `SubTubular.Gui.exe`) and **command line interface** (CLI, *Shell* , `SubTubular.Shell.exe`) wrapping the same library (`SubTubular.dll`).
+Comes with both a **graphical** (GUI, `SubTubular.Gui`) and **command line interface** (CLI, *Shell* , `SubTubular.Shell`) wrapping the same library (`SubTubular.dll`).
 
 <img src="./SubTubular.ico" align="right"
     title="Not just a propelled sweet potato with trench binos&#13; - but the best-looking tuber in the soup." />
@@ -198,14 +198,14 @@ List, browse and install other SubTubular releases.
 Scott Adams mentioned a psychological phenomenon named after a physicist on [his podcast](https://www.youtube.com/c/RealCoffeewithScottAdams) one of these days. Or did he say physician? What was its name again?
 
 <pre>
-SubTubular.Shell.exe <b>search videos</b> https://www.youtube.com/watch?v=<b>egeCYaIe21Y</b>
+SubTubular.Shell <b>search videos</b> https://www.youtube.com/watch?v=<b>egeCYaIe21Y</b>
 https://www.youtube.com/watch?v=<b>gDrFdxWNk8c</b> <b>--for</b> "physician | physicist" <b>--pad</b> 177
 </pre>
 
 or short
 
 <pre>
-SubTubular.Shell.exe <b>s videos</b> egeCYaIe21Y gDrFdxWNk8c <b>-f</b> "physician | physicist" <b>-p</b> 177
+SubTubular.Shell <b>s videos</b> egeCYaIe21Y gDrFdxWNk8c <b>-f</b> "physician | physicist" <b>-p</b> 177
 </pre>
 
 gives you below result.
@@ -230,14 +230,14 @@ The other day Styx mentioned some old book that describes the calcification of t
 Can we find it in his [occult literature playlist](https://www.youtube.com/playlist?list=PLe6Bc4vsmzwLiFQv1eh8oZe4uCkw-yYl7)? And would there be other mentions of fluoride in his reviews of old books?
 
 <pre>
-SubTubular.Shell.exe <b>search playlists</b> https://www.youtube.com/playlist?list=<b>PLe6Bc4vsmzwLiFQv1eh8oZe4uCkw-yYl7</b>
+SubTubular.Shell <b>search playlists</b> https://www.youtube.com/playlist?list=<b>PLe6Bc4vsmzwLiFQv1eh8oZe4uCkw-yYl7</b>
 <b>--for</b> "( pineal ~ gland* & calcifi* ) | fluorid*" <b>--take</b> 500 <b>--pad</b> 90
 </pre>
 
 or shorter
 
 <pre>
-SubTubular.Shell.exe <b>s playlists</b> PLe6Bc4vsmzwLiFQv1eh8oZe4uCkw-yYl7
+SubTubular.Shell <b>s playlists</b> PLe6Bc4vsmzwLiFQv1eh8oZe4uCkw-yYl7
 <b>-f</b> "( pineal ~ gland* & calcifi* ) | fluorid*" <b>-t</b> 500 <b>-p</b> 90
 </pre>
 
@@ -282,7 +282,7 @@ PS > .\SubTubular.Shell.exe search channels Styxhexenhammer666 --for '""little <
 
 ### Bash <!-- omit in toc -->
 <pre>
-$ ./SubTubular.Shell.exe search channels Styxhexenhammer666 --for '"little ?jimmy" | "little sally"' --take 500 --pad 66
+$ ./SubTubular.Shell search channels Styxhexenhammer666 --for '"little ?jimmy" | "little sally"' --take 500 --pad 66
 </pre>
 
 Note how
@@ -320,14 +320,14 @@ PS > .\SubTubular.Shell.exe <b>s channels</b> bobross_thejoyofpainting
 
 ### Bash <!-- omit in toc -->
 <pre>
-$ ./SubTubular.Shell.exe <b>search channels</b> https://www.youtube.com/@<b>bobross_thejoyofpainting</b>
+$ ./SubTubular.Shell <b>search channels</b> https://www.youtube.com/@<b>bobross_thejoyofpainting</b>
 <b>--for</b> '[English (auto-generated)]= ( "beat the devil out" | "happy little *" )' <b>--take</b> 500 <b>--pad</b> 30
 </pre>
 
 or shorter
 
 <pre>
-$ ./SubTubular.Shell.exe <b>s channels</b> bobross_thejoyofpainting
+$ ./SubTubular.Shell <b>s channels</b> bobross_thejoyofpainting
 <b>-f</b> '[English (auto-generated)]= ( "beat the devil out" | "happy little *" )' <b>-t</b> 500 <b>-p</b> 30
 </pre>
 
@@ -395,7 +395,7 @@ PS > .\SubTubular.Shell.exe <b>s channels</b> RussellBrand
 
 ### Bash <!-- omit in toc -->
 <pre>
-$ ./SubTubular.Shell.exe <b>search channels</b> https://www.youtube.com/@<b>RussellBrand</b>
+$ ./SubTubular.Shell <b>search channels</b> https://www.youtube.com/@<b>RussellBrand</b>
 <b>--for</b> '"freedom of speech" | "free speech" | censorship | "cancel culture"'
 <b>--take</b> 500 <b>--pad</b> 40
 </pre>
@@ -403,7 +403,7 @@ $ ./SubTubular.Shell.exe <b>search channels</b> https://www.youtube.com/@<b>Russ
 or short
 
 <pre>
-$ ./SubTubular.Shell.exe <b>s channels</b> RussellBrand
+$ ./SubTubular.Shell <b>s channels</b> RussellBrand
 <b>-f</b> '"freedom of speech" | "free speech" | censorship | "cancel culture"'
 <b>-t</b> 500 <b>-p</b> 40
 </pre>
@@ -439,14 +439,14 @@ Who Benefits From Online <b>Censorship</b>?
 What else has Russell Brand been talking about recently on his channel?
 
 <pre>
-SubTubular.Shell.exe <b>search channels</b> https://www.youtube.com/@<b>RussellBrand</b>
+SubTubular.Shell <b>search channels</b> https://www.youtube.com/@<b>RussellBrand</b>
 <b>--keywords</b> <b>--take</b> 100
 </pre>
 
 or short
 
 <pre>
-SubTubular.Shell.exe <b>s channels</b> RussellBrand <b>-k</b> <b>-t</b> 100
+SubTubular.Shell <b>s channels</b> RussellBrand <b>-k</b> <b>-t</b> 100
 </pre>
 
 will look at the keywords the top 100 videos of the searched playlist are tagged with and list them with their number of occurrences, most used first.
@@ -502,7 +502,7 @@ PS > .\SubTubular.Shell.exe <b>s channels</b> JoergSprave <b>-f</b> 'haha | laug
 
 ### Bash <!-- omit in toc -->
 <pre>
-$ ./SubTubular.Shell.exe <b>search channels</b> https://www.youtube.com/user/<b>JoergSprave</b>
+$ ./SubTubular.Shell <b>search channels</b> https://www.youtube.com/user/<b>JoergSprave</b>
 <b>--for</b> 'haha | laugh* | "let me show you its features"' <b>--take</b> 100 <b>--cache-hours</b> 0
 <b>--order-by</b> uploaded asc <b>--html</b> <b>--out</b> "path/to/my output file.html" <b>--show</b> file
 </pre>
@@ -510,7 +510,7 @@ $ ./SubTubular.Shell.exe <b>search channels</b> https://www.youtube.com/user/<b>
 or short
 
 <pre>
-$ ./SubTubular.Shell.exe <b>s channels</b> JoergSprave <b>-f</b> 'haha | laugh* | "let me show you its features"'
+$ ./SubTubular.Shell <b>s channels</b> JoergSprave <b>-f</b> 'haha | laugh* | "let me show you its features"'
 <b>-t</b> 100 <b>-ch</b> 0 <b>-r</b> uploaded asc <b>-m</b> <b>-o</b> "path/to/my output file.html" <b>-s</b> file
 </pre>
 

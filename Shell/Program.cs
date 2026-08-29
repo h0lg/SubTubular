@@ -1,4 +1,5 @@
-﻿using SubTubular.Extensions;
+﻿using System.Runtime.InteropServices;
+using SubTubular.Extensions;
 
 namespace SubTubular.Shell;
 
@@ -17,7 +18,7 @@ internal static partial class Program
     {
         Console.TreatControlCAsInput = false; // makes cancelation via Ctrl+C work, see https://learn.microsoft.com/en-us/dotnet/api/system.console.cancelkeypress
 
-        var originalCommand = $"> {AssemblyInfo.Name}.exe "
+        var originalCommand = $"{(RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? '>' : '$')} {AssemblyInfo.ShellExe} "
             // quote shell args including pipes to accurately represent the console command
             + args.Select(arg => arg.Contains('|') ? $"\"{arg.Replace("\"", "\"\"")}\"" : arg).Join(" ");
 

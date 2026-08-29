@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.InteropServices;
 
 namespace SubTubular;
 
@@ -10,10 +11,9 @@ public static class AssemblyInfo
         ReleasesUrl = $"{RepoUrl}/releases",
         RepoUrl = $"https://github.com/{RepoOwner}/{RepoName}";
 
-    internal const string RepoOwner = "h0lg", RepoName = Name,
-        ShellExe = Name + ".Shell.exe";
+    internal const string RepoOwner = "h0lg", RepoName = Name;
 
-    public static readonly string Title, Description, Copyright, InformationalVersion;
+    public static readonly string Title, Description, Copyright, InformationalVersion, ShellExe;
 
     internal static readonly string Location, Version;
 
@@ -27,6 +27,7 @@ public static class AssemblyInfo
         InformationalVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? string.Empty;
         var version = assembly.GetName().Version?.ToString();
         Version = version == null ? string.Empty : version[..version.LastIndexOf('.')];
+        ShellExe = Name + ".Shell" + (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : null);
     }
 
     public static string GetProductVersion()
