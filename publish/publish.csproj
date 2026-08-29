@@ -18,6 +18,15 @@
     <MSBuild Projects="..\Gui\Gui.fsproj" Targets="Restore" />
     <MSBuild Projects="..\Gui\Gui.fsproj" Targets="Publish"
              Properties="Configuration=Release;PublishDir=$(PublishDir);PublishSingleFile=false;SelfContained=false;RuntimeIdentifier=$(RuntimeIdentifier);TargetFramework=net10.0" />
+    <CallTarget Targets="RemoveNativeSymbols" />
+  </Target>
+
+  <Target Name="RemoveNativeSymbols">
+    <ItemGroup>
+      <NativePdbs Include="$(PublishDir)\**\*.pdb" />
+    </ItemGroup>
+
+    <Delete Files="@(NativePdbs)" />
   </Target>
 
   <Target Name="ZipOutput">
