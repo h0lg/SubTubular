@@ -8,4 +8,10 @@
     <Authors>Holger Schmidt</Authors>
     <Copyright>Copyright © Holger Schmidt 2020-26</Copyright>
   </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugSymbols>false</DebugSymbols>
+    <DebugType>None</DebugType>
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+  </PropertyGroup>
 </Project>
