@@ -197,7 +197,8 @@ public static class ExceptionExtensions
     public static bool IsInputError(this Exception ex) => ex is InputException or LiftiException;
 
     // user-facing, but not logged or influencing parallel searches
-    public static bool IsUnavailable(this Exception ex) => ex is VideoUnavailableException or PlaylistUnavailableException;
+    public static bool IsUnavailable(this Exception ex)
+        => ex is VideoUnavailableException or VideoUnplayableException or PlaylistUnavailableException;
 
     public static bool AnyNeedReporting(this IEnumerable<Exception> exns)
         // exclude input or transient unavailable errors from reporting
