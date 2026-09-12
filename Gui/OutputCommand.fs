@@ -130,7 +130,7 @@ module OutputCommands =
                                 causes
                                     .Select(fun ex -> ex.ToString())
                                     .Prepend("in " + scope.Describe(false).Join(" "))
-                                    .Prepend($"{DateTime.Now:O} {ntf.Title}")
+                                    .Prepend($"{ntf.Created:O} {ntf.Title}")
                                     .Join("\n")
                             ))
 
