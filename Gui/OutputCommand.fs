@@ -418,9 +418,9 @@ module OutputCommands =
 
             let msg =
                 if successful then
-                    Notify(workload + " completed.")
+                    Notify(workload + " succeeded.")
                 else
-                    FailLong(workload + " failed.", "Find details in the scope notifications.")
+                    FailLong(workload + " ran into errors.", "Find details in the scope notifications.")
 
             { model with
                 Running = null
