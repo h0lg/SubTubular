@@ -225,7 +225,7 @@ public static class ExceptionExtensions
     public static bool IsInputError(this Exception ex) => ex is InputException or LiftiException;
 
     // user-facing, but not logged or influencing parallel searches
-    public static bool IsUnavailable(this Exception ex)
+    private static bool IsInaccessible(this Exception ex)
         => ex is PlaylistUnavailableException || ex.IsVideoInaccessible();
 
     internal static bool IsVideoInaccessible(this Exception ex)
@@ -233,7 +233,7 @@ public static class ExceptionExtensions
 
     public static bool AnyNeedReporting(this IEnumerable<Exception> exns) => exns.Any(NeedsReporting);
     internal static bool NeedsReporting(this Exception ex) => !ex.IsExpected(); // exclude input or transient unavailable errors from reporting
-    private static bool IsExpected(this Exception ex) => ex is OperationCanceledException || ex.IsInputError() || ex.IsUnavailable();
+    private static bool IsExpected(this Exception ex) => ex is OperationCanceledException || ex.IsInputError() || ex.IsInaccessible();
     public static bool HaveInputError(this IEnumerable<Exception> exns) => exns.Any(IsInputError);
     public static bool AreAll<T>(this IEnumerable<Exception> exns) => exns.All(e => e is T);
     public static bool AreAllCancelations(this IEnumerable<Exception> exns) => exns.AreAll<OperationCanceledException>();
