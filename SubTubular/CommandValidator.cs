@@ -1,6 +1,5 @@
 ﻿using SubTubular.Extensions;
 using YoutubeExplode.Channels;
-using YoutubeExplode.Exceptions;
 
 namespace SubTubular;
 
@@ -167,7 +166,7 @@ public static class RemoteValidate
                     downloadCaptionTracks: false, // can be done during search
                     token: token).ContinueAnywhere();
             }
-            catch (VideoUnavailableException)
+            catch (Exception ex) when (ex.IsVideoInaccessible())
             {
                 videosScope.Invalidate(id);
                 throw; // to propagate reason

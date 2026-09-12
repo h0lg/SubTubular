@@ -226,7 +226,10 @@ public static class ExceptionExtensions
 
     // user-facing, but not logged or influencing parallel searches
     public static bool IsUnavailable(this Exception ex)
-        => ex is VideoUnavailableException or VideoUnplayableException or PlaylistUnavailableException;
+        => ex is PlaylistUnavailableException || ex.IsVideoInaccessible();
+
+    internal static bool IsVideoInaccessible(this Exception ex)
+        => ex is VideoUnavailableException or VideoUnplayableException;
 
     public static bool AnyNeedReporting(this IEnumerable<Exception> exns) => exns.Any(NeedsReporting);
     internal static bool NeedsReporting(this Exception ex) => !ex.IsExpected(); // exclude input or transient unavailable errors from reporting
