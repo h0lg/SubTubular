@@ -49,7 +49,13 @@ internal static partial class Program
                 WriteConsoleError(causes.Select(c => c.Message)
                     .Prepend("Unexpected errors occurred loading data from YouTube. Try again later or with an updated version. ")
                     .Join(Environment.NewLine));
-            else await WriteErrorLogAsync(originalCommand, ex is ErrorLogException ? ex.Message : ex.ToString()).ContinueAnywhere();
+            else if (ex is ErrorLogException)
+                await WriteErrorLogAsync(originalCommand, ex.Message).ContinueAnywhere();
+            else if (causes.AnyNeedReporting())
+                await WriteErrorLogAsync(originalCommand, ex.ToString()).ContinueAnywhere();
+            else
+                foreach (var cause in causes.Select(ex => ex.Message).Distinct())
+                    WriteConsoleError(cause);
 
             return (int)ExitCode.GenericError;
         }
