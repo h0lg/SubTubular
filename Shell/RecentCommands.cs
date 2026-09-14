@@ -21,7 +21,10 @@ static partial class CommandInterpreter
         Command list = new("list", "List recently run commands.");
         list.Aliases.Add("l");
 
-        list.SetCancelableAction(async (_, token) =>
+        Option<ushort?> top = new("--top", "-t") { Description = "The number of commands from the top of recent list to show." };
+        list.Options.Add(top);
+
+        list.SetCancelableAction(async (parsed, token) =>
         {
             var saved = await RecentCommands.ListAsync(token).ContinueAnywhere();
 
@@ -31,9 +34,10 @@ static partial class CommandInterpreter
                 return;
             }
 
-            var numberedConfigs = saved.OrderByDescending(c => c.LastRun)
-                .Select((cmd, index) => (cmd.Description, number: index + 1)).ToArray();
-
+            var ordered = saved.OrderByDescending(c => c.LastRun);
+            var take = parsed.GetValue(top);
+            var taken = take.HasValue ? ordered.Take(take.Value) : ordered;
+            var numberedConfigs = taken.Select((cmd, index) => (cmd.Description, number: index + 1)).ToArray();
             var digits = numberedConfigs.Max(s => s.number).ToString().Length; // determines length of longest number
 
             foreach (var (name, number) in numberedConfigs)
