@@ -104,10 +104,10 @@ module Scopes =
         (HWrap() {
             for scope in model.List do
                 (Border(View.map (fun scopeMsg -> ScopeMsg(scope, scopeMsg)) (Scope.view scope maxWidth showThumbnails)))
-                    .classes ("scope")
+                    .classes("scope")
         })
             .onSizeChanged(ListSizeChanged)
-            .top ()
+            .top()
 
     let private addButton scopeType =
         Button(ScopeViews.displayType scopeType true, AddScope scopeType)
@@ -118,7 +118,7 @@ module Scopes =
                 Label "add"
                 addButton typeof<ChannelScope>
                 addButton typeof<PlaylistScope>
-                (addButton typeof<VideosScope>).isVisible (not model.HasVideos)
+                (addButton typeof<VideosScope>).isVisible(not model.HasVideos)
             }
         ))
-            .classes ("add-scope")
+            .classes("add-scope")

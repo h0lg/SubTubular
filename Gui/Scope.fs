@@ -152,33 +152,33 @@ module Scope =
     let private validated thumbnailUrl navigateUrl title channel (scope: CommandScope) progress videoId showThumbnails =
         (Grid(coldefs = [ Auto; Auto; Auto; Auto ], rowdefs = [ Auto; Auto ]) {
             match videoId with
-            | Some videoId -> Button("❌", RemoveVideo videoId).tooltip("remove this video").gridRowSpan (2)
+            | Some videoId -> Button("❌", RemoveVideo videoId).tooltip("remove this video").gridRowSpan(2)
             | None -> ()
 
-            AsyncImage(thumbnailUrl).maxHeight(30).gridColumn(1).gridRowSpan(2).isVisible (showThumbnails)
+            AsyncImage(thumbnailUrl).maxHeight(30).gridColumn(1).gridRowSpan(2).isVisible(showThumbnails)
 
             TextBlock(ScopeViews.getIcon (scope.GetType()) + title)
                 .tappable(OpenUrl navigateUrl |> Common, "tap to open in the browser")
                 .gridColumn(2)
-                .gridColumnSpan (2)
+                .gridColumnSpan(2)
 
             match channel with
-            | Some channel -> ScopeViews.channelInfo(channel).gridRow(1).gridColumn (2)
+            | Some channel -> ScopeViews.channelInfo(channel).gridRow(1).gridColumn(2)
             | None -> ()
 
             match progress with
-            | Some progress -> ScopeViews.progressText(progress).gridRow(1).gridColumn (3)
+            | Some progress -> ScopeViews.progressText(progress).gridRow(1).gridColumn(3)
             | None -> ()
         })
-            .columnSpacing (5)
+            .columnSpacing(5)
 
     let private removeBtn () =
-        Button("❌", Remove).tooltip ("remove this scope")
+        Button("❌", Remove).tooltip("remove this scope")
 
     let private notificationToggle model =
         (ScopeNotifications.toggle model.Notifications)
             .onScopeNotified(model.Scope, Notified) // just to trigger re-render of this view
-            .tappable (ToggleFlyout >> Common, "some things came up while working on this scope")
+            .tappable(ToggleFlyout >> Common, "some things came up while working on this scope")
 
     // measuring size of contents proved more reliable than relying on their de-bounced SizeChanged events
     let private getContentsWidth model =
@@ -216,7 +216,7 @@ module Scope =
                     else
                         ScopeSearch.input model.ScopeSearch showThumbnails |> View.map ScopeSearchMsg
 
-                    ToggleButton("🔧", model.ShowSettings, ToggleSettings).tooltip ("toggle settings")
+                    ToggleButton("🔧", model.ShowSettings, ToggleSettings).tooltip("toggle settings")
 
                     (HStack(5) {
                         Label "skip"
@@ -226,7 +226,7 @@ module Scope =
                         Label "videos"
                     })
                         .centerHorizontal()
-                        .isVisible (model.ShowSettings)
+                        .isVisible(model.ShowSettings)
 
                     (HStack(5) {
                         let tooltip =
@@ -243,16 +243,16 @@ module Scope =
                         Label "hours"
                     })
                         .centerHorizontal()
-                        .isVisible (model.ShowSettings)
+                        .isVisible(model.ShowSettings)
                 })
-                    .reference (model.Contents) // to measure MaxWidth for ProgressBar from
+                    .reference(model.Contents) // to measure MaxWidth for ProgressBar from
 
             | Vids videos ->
                 let remoteValidated = videos.GetRemoteValidated() |> List.ofSeq
 
                 (Grid(coldefs = [ Auto; Auto ], rowdefs = [ Auto; Auto ]) {
                     if remoteValidated.IsEmpty then
-                        removeBtn().gridRow (1)
+                        removeBtn().gridRow(1)
                     else
                         notificationToggle model
 
@@ -271,19 +271,19 @@ module Scope =
                                     showThumbnails
                         })
                             .maxWidth(maxWidth) // wrap list according to surrounding panel width
-                            .gridColumn (1)
+                            .gridColumn(1)
 
                     (ScopeSearch.input model.ScopeSearch showThumbnails |> View.map ScopeSearchMsg)
                         .maxWidth(maxWidth) // limit to surrounding panel width
                         .gridColumn(1)
-                        .gridRow (1)
+                        .gridRow(1)
                 })
-                    .reference (model.Contents) // to measure MaxWidth for ProgressBar from
+                    .reference(model.Contents) // to measure MaxWidth for ProgressBar from
 
             ScopeSearch.validationErrors model.ScopeSearch
 
             ProgressBar(0, model.Scope.Progress.AllJobs, model.Scope.Progress.CompletedJobs, ProgressValueChanged)
                 .isIndeterminate(model.ScopeSearch.AliasSearch.IsRunning())
                 .maxWidth(getContentsWidth model) // prevent expanding the component size beyond what the contents need
-                .onThrottledEvent (model.ThrottledProgressChanged, ProgressChanged)
+                .onThrottledEvent(model.ThrottledProgressChanged, ProgressChanged)
         }

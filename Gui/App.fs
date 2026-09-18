@@ -159,24 +159,24 @@ module App =
 
     let private view model =
         (TabControl() {
-            TabItem(Image(appIconUrl).margin(10, 5, 0, 0).height (25), HWrapEmpty()).isEnabled (false)
+            TabItem(Image(appIconUrl).margin(10, 5, 0, 0).height(25), HWrapEmpty()).isEnabled(false)
 
             TabItem(Icon.recent + " Recent", View.map RecentMsg (RecentCommandView.view model.Recent))
                 .isEnabled(not model.IsSearchRunning)
-                .isSelected (true)
+                .isSelected(true)
 
             TabItem(
                 Icon.search + "Search",
                 View.map SearchMsg (OutputCommandView.render model.Search model.Settings.ShowThumbnails)
             )
-                .reference (searchTab)
+                .reference(searchTab)
 
-            TabItem("🗃 Storage", View.map CacheMsg (CachePage.view model.Cache)).isEnabled (not model.IsSearchRunning)
+            TabItem("🗃 Storage", View.map CacheMsg (CachePage.view model.Cache)).isEnabled(not model.IsSearchRunning)
 
             TabItem("⚙ Settings", View.map SettingsMsg (Settings.view model.Settings))
         })
             .margin(0, 15, 0, 10) // to allow dragging the Window while using extendClientAreaToDecorationsHint
-            .onAttachedToVisualTree (AttachedToVisualTreeChanged)
+            .onAttachedToVisualTree(AttachedToVisualTreeChanged)
 
 #if MOBILE
     let app model = SingleViewApplication(view model)
@@ -188,11 +188,11 @@ module App =
                 .title("SubTubular")
                 .extendClientAreaToDecorationsHint(true)
 #if DEBUG
-                .attachDeveloperTools ()
+                .attachDeveloperTools()
 #endif
 
         (DesktopApplication() { window })
-            .requestedThemeVariant (Settings.getThemeVariant (model.Settings.ThemeVariantKey))
+            .requestedThemeVariant(Settings.getThemeVariant (model.Settings.ThemeVariantKey))
 #endif
 
     let create () =

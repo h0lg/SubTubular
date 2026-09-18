@@ -66,7 +66,7 @@ module Styles =
             this.verticalAlignment (VerticalAlignment.Bottom)
 
         [<Extension>]
-        static member card(this: WidgetBuilder<'msg, #IFabControl>) = Border(this).classes ("card")
+        static member card(this: WidgetBuilder<'msg, #IFabControl>) = Border(this).classes("card")
 
         [<Extension>]
         static member inline wrap(this: WidgetBuilder<'msg, #IFabTextBlock>) = this.textWrapping (TextWrapping.Wrap)
@@ -76,10 +76,10 @@ module Styles =
 
         [<Extension>]
         static member inline header(this: WidgetBuilder<'msg, IFabTextBlock>) =
-            this.fontSize(18).fontWeight (FontWeight.Bold)
+            this.fontSize(18).fontWeight(FontWeight.Bold)
 
         [<Extension>]
-        static member inline smallDemoted(this: WidgetBuilder<'msg, IFabTextBlock>) = this.demoted().fontSize (11)
+        static member inline smallDemoted(this: WidgetBuilder<'msg, IFabTextBlock>) = this.demoted().fontSize(11)
 
         [<Extension>]
         static member inline tooltip(this: WidgetBuilder<'msg, #IFabControl>, tooltip: string) =
@@ -92,7 +92,7 @@ module Styles =
         static member inline tappable
             (this: WidgetBuilder<'msg, #IFabControl>, msg: RoutedEventArgs -> 'msg, tooltip: string)
             =
-            this.onTapped(msg).tapCursor().tooltip (tooltip)
+            this.onTapped(msg).tapCursor().tooltip(tooltip)
 
         [<Extension>]
         static member inline tappable(this: WidgetBuilder<'msg, #IFabControl>, msg: 'msg, tooltip: string) =
@@ -116,7 +116,7 @@ module Widgets =
     let intUpDown min value max msg tooltip =
         NumericUpDown(min, max, Some value, msg)
             .formatString("F0") // to ditch the decimal digits
-            .tooltip (tooltip + "\nenter a value, spin using mouse wheel, click or hold buttons")
+            .tooltip(tooltip + "\nenter a value, spin using mouse wheel, click or hold buttons")
 
     let uint16UpDown value msg tooltip =
         intUpDown (float 0) value (float System.UInt16.MaxValue) msg tooltip

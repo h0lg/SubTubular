@@ -76,21 +76,21 @@ module RecentCommandView =
 
     let view model =
         Grid(coldefs = [ Star ], rowdefs = [ Auto; Star ]) {
-            TextBox(model.Query, QueryChanged).placeholderText("Filter this list").trailingMargin ()
+            TextBox(model.Query, QueryChanged).placeholderText("Filter this list").trailingMargin()
 
             ListBox(
                 model.Filtered,
                 (fun config ->
                     (Grid(coldefs = [ Star; Auto; Auto; Auto ], rowdefs = [ Auto ]) {
-                        TextBlock(config.Description).tappable(Load config.Command, "load this command").wrap ()
+                        TextBlock(config.Description).tappable(Load config.Command, "load this command").wrap()
 
                         Button(Icon.copy, CopyShellCmd config.Command |> Common)
                             .tooltip("copy shell command to clipboard")
-                            .gridColumn (1)
+                            .gridColumn(1)
 
-                        TextBlock(config.LastRun.ToString()).tooltip("last run").gridColumn (2)
-                        Button("❌", Remove config).tooltip("forget about this").gridColumn (3)
+                        TextBlock(config.LastRun.ToString()).tooltip("last run").gridColumn(2)
+                        Button("❌", Remove config).tooltip("forget about this").gridColumn(3)
                     }))
             )
-                .gridRow (1)
+                .gridRow(1)
         }

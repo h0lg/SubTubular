@@ -47,7 +47,9 @@ module Settings =
                     let settings = JsonSerializer.Deserialize json
                     return Loaded settings |> Some
                 with exn ->
-                    let! _ = ErrorLog.WriteAsync(exn.ToString(), ?fileNameDescription = Some "loading UI settings")
+                    let! _ =
+                        ErrorLog.WriteAsync(exn.ToString(), ?fileNameDescription = Some "loading UI settings")
+
                     return None
             else
                 return None
@@ -83,34 +85,30 @@ module Settings =
         | Loaded model -> model, Cmd.none
 
     let private display (v: ThemeVariant) =
-        if v = ThemeVariant.Light then
-            "🌕 light"
-        else if v = ThemeVariant.Dark then
-            "🌑 dark"
-        else if v = ThemeVariant.Default then
-            "🌓 switch with system"
-        else
-            failwith $"unknown {nameof ThemeVariant} {v}"
+        if v = ThemeVariant.Light then "🌕 light"
+        else if v = ThemeVariant.Dark then "🌑 dark"
+        else if v = ThemeVariant.Default then "🌓 switch with system"
+        else failwith $"unknown {nameof ThemeVariant} {v}"
 
     let view model =
         (VStack(10.) {
             HWrap() {
-                Label("Theme").centerVertical ()
+                Label("Theme").centerVertical()
 
                 ListBox(themeVariants, (fun variant -> TextBlock(display variant)))
                     .selectedItem(getThemeVariant (model.ThemeVariantKey))
                     .onSelectionChanged(fun args ->
                         if args.AddedItems.Count > 0 then
-                            let v = unbox<ThemeVariant> (args.AddedItems.Item 0)
+                            let v = unbox<ThemeVariant>(args.AddedItems.Item 0)
                             ThemeVariantSelected(Some v)
                         else
                             ThemeVariantSelected None)
-                    .itemsPanel (HWrapEmpty())
+                    .itemsPanel(HWrapEmpty())
             }
 
             HStack() {
-                Label("Download & display thumbnails").centerVertical ()
+                Label("Download & display thumbnails").centerVertical()
                 ToggleSwitch(model.ShowThumbnails, ToggleThumbnails)
             }
         })
-            .center ()
+            .center()

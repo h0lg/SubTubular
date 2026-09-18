@@ -145,7 +145,7 @@ module OutputCommands =
                         if command.SaveAsRecent then
                             SaveRecent command |> dispatch
 
-                        do! Services.Youtube.SearchAsync(search, token).dispatchBuffered (300, SearchResults, dispatch)
+                        do! Services.Youtube.SearchAsync(search, token).dispatchBuffered(300, SearchResults, dispatch)
 
                     | :? ListKeywords as listKeywords ->
                         Prevalidate.Scopes listKeywords
@@ -159,7 +159,7 @@ module OutputCommands =
                         do!
                             Services.Youtube
                                 .ListKeywordsAsync(listKeywords, token)
-                                .dispatchBuffered (
+                                .dispatchBuffered(
                                     300,
                                     (fun list -> list |> List.map _.ToTuple() |> KeywordResults),
                                     dispatch

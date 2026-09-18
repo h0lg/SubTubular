@@ -22,18 +22,14 @@ module SearchResult =
             | None -> Nullable()
 
         let runs =
-            matched.WriteHighlightingMatches(
-                (fun text -> Run(text)),
-                (fun text -> Run(text).classes ("match")),
-                padding
-            )
+            matched.WriteHighlightingMatches((fun text -> Run(text)), (fun text -> Run(text).classes("match")), padding)
 
         let contents = runs |> Seq.map tb.Yield |> Seq.toList
 
         let content =
             Seq.fold (fun agg cont -> tb.Combine(agg, cont)) contents.Head contents.Tail
 
-        (tb.Run content).classes(nameof MatchedText).wrap ()
+        (tb.Run content).classes(nameof MatchedText).wrap()
 
     let render (matchPadding: uint32) (result: VideoSearchResult) showThumbnails =
         let videoUrl = Youtube.GetVideoUrl result.Video.Id
@@ -44,7 +40,7 @@ module SearchResult =
                 .top()
                 .height(90) // to avoid jitter when scrolling results while lazy-loading thumbnails
                 .margin(0, 0, 5, 0)
-                .isVisible (showThumbnails)
+                .isVisible(showThumbnails)
 
             (VStack() {
                 Grid(coldefs = [ Star; Auto ], rowdefs = [ Auto ]) {
@@ -52,9 +48,9 @@ module SearchResult =
                      | null -> SelectableTextBlock(result.Video.Title, CopyingToClipboard)
                      | matches -> writeHighlightingMatches matches None)
                         .wrap()
-                        .fontSize (18)
+                        .fontSize(18)
 
-                    TextBlock("📅" + result.Video.Uploaded.ToString()).tooltip("uploaded").gridColumn (1)
+                    TextBlock("📅" + result.Video.Uploaded.ToString()).tooltip("uploaded").gridColumn(1)
                 }
 
                 let reference =
@@ -64,19 +60,19 @@ module SearchResult =
                         ScopeViews.getIcon (result.Scope.GetType())
                         + result.Scope.SingleValidated.Playlist.Title
 
-                TextBlock(reference).smallDemoted ()
+                TextBlock(reference).smallDemoted()
 
                 if result.DescriptionMatches <> null then
                     Grid(coldefs = [ Auto; Star ], rowdefs = [ Auto ]) {
-                        (TextBlock "in description").demoted ()
+                        (TextBlock "in description").demoted()
 
                         for matches in result.DescriptionMatches.SplitIntoPaddedGroups(matchPadding) do
-                            (writeHighlightingMatches matches (Some matchPadding)).wrap().gridColumn (1)
+                            (writeHighlightingMatches matches (Some matchPadding)).wrap().gridColumn(1)
                     }
 
                 if result.KeywordMatches.HasAny() then
                     HStack() {
-                        (TextBlock "in keywords").demoted ()
+                        (TextBlock "in keywords").demoted()
 
                         for matches in result.KeywordMatches do
                             writeHighlightingMatches matches (Some matchPadding)
@@ -84,7 +80,7 @@ module SearchResult =
 
                 if result.MatchingCaptionTracks.HasAny() then
                     for trackResult in result.MatchingCaptionTracks do
-                        TextBlock(trackResult.Track.LanguageName).demoted ()
+                        TextBlock(trackResult.Track.LanguageName).demoted()
 
                         let displaysHour = trackResult.HasMatchesWithHours(matchPadding)
                         let splitMatches = trackResult.Matches.SplitIntoPaddedGroups(matchPadding)
@@ -106,10 +102,10 @@ module SearchResult =
                                         $"tap to start the video at this timestamp in the browser"
                                     )
                                     .margin(0, 0, 5, 0)
-                                    .demoted ()
+                                    .demoted()
 
-                                (writeHighlightingMatches synced (Some matchPadding)).gridColumn (1)
+                                (writeHighlightingMatches synced (Some matchPadding)).gridColumn(1)
                             }
             })
-                .gridColumn (1)
+                .gridColumn(1)
         }

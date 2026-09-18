@@ -114,21 +114,21 @@ module FileOutput =
     let view model =
         Grid(coldefs = [ Auto; Auto; Auto; Star; Auto; Auto; Auto; Auto ], rowdefs = [ Auto ]) {
             Label("output")
-            ToggleButton((if model.Html then "🖺 HTML" else "🖹 text"), model.Html, HtmlChanged).gridColumn (1)
-            Label("to").gridColumn (2)
+            ToggleButton((if model.Html then "🖺 HTML" else "🖹 text"), model.Html, HtmlChanged).gridColumn(1)
+            Label("to").gridColumn(2)
 
             TextBox(model.To, ToChanged)
                 .placeholderText("where to save the output file")
                 .tooltip(OutputCommand.FileOutputPathHint + OutputCommand.ExistingFilesAreOverWritten)
-                .gridColumn (3)
+                .gridColumn(3)
 
-            Button("📂", PickTo).tooltip("Pick output folder").gridColumn (4)
-            Label("and open").gridColumn (5)
+            Button("📂", PickTo).tooltip("Pick output folder").gridColumn(4)
+            Label("and open").gridColumn(5)
 
             ComboBox(Enum.GetValues<Open>(), (fun show -> ComboBoxItem(displayOpen show)))
                 .selectedItem(model.Opening)
                 .onSelectionChanged(OpenChanged)
-                .gridColumn (6)
+                .gridColumn(6)
 
-            Button("💾 Save", SaveOutput).gridColumn (7)
+            Button("💾 Save", SaveOutput).gridColumn(7)
         }

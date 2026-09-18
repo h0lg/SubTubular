@@ -30,7 +30,7 @@ module ScopeViews =
     open ScopeDiscriminators
 
     let channelInfo channel =
-        TextBlock(Icon.channel + channel).smallDemoted ()
+        TextBlock(Icon.channel + channel).smallDemoted()
 
     let getIcon (t: Type) =
         match t with
@@ -46,4 +46,4 @@ module ScopeViews =
           | IsPlaylist -> "playlist"
           | IsChannel -> "channel"
 
-    let progressText text = TextBlock(text).right().smallDemoted ()
+    let progressText text = TextBlock(text).right().smallDemoted()

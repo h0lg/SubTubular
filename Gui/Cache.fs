@@ -141,7 +141,7 @@ module CachePage =
             fun fileType ->
                 (Grid(coldefs = [ Pixel(200); Star ], rowdefs = [ Auto ]) {
                     Label(fileType.Label)
-                    TextBlock(fileType.Description).wrap().demoted().gridColumn (1)
+                    TextBlock(fileType.Description).wrap().demoted().gridColumn(1)
                 })
         )
 
@@ -151,12 +151,12 @@ module CachePage =
             fun folder ->
                 (Grid(coldefs = [ Pixel(100); Star ], rowdefs = [ Auto ]) {
                     let indent = folder.IndentLevel * 10
-                    TextBlock(folder.Label).padding (indent, 0, 0, 0)
+                    TextBlock(folder.Label).padding(indent, 0, 0, 0)
 
                     if folder.Label <> folder.PathDiff then
-                        TextBlock(folder.PathDiff).padding(indent, 0, 0, 0).demoted().gridColumn (1)
+                        TextBlock(folder.PathDiff).padding(indent, 0, 0, 0).demoted().gridColumn(1)
                 })
-                    .tappable (OpenFolder folder.Path, "open this folder")
+                    .tappable(OpenFolder folder.Path, "open this folder")
         )
 
     let private byLastAccess model =
@@ -164,9 +164,9 @@ module CachePage =
             model.ByLastAccess |> Option.defaultValue [],
             fun group ->
                 (Grid(coldefs = [ Auto; Star ], rowdefs = [ Auto; Star ]) {
-                    TextBlock(group.TimeSpanLabel).header ()
+                    TextBlock(group.TimeSpanLabel).header()
 
-                    Button(Icon.trash, RemoveByLastAccess group).tooltip("clear this data").fontSize(20).gridRow (1)
+                    Button(Icon.trash, RemoveByLastAccess group).tooltip("clear this data").fontSize(20).gridRow(1)
 
                     (VStack(5) {
                         let report label files =
@@ -179,12 +179,12 @@ module CachePage =
                         report ("searches" + Icon.scopeSearch) group.Searches
                     })
                         .gridRowSpan(2)
-                        .gridColumn (1)
+                        .gridColumn(1)
                 })
                     .card()
-                    .margin (10)
+                    .margin(10)
         )
-            .itemsPanel (HWrapEmpty())
+            .itemsPanel(HWrapEmpty())
 
     let view model =
         ScrollViewer(
@@ -196,13 +196,13 @@ module CachePage =
                 Expander("Go to 📂 Locations", folders model)
                     .onExpanding(fun _ -> ExpandingFolders)
                     .isExpanded(model.Folders.IsSome)
-                    .gridColumn (2)
+                    .gridColumn(2)
 
                 Expander("Files by type accessed within the last... " + Icon.recent, byLastAccess model)
                     .onExpanding(fun _ -> ExpandingByLastAccess)
                     .isExpanded(model.ByLastAccess.IsSome)
                     .gridRow(2)
-                    .gridColumnSpan (3)
+                    .gridColumnSpan(3)
 
                 Expander(
                     $"Files by {Icon.channel}channel, {Icon.playlist}playlist and type",
@@ -211,7 +211,7 @@ module CachePage =
                     .onExpanding(fun _ -> ExpandingByPlaylist)
                     .isExpanded(model.ByPlaylist.IsSome)
                     .gridRow(4)
-                    .gridColumnSpan (3)
+                    .gridColumnSpan(3)
             }
         )
-            .center ()
+            .center()

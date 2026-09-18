@@ -13,22 +13,22 @@ module OutputCommandView =
     let private queryFlyout () =
         Flyout(
             (VStack() {
-                TextBlock("The full-text search is powered by LIFTI.").margin (0, 0, 0, 10)
+                TextBlock("The full-text search is powered by LIFTI.").margin(0, 0, 0, 10)
 
                 for hint in SearchCommand.QueryHints do
-                    TextBlock("▪ " + hint).wrap ()
+                    TextBlock("▪ " + hint).wrap()
 
                 TextBlock("Read more about the syntax online 📡")
                     .classes("external-link")
-                    .tappable (
+                    .tappable(
                         Common(OpenUrl "https://mikegoatly.github.io/lifti/docs/searching/lifti-query-syntax/"),
                         "Open the LIFTI query syntax help page in your browser"
                     )
             })
-                .maxWidth (400)
+                .maxWidth(400)
         )
             .placement(PlacementMode.BottomEdgeAlignedRight)
-            .showMode (FlyoutShowMode.Standard)
+            .showMode(FlyoutShowMode.Standard)
     //.placement (PlacementMode.RightEdgeAlignedTop)
 
     let private renderKeyWordPage scope pagedKeywords =
@@ -37,20 +37,20 @@ module OutputCommandView =
                 GoToKeywordPage(scope, uint16 page))
 
         (Grid(coldefs = [ Star; Auto ], rowdefs = [ Auto; Auto ]) {
-            TextBlock(scope.Describe().Join(" ")).wrap().header ()
-            pager.bottom().gridColumn (1)
+            TextBlock(scope.Describe().Join(" ")).wrap().header()
+            pager.bottom().gridColumn(1)
 
             (HWrap() {
                 for pair in keywordsOnPage do
                     let keyword, videoCount = pair.ToTuple()
                     TextBlock(videoCount.ToString() + "x")
 
-                    Border(TextBlock(keyword)).classes ("keyword")
+                    Border(TextBlock(keyword)).classes("keyword")
             })
                 .gridRow(1)
-                .gridColumnSpan (2)
+                .gridColumnSpan(2)
         })
-            .trailingMargin ()
+            .trailingMargin()
 
     let private renderCommandOptions model isSearch =
         Grid(coldefs = [ Auto; Star; Auto; Auto; Auto; Auto; Auto ], rowdefs = [ Auto ]) {
@@ -59,13 +59,13 @@ module OutputCommandView =
                     .onClick(fun _ -> CommandChanged Keywords)
                     .tooltip(ListKeywords.Description)
                     .tapCursor()
-                    .asToggle (not isSearch)
+                    .asToggle(not isSearch)
 
                 MenuItem(Icon.search + "_Search for")
                     .onClick(fun _ -> CommandChanged Search)
                     .tooltip(SearchCommand.Description)
                     .tapCursor()
-                    .asToggle (isSearch)
+                    .asToggle(isSearch)
             }
 
             TextBox(model.Query, QueryChanged)
@@ -75,10 +75,10 @@ module OutputCommandView =
                 .focus(model.FocusQuery)
                 .tooltip("focus using [Alt] + [F]")
                 .onLostFocus(fun _ -> FocusQuery false)
-                .gridColumn (1)
+                .gridColumn(1)
 
             // invisible helper to focus query input
-            Button("_focus Query", FocusQuery true).width (0)
+            Button("_focus Query", FocusQuery true).width(0)
 
             TextBlock(Icon.help)
                 .attachedFlyout(queryFlyout ())
@@ -86,9 +86,9 @@ module OutputCommandView =
                 .padding(5, -3)
                 .fontSize(25)
                 .isVisible(isSearch)
-                .gridColumn (2)
+                .gridColumn(2)
 
-            Label("in").centerVertical().gridColumn (3)
+            Label("in").centerVertical().gridColumn(3)
 
             ToggleButton(
                 (if model.ShowScopes then
@@ -98,45 +98,45 @@ module OutputCommandView =
                 model.ShowScopes,
                 ShowScopesChanged
             )
-                .gridColumn (4)
+                .gridColumn(4)
 
-            Button(Icon.copy, CopyAsShellCmd).tooltip("copy shell command to clipboard").gridColumn (5)
+            Button(Icon.copy, CopyAsShellCmd).tooltip("copy shell command to clipboard").gridColumn(5)
 
             let isRunning = model.Running <> null
 
             ToggleButton((if isRunning then "✋ _Hold up!" else "👉 _Hit it!"), isRunning, Run)
                 .fontSize(16)
                 .margin(10, 0)
-                .gridColumn (6)
+                .gridColumn(6)
         }
 
     let private renderResultOptions model isSearch (resultPager: WidgetBuilder<Msg, IFabReversibleStackPanel> option) =
         Grid(coldefs = [ Auto; Star; Auto ], rowdefs = [ Auto; Auto ]) {
-            TextBlock("Results").header ()
+            TextBlock("Results").header()
 
             (HWrap(WrapPanelItemsAlignment.Center) {
                 (View.map ResultOptionsMsg (ResultOptions.orderBy model.ResultOptions))
                     .centerVertical()
                     .centerHorizontal()
-                    .isVisible (isSearch)
+                    .isVisible(isSearch)
 
                 (View.map ResultOptionsMsg (ResultOptions.padding model.ResultOptions))
                     .centerHorizontal()
-                    .isVisible (isSearch)
+                    .isVisible(isSearch)
 
                 if resultPager.IsSome then
                     resultPager.Value
             })
                 .itemSpacing(15)
-                .gridColumn (1)
+                .gridColumn(1)
 
-            ToggleButton("to file 📄", model.DisplayOutputOptions, DisplayOutputOptionsChanged).bottom().gridColumn (2)
+            ToggleButton("to file 📄", model.DisplayOutputOptions, DisplayOutputOptionsChanged).bottom().gridColumn(2)
 
             // output options
             (View.map FileOutputMsg (FileOutput.view model.FileOutput))
                 .isVisible(model.DisplayOutputOptions)
                 .gridRow(1)
-                .gridColumnSpan (3)
+                .gridColumnSpan(3)
         }
 
     let private getScopesHeight model hasResults =
@@ -176,18 +176,18 @@ module OutputCommandView =
             (Panel() {
                 ScrollViewer(View.map ScopesMsg (Scopes.list model.Scopes model.MaxSize.Width showThumbnails))
                     .margin(0, 0, 0, 20)
-                    .card ()
+                    .card()
 
-                (View.map ScopesMsg (Scopes.addButtons model.Scopes)).margin (0, 0, 10, -10)
+                (View.map ScopesMsg (Scopes.addButtons model.Scopes)).margin(0, 0, 10, -10)
             })
                 .margin(0, 0, 0, 15)
-                .isVisible (model.ShowScopes)
+                .isVisible(model.ShowScopes)
 
             // command options
-            (renderCommandOptions model isSearch).card().gridRow (1)
+            (renderCommandOptions model isSearch).card().gridRow(1)
 
             // result options
-            (renderResultOptions model isSearch resultPager).card().isVisible(hasResults).gridRow (2)
+            (renderResultOptions model isSearch resultPager).card().isVisible(hasResults).gridRow(2)
 
             // results
             ScrollViewer(
@@ -207,7 +207,7 @@ module OutputCommandView =
             )
                 .card()
                 .isVisible(hasResults)
-                .gridRow (3)
+                .gridRow(3)
         })
             .onSizeChanged(ContainerSizeChanged)
-            .margin (5, 5, 5, 0)
+            .margin(5, 5, 5, 0)

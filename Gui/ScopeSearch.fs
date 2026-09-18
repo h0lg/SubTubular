@@ -299,7 +299,7 @@ module ScopeSearch =
 
     let input model showThumbnails =
         Grid(coldefs = [ Auto; Star ], rowdefs = [ Auto; Auto ]) {
-            Label(ScopeViews.displayType (model.Scope.GetType()) false).padding (0)
+            Label(ScopeViews.displayType (model.Scope.GetType()) false).padding(0)
 
             let autoComplete =
                 AutoCompleteBox(model.AliasSearch.SearchAsync)
@@ -315,7 +315,7 @@ module ScopeSearch =
                     .itemSelector(model.AliasSearch.SelectAliases)
                     .itemTemplate(fun (result: YoutubeSearchResult) ->
                         HStack(5) {
-                            AsyncImage(result.Thumbnail).maxHeight(100).isVisible (showThumbnails)
+                            AsyncImage(result.Thumbnail).maxHeight(100).isVisible(showThumbnails)
 
                             VStack(5) {
                                 TextBlock(result.Title)
@@ -327,12 +327,12 @@ module ScopeSearch =
                     .reference(model.AliasSearch.Input)
                     .margin(5, 0, 0, 0)
                     .gridColumn(1)
-                    .gridRowSpan (2)
+                    .gridRowSpan(2)
 
             match model.Scope with
             | Videos videos ->
-                ScopeViews.progressText(videos.Progress.ToString()).gridRow (1)
-                autoComplete.onDropDownOpened(model.DropdownOpen, DropdownToggled).acceptReturn ()
+                ScopeViews.progressText(videos.Progress.ToString()).gridRow(1)
+                autoComplete.onDropDownOpened(model.DropdownOpen, DropdownToggled).acceptReturn()
             | _ -> autoComplete
         }
 
@@ -341,4 +341,4 @@ module ScopeSearch =
             .classes("error")
             (*  display if there is a validation error, ignoring whether model.Scope.IsValid
                 because in the videos scope there may be invalid at the same time and IsValid ignores Invalidated inputs *)
-            .isVisible (model.ValidationError <> null)
+            .isVisible(model.ValidationError <> null)

@@ -22,11 +22,11 @@ module Cache =
     let reportFiles label (msg: 'msg) (files: FileInfo array) =
         (HStack(5) {
             let bytes = (files |> Array.map _.Length |> Array.sum)
-            (displayWithMb $"{files.Length} {label}" bytes).centerVertical ()
-            Button(Icon.trash, msg).tooltip ("clear these files")
+            (displayWithMb $"{files.Length} {label}" bytes).centerVertical()
+            Button(Icon.trash, msg).tooltip("clear these files")
         })
             .right()
-            .isVisible (files.Length > 0)
+            .isVisible(files.Length > 0)
 
 module CacheByPlaylist =
     open Cache
@@ -110,17 +110,17 @@ module CacheByPlaylist =
                 | Some l -> l.Remove(files) |> Some
                 | None -> None }
 
-    let private header text = TextBlock(text).header ()
+    let private header text = TextBlock(text).header()
 
     let private deletableFile label (file: FileInfo) labelFirst =
         (HStack(5) {
             let name =
                 (displayWithMb $"{label}" file.Length)
                     .tappable(OpenFile file |> CacheMsg, "open this file")
-                    .centerVertical ()
+                    .centerVertical()
 
             let button =
-                Button(Icon.trash, RemoveFiles [| file |] |> CacheMsg).tooltip ("delete this file")
+                Button(Icon.trash, RemoveFiles [| file |] |> CacheMsg).tooltip("delete this file")
 
             if labelFirst then
                 name
@@ -140,14 +140,14 @@ module CacheByPlaylist =
         let label =
             file.Name.StripAffixes(prefix + Youtube.SearchAffix, JsonFileDataStore.FileExtension)
 
-        (deletableFileLast label file).card().margin (5)
+        (deletableFileLast label file).card().margin(5)
 
     let private displaySearches icon title prefix (files: FileInfo array) =
         HWrap() {
             if Array.isEmpty files |> not then
                 header (icon + title + Icon.scopeSearch)
 
-                ItemsControl(files, fun file -> scopeSearch prefix file).itemsPanel (HWrapEmpty())
+                ItemsControl(files, fun file -> scopeSearch prefix file).itemsPanel(HWrapEmpty())
         }
 
     let view model =
@@ -165,20 +165,20 @@ module CacheByPlaylist =
                     let icon = ScopeViews.getIcon (group.Scope.GetType())
                     header (icon + group.Playlist.Title)
 
-                    (deletableFileFirst ("info and contents" + Icon.playlistLike) group.File).right ()
+                    (deletableFileFirst ("info and contents" + Icon.playlistLike) group.File).right()
 
                     if group.Thumbnail <> null then
-                        (deletableFileFirst ("thumbnail" + Icon.thumbnail) group.Thumbnail).right ()
+                        (deletableFileFirst ("thumbnail" + Icon.thumbnail) group.Thumbnail).right()
 
                     report ("indexes" + Icon.index) group.Indexes
                     report ("video caches" + Icon.videoCache) group.Videos
                     report ("video thumbnails" + Icon.thumbnail) group.VideoThumbnails
                 })
                     .card()
-                    .margin (10)
+                    .margin(10)
 
-            ItemsControl(channels, displayPlaylistGroup).itemsPanel (HWrapEmpty())
-            ItemsControl(playlists, displayPlaylistGroup).itemsPanel (HWrapEmpty())
+            ItemsControl(channels, displayPlaylistGroup).itemsPanel(HWrapEmpty())
+            ItemsControl(playlists, displayPlaylistGroup).itemsPanel(HWrapEmpty())
 
             match looseFiles with
             | Some files ->
@@ -189,12 +189,12 @@ module CacheByPlaylist =
                     report ("thumbnails" + Icon.thumbnail) files.Thumbnails
                 })
                     .card()
-                    .right ()
+                    .right()
 
                 header ("Other / loose files")
 
-                ItemsControl(files.Other, fun f -> (deletableFileLast f.Name f).card().margin (5))
-                    .itemsPanel (HWrapEmpty())
+                ItemsControl(files.Other, fun f -> (deletableFileLast f.Name f).card().margin(5))
+                    .itemsPanel(HWrapEmpty())
             | None -> header "loading..."
 
             if scopeSearches.IsSome then

@@ -45,7 +45,7 @@ module ScopeNotifications =
 
     let private flyout (notifications: CommandScope.Notification list) =
         let tb text = // TextAlignment override is required because centered text is inherited from host :(
-            TextBlock(text).textAlignment (TextAlignment.Left)
+            TextBlock(text).textAlignment(TextAlignment.Left)
 
         Flyout(
             ItemsControl(
@@ -74,7 +74,7 @@ module ScopeNotifications =
             )
         )
             .placement(PlacementMode.BottomEdgeAlignedRight)
-            .showMode (FlyoutShowMode.Standard)
+            .showMode(FlyoutShowMode.Standard)
 
     let toggle model =
         let notifications = model.All
@@ -87,4 +87,4 @@ module ScopeNotifications =
         TextBlock($"{icon}\n{notifications.Length}")
             .centerText()
             .attachedFlyout(flyout notifications)
-            .isVisible (not notifications.IsEmpty)
+            .isVisible(not notifications.IsEmpty)
