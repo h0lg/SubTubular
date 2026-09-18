@@ -25,7 +25,8 @@ module Scope =
         }
 
     type Msg =
-        | Added
+        | Added // for a new, empty scope
+        | Recreated // for a reloaded scope
         | ToggleSettings of bool
         | SkipChanged of float option
         | TakeChanged of float option
@@ -49,7 +50,7 @@ module Scope =
         | :? VideosScope as _ -> true
         | _ -> false
 
-    let private init (scope: CommandScope) focused =
+    let private init (scope: CommandScope) focused doneMsg =
         let progressChanged = ThrottledEvent(TimeSpan.FromMilliseconds(int64 300))
         scope.ProgressChanged.Add(fun args -> progressChanged.Trigger(scope, args))
 
@@ -59,14 +60,14 @@ module Scope =
           ScopeSearch = ScopeSearch.init scope focused
           Notifications = ScopeNotifications.initModel
           ShowSettings = false },
-        Added |> Cmd.ofMsg
+        doneMsg |> Cmd.ofMsg
 
-    /// Re-creates a scope from a reloaded recent command that was previously executed and kicks off its validation,
-    /// returning the new scope model and a Cmd for the running validation
-    let recreateRecent (scope: CommandScope) =
-        let model, cmd = init scope false
+    /// Re-creates a scope from a reloaded recent command that was previously executed.
+    let recreateRecent scope = init scope false Recreated
+
+    let private validateRecreatedRecentScope model =
         let updated, sscmd = ScopeSearch.validate model.ScopeSearch
-        { model with ScopeSearch = updated }, Cmd.batch [ cmd; sscmd |> Cmd.map ScopeSearchMsg ]
+        { model with ScopeSearch = updated }, sscmd |> Cmd.map ScopeSearchMsg
 
     /// creates an empty Focused scope of the given type on user command
     let add scopeType =
@@ -81,7 +82,7 @@ module Scope =
             | IsPlaylist -> PlaylistScope(aliases, skip, take, cacheHours)
             | IsVideos -> VideosScope(Collections.Generic.List<string>())
 
-        init scope true
+        init scope true Added
 
     let private getCaptionTrackDownloadStates model =
         task {
@@ -97,6 +98,10 @@ module Scope =
     let update msg model =
         match msg with
         | Added -> model, Cmd.none, AddMe
+
+        | Recreated ->
+            let model, cmd = validateRecreatedRecentScope model
+            model, cmd, AddMe
 
         // fwd any behaviourless existing msg to re-trigger the MVU loop, shrinking the ProgressBar on hide
         | ToggleSettings show -> { model with ShowSettings = show }, ProgressValueChanged 0 |> Cmd.ofMsg, DoNothing
