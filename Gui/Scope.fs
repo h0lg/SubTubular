@@ -65,10 +65,6 @@ module Scope =
     /// Re-creates a scope from a reloaded recent command that was previously executed.
     let recreateRecent scope = init scope false Recreated
 
-    let private validateRecreatedRecentScope model =
-        let updated, sscmd = ScopeSearch.validate model.ScopeSearch
-        { model with ScopeSearch = updated }, sscmd |> Cmd.map ScopeSearchMsg
-
     /// creates an empty Focused scope of the given type on user command
     let add scopeType =
         let aliases = ""
@@ -100,8 +96,8 @@ module Scope =
         | Added -> model, Cmd.none, AddMe
 
         | Recreated ->
-            let model, cmd = validateRecreatedRecentScope model
-            model, cmd, AddMe
+            let updated, sscmd = ScopeSearch.validate model.ScopeSearch // kick off validation
+            { model with ScopeSearch = updated }, sscmd |> Cmd.map ScopeSearchMsg, AddMe
 
         // fwd any behaviourless existing msg to re-trigger the MVU loop, shrinking the ProgressBar on hide
         | ToggleSettings show -> { model with ShowSettings = show }, ProgressValueChanged 0 |> Cmd.ofMsg, DoNothing
