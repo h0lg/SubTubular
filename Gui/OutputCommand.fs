@@ -257,6 +257,9 @@ module OutputCommands =
           DisplayedKeywords = null }
 
     let load (cmd: OutputCommand) model =
+        let scopesCmd = Scopes.loadRecentCommand model.Scopes cmd // kick off loading of cmd
+
+        // reset the model to its defaults do prevent settings bleed into the command being loaded
         let updated =
             match cmd with
             | :? SearchCommand as s ->
@@ -271,10 +274,8 @@ module OutputCommands =
             | :? ListKeywords as l -> { model with Command = Keywords }
             | _ -> failwith "unsupported command type"
 
-        let scopes, scopesCmd = Scopes.loadRecentCommand model.Scopes cmd
-
         { updated with
-            Scopes = scopes
+            Scopes = { updated.Scopes with List = [] }
             ShowScopes = true
             SearchResults = []
             KeywordResults = null

@@ -40,18 +40,12 @@ module Scopes =
             HasVideos = list |> List.exists Scope.isForVideos }
 
     let loadRecentCommand model (command: OutputCommand) =
-        let scopes =
-            command.GetScopes()
-            |> Seq.map Scope.recreateRecent
-            (*  turn into local collection before iterating over it
-                to avoid triggering recreation and validation of scopes *)
-            |> List.ofSeq
-
-        scopes |> List.map fst |> updateList model,
-        scopes
-        |> List.map (fun scope ->
+        command.GetScopes()
+        |> Seq.map Scope.recreateRecent
+        |> Seq.map (fun scope ->
             let model, cmd = scope
             mapScopeCmd model cmd)
+        |> List.ofSeq
         |> Cmd.batch
 
     let private getScopes<'T> model =
@@ -67,7 +61,11 @@ module Scopes =
 
     let update msg model =
         match msg with
-        | AddScope ofType -> model.List @ [ Scope.add ofType ] |> updateList model, Cmd.none
+        | AddScope ofType ->
+            let scope, cmd = Scope.add ofType
+            let mappedCmd = mapScopeCmd scope cmd
+            model, mappedCmd
+
         | Common _ -> model, Cmd.none
 
         | ScopeMsg(scope, scopeMsg) ->
@@ -75,6 +73,7 @@ module Scopes =
 
             let updated =
                 match intent with
+                | Scope.Intent.AddMe -> model.List @ [ updatedScope ] |> updateList model
                 | Scope.Intent.RemoveMe -> model.List |> List.except [ updatedScope ] |> updateList model
                 | Scope.Intent.DoNothing ->
                     model.List

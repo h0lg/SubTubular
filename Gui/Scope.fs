@@ -25,6 +25,7 @@ module Scope =
         }
 
     type Msg =
+        | Added
         | ToggleSettings of bool
         | SkipChanged of float option
         | TakeChanged of float option
@@ -41,6 +42,7 @@ module Scope =
     type Intent =
         | RemoveMe
         | DoNothing
+        | AddMe
 
     let isForVideos model =
         match model.Scope with
@@ -56,14 +58,15 @@ module Scope =
           Contents = ViewRef<Layoutable>()
           ScopeSearch = ScopeSearch.init scope focused
           Notifications = ScopeNotifications.initModel
-          ShowSettings = false }
+          ShowSettings = false },
+        Added |> Cmd.ofMsg
 
     /// Re-creates a scope from a reloaded recent command that was previously executed and kicks off its validation,
     /// returning the new scope model and a Cmd for the running validation
     let recreateRecent (scope: CommandScope) =
-        let model = init scope false
+        let model, cmd = init scope false
         let updated, sscmd = ScopeSearch.validate model.ScopeSearch
-        { model with ScopeSearch = updated }, sscmd |> Cmd.map ScopeSearchMsg
+        { model with ScopeSearch = updated }, Cmd.batch [ cmd; sscmd |> Cmd.map ScopeSearchMsg ]
 
     /// creates an empty Focused scope of the given type on user command
     let add scopeType =
@@ -93,6 +96,8 @@ module Scope =
 
     let update msg model =
         match msg with
+        | Added -> model, Cmd.none, AddMe
+
         // fwd any behaviourless existing msg to re-trigger the MVU loop, shrinking the ProgressBar on hide
         | ToggleSettings show -> { model with ShowSettings = show }, ProgressValueChanged 0 |> Cmd.ofMsg, DoNothing
 
