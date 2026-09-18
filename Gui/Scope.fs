@@ -12,6 +12,7 @@ module Scope =
     type Model =
         {
             Scope: CommandScope
+            ProgressChangeThrottle: DispatchThrottle<unit> option // dispose via Msg.Remove !
 
             /// Tracked to determine the max width of the ProgressBar in the view.
             /// Measuring the size of contents proved more reliable
@@ -24,13 +25,13 @@ module Scope =
         }
 
     type Msg =
-        | Added // for a new, empty scope
-        | Recreated // for a reloaded scope
+        | Added of DispatchThrottle<unit> // for a new, empty scope
+        | Recreated of DispatchThrottle<unit> // for a reloaded scope
         | ToggleSettings of bool
         | SkipChanged of float option
         | TakeChanged of float option
         | CacheHoursChanged of float option
-        | Remove
+        | Remove // disposes of ProgressChangeThrottle - make sure to dispatch before de-referencing the Model!
         | RemoveVideo of string
         | ProgressChanged
         | Notified of CommandScope.Notification
@@ -53,6 +54,7 @@ module Scope =
     let private init scope focused doneMsg =
         let model =
             { Scope = scope
+              ProgressChangeThrottle = None
               Contents = ViewRef<Layoutable>()
               ScopeSearch = ScopeSearch.init scope focused
               Notifications = ScopeNotifications.initModel
@@ -64,7 +66,7 @@ module Scope =
                     Dispatch.throttleLatest (TimeSpan.FromMilliseconds 300.) (fun () -> ProgressChanged) dispatch
 
                 model.Scope.ProgressChanged.Add(fun _ -> progressChanged.Dispatch())
-                dispatch doneMsg // only dispatch when ready to handle ProgressChanged events
+                doneMsg progressChanged |> dispatch // only dispatch when ready to handle ProgressChanged events
             |> Cmd.ofEffect
 
         model, attachProgressDispatch
@@ -100,11 +102,20 @@ module Scope =
 
     let update msg model =
         match msg with
-        | Added -> model, Cmd.none, AddMe
+        | Added throttle ->
+            { model with
+                ProgressChangeThrottle = Some throttle },
+            Cmd.none,
+            AddMe
 
-        | Recreated ->
+        | Recreated throttle ->
             let updated, sscmd = ScopeSearch.validate model.ScopeSearch // kick off validation
-            { model with ScopeSearch = updated }, sscmd |> Cmd.map ScopeSearchMsg, AddMe
+
+            { model with
+                ProgressChangeThrottle = Some throttle
+                ScopeSearch = updated },
+            sscmd |> Cmd.map ScopeSearchMsg,
+            AddMe
 
         // fwd any behaviourless existing msg to re-trigger the MVU loop, shrinking the ProgressBar on hide
         | ToggleSettings show -> { model with ShowSettings = show }, ProgressValueChanged 0 |> Cmd.ofMsg, DoNothing
@@ -137,7 +148,11 @@ module Scope =
 
             model, Cmd.none, DoNothing
 
-        | Remove -> model, Cmd.none, RemoveMe
+        | Remove ->
+            if model.ProgressChangeThrottle |> Option.isSome then
+                model.ProgressChangeThrottle.Value.Dispose()
+
+            model, Cmd.none, RemoveMe
 
         (*  no need to record passed notification;
             CaptionTrack state notifications are generated selectively based on progress.

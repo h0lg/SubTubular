@@ -275,7 +275,6 @@ module OutputCommands =
             | _ -> failwith "unsupported command type"
 
         { updated with
-            Scopes = { updated.Scopes with List = [] }
             ShowScopes = true
             SearchResults = []
             KeywordResults = null

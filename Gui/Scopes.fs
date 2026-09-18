@@ -40,13 +40,20 @@ module Scopes =
             HasVideos = list |> List.exists Scope.isForVideos }
 
     let loadRecentCommand model (command: OutputCommand) =
-        command.GetScopes()
-        |> Seq.map Scope.recreateRecent
-        |> Seq.map (fun scope ->
-            let model, cmd = scope
-            mapScopeCmd model cmd)
-        |> List.ofSeq
-        |> Cmd.batch
+        // dispatch Remove msgs for current scopes so they may dispose of their resources properly
+        let removeCurrentScopes =
+            model.List
+            |> List.map (fun scope -> ScopeMsg(scope, Scope.Msg.Remove) |> Cmd.ofMsg)
+
+        let recreateRecentScopes =
+            command.GetScopes()
+            |> Seq.map Scope.recreateRecent
+            |> Seq.map (fun scope ->
+                let model, cmd = scope
+                mapScopeCmd model cmd)
+            |> List.ofSeq
+
+        removeCurrentScopes @ recreateRecentScopes |> Cmd.batch
 
     let private getScopes<'T> model =
         model.List.Where(_.Scope.IsValid).Select(_.Scope).OfType<'T>().ToArray()
