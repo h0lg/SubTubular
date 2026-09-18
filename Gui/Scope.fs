@@ -12,7 +12,6 @@ module Scope =
     type Model =
         {
             Scope: CommandScope
-            ThrottledProgressChanged: ThrottledEvent
 
             /// Tracked to determine the max width of the ProgressBar in the view.
             /// Measuring the size of contents proved more reliable
@@ -50,17 +49,25 @@ module Scope =
         | :? VideosScope as _ -> true
         | _ -> false
 
-    let private init (scope: CommandScope) focused doneMsg =
-        let progressChanged = ThrottledEvent(TimeSpan.FromMilliseconds(int64 300))
-        scope.ProgressChanged.Add(fun args -> progressChanged.Trigger(scope, args))
+    /// returns the created model and a Cmd to attach its ProgressChanged event throttle
+    let private init scope focused doneMsg =
+        let model =
+            { Scope = scope
+              Contents = ViewRef<Layoutable>()
+              ScopeSearch = ScopeSearch.init scope focused
+              Notifications = ScopeNotifications.initModel
+              ShowSettings = false }
 
-        { Scope = scope
-          ThrottledProgressChanged = progressChanged
-          Contents = ViewRef<Layoutable>()
-          ScopeSearch = ScopeSearch.init scope focused
-          Notifications = ScopeNotifications.initModel
-          ShowSettings = false },
-        doneMsg |> Cmd.ofMsg
+        let attachProgressDispatch =
+            fun dispatch ->
+                let progressChanged =
+                    Dispatch.throttleLatest (TimeSpan.FromMilliseconds 300.) (fun () -> ProgressChanged) dispatch
+
+                model.Scope.ProgressChanged.Add(fun _ -> progressChanged.Dispatch())
+                dispatch doneMsg // only dispatch when ready to handle ProgressChanged events
+            |> Cmd.ofEffect
+
+        model, attachProgressDispatch
 
     /// Re-creates a scope from a reloaded recent command that was previously executed.
     let recreateRecent scope = init scope false Recreated
@@ -291,5 +298,4 @@ module Scope =
             ProgressBar(0, model.Scope.Progress.AllJobs, model.Scope.Progress.CompletedJobs, ProgressValueChanged)
                 .isIndeterminate(model.ScopeSearch.AliasSearch.IsRunning())
                 .maxWidth(getContentsWidth model) // prevent expanding the component size beyond what the contents need
-                .onThrottledEvent(model.ThrottledProgressChanged, ProgressChanged)
         }
