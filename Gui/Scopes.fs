@@ -76,7 +76,7 @@ module Scopes =
         | Common _ -> model, Cmd.none
 
         | ScopeMsg(scope, scopeMsg) ->
-            let updatedScope, cmd, intent = Scope.update scopeMsg scope
+            let updatedScope, scopeCmd, intent = Scope.update scopeMsg scope
 
             let updated =
                 match intent with
@@ -84,10 +84,10 @@ module Scopes =
                 | Scope.Intent.RemoveMe -> model.List |> List.except [ updatedScope ] |> updateList model
                 | Scope.Intent.DoNothing ->
                     model.List
-                    |> List.map (fun s -> if s = scope then updatedScope else s)
+                    |> List.map (fun s -> if s = scope then updatedScope else s) // replace updated scope in list
                     |> updateList model
 
-            let mappedCmd = mapScopeCmd updatedScope cmd
+            let mappedCmd = mapScopeCmd updatedScope scopeCmd
 
             let fwdCmd =
                 match scopeMsg with
